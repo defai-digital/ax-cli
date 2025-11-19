@@ -39,6 +39,15 @@ export class SettingsManager {
   private userSettingsPath: string;
   private projectSettingsPath: string;
 
+  // Cache for settings to avoid repeated file I/O
+  private userSettingsCache: UserSettings | null = null;
+  private projectSettingsCache: ProjectSettings | null = null;
+  private cacheTimestamp = {
+    user: 0,
+    project: 0
+  };
+  private readonly CACHE_TTL = 5000; // 5 seconds TTL for cache
+
   private constructor() {
     // User settings path: ~/.grok/user-settings.json
     this.userSettingsPath = path.join(
@@ -79,6 +88,12 @@ export class SettingsManager {
    * Load user settings from ~/.grok/user-settings.json
    */
   public loadUserSettings(): UserSettings {
+    // Check cache first
+    const now = Date.now();
+    if (this.userSettingsCache && (now - this.cacheTimestamp.user) < this.CACHE_TTL) {
+      return this.userSettingsCache;
+    }
+
     try {
       if (!fs.existsSync(this.userSettingsPath)) {
         // Create default user settings if file doesn't exist
@@ -101,13 +116,19 @@ export class SettingsManager {
       }
 
       // Merge with defaults to ensure all required fields exist
-      return { ...DEFAULT_USER_SETTINGS, ...validationResult.data };
+      const settings = { ...DEFAULT_USER_SETTINGS, ...validationResult.data };
+      this.userSettingsCache = settings;
+      this.cacheTimestamp.user = Date.now();
+      return settings;
     } catch (error) {
       console.warn(
         "Failed to load user settings:",
         error instanceof Error ? error.message : "Unknown error"
       );
-      return { ...DEFAULT_USER_SETTINGS };
+      const defaultSettings = { ...DEFAULT_USER_SETTINGS };
+      this.userSettingsCache = defaultSettings;
+      this.cacheTimestamp.user = Date.now();
+      return defaultSettings;
     }
   }
 
@@ -138,6 +159,10 @@ export class SettingsManager {
         JSON.stringify(mergedSettings, null, 2),
         { mode: 0o600 } // Secure permissions for API key
       );
+
+      // Invalidate cache after save
+      this.userSettingsCache = null;
+      this.cacheTimestamp.user = 0;
     } catch (error) {
       console.error(
         "Failed to save user settings:",
@@ -170,7 +195,13 @@ export class SettingsManager {
    * Load project settings from .grok/settings.json
    */
   public loadProjectSettings(): ProjectSettings {
-    try {
+    // Check cache first
+    const now = Date.now();
+    if (this.projectSettingsCache && (now - this.cacheTimestamp.project) < this.CACHE_TTL) {
+      return this.projectSettingsCache;
+    }
+
+    try{
       if (!fs.existsSync(this.projectSettingsPath)) {
         // Create default project settings if file doesn't exist
         this.saveProjectSettings(DEFAULT_PROJECT_SETTINGS);
@@ -192,13 +223,19 @@ export class SettingsManager {
       }
 
       // Merge with defaults
-      return { ...DEFAULT_PROJECT_SETTINGS, ...validationResult.data };
+      const settings = { ...DEFAULT_PROJECT_SETTINGS, ...validationResult.data };
+      this.projectSettingsCache = settings;
+      this.cacheTimestamp.project = Date.now();
+      return settings;
     } catch (error) {
       console.warn(
         "Failed to load project settings:",
         error instanceof Error ? error.message : "Unknown error"
       );
-      return { ...DEFAULT_PROJECT_SETTINGS };
+      const defaultSettings = { ...DEFAULT_PROJECT_SETTINGS };
+      this.projectSettingsCache = defaultSettings;
+      this.cacheTimestamp.project = Date.now();
+      return defaultSettings;
     }
   }
 
@@ -228,6 +265,10 @@ export class SettingsManager {
         this.projectSettingsPath,
         JSON.stringify(mergedSettings, null, 2)
       );
+
+      // Invalidate cache after save
+      this.projectSettingsCache = null;
+      this.cacheTimestamp.project = 0;
     } catch (error) {
       console.error(
         "Failed to save project settings:",

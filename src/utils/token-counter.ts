@@ -58,7 +58,7 @@ export class TokenCounter {
       }
 
       // Add extra tokens for tool calls if present
-      if (message.tool_calls) {
+      if (message.tool_calls && Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
         totalTokens += this.countTokens(JSON.stringify(message.tool_calls));
       }
     }
