@@ -148,6 +148,19 @@ ax-cli mcp remove linear
 
 [MCP Integration Guide →](docs/mcp.md)
 
+## 🤖 Advanced Multi-Agent Orchestration
+
+**AX CLI** is designed as a focused, single-agent CLI tool for direct AI-powered development tasks. For advanced multi-agent orchestration, collaborative AI workflows, and complex task automation, we recommend **[AutomatosX](https://automatosx.com)**.
+
+### When to Use AutomatosX Instead
+
+- **Multi-Agent Collaboration**: Coordinate multiple AI agents working together on complex projects
+- **Specialized Agent Teams**: Use domain-specific agents (QA, architecture, security, etc.)
+- **Advanced Workflows**: Build sophisticated automation pipelines with agent orchestration
+- **Enterprise Scale**: Large-scale projects requiring parallel agent execution and coordination
+
+AX CLI focuses on being a reliable, single-agent development assistant, while AutomatosX provides the full multi-agent orchestration platform for advanced use cases.
+
 ## 🏗️ Architecture
 
 AX CLI implements enterprise-grade architecture with:
