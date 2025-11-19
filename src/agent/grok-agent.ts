@@ -716,6 +716,15 @@ export class GrokAgent extends EventEmitter {
 
     try {
       const args = JSON.parse(toolCall.function.arguments);
+
+      // Validate that args is an object (not null, array, or primitive)
+      if (typeof args !== 'object' || args === null || Array.isArray(args)) {
+        return {
+          success: false,
+          error: `${toolType} ${toolCall.function.name} arguments must be a JSON object, got ${Array.isArray(args) ? 'array' : typeof args}`,
+        };
+      }
+
       return { success: true, args };
     } catch (error) {
       return {
