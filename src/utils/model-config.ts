@@ -1,5 +1,5 @@
 import { getSettingsManager, UserSettings, ProjectSettings } from './settings-manager.js';
-import { ModelIdSchema } from '@ax-cli/schemas';
+import { ModelIdSchema } from '@defai.digital/ax-cli-schemas';
 
 export interface ModelOption {
   model: string;

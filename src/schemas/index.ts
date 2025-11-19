@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ModelIdSchema, MCPServerIdSchema } from '@ax-cli/schemas';
+import { ModelIdSchema, MCPServerIdSchema } from '@defai.digital/ax-cli-schemas';
 
 // Create local schemas that match the structure
 const MessageRoleEnum = z.enum(['system', 'user', 'assistant', 'tool']);
