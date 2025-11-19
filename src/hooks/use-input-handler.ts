@@ -6,6 +6,10 @@ import { useEnhancedInput, Key } from "./use-enhanced-input.js";
 
 import { filterCommandSuggestions } from "../ui/components/command-suggestions.js";
 import { loadModelConfig, updateCurrentModel } from "../utils/model-config.js";
+import { ProjectAnalyzer } from "../utils/project-analyzer.js";
+import { InstructionGenerator } from "../utils/instruction-generator.js";
+import * as fs from "fs";
+import * as path from "path";
 
 interface UseInputHandlerProps {
   agent: GrokAgent;
@@ -221,6 +225,7 @@ export function useInputHandler({
   const commandSuggestions: CommandSuggestion[] = [
     { command: "/help", description: "Show help information" },
     { command: "/clear", description: "Clear chat history" },
+    { command: "/init", description: "Initialize project with smart analysis" },
     { command: "/models", description: "Switch Grok Model" },
     { command: "/commit-and-push", description: "AI commit & push to remote" },
     { command: "/exit", description: "Exit the application" },
@@ -254,6 +259,116 @@ export function useInputHandler({
       return true;
     }
 
+    if (trimmedInput === "/init") {
+      const userEntry: ChatEntry = {
+        type: "user",
+        content: "/init",
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, userEntry]);
+
+      setIsProcessing(true);
+
+      try {
+        const projectRoot = process.cwd();
+
+        // Add analysis message
+        const analyzingEntry: ChatEntry = {
+          type: "assistant",
+          content: "🔍 Analyzing project...\n",
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, analyzingEntry]);
+
+        // Check if already initialized
+        const axCliDir = path.join(projectRoot, ".ax-cli");
+        const customMdPath = path.join(axCliDir, "CUSTOM.md");
+        const indexPath = path.join(axCliDir, "index.json");
+
+        if (fs.existsSync(customMdPath)) {
+          const alreadyInitEntry: ChatEntry = {
+            type: "assistant",
+            content: `✅ Project already initialized!\n📝 Custom instructions: ${customMdPath}\n📊 Project index: ${indexPath}\n\n💡 Run 'ax-cli init --force' from terminal to regenerate`,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, alreadyInitEntry]);
+          setIsProcessing(false);
+          clearInput();
+          return true;
+        }
+
+        // Analyze project
+        const analyzer = new ProjectAnalyzer(projectRoot);
+        const result = await analyzer.analyze();
+
+        if (!result.success || !result.projectInfo) {
+          const errorEntry: ChatEntry = {
+            type: "assistant",
+            content: `❌ Failed to analyze project: ${result.error || "Unknown error"}`,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, errorEntry]);
+          setIsProcessing(false);
+          clearInput();
+          return true;
+        }
+
+        const projectInfo = result.projectInfo;
+
+        // Generate instructions
+        const generator = new InstructionGenerator();
+        const instructions = generator.generateInstructions(projectInfo);
+        const index = generator.generateIndex(projectInfo);
+
+        // Create .ax-cli directory
+        if (!fs.existsSync(axCliDir)) {
+          fs.mkdirSync(axCliDir, { recursive: true });
+        }
+
+        // Write custom instructions
+        fs.writeFileSync(customMdPath, instructions, "utf-8");
+
+        // Write project index
+        fs.writeFileSync(indexPath, index, "utf-8");
+
+        // Display success
+        let successMessage = `🎉 Project initialized successfully!\n\n`;
+        successMessage += `📋 Analysis Results:\n`;
+        successMessage += `   Name: ${projectInfo.name}\n`;
+        successMessage += `   Type: ${projectInfo.projectType}\n`;
+        successMessage += `   Language: ${projectInfo.primaryLanguage}\n`;
+        if (projectInfo.techStack.length > 0) {
+          successMessage += `   Stack: ${projectInfo.techStack.join(", ")}\n`;
+        }
+        successMessage += `\n✅ Generated custom instructions: ${customMdPath}\n`;
+        successMessage += `✅ Generated project index: ${indexPath}\n\n`;
+        successMessage += `💡 Next steps:\n`;
+        successMessage += `   1. Review and customize the instructions if needed\n`;
+        successMessage += `   2. Run AX CLI - it will automatically use these instructions\n`;
+        successMessage += `   3. Use 'ax-cli init --force' to regenerate after project changes`;
+
+        const successEntry: ChatEntry = {
+          type: "assistant",
+          content: successMessage,
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, successEntry]);
+      } catch (error) {
+        const errorEntry: ChatEntry = {
+          type: "assistant",
+          content: `❌ Error during initialization: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, errorEntry]);
+      }
+
+      setIsProcessing(false);
+      clearInput();
+      return true;
+    }
+
     if (trimmedInput === "/help") {
       const helpEntry: ChatEntry = {
         type: "assistant",
@@ -261,6 +376,7 @@ export function useInputHandler({
 
 Built-in Commands:
   /clear      - Clear chat history
+  /init       - Initialize project with smart analysis
   /help       - Show this help
   /models     - Switch between available models
   /exit       - Exit application
