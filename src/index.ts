@@ -16,10 +16,19 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat";
 // Load environment variables
 dotenv.config();
 
+// Global agent tracker for cleanup on exit
+let activeAgent: GrokAgent | null = null;
+
 // Disable default SIGINT handling to let Ink handle Ctrl+C
 // We'll handle exit through the input system instead
 
 process.on("SIGTERM", () => {
+  // Clean up active agent if exists
+  if (activeAgent) {
+    activeAgent.dispose();
+    activeAgent = null;
+  }
+
   // Restore terminal to normal mode before exit
   if (process.stdin.isTTY && process.stdin.setRawMode) {
     try {
@@ -116,8 +125,9 @@ async function handleCommitAndPushHeadless(
   model?: string,
   maxToolRounds?: number
 ): Promise<void> {
+  let agent: GrokAgent | null = null;
   try {
-    const agent = new GrokAgent(apiKey, baseURL, model, maxToolRounds);
+    agent = new GrokAgent(apiKey, baseURL, model, maxToolRounds);
 
     // Configure confirmation service for headless mode (auto-approve all operations)
     const confirmationService = ConfirmationService.getInstance();
@@ -227,6 +237,11 @@ Respond with ONLY the commit message, no additional text.`;
   } catch (error: any) {
     console.error("❌ Error during commit and push:", error.message);
     process.exit(1);
+  } finally {
+    // Clean up agent resources
+    if (agent) {
+      agent.dispose();
+    }
   }
 }
 
@@ -238,8 +253,9 @@ async function processPromptHeadless(
   model?: string,
   maxToolRounds?: number
 ): Promise<void> {
+  let agent: GrokAgent | null = null;
   try {
-    const agent = new GrokAgent(apiKey, baseURL, model, maxToolRounds);
+    agent = new GrokAgent(apiKey, baseURL, model, maxToolRounds);
 
     // Configure confirmation service for headless mode (auto-approve all operations)
     const confirmationService = ConfirmationService.getInstance();
@@ -306,6 +322,11 @@ async function processPromptHeadless(
       })
     );
     process.exit(1);
+  } finally {
+    // Clean up agent resources
+    if (agent) {
+      agent.dispose();
+    }
   }
 }
 
@@ -381,6 +402,7 @@ program
 
       // Interactive mode: launch UI
       const agent = new GrokAgent(apiKey, baseURL, model, maxToolRounds);
+      activeAgent = agent; // Track for cleanup on exit
       console.log("🤖 Starting Grok CLI Conversational Assistant...\n");
 
       ensureUserSettingsDirectory();
@@ -390,7 +412,14 @@ program
         ? message.join(" ")
         : message;
 
-      render(React.createElement(ChatInterface, { agent, initialMessage }));
+      const { waitUntilExit } = render(React.createElement(ChatInterface, { agent, initialMessage }));
+
+      // Wait for app to exit and clean up
+      await waitUntilExit();
+      if (activeAgent) {
+        activeAgent.dispose();
+        activeAgent = null;
+      }
     } catch (error: any) {
       console.error("❌ Error initializing Grok CLI:", error.message);
       process.exit(1);

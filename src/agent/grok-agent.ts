@@ -787,6 +787,7 @@ export class GrokAgent extends EventEmitter {
   dispose(): void {
     this.removeAllListeners();
     this.tokenCounter.dispose();
+    this.contextManager.dispose();
     if (this.abortController) {
       this.abortController.abort();
       this.abortController = null;

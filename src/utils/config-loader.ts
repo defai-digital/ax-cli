@@ -3,9 +3,9 @@
  * Loads and caches configuration from YAML files with Zod validation
  */
 
-import * as fs from 'fs-extra';
-import * as path from 'path';
-import * as yaml from 'js-yaml';
+import fs from 'fs-extra';
+import path from 'path';
+import yaml from 'js-yaml';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { z } from 'zod';
