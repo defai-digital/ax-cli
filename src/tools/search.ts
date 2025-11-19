@@ -250,17 +250,33 @@ export class SearchTool {
   }
 
   /**
-   * Type guard for ripgrep match data
+   * Type guard for ripgrep match data with proper type narrowing
    */
-  private isRipgrepMatch(parsed: any): boolean {
-    return parsed?.type === "match" &&
-           parsed?.data?.path?.text &&
-           parsed?.data?.line_number &&
-           parsed?.data?.lines?.text;
+  private isRipgrepMatch(parsed: unknown): parsed is {
+    type: 'match';
+    data: {
+      path: { text: string };
+      line_number: number;
+      lines: { text: string };
+      submatches?: Array<{
+        start: number;
+        match: { text: string };
+      }>;
+    };
+  } {
+    if (typeof parsed !== 'object' || parsed === null) return false;
+    const obj = parsed as any;
+
+    return (
+      obj.type === 'match' &&
+      typeof obj.data?.path?.text === 'string' &&
+      typeof obj.data?.line_number === 'number' &&
+      typeof obj.data?.lines?.text === 'string'
+    );
   }
 
   /**
-   * Parse ripgrep JSON output into SearchResult objects
+   * Parse ripgrep JSON output into SearchResult objects with full type safety
    */
   private parseRipgrepOutput(output: string): SearchResult[] {
     if (!output.trim()) return [];
@@ -270,15 +286,15 @@ export class SearchTool {
 
     for (const line of lines) {
       try {
-        const parsed = JSON.parse(line);
+        const parsed: unknown = JSON.parse(line);
         if (this.isRipgrepMatch(parsed)) {
-          const data = parsed.data;
+          // TypeScript now knows parsed has the correct structure
           results.push({
-            file: data.path.text,
-            line: data.line_number,
-            column: data.submatches?.[0]?.start ?? 0,
-            text: data.lines.text.trim(),
-            match: data.submatches?.[0]?.match?.text ?? "",
+            file: parsed.data.path.text,
+            line: parsed.data.line_number,
+            column: parsed.data.submatches?.[0]?.start ?? 0,
+            text: parsed.data.lines.text.trim(),
+            match: parsed.data.submatches?.[0]?.match?.text ?? '',
           });
         }
       } catch {

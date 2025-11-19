@@ -697,17 +697,42 @@ export class GrokAgent extends EventEmitter {
     }
   }
 
+  /**
+   * Parse and validate tool call arguments
+   * @param toolCall The tool call to parse arguments from
+   * @param toolType Type of tool (for error messages)
+   * @returns Parsed arguments or error result
+   */
+  private parseToolArguments(
+    toolCall: GrokToolCall,
+    toolType: string = 'Tool'
+  ): { success: true; args: any } | { success: false; error: string } {
+    if (!toolCall.function.arguments || toolCall.function.arguments.trim() === '') {
+      return {
+        success: false,
+        error: `${toolType} ${toolCall.function.name} called with empty arguments`,
+      };
+    }
+
+    try {
+      const args = JSON.parse(toolCall.function.arguments);
+      return { success: true, args };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to parse ${toolType} arguments: ${error instanceof Error ? error.message : 'Invalid JSON'}`,
+      };
+    }
+  }
+
   private async executeTool(toolCall: GrokToolCall): Promise<ToolResult> {
     try {
-      // Defensive: ensure arguments is a valid JSON string
-      if (!toolCall.function.arguments || toolCall.function.arguments.trim() === '') {
-        return {
-          success: false,
-          error: `Tool ${toolCall.function.name} called with empty arguments`,
-        };
+      const parseResult = this.parseToolArguments(toolCall, 'Tool');
+      if (!parseResult.success) {
+        return { success: false, error: parseResult.error };
       }
 
-      const args = JSON.parse(toolCall.function.arguments);
+      const args = parseResult.args;
 
       switch (toolCall.function.name) {
         case "view_file":
@@ -785,15 +810,12 @@ export class GrokAgent extends EventEmitter {
 
   private async executeMCPTool(toolCall: GrokToolCall): Promise<ToolResult> {
     try {
-      // Defensive: ensure arguments is a valid JSON string
-      if (!toolCall.function.arguments || toolCall.function.arguments.trim() === '') {
-        return {
-          success: false,
-          error: `MCP tool ${toolCall.function.name} called with empty arguments`,
-        };
+      const parseResult = this.parseToolArguments(toolCall, 'MCP tool');
+      if (!parseResult.success) {
+        return { success: false, error: parseResult.error };
       }
 
-      const args = JSON.parse(toolCall.function.arguments);
+      const args = parseResult.args;
       const mcpManager = getMCPManager();
 
       const result = await mcpManager.callTool(toolCall.function.name, args);

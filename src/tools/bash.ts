@@ -23,23 +23,19 @@ export class BashTool {
 
   async execute(command: string, timeout: number = BashTool.DEFAULT_TIMEOUT): Promise<ToolResult> {
     try {
-      // Check if user has already accepted bash commands for this session
-      const sessionFlags = this.confirmationService.getSessionFlags();
-      if (!sessionFlags.bashCommands && !sessionFlags.allOperations) {
-        // Request confirmation showing the command
-        const confirmationResult = await this.confirmationService.requestConfirmation({
-          operation: 'Run bash command',
-          filename: command,
-          showVSCodeOpen: false,
-          content: `Command: ${command}\nWorking directory: ${this.currentDirectory}`
-        }, 'bash');
+      // Request confirmation for bash command execution
+      const shouldExecute = await this.confirmationService.shouldProceed('bash', {
+        operation: 'Run bash command',
+        filename: command,
+        showVSCodeOpen: false,
+        content: `Command: ${command}\nWorking directory: ${this.currentDirectory}`
+      });
 
-        if (!confirmationResult.confirmed) {
-          return {
-            success: false,
-            error: confirmationResult.feedback || 'Command execution cancelled by user'
-          };
-        }
+      if (!shouldExecute) {
+        return {
+          success: false,
+          error: 'Command execution cancelled by user'
+        };
       }
 
       if (command.startsWith('cd ')) {

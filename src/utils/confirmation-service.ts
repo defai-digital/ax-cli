@@ -42,6 +42,31 @@ export class ConfirmationService extends EventEmitter {
     super();
   }
 
+  /**
+   * Check if an operation should proceed based on session flags and user confirmation
+   * Simplifies the common pattern of checking flags and requesting confirmation
+   * @param operationType Type of operation (file or bash)
+   * @param options Confirmation options
+   * @returns True if operation should proceed, false if cancelled
+   */
+  async shouldProceed(
+    operationType: "file" | "bash",
+    options: ConfirmationOptions
+  ): Promise<boolean> {
+    // Check session flags first
+    if (
+      this.sessionFlags.allOperations ||
+      (operationType === "file" && this.sessionFlags.fileOperations) ||
+      (operationType === "bash" && this.sessionFlags.bashCommands)
+    ) {
+      return true;
+    }
+
+    // Request confirmation if not auto-approved
+    const result = await this.requestConfirmation(options, operationType);
+    return result.confirmed;
+  }
+
   async requestConfirmation(
     options: ConfirmationOptions,
     operationType: "file" | "bash" = "file"

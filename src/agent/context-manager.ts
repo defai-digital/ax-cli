@@ -35,7 +35,7 @@ export class ContextManager {
   // Use Map with JSON serialized messages as key for cache lookup
   private tokenCache = new Map<string, { count: number; timestamp: number }>();
   private readonly CACHE_TTL = 60000; // 1 minute TTL
-  private cleanupIntervalId: NodeJS.Timeout | null = null;
+  private readonly MAX_CACHE_SIZE = 100; // Maximum cache entries before cleanup
 
   constructor(options: ContextManagerOptions) {
     this.model = options.model;
@@ -46,13 +46,10 @@ export class ContextManager {
     this.keepRecentToolRounds = options.keepRecentToolRounds || 8;
     this.keepFirstMessages = options.keepFirstMessages || 2;
     this.reservedTokens = options.reservedTokens || 3000;
-
-    // Periodic cache cleanup to prevent memory leaks
-    this.cleanupIntervalId = setInterval(() => this.cleanupCache(), 60000); // Cleanup every minute
   }
 
   /**
-   * Memoized token counting with cache
+   * Memoized token counting with cache and lazy cleanup
    * Uses message content hash as cache key
    */
   private getCachedTokenCount(messages: GrokMessage[], tokenCounter: TokenCounter): number {
@@ -60,15 +57,27 @@ export class ContextManager {
     // Use a simplified hash based on message count, roles, and content lengths
     const cacheKey = this.createMessageCacheKey(messages);
 
-    // Check cache
+    // Lazy cleanup: check if cached entry exists and is valid
+    const now = Date.now();
     const cached = this.tokenCache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp) < this.CACHE_TTL) {
-      return cached.count;
+
+    if (cached) {
+      if (now - cached.timestamp < this.CACHE_TTL) {
+        return cached.count;
+      } else {
+        // Expired, remove it
+        this.tokenCache.delete(cacheKey);
+      }
+    }
+
+    // Perform full cache cleanup if cache is getting too large
+    if (this.tokenCache.size > this.MAX_CACHE_SIZE) {
+      this.cleanupCache();
     }
 
     // Count tokens and cache result
     const count = tokenCounter.countMessageTokens(messages as any);
-    this.tokenCache.set(cacheKey, { count, timestamp: Date.now() });
+    this.tokenCache.set(cacheKey, { count, timestamp: now });
 
     return count;
   }
@@ -348,14 +357,10 @@ export class ContextManager {
   }
 
   /**
-   * Cleanup method to clear interval and prevent memory leaks
+   * Cleanup method to clear cache and prevent memory leaks
    * Should be called when the ContextManager is no longer needed
    */
   dispose(): void {
-    if (this.cleanupIntervalId) {
-      clearInterval(this.cleanupIntervalId);
-      this.cleanupIntervalId = null;
-    }
     this.tokenCache.clear();
   }
 

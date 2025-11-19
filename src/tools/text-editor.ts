@@ -110,38 +110,30 @@ export class TextEditorTool {
       }
 
       const occurrences = (content.match(new RegExp(oldStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
-      
-      const sessionFlags = this.confirmationService.getSessionFlags();
-      if (!sessionFlags.fileOperations && !sessionFlags.allOperations) {
-        const previewContent = replaceAll 
-          ? content.split(oldStr).join(newStr)
-          : content.replace(oldStr, newStr);
-        const oldLines = content.split("\n");
-        const newLines = previewContent.split("\n");
-        const diffContent = this.generateDiff(oldLines, newLines, filePath);
 
-        const confirmationResult =
-          await this.confirmationService.requestConfirmation(
-            {
-              operation: `Edit file${replaceAll && occurrences > 1 ? ` (${occurrences} occurrences)` : ''}`,
-              filename: filePath,
-              showVSCodeOpen: false,
-              content: diffContent,
-            },
-            "file"
-          );
-
-        if (!confirmationResult.confirmed) {
-          return {
-            success: false,
-            error: confirmationResult.feedback || "File edit cancelled by user",
-          };
-        }
-      }
-
+      // Generate new content and diff for confirmation
       const newContent = replaceAll
         ? content.split(oldStr).join(newStr)
         : content.replace(oldStr, newStr);
+      const oldLinesForDiff = content.split("\n");
+      const newLinesForDiff = newContent.split("\n");
+      const diffContent = this.generateDiff(oldLinesForDiff, newLinesForDiff, filePath);
+
+      const shouldProceed = await this.confirmationService.shouldProceed('file', {
+        operation: `Edit file${replaceAll && occurrences > 1 ? ` (${occurrences} occurrences)` : ''}`,
+        filename: filePath,
+        showVSCodeOpen: false,
+        content: diffContent,
+      });
+
+      if (!shouldProceed) {
+        return {
+          success: false,
+          error: "File edit cancelled by user",
+        };
+      }
+
+      // Write the new content to file
       await writeFilePromise(resolvedPath, newContent, "utf-8");
 
       this.editHistory.push({
@@ -151,13 +143,9 @@ export class TextEditorTool {
         new_str: newStr,
       });
 
-      const oldLines = content.split("\n");
-      const newLines = newContent.split("\n");
-      const diff = this.generateDiff(oldLines, newLines, filePath);
-
       return {
         success: true,
-        output: diff,
+        output: diffContent, // Return the same diff we showed for confirmation
       };
     } catch (error: any) {
       return {
@@ -171,37 +159,28 @@ export class TextEditorTool {
     try {
       const resolvedPath = path.resolve(filePath);
 
-      // Check if user has already accepted file operations for this session
-      const sessionFlags = this.confirmationService.getSessionFlags();
-      if (!sessionFlags.fileOperations && !sessionFlags.allOperations) {
-        // Create a diff-style preview for file creation
-        const contentLines = content.split("\n");
-        const diffContent = [
-          `Created ${filePath}`,
-          `--- /dev/null`,
-          `+++ b/${filePath}`,
-          `@@ -0,0 +1,${contentLines.length} @@`,
-          ...contentLines.map((line) => `+${line}`),
-        ].join("\n");
+      // Create a diff-style preview for file creation
+      const contentLines = content.split("\n");
+      const diffContent = [
+        `Created ${filePath}`,
+        `--- /dev/null`,
+        `+++ b/${filePath}`,
+        `@@ -0,0 +1,${contentLines.length} @@`,
+        ...contentLines.map((line) => `+${line}`),
+      ].join("\n");
 
-        const confirmationResult =
-          await this.confirmationService.requestConfirmation(
-            {
-              operation: "Write",
-              filename: filePath,
-              showVSCodeOpen: false,
-              content: diffContent,
-            },
-            "file"
-          );
+      const shouldProceed = await this.confirmationService.shouldProceed('file', {
+        operation: "Write",
+        filename: filePath,
+        showVSCodeOpen: false,
+        content: diffContent,
+      });
 
-        if (!confirmationResult.confirmed) {
-          return {
-            success: false,
-            error:
-              confirmationResult.feedback || "File creation cancelled by user",
-          };
-        }
+      if (!shouldProceed) {
+        return {
+          success: false,
+          error: "File creation cancelled by user",
+        };
       }
 
       const dir = path.dirname(resolvedPath);
