@@ -23,6 +23,11 @@ export class MCPManager extends EventEmitter {
   private pendingConnections: Map<string, Promise<void>> = new Map();
 
   async addServer(config: MCPServerConfig): Promise<void> {
+    // Check if already connected
+    if (this.clients.has(config.name)) {
+      return; // Already connected, nothing to do
+    }
+
     // Check if already connecting to prevent race condition
     const pending = this.pendingConnections.get(config.name);
     if (pending) {
@@ -203,5 +208,14 @@ export class MCPManager extends EventEmitter {
     });
     
     await Promise.all(initPromises);
+  }
+
+  /**
+   * Cleanup all resources and remove event listeners
+   */
+  async dispose(): Promise<void> {
+    const serverNames = Array.from(this.clients.keys());
+    await Promise.all(serverNames.map(name => this.removeServer(name)));
+    this.removeAllListeners();
   }
 }

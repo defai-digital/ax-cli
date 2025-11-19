@@ -22,6 +22,7 @@ export class ConfirmationService extends EventEmitter {
   private pendingConfirmation: Promise<ConfirmationResult> | null = null;
   private resolveConfirmation: ((result: ConfirmationResult) => void) | null =
     null;
+  private confirmationTimeoutId: NodeJS.Timeout | null = null;
 
   // Session flags for different operation types
   private sessionFlags = {
@@ -82,7 +83,7 @@ export class ConfirmationService extends EventEmitter {
       }, 60000); // 60 second timeout
 
       // Store timeout ID to clear it if confirmation comes early
-      (this as any)._confirmationTimeoutId = timeoutId;
+      this.confirmationTimeoutId = timeoutId;
     });
 
     // Emit custom event that the UI can listen to (using setImmediate to ensure the UI updates)
@@ -108,9 +109,9 @@ export class ConfirmationService extends EventEmitter {
   confirmOperation(confirmed: boolean, dontAskAgain?: boolean): void {
     if (this.resolveConfirmation) {
       // Clear the timeout if it exists
-      if ((this as any)._confirmationTimeoutId) {
-        clearTimeout((this as any)._confirmationTimeoutId);
-        (this as any)._confirmationTimeoutId = null;
+      if (this.confirmationTimeoutId) {
+        clearTimeout(this.confirmationTimeoutId);
+        this.confirmationTimeoutId = null;
       }
 
       this.resolveConfirmation({ confirmed, dontAskAgain });
@@ -122,9 +123,9 @@ export class ConfirmationService extends EventEmitter {
   rejectOperation(feedback?: string): void {
     if (this.resolveConfirmation) {
       // Clear the timeout if it exists
-      if ((this as any)._confirmationTimeoutId) {
-        clearTimeout((this as any)._confirmationTimeoutId);
-        (this as any)._confirmationTimeoutId = null;
+      if (this.confirmationTimeoutId) {
+        clearTimeout(this.confirmationTimeoutId);
+        this.confirmationTimeoutId = null;
       }
 
       this.resolveConfirmation({ confirmed: false, feedback });

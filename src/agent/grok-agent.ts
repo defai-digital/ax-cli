@@ -816,4 +816,17 @@ Current working directory: ${process.cwd()}`,
       this.abortController.abort();
     }
   }
+
+  /**
+   * Dispose of resources and remove event listeners
+   * Call this when the agent is no longer needed
+   */
+  dispose(): void {
+    this.removeAllListeners();
+    this.tokenCounter.dispose();
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+  }
 }
