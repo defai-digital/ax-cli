@@ -85,13 +85,18 @@ export class ContextManager {
   /**
    * Create a cache key from messages
    * Fast hashing without full serialization
+   * Includes content sample to prevent collisions
    */
   private createMessageCacheKey(messages: GrokMessage[]): string {
-    // Use message count + roles + content lengths as a fast hash
+    // Use message count + roles + content lengths + content sample as a fast hash
     return messages.map(m => {
       const contentLen = typeof m.content === 'string' ? m.content.length : 0;
       const toolCallsLen = (m as any).tool_calls?.length || 0;
-      return `${m.role}:${contentLen}:${toolCallsLen}`;
+      // Include first 20 chars of content to prevent hash collisions
+      const contentSample = typeof m.content === 'string'
+        ? m.content.substring(0, 20).replace(/[|:]/g, '') // Remove delimiters
+        : '';
+      return `${m.role}:${contentLen}:${toolCallsLen}:${contentSample}`;
     }).join('|');
   }
 

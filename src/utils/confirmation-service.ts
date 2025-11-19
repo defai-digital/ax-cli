@@ -80,6 +80,14 @@ export class ConfirmationService extends EventEmitter {
       return { confirmed: true };
     }
 
+    // Check if there's already a pending confirmation to prevent race conditions
+    if (this.pendingConfirmation !== null) {
+      return {
+        confirmed: false,
+        feedback: 'Another confirmation is already pending. Please wait or cancel the current operation.'
+      };
+    }
+
     // If VS Code should be opened, try to open it
     if (options.showVSCodeOpen) {
       try {
