@@ -1289,6 +1289,24 @@ Options:
   -h, --help                     Display help
 ```
 
+### Init Command
+
+```bash
+ax-cli init [options]
+
+Description:
+  Initialize AX CLI for your project with intelligent analysis
+
+Options:
+  -f, --force                    Force regeneration even if files exist
+  -v, --verbose                  Verbose output showing analysis details
+  -d, --directory <dir>          Project directory to analyze (default: current directory)
+
+Generated Files:
+  .ax-cli/CUSTOM.md              Project-specific custom instructions
+  .ax-cli/index.json             Fast project reference index
+```
+
 ### MCP Commands
 
 ```bash
@@ -1322,6 +1340,11 @@ ax-cli -m grok-code-fast-1
 ax-cli -p "list TypeScript files"
 ax-cli -p "run tests" -d /project
 ax-cli -p "refactor" --max-tool-rounds 50
+
+# Project initialization
+ax-cli init
+ax-cli init --force --verbose
+ax-cli init -d /path/to/project
 
 # MCP operations
 ax-cli mcp add linear --transport sse --url https://mcp.linear.app/sse
