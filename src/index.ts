@@ -64,6 +64,21 @@ function ensureUserSettingsDirectory(): void {
   }
 }
 
+// Check if configuration is valid and complete
+function isConfigValid(): boolean {
+  try {
+    const manager = getSettingsManager();
+    const apiKey = manager.getApiKey();
+    const baseURL = manager.getBaseURL();
+    const model = manager.getCurrentModel();
+
+    // All required fields must be present and non-empty
+    return !!(apiKey && apiKey.trim() && baseURL && baseURL.trim() && model && model.trim());
+  } catch {
+    return false;
+  }
+}
+
 // Load API key from user settings if not in environment
 function loadApiKey(): string | undefined {
   const manager = getSettingsManager();
@@ -371,6 +386,30 @@ program
     }
 
     try {
+      // Check if running in interactive mode (no prompt, api-key, or base-url flags)
+      const isInteractiveMode = !options.prompt && !options.apiKey && !options.baseUrl;
+
+      // If interactive mode and config is invalid, automatically run setup
+      if (isInteractiveMode && !isConfigValid()) {
+        console.log("⚠️  Configuration file not found or incomplete.\n");
+        console.log("Let's set up AX CLI first...\n");
+
+        // Import and run setup command
+        const { createSetupCommand } = await import("./commands/setup.js");
+        const setupCommand = createSetupCommand();
+
+        // Run setup command with empty args (will prompt user)
+        await setupCommand.parseAsync(["node", "ax-cli", "setup"], { from: "user" });
+
+        // After setup completes, re-check config
+        if (!isConfigValid()) {
+          console.error("\n❌ Setup did not complete successfully. Please try again.");
+          process.exit(1);
+        }
+
+        console.log("\n");
+      }
+
       // Get API key from options, environment, or user settings
       const apiKey = options.apiKey || loadApiKey();
       const baseURL = options.baseUrl || loadBaseURL();
