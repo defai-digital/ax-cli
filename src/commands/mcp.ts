@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { addMCPServer, removeMCPServer, loadMCPConfig, PREDEFINED_SERVERS } from '../mcp/config.js';
 import { getMCPManager } from '../grok/tools.js';
 import { MCPServerConfig } from '../mcp/client.js';
-import { MCPServerIdSchema } from '@defai.digital/ax-cli-schemas';
+import { MCPServerIdSchema } from '@ax-cli/schemas';
 import chalk from 'chalk';
 
 export function createMCPCommand(): Command {

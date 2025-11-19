@@ -16,6 +16,17 @@
   "bin": {
     "ax-cli": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "packages/schemas/dist",
+    "packages/schemas/package.json",
+    ".ax-cli",
+    "LICENSE",
+    "README.md",
+    "automatosx.config.json",
+    "eslint.config.js",
+    "vitest.config.ts"
+  ],
   "scripts": {
     "build": "tsc",
     "build:bun": "bun run tsc",
@@ -42,7 +53,7 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "@defai.digital/ax-cli-schemas": "^1.0.0",
+    "@ax-cli/schemas": "file:./packages/schemas",
     "@modelcontextprotocol/sdk": "^1.17.0",
     "axios": "^1.7.0",
     "cfonts": "^3.3.0",

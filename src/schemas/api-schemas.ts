@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { ToolCallIdSchema, ModelIdSchema } from '@defai.digital/ax-cli-schemas';
+import { ToolCallIdSchema, ModelIdSchema } from '@ax-cli/schemas';
 
 // Local schemas to avoid __brand symbol export issues
 const MessageRoleEnum = z.enum(['system', 'user', 'assistant', 'tool']);

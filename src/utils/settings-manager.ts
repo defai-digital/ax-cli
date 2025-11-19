@@ -3,7 +3,7 @@ import * as path from "path";
 import * as os from "os";
 import { UserSettingsSchema, ProjectSettingsSchema } from "../schemas/settings-schemas.js";
 import type { UserSettings, ProjectSettings } from "../schemas/settings-schemas.js";
-import { ModelIdSchema } from '@defai.digital/ax-cli-schemas';
+import { ModelIdSchema } from '@ax-cli/schemas';
 
 // Re-export types for external use
 export type { UserSettings, ProjectSettings };

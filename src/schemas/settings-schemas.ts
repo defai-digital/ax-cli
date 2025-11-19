@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { ModelIdSchema, MCPServerIdSchema } from '@defai.digital/ax-cli-schemas';
+import { ModelIdSchema, MCPServerIdSchema } from '@ax-cli/schemas';
 
 // User Settings Schema
 export const UserSettingsSchema: z.ZodType<any> = z.object({
