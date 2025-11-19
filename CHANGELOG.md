@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2025-01-19
+
+### Enhanced
+- **`/usage` Command** - Comprehensive Z.AI account information
+  - Direct links to Z.AI dashboard (billing, rate limits, API keys)
+  - GLM-4.6 pricing information ($0.11/1M input, $0.28/1M output)
+  - Automatic session cost estimation
+  - Important notes about billing delay and caching
+  - Clear explanation that Z.AI API doesn't provide programmatic usage access
+
+### Research
+- Tested Z.AI API endpoints (`/v1/usage`, `/v1/account`) - both return 404
+- Confirmed: Z.AI does not provide programmatic API for usage/billing data
+- Solution: Provide direct dashboard links + cost estimation
+
+[Full details in CHANGELOG_v2.3.1.md]
+
 ## [2.3.0] - 2025-01-19
 
 ### Added
