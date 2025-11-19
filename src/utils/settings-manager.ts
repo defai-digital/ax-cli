@@ -1,6 +1,6 @@
-import * as fs from "fs";
-import * as path from "path";
-import * as os from "os";
+import { existsSync, mkdirSync, copyFileSync, chmodSync } from "fs";
+import { dirname, join } from "path";
+import { homedir } from "os";
 import { UserSettingsSchema, ProjectSettingsSchema } from "../schemas/settings-schemas.js";
 import type { UserSettings, ProjectSettings } from "../schemas/settings-schemas.js";
 import { ModelIdSchema } from '@ax-cli/schemas';
@@ -57,19 +57,19 @@ export class SettingsManager {
   private constructor() {
     // NEW: User settings path: ~/.ax-cli/config.json
     // Fallback to ~/.grok/user-settings.json for backward compatibility
-    const newUserPath = path.join(os.homedir(), ".ax-cli", "config.json");
-    const oldUserPath = path.join(os.homedir(), ".grok", "user-settings.json");
+    const newUserPath = join(homedir(), ".ax-cli", "config.json");
+    const oldUserPath = join(homedir(), ".grok", "user-settings.json");
 
-    this.userSettingsPath = fs.existsSync(oldUserPath) && !fs.existsSync(newUserPath)
+    this.userSettingsPath = existsSync(oldUserPath) && !existsSync(newUserPath)
       ? oldUserPath  // Use old path if it exists and new doesn't
       : newUserPath; // Prefer new path
 
     // NEW: Project settings path: .ax-cli/settings.json
     // Fallback to .grok/settings.json for backward compatibility
-    const newProjectPath = path.join(process.cwd(), ".ax-cli", "settings.json");
-    const oldProjectPath = path.join(process.cwd(), ".grok", "settings.json");
+    const newProjectPath = join(process.cwd(), ".ax-cli", "settings.json");
+    const oldProjectPath = join(process.cwd(), ".grok", "settings.json");
 
-    this.projectSettingsPath = fs.existsSync(oldProjectPath) && !fs.existsSync(newProjectPath)
+    this.projectSettingsPath = existsSync(oldProjectPath) && !existsSync(newProjectPath)
       ? oldProjectPath  // Use old path if it exists and new doesn't
       : newProjectPath; // Prefer new path
   }
@@ -93,20 +93,20 @@ export class SettingsManager {
     let migrated = false;
 
     // Migrate user settings
-    const oldUserPath = path.join(os.homedir(), ".grok", "user-settings.json");
-    const newUserPath = path.join(os.homedir(), ".ax-cli", "config.json");
+    const oldUserPath = join(homedir(), ".grok", "user-settings.json");
+    const newUserPath = join(homedir(), ".ax-cli", "config.json");
 
-    if (fs.existsSync(oldUserPath) && !fs.existsSync(newUserPath)) {
+    if (existsSync(oldUserPath) && !existsSync(newUserPath)) {
       try {
         // Create new directory
-        const newUserDir = path.dirname(newUserPath);
-        if (!fs.existsSync(newUserDir)) {
-          fs.mkdirSync(newUserDir, { recursive: true, mode: 0o700 });
+        const newUserDir = dirname(newUserPath);
+        if (!existsSync(newUserDir)) {
+          mkdirSync(newUserDir, { recursive: true, mode: 0o700 });
         }
 
         // Copy file
-        fs.copyFileSync(oldUserPath, newUserPath);
-        fs.chmodSync(newUserPath, 0o600); // Secure permissions for API key
+        copyFileSync(oldUserPath, newUserPath);
+        chmodSync(newUserPath, 0o600); // Secure permissions for API key
 
         const successMsg = formatMessage(
           migrationMessages.user_settings_success || "✅ Migrated user settings: {oldPath} → {newPath}",
@@ -124,19 +124,19 @@ export class SettingsManager {
     }
 
     // Migrate project settings
-    const oldProjectPath = path.join(process.cwd(), ".grok", "settings.json");
-    const newProjectPath = path.join(process.cwd(), ".ax-cli", "settings.json");
+    const oldProjectPath = join(process.cwd(), ".grok", "settings.json");
+    const newProjectPath = join(process.cwd(), ".ax-cli", "settings.json");
 
-    if (fs.existsSync(oldProjectPath) && !fs.existsSync(newProjectPath)) {
+    if (existsSync(oldProjectPath) && !existsSync(newProjectPath)) {
       try {
         // Create new directory
-        const newProjectDir = path.dirname(newProjectPath);
-        if (!fs.existsSync(newProjectDir)) {
-          fs.mkdirSync(newProjectDir, { recursive: true });
+        const newProjectDir = dirname(newProjectPath);
+        if (!existsSync(newProjectDir)) {
+          mkdirSync(newProjectDir, { recursive: true });
         }
 
         // Copy file
-        fs.copyFileSync(oldProjectPath, newProjectPath);
+        copyFileSync(oldProjectPath, newProjectPath);
 
         const successMsg = formatMessage(
           migrationMessages.project_settings_success || "✅ Migrated project settings: {oldPath} → {newPath}",
@@ -173,9 +173,9 @@ export class SettingsManager {
    * Ensure directory exists for a given file path
    */
   private ensureDirectoryExists(filePath: string): void {
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const dir = dirname(filePath);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true, mode: 0o700 });
     }
   }
 
@@ -190,7 +190,7 @@ export class SettingsManager {
     }
 
     try {
-      if (!fs.existsSync(this.userSettingsPath)) {
+      if (!existsSync(this.userSettingsPath)) {
         // Create default user settings if file doesn't exist
         this.saveUserSettings(DEFAULT_USER_SETTINGS);
         const defaultSettings = { ...DEFAULT_USER_SETTINGS };
@@ -244,7 +244,7 @@ export class SettingsManager {
 
       // Read existing settings directly to avoid recursion
       let existingSettings: UserSettings = { ...DEFAULT_USER_SETTINGS };
-      if (fs.existsSync(this.userSettingsPath)) {
+      if (existsSync(this.userSettingsPath)) {
         const parseResult = parseJsonFile<UserSettings>(this.userSettingsPath);
         if (parseResult.success) {
           existingSettings = { ...DEFAULT_USER_SETTINGS, ...parseResult.data };
@@ -269,7 +269,7 @@ export class SettingsManager {
       }
 
       // Set secure permissions for API key
-      fs.chmodSync(this.userSettingsPath, 0o600);
+      chmodSync(this.userSettingsPath, 0o600);
 
       // Invalidate cache after save
       this.userSettingsCache = null;
@@ -313,7 +313,7 @@ export class SettingsManager {
     }
 
     try {
-      if (!fs.existsSync(this.projectSettingsPath)) {
+      if (!existsSync(this.projectSettingsPath)) {
         // Create default project settings if file doesn't exist
         this.saveProjectSettings(DEFAULT_PROJECT_SETTINGS);
         const defaultSettings = { ...DEFAULT_PROJECT_SETTINGS };
@@ -367,7 +367,7 @@ export class SettingsManager {
 
       // Read existing settings directly to avoid recursion
       let existingSettings: ProjectSettings = { ...DEFAULT_PROJECT_SETTINGS };
-      if (fs.existsSync(this.projectSettingsPath)) {
+      if (existsSync(this.projectSettingsPath)) {
         const parseResult = parseJsonFile<ProjectSettings>(this.projectSettingsPath);
         if (parseResult.success) {
           existingSettings = { ...DEFAULT_PROJECT_SETTINGS, ...parseResult.data };

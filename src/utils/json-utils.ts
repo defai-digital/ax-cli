@@ -3,7 +3,7 @@
  * Centralized JSON operations with validation and error handling
  */
 
-import * as fs from 'fs-extra';
+import { readFileSync, writeFileSync } from 'fs-extra';
 import { z } from 'zod';
 
 /**
@@ -44,7 +44,7 @@ export function parseJsonFile<T>(
   schema?: z.ZodSchema<T>
 ): { success: true; data: T } | { success: false; error: string } {
   try {
-    const content = fs.readFileSync(filePath, 'utf8');
+    const content = readFileSync(filePath, 'utf8');
     return parseJson<T>(content, schema);
   } catch (error) {
     return {
@@ -98,7 +98,7 @@ export function writeJsonFile<T>(
       return stringifyResult;
     }
 
-    fs.writeFileSync(filePath, stringifyResult.json, 'utf8');
+    writeFileSync(filePath, stringifyResult.json, 'utf8');
     return { success: true };
   } catch (error) {
     return {
