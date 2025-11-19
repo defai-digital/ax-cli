@@ -48,6 +48,15 @@ export class BashTool {
 
       if (command.startsWith('cd ')) {
         const newDir = command.substring(3).trim();
+
+        // Validate directory path is not empty
+        if (newDir === '') {
+          return {
+            success: false,
+            error: 'Cannot change directory: no directory specified'
+          };
+        }
+
         try {
           process.chdir(newDir);
           this.currentDirectory = process.cwd();

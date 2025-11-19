@@ -113,11 +113,14 @@ export class TextEditorTool {
 
       const content = await fs.readFile(resolvedPath, "utf-8");
 
+      // Use actualOldStr to avoid modifying the parameter
+      let actualOldStr = oldStr;
+
       if (!content.includes(oldStr)) {
         if (oldStr.includes('\n')) {
           const fuzzyResult = this.findFuzzyMatch(content, oldStr);
           if (fuzzyResult) {
-            oldStr = fuzzyResult;
+            actualOldStr = fuzzyResult;
           } else {
             return {
               success: false,
@@ -132,12 +135,12 @@ export class TextEditorTool {
         }
       }
 
-      const occurrences = (content.match(new RegExp(oldStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+      const occurrences = (content.match(new RegExp(actualOldStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
 
       // Generate new content and diff for confirmation
       const newContent = replaceAll
-        ? content.split(oldStr).join(newStr)
-        : content.replace(oldStr, newStr);
+        ? content.split(actualOldStr).join(newStr)
+        : content.replace(actualOldStr, newStr);
       const oldLinesForDiff = content.split("\n");
       const newLinesForDiff = newContent.split("\n");
       const diffContent = this.generateDiff(oldLinesForDiff, newLinesForDiff, filePath);
