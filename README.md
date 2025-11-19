@@ -33,7 +33,7 @@ Originally forked from [grok-cli](https://github.com/superagent-ai/grok-cli), AX
 
 **GLM-Optimized**: Primary support for GLM (General Language Model) with optimized performance for local and cloud GLM deployments.
 
-**Production-Ready**: Unlike hobby projects, AX CLI is enterprise-grade with extensive testing, TypeScript safety, and proven reliability.
+**Production-Ready**: AX CLI is enterprise-grade with extensive testing, TypeScript safety, and proven reliability.
 
 ---
 
