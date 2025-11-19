@@ -112,6 +112,9 @@ npm install -g @defai.digital/ax-cli
 # Verify installation
 ax-cli --version
 
+# Run setup to configure API key and defaults
+ax-cli setup
+
 # Start using AX CLI
 ax-cli --prompt "Hello, introduce yourself"
 ```
@@ -128,6 +131,9 @@ npm install -g @defai.digital/ax-cli
 
 # Verify installation
 ax-cli --version
+
+# Configure with your API key
+ax-cli setup
 
 # Test it
 ax-cli --prompt "What is your name?"

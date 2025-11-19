@@ -7,14 +7,15 @@ Complete reference for all AX CLI commands, options, and interactive mode featur
 ## Table of Contents
 
 1. [Main Commands](#main-commands)
-2. [Init Command](#init-command)
-3. [Update Command](#update-command)
-4. [MCP Commands](#mcp-commands)
-5. [Interactive Mode Slash Commands](#interactive-mode-slash-commands)
-6. [Enhanced Input Features](#enhanced-input-features)
-7. [Direct Bash Commands](#direct-bash-commands)
-8. [Usage Examples](#usage-examples)
-9. [Configuration Precedence](#configuration-precedence)
+2. [Setup Command](#setup-command)
+3. [Init Command](#init-command)
+4. [Update Command](#update-command)
+5. [MCP Commands](#mcp-commands)
+6. [Interactive Mode Slash Commands](#interactive-mode-slash-commands)
+7. [Enhanced Input Features](#enhanced-input-features)
+8. [Direct Bash Commands](#direct-bash-commands)
+9. [Usage Examples](#usage-examples)
+10. [Configuration Precedence](#configuration-precedence)
 
 ---
 
@@ -100,6 +101,75 @@ ax-cli git commit-and-push --max-tool-rounds 30 # Git commands
 ```
 
 **Default**: 400 rounds (sufficient for most tasks)
+
+---
+
+## Setup Command
+
+### Description
+Initialize AX CLI configuration with z.ai and GLM 4.6. Creates `~/.ax-cli/config.json` with your API key and default settings.
+
+### Syntax
+
+```bash
+ax-cli setup [options]
+```
+
+### Options
+
+| Flag | Long Form | Description | Default |
+|------|-----------|-------------|---------|
+| | `--force` | Overwrite existing configuration | false |
+| `-h` | `--help` | Display help for command | |
+
+### Configuration Created
+
+The setup command creates `~/.ax-cli/config.json` with the following defaults:
+
+```json
+{
+  "apiKey": "your_api_key",
+  "baseURL": "https://api.x.ai/v1",
+  "model": "glm-4.6",
+  "maxTokens": 8192,
+  "temperature": 0.7,
+  "mcpServers": {}
+}
+```
+
+### Examples
+
+```bash
+# Initial setup (prompts for API key)
+ax-cli setup
+
+# Force overwrite existing configuration
+ax-cli setup --force
+```
+
+### What It Does
+
+1. Checks if `~/.ax-cli/config.json` exists
+2. If exists, prompts for confirmation (unless `--force`)
+3. Prompts for your z.ai API key (hidden input)
+4. Creates configuration directory if needed
+5. Writes configuration with GLM 4.6 defaults
+6. Shows helpful next steps
+
+### Next Steps After Setup
+
+After running setup, you can:
+
+```bash
+# Start interactive mode
+ax-cli
+
+# Run a quick test
+ax-cli -p "Hello, introduce yourself"
+
+# Initialize a project
+ax-cli init
+```
 
 ---
 

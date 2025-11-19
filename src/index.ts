@@ -10,6 +10,7 @@ import { ConfirmationService } from "./utils/confirmation-service.js";
 import { createMCPCommand } from "./commands/mcp.js";
 import { createInitCommand } from "./commands/init.js";
 import { createUpdateCommand } from "./commands/update.js";
+import { createSetupCommand } from "./commands/setup.js";
 import { getVersion } from "./utils/version.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat";
 
@@ -496,5 +497,8 @@ program.addCommand(createInitCommand());
 
 // Update command
 program.addCommand(createUpdateCommand());
+
+// Setup command
+program.addCommand(createSetupCommand());
 
 program.parse();
