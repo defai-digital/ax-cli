@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2025-01-19
+
+### Added
+- **Interactive Slash Commands**
+  - `/usage` - Show API usage statistics in interactive mode
+  - `/version` - Display AX CLI version and helpful links
+  - Commands appear in autocomplete suggestions
+  - Updated `/help` text to include new commands
+
+- **CLI Usage Command** (`ax-cli usage`)
+  - `ax-cli usage show` - Display current session statistics
+  - `ax-cli usage show --detailed` - Show per-model breakdown
+  - `ax-cli usage show --json` - Export as JSON
+  - `ax-cli usage reset` - Reset session statistics
+  - Provider detection and guidance (Z.AI primary support)
+
+- **Usage Tracking System**
+  - Automatic tracking from API responses (streaming and non-streaming)
+  - Session-based statistics with per-model breakdown
+  - Tracks prompt, completion, total, and reasoning tokens
+  - UsageTracker singleton with 100% test coverage
+  - Real-time updates as API calls are made
+
+- **Tests and Documentation**
+  - 17 new tests for usage tracker (352 total, all passing)
+  - `docs/usage-tracking-summary.md` - Implementation guide
+  - `docs/usage-tracking-phase2.md` - Future provider support planning
+  - `docs/slash-commands-implementation.md` - Slash command details
+  - Updated README with usage examples
+
+### Changed
+- README.md: Updated interactive mode section with new slash commands
+- Help text: Added `/usage` and `/version` to built-in commands list
+
+### Technical
+- New files: `src/commands/usage.ts`, `src/utils/usage-tracker.ts`
+- Modified: `src/index.ts`, `src/llm/client.ts`, `src/agent/llm-agent.ts`, `src/hooks/use-input-handler.ts`
+- Test coverage maintained at 98%+
+
+### Provider Support (Phase 1)
+- **Z.AI**: Session tracking + dashboard link (https://z.ai/manage-apikey/billing)
+- **Other providers**: Session tracking with "Information unavailable" message
+
+[Full details in CHANGELOG_v2.3.0.md]
+
 ## [1.2.1] - 2025-11-19
 
 ### Added
