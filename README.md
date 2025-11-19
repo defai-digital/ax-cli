@@ -1307,6 +1307,19 @@ Generated Files:
   .ax-cli/index.json             Fast project reference index
 ```
 
+### Update Command
+
+```bash
+ax-cli update [options]
+
+Description:
+  Check for updates and upgrade AX CLI to the latest version
+
+Options:
+  -c, --check                    Only check for updates without installing
+  -y, --yes                      Skip confirmation prompt
+```
+
 ### MCP Commands
 
 ```bash
@@ -1345,6 +1358,11 @@ ax-cli -p "refactor" --max-tool-rounds 50
 ax-cli init
 ax-cli init --force --verbose
 ax-cli init -d /path/to/project
+
+# Update AX CLI
+ax-cli update
+ax-cli update --check
+ax-cli update --yes
 
 # MCP operations
 ax-cli mcp add linear --transport sse --url https://mcp.linear.app/sse
