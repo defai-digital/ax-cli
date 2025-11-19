@@ -1,21 +1,22 @@
 import { z } from 'zod';
-// Note: Importing directly to avoid __brand symbol export issues
-// These types use branded types internally which TypeScript needs to resolve
-import type { ModelId, MCPServerId } from '@ax-cli/schemas';
+import { ModelIdSchema, MCPServerIdSchema } from '@ax-cli/schemas';
 
 // Create local schemas that match the structure
 const MessageRoleEnum = z.enum(['system', 'user', 'assistant', 'tool']);
 const FinishReasonEnum = z.enum(['stop', 'length', 'tool_calls', 'content_filter']).nullable();
 const TransportEnum = z.enum(['stdio', 'http', 'sse']);
-const ModelIdSchema = z.string() as z.ZodType<ModelId>;
-const MCPServerIdSchema = z.string() as z.ZodType<MCPServerId>;
 
 /**
  * Configuration schemas using Zod for runtime validation
  */
 
 // User settings schema
-export const UserSettingsSchema = z.object({
+export const UserSettingsSchema: z.ZodType<{
+  apiKey?: string;
+  baseURL?: string;
+  defaultModel?: string;
+  models?: string[];
+}> = z.object({
   apiKey: z.string().optional(),
   baseURL: z.string().url().optional(),
   defaultModel: ModelIdSchema.optional(),
@@ -25,7 +26,17 @@ export const UserSettingsSchema = z.object({
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
 
 // Project settings schema
-export const ProjectSettingsSchema = z.object({
+export const ProjectSettingsSchema: z.ZodType<{
+  model?: string;
+  mcpServers?: Record<string, {
+    name: string;
+    transport: 'stdio' | 'http' | 'sse';
+    command?: string;
+    args?: string[];
+    url?: string;
+    env?: Record<string, string>;
+  }>;
+}> = z.object({
   model: ModelIdSchema.optional(),
   mcpServers: z.record(z.string(), z.object({
     name: MCPServerIdSchema,
@@ -40,7 +51,14 @@ export const ProjectSettingsSchema = z.object({
 export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
 
 // MCP Server configuration schema
-export const MCPServerConfigSchema = z.object({
+export const MCPServerConfigSchema: z.ZodType<{
+  name: string;
+  transport: 'stdio' | 'http' | 'sse';
+  command?: string;
+  args?: string[];
+  url?: string;
+  env?: Record<string, string>;
+}> = z.object({
   name: MCPServerIdSchema,
   transport: TransportEnum,
   command: z.string().optional(),
@@ -73,7 +91,7 @@ export const ToolExecutionSchema = z.object({
 export type ToolExecution = z.infer<typeof ToolExecutionSchema>;
 
 // API Response schema
-export const APIResponseSchema = z.object({
+export const APIResponseSchema: z.ZodType<any> = z.object({
   id: z.string(),
   object: z.string(),
   created: z.number(),

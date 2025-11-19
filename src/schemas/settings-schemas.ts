@@ -4,15 +4,10 @@
  */
 
 import { z } from 'zod';
-import type { ModelId, MCPServerId } from '@ax-cli/schemas';
-
-// Local schemas to avoid __brand symbol export issues
-const ModelIdSchema = z.string() as z.ZodType<ModelId>;
-const MCPServerIdSchema = z.string() as z.ZodType<MCPServerId>;
-const TransportEnum = z.enum(['stdio', 'http', 'sse']);
+import { ModelIdSchema, MCPServerIdSchema } from '@ax-cli/schemas';
 
 // User Settings Schema
-export const UserSettingsSchema = z.object({
+export const UserSettingsSchema: z.ZodType<any> = z.object({
   apiKey: z.string().optional(),
   baseURL: z.string().optional(), // Remove .url() to allow any string
   defaultModel: ModelIdSchema.optional(),
@@ -27,7 +22,7 @@ export const UserSettingsSchema = z.object({
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Project Settings Schema
-export const ProjectSettingsSchema = z.object({
+export const ProjectSettingsSchema: z.ZodType<any> = z.object({
   name: z.string().optional(),
   model: ModelIdSchema.optional(), // Legacy field
   currentModel: ModelIdSchema.optional(),
@@ -38,7 +33,7 @@ export const ProjectSettingsSchema = z.object({
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Model Option Schema
-export const ModelOptionSchema = z.object({
+export const ModelOptionSchema: z.ZodType<any> = z.object({
   model: ModelIdSchema,
   description: z.string().optional(),
   maxTokens: z.number().int().positive().optional(),
@@ -54,7 +49,7 @@ export const MCPTransportConfigSchema = z.object({
   headers: z.record(z.string()).optional(),
 });
 
-export const MCPServerConfigSchema = z.object({
+export const MCPServerConfigSchema: z.ZodType<any> = z.object({
   name: MCPServerIdSchema,
   transport: MCPTransportConfigSchema,
   command: z.string().optional(), // Legacy support

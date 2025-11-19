@@ -4,15 +4,13 @@
  */
 
 import { z } from 'zod';
-import type { ToolCallId, ModelId } from '@ax-cli/schemas';
+import { ToolCallIdSchema, ModelIdSchema } from '@ax-cli/schemas';
 
 // Local schemas to avoid __brand symbol export issues
 const MessageRoleEnum = z.enum(['system', 'user', 'assistant', 'tool']);
-const ToolCallIdSchema = z.string() as z.ZodType<ToolCallId>;
-const ModelIdSchema = z.string() as z.ZodType<ModelId>;
 
 // Grok Tool Call Schema
-export const GrokToolCallSchema = z.object({
+export const GrokToolCallSchema: z.ZodType<any> = z.object({
   id: ToolCallIdSchema,
   type: z.literal('function'),
   function: z.object({
@@ -24,7 +22,7 @@ export const GrokToolCallSchema = z.object({
 export type GrokToolCall = z.infer<typeof GrokToolCallSchema>;
 
 // Grok Message Schema
-export const GrokMessageSchema = z.object({
+export const GrokMessageSchema: z.ZodType<any> = z.object({
   role: MessageRoleEnum,
   content: z.string().nullable(),
   tool_calls: z.array(GrokToolCallSchema).optional(),
@@ -35,7 +33,7 @@ export const GrokMessageSchema = z.object({
 export type GrokMessage = z.infer<typeof GrokMessageSchema>;
 
 // Grok Response Schema
-export const GrokResponseSchema = z.object({
+export const GrokResponseSchema: z.ZodType<any> = z.object({
   id: z.string().optional(),
   object: z.string().optional(),
   created: z.number().optional(),
@@ -77,7 +75,7 @@ export const SearchOptionsSchema = z.object({
 export type SearchOptions = z.infer<typeof SearchOptionsSchema>;
 
 // Streaming Chunk Schema
-export const StreamingChunkSchema = z.discriminatedUnion('type', [
+export const StreamingChunkSchema: z.ZodType<any> = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('content'),
     content: z.string(),
@@ -107,7 +105,7 @@ export const StreamingChunkSchema = z.discriminatedUnion('type', [
 export type StreamingChunk = z.infer<typeof StreamingChunkSchema>;
 
 // Chat Entry Schema
-export const ChatEntrySchema = z.object({
+export const ChatEntrySchema: z.ZodType<any> = z.object({
   type: z.enum(['user', 'assistant', 'tool_result', 'tool_call']),
   content: z.string(),
   timestamp: z.date(),

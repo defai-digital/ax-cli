@@ -71,7 +71,7 @@ export class ContextManager {
     return {
       currentTokens,
       contextWindow: this.contextWindow,
-      percentage: Math.round(percentage * 10) / 10,
+      percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
       available,
       shouldPrune: this.shouldPrune(messages, tokenCounter),
       isNearLimit: this.isNearHardLimit(messages, tokenCounter),
@@ -88,14 +88,14 @@ export class ContextManager {
    * 5. Apply sliding window if still over threshold
    */
   pruneMessages(messages: GrokMessage[], tokenCounter: TokenCounter): GrokMessage[] {
+    // Always keep system message - validate first
+    if (messages.length === 0 || messages[0].role !== 'system') {
+      throw new Error('First message must be system message');
+    }
+
     // If under threshold, no pruning needed
     if (!this.shouldPrune(messages, tokenCounter)) {
       return messages;
-    }
-
-    // Always keep system message
-    if (messages.length === 0 || messages[0].role !== 'system') {
-      throw new Error('First message must be system message');
     }
 
     const systemMessage = messages[0];

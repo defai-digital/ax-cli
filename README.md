@@ -1337,59 +1337,6 @@ ax-cli -m anthropic/claude-3.5-sonnet -u https://openrouter.ai/api/v1
 
 ---
 
-## 🤝 Contributing
-
-We welcome contributions! AX CLI is enterprise-grade software, and we maintain high standards.
-
-### Development Setup
-
-```bash
-# Fork and clone
-git clone https://github.com/YOUR_USERNAME/ax-cli
-cd ax-cli
-
-# Install dependencies
-npm install
-
-# Run tests
-npm test
-
-# Build
-npm run build
-
-# Lint
-npm run lint
-
-# Type check
-npm run typecheck
-```
-
-### Contribution Guidelines
-
-1. **Tests Required**: All new features must include tests
-2. **Type Safety**: Full TypeScript with strict mode
-3. **Code Coverage**: Maintain 80%+ coverage
-4. **Documentation**: Update README and inline docs
-5. **Conventional Commits**: Use semantic commit messages
-
-### Pull Request Process
-
-1. Create feature branch: `git checkout -b feature/my-feature`
-2. Write tests for new functionality
-3. Ensure all tests pass: `npm test`
-4. Run type checking: `npm run typecheck`
-5. Update documentation as needed
-6. Submit PR with clear description
-
-### Code Standards
-
-- **TypeScript**: Strict mode, no `any` types
-- **Testing**: Vitest with high coverage
-- **Linting**: ESLint + Prettier
-- **Commits**: Conventional commits format
-
----
-
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details
