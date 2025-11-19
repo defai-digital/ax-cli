@@ -389,7 +389,11 @@ Current working directory: ${process.cwd()}`,
       return acc;
     };
 
-    return reduce(previous, item.choices[0]?.delta || {});
+    // Safety check: ensure item has valid structure
+    if (!item?.choices || item.choices.length === 0 || !item.choices[0]?.delta) {
+      return previous;
+    }
+    return reduce(previous, item.choices[0].delta);
   }
 
   async *processUserMessageStream(
@@ -644,6 +648,14 @@ Current working directory: ${process.cwd()}`,
 
   private async executeTool(toolCall: GrokToolCall): Promise<ToolResult> {
     try {
+      // Defensive: ensure arguments is a valid JSON string
+      if (!toolCall.function.arguments || toolCall.function.arguments.trim() === '') {
+        return {
+          success: false,
+          error: `Tool ${toolCall.function.name} called with empty arguments`,
+        };
+      }
+
       const args = JSON.parse(toolCall.function.arguments);
 
       switch (toolCall.function.name) {
