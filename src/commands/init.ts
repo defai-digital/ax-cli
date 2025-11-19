@@ -6,7 +6,7 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ProjectAnalyzer } from '../utils/project-analyzer.js';
-import { InstructionGenerator } from '../utils/instruction-generator.js';
+import { LLMOptimizedInstructionGenerator } from '../utils/llm-optimized-instruction-generator.js';
 import type { InitOptions } from '../types/project-analysis.js';
 
 export function createInitCommand(): Command {
@@ -69,8 +69,14 @@ export function createInitCommand(): Command {
           console.log('');
         }
 
-        // Generate instructions
-        const generator = new InstructionGenerator();
+        // Generate LLM-optimized instructions
+        const generator = new LLMOptimizedInstructionGenerator({
+          compressionLevel: 'moderate',
+          hierarchyEnabled: true,
+          criticalRulesCount: 5,
+          includeDODONT: true,
+          includeTroubleshooting: true,
+        });
         const instructions = generator.generateInstructions(projectInfo);
         const index = generator.generateIndex(projectInfo);
 
