@@ -46,13 +46,22 @@
   },
   "keywords": [
     "cli",
+    "ai",
+    "llm",
+    "glm",
     "agent",
     "text-editor",
     "automatosx",
-    "ai",
-    "orchestration"
+    "orchestration",
+    "chatbot",
+    "assistant",
+    "openai",
+    "anthropic",
+    "multi-provider",
+    "mcp",
+    "model-context-protocol"
   ],
-  "author": "Your Name",
+  "author": "DefAI Digital <https://defai.digital>",
   "license": "MIT",
   "dependencies": {
     "@ax-cli/schemas": "npm:@defai.digital/ax-cli-schemas@^1.0.0",
