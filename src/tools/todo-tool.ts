@@ -58,6 +58,14 @@ export class TodoTool {
 
   async createTodoList(todos: TodoItem[]): Promise<ToolResult> {
     try {
+      // Validate todos is an array
+      if (!Array.isArray(todos)) {
+        return {
+          success: false,
+          error: 'todos must be an array'
+        };
+      }
+
       // Validate todos
       for (const todo of todos) {
         if (!todo.id || !todo.content || !todo.status || !todo.priority) {
@@ -98,6 +106,14 @@ export class TodoTool {
 
   async updateTodoList(updates: { id: string; status?: string; content?: string; priority?: string }[]): Promise<ToolResult> {
     try {
+      // Validate updates is an array
+      if (!Array.isArray(updates)) {
+        return {
+          success: false,
+          error: 'updates must be an array'
+        };
+      }
+
       const updatedIds: string[] = [];
 
       for (const update of updates) {

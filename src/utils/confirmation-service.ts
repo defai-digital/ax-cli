@@ -112,6 +112,7 @@ export class ConfirmationService extends EventEmitter {
           });
           this.resolveConfirmation = null;
           this.pendingConfirmation = null;
+          this.confirmationTimeoutId = null;
         }
       }, 60000); // 60 second timeout
 
