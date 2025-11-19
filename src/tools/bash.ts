@@ -14,11 +14,14 @@ function escapeShellArg(arg: string): string {
 }
 
 export class BashTool {
+  private static readonly MAX_BUFFER_SIZE = 1024 * 1024; // 1MB
+  private static readonly DEFAULT_TIMEOUT = 30000; // 30 seconds
+
   private currentDirectory: string = process.cwd();
   private confirmationService = ConfirmationService.getInstance();
 
 
-  async execute(command: string, timeout: number = 30000): Promise<ToolResult> {
+  async execute(command: string, timeout: number = BashTool.DEFAULT_TIMEOUT): Promise<ToolResult> {
     try {
       // Check if user has already accepted bash commands for this session
       const sessionFlags = this.confirmationService.getSessionFlags();
@@ -59,7 +62,7 @@ export class BashTool {
       const { stdout, stderr } = await execAsync(command, {
         cwd: this.currentDirectory,
         timeout,
-        maxBuffer: 1024 * 1024,
+        maxBuffer: BashTool.MAX_BUFFER_SIZE,
         killSignal: 'SIGTERM'
       });
 

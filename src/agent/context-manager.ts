@@ -246,7 +246,7 @@ export class ContextManager {
 
     // If no space left, return minimal context (system + first messages only)
     if (availableTokens <= 0) {
-      return [systemMessage, ...firstMessages];
+      return firstMessages; // firstMessages already includes systemMessage
     }
 
     // Add recent messages from the end

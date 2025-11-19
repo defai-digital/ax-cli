@@ -57,17 +57,17 @@ async function getLatestVersion(): Promise<string> {
  * Handles versions like "5.7.0-beta.1" correctly
  */
 function isNewer(a: string, b: string): boolean {
-  // Strip prerelease metadata (e.g., "5.7.0-beta.1" -> "5.7.0")
-  const stripPrerelease = (v: string) => v.split("-")[0] || v;
-  const parseVersion = (v: string) =>
-    stripPrerelease(v).split(".").map(Number);
+  const parseVersion = (v: string): number[] => {
+    const version = v.split("-")[0] || v; // Strip prerelease metadata
+    return version.split(".").map(Number);
+  };
 
   const [aMajor = 0, aMinor = 0, aPatch = 0] = parseVersion(a);
   const [bMajor = 0, bMinor = 0, bPatch = 0] = parseVersion(b);
 
-  if (aMajor !== bMajor) return aMajor > bMajor;
-  if (aMinor !== bMinor) return aMinor > bMinor;
-  return aPatch > bPatch;
+  return aMajor !== bMajor ? aMajor > bMajor
+       : aMinor !== bMinor ? aMinor > bMinor
+       : aPatch > bPatch;
 }
 
 /**

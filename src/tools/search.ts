@@ -28,6 +28,25 @@ export interface UnifiedSearchResult {
 }
 
 export class SearchTool {
+  private static readonly DEFAULT_MAX_RESULTS = 50;
+  private static readonly MAX_RECURSION_DEPTH = 10;
+  private static readonly MAX_DISPLAY_RESULTS = 8;
+  private static readonly SCORE_EXACT_MATCH = 100;
+  private static readonly SCORE_CONTAINS_MATCH = 80;
+  private static readonly SCORE_PATH_MATCH = 60;
+  private static readonly SCORE_FUZZY_BASE = 40;
+  private static readonly SCORE_FUZZY_MIN = 10;
+  private static readonly SKIP_DIRECTORIES = [
+    "node_modules",
+    ".git",
+    ".svn",
+    ".hg",
+    "dist",
+    "build",
+    ".next",
+    ".cache",
+  ];
+
   private currentDirectory: string = process.cwd();
 
   /**
@@ -231,26 +250,35 @@ export class SearchTool {
   }
 
   /**
+   * Type guard for ripgrep match data
+   */
+  private isRipgrepMatch(parsed: any): boolean {
+    return parsed?.type === "match" &&
+           parsed?.data?.path?.text &&
+           parsed?.data?.line_number &&
+           parsed?.data?.lines?.text;
+  }
+
+  /**
    * Parse ripgrep JSON output into SearchResult objects
    */
   private parseRipgrepOutput(output: string): SearchResult[] {
+    if (!output.trim()) return [];
+
     const results: SearchResult[] = [];
-    const lines = output
-      .trim()
-      .split("\n")
-      .filter((line) => line.length > 0);
+    const lines = output.trim().split("\n");
 
     for (const line of lines) {
       try {
         const parsed = JSON.parse(line);
-        if (parsed.type === "match") {
+        if (this.isRipgrepMatch(parsed)) {
           const data = parsed.data;
           results.push({
             file: data.path.text,
             line: data.line_number,
-            column: data.submatches[0]?.start || 0,
+            column: data.submatches?.[0]?.start ?? 0,
             text: data.lines.text.trim(),
-            match: data.submatches[0]?.match?.text || "",
+            match: data.submatches?.[0]?.match?.text ?? "",
           });
         }
       } catch {
@@ -274,11 +302,11 @@ export class SearchTool {
     }
   ): Promise<FileSearchResult[]> {
     const files: FileSearchResult[] = [];
-    const maxResults = options.maxResults || 50;
-    const searchPattern = pattern.toLowerCase();
+    const maxResults = options.maxResults || SearchTool.DEFAULT_MAX_RESULTS;
+    const searchPattern = pattern.toLowerCase(); // Cache once for all comparisons
 
     const walkDir = async (dir: string, depth: number = 0): Promise<void> => {
-      if (depth > 10 || files.length >= maxResults) return; // Prevent infinite recursion and limit results
+      if (depth > SearchTool.MAX_RECURSION_DEPTH || files.length >= maxResults) return;
 
       try {
         const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -295,19 +323,7 @@ export class SearchTool {
           }
 
           // Skip common directories
-          if (
-            entry.isDirectory() &&
-            [
-              "node_modules",
-              ".git",
-              ".svn",
-              ".hg",
-              "dist",
-              "build",
-              ".next",
-              ".cache",
-            ].includes(entry.name)
-          ) {
+          if (entry.isDirectory() && SearchTool.SKIP_DIRECTORIES.includes(entry.name)) {
             continue;
           }
 
@@ -359,30 +375,30 @@ export class SearchTool {
     const lowerFilePath = filePath.toLowerCase();
 
     // Exact matches get highest score
-    if (lowerFileName === pattern) return 100;
-    if (lowerFileName.includes(pattern)) return 80;
-
-    // Path matches get medium score
-    if (lowerFilePath.includes(pattern)) return 60;
+    if (lowerFileName === pattern) return SearchTool.SCORE_EXACT_MATCH;
+    if (lowerFileName.includes(pattern)) return SearchTool.SCORE_CONTAINS_MATCH;
+    if (lowerFilePath.includes(pattern)) return SearchTool.SCORE_PATH_MATCH;
 
     // Fuzzy matching - check if all characters of pattern exist in order
+    return this.calculateFuzzyScore(lowerFileName, pattern, fileName.length);
+  }
+
+  /**
+   * Calculate fuzzy match score for character sequence matching
+   */
+  private calculateFuzzyScore(text: string, pattern: string, originalLength: number): number {
     let patternIndex = 0;
-    for (
-      let i = 0;
-      i < lowerFileName.length && patternIndex < pattern.length;
-      i++
-    ) {
-      if (lowerFileName[i] === pattern[patternIndex]) {
+
+    for (let i = 0; i < text.length && patternIndex < pattern.length; i++) {
+      if (text[i] === pattern[patternIndex]) {
         patternIndex++;
       }
     }
 
-    if (patternIndex === pattern.length) {
-      // All characters found in order - score based on how close they are
-      return Math.max(10, 40 - (fileName.length - pattern.length));
-    }
-
-    return 0;
+    // All characters found in order - score based on how close they are
+    return patternIndex === pattern.length
+      ? Math.max(SearchTool.SCORE_FUZZY_MIN, SearchTool.SCORE_FUZZY_BASE - (originalLength - pattern.length))
+      : 0;
   }
 
   /**
@@ -417,7 +433,7 @@ export class SearchTool {
     });
 
     const fileList = Array.from(allFiles);
-    const displayLimit = 8;
+    const displayLimit = SearchTool.MAX_DISPLAY_RESULTS;
 
     // Show files in compact format
     fileList.slice(0, displayLimit).forEach((file) => {

@@ -125,14 +125,24 @@ export function deleteWordAfter(text: string, position: number): { text: string;
 
 /**
  * Get the current line and column from text position
+ * Optimized to avoid splitting the entire string
  */
 export function getTextPosition(text: string, index: number): TextPosition {
-  const lines = text.slice(0, index).split('\n');
-  return {
-    index,
-    line: lines.length - 1,
-    column: lines[lines.length - 1].length,
-  };
+  const beforeCursor = text.slice(0, index);
+  let line = 0;
+  let lastNewlinePos = -1;
+
+  // Count newlines and track last position
+  for (let i = 0; i < beforeCursor.length; i++) {
+    if (beforeCursor[i] === '\n') {
+      line++;
+      lastNewlinePos = i;
+    }
+  }
+
+  const column = lastNewlinePos === -1 ? index : index - lastNewlinePos - 1;
+
+  return { index, line, column };
 }
 
 /**
