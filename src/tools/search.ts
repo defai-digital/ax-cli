@@ -165,7 +165,12 @@ export class SearchTool {
       }
 
       // Add max results limit
-      if (options.maxResults) {
+      if (options.maxResults !== undefined) {
+        // Validate maxResults is a positive integer
+        if (!Number.isInteger(options.maxResults) || options.maxResults < 1) {
+          reject(new Error(`maxResults must be a positive integer, got: ${options.maxResults}`));
+          return;
+        }
         args.push("--max-count", options.maxResults.toString());
       }
 

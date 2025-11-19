@@ -23,6 +23,14 @@ export class BashTool {
 
   async execute(command: string, timeout: number = BashTool.DEFAULT_TIMEOUT): Promise<ToolResult> {
     try {
+      // Validate timeout parameter
+      if (!Number.isFinite(timeout) || timeout <= 0) {
+        return {
+          success: false,
+          error: `Invalid timeout: ${timeout}. Must be a positive number.`
+        };
+      }
+
       // Request confirmation for bash command execution
       const shouldExecute = await this.confirmationService.shouldProceed('bash', {
         operation: 'Run bash command',
