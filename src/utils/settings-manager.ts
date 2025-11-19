@@ -193,7 +193,11 @@ export class SettingsManager {
       if (!fs.existsSync(this.userSettingsPath)) {
         // Create default user settings if file doesn't exist
         this.saveUserSettings(DEFAULT_USER_SETTINGS);
-        return { ...DEFAULT_USER_SETTINGS };
+        const defaultSettings = { ...DEFAULT_USER_SETTINGS };
+        // Update cache after creating file
+        this.userSettingsCache = defaultSettings;
+        this.cacheTimestamp.user = Date.now();
+        return defaultSettings;
       }
 
       // Use json-utils for consistent JSON handling
@@ -207,7 +211,11 @@ export class SettingsManager {
           "Failed to load user settings:",
           parseResult.error
         );
-        return { ...DEFAULT_USER_SETTINGS };
+        const defaultSettings = { ...DEFAULT_USER_SETTINGS };
+        // Cache defaults even on parse failure to avoid repeated file reads
+        this.userSettingsCache = defaultSettings;
+        this.cacheTimestamp.user = Date.now();
+        return defaultSettings;
       }
 
       // Merge with defaults to ensure all required fields exist
@@ -308,7 +316,11 @@ export class SettingsManager {
       if (!fs.existsSync(this.projectSettingsPath)) {
         // Create default project settings if file doesn't exist
         this.saveProjectSettings(DEFAULT_PROJECT_SETTINGS);
-        return { ...DEFAULT_PROJECT_SETTINGS };
+        const defaultSettings = { ...DEFAULT_PROJECT_SETTINGS };
+        // Update cache after creating file
+        this.projectSettingsCache = defaultSettings;
+        this.cacheTimestamp.project = Date.now();
+        return defaultSettings;
       }
 
       // Use json-utils for consistent JSON handling
@@ -322,7 +334,11 @@ export class SettingsManager {
           "Failed to load project settings:",
           parseResult.error
         );
-        return { ...DEFAULT_PROJECT_SETTINGS };
+        const defaultSettings = { ...DEFAULT_PROJECT_SETTINGS };
+        // Cache defaults even on parse failure to avoid repeated file reads
+        this.projectSettingsCache = defaultSettings;
+        this.cacheTimestamp.project = Date.now();
+        return defaultSettings;
       }
 
       // Merge with defaults
