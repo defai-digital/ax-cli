@@ -433,13 +433,14 @@ Examples:
       const tracker = getUsageTracker();
       const stats = tracker.getSessionStats();
 
-      let usageContent = "📊 **API Usage Statistics**\n\n";
+      let usageContent = "📊 **API Usage & Limits (Z.AI)**\n\n";
 
+      // Session statistics
+      usageContent += "**📱 Current Session:**\n";
       if (stats.totalRequests === 0) {
-        usageContent += "No API requests made in this session.";
+        usageContent += "  No API requests made yet. Ask me something to start tracking!\n";
       } else {
-        usageContent += `**Current Session:**\n`;
-        usageContent += `  • Total Requests: ${stats.totalRequests.toLocaleString()}\n`;
+        usageContent += `  • Requests: ${stats.totalRequests.toLocaleString()}\n`;
         usageContent += `  • Prompt Tokens: ${stats.totalPromptTokens.toLocaleString()}\n`;
         usageContent += `  • Completion Tokens: ${stats.totalCompletionTokens.toLocaleString()}\n`;
         usageContent += `  • Total Tokens: ${stats.totalTokens.toLocaleString()}\n`;
@@ -449,14 +450,39 @@ Examples:
         }
 
         if (stats.byModel.size > 0) {
-          usageContent += `\n**By Model:**\n`;
+          usageContent += `\n  **Models Used:**\n`;
           for (const [model, modelStats] of stats.byModel.entries()) {
-            usageContent += `  • ${model}: ${modelStats.totalTokens.toLocaleString()} tokens (${modelStats.requests} requests)\n`;
+            usageContent += `    - ${model}: ${modelStats.totalTokens.toLocaleString()} tokens (${modelStats.requests} requests)\n`;
           }
         }
+      }
 
-        usageContent += `\n💡 Use \`ax-cli usage show --detailed\` for full breakdown`;
-        usageContent += `\n💡 Historical data: https://z.ai/manage-apikey/billing`;
+      // Z.AI account information
+      usageContent += `\n**🔑 Z.AI Account Usage & Limits:**\n`;
+      usageContent += `  ⚠️  API does not provide programmatic access to usage data\n`;
+      usageContent += `\n  **Check your account:**\n`;
+      usageContent += `  • Billing & Usage: https://z.ai/manage-apikey/billing\n`;
+      usageContent += `  • Rate Limits: https://z.ai/manage-apikey/rate-limits\n`;
+      usageContent += `  • API Keys: https://z.ai/manage-apikey/apikey-list\n`;
+
+      usageContent += `\n**ℹ️  Notes:**\n`;
+      usageContent += `  • Billing reflects previous day (n-1) consumption\n`;
+      usageContent += `  • Current day usage may not be immediately visible\n`;
+      usageContent += `  • Cached content: 1/5 of original price\n`;
+
+      usageContent += `\n**💰 GLM-4.6 Pricing:**\n`;
+      usageContent += `  • Input: $0.11 per 1M tokens\n`;
+      usageContent += `  • Output: $0.28 per 1M tokens\n`;
+
+      if (stats.totalRequests > 0) {
+        // Calculate estimated cost for this session
+        const inputCost = (stats.totalPromptTokens / 1000000) * 0.11;
+        const outputCost = (stats.totalCompletionTokens / 1000000) * 0.28;
+        const totalCost = inputCost + outputCost;
+        usageContent += `\n**💵 Estimated Session Cost:**\n`;
+        usageContent += `  • Input: $${inputCost.toFixed(6)} (${stats.totalPromptTokens.toLocaleString()} tokens)\n`;
+        usageContent += `  • Output: $${outputCost.toFixed(6)} (${stats.totalCompletionTokens.toLocaleString()} tokens)\n`;
+        usageContent += `  • **Total: ~$${totalCost.toFixed(6)}**\n`;
       }
 
       const usageEntry: ChatEntry = {
