@@ -9,6 +9,9 @@ export default [
       'coverage/**',
       '*.config.js',
       '*.config.ts',
+      'packages/**',           // Ignore packages directory
+      '**/*.d.ts',            // Ignore TypeScript declaration files
+      '**/__tests__/**',      // Ignore test directories
     ],
   },
   {
