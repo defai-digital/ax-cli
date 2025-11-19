@@ -222,11 +222,14 @@ npm run test:ui           # Interactive UI
 - Full conversational AI capabilities offline
 
 ### 🚀 **Multi-Provider AI Support**
-- **Primary**: GLM 4.6 (9B parameters) - Optimized for AX CLI
-- **Local Models**: Llama 3.1, Qwen 2.5, DeepSeek, and more via Ollama
-- **Cloud Providers**: OpenAI, Anthropic (Claude), X.AI (Grok), OpenRouter, Groq
+- **Primary**: GLM 4.6 (200K context, reasoning mode) - Default model optimized for AX CLI
+- **Built-in GLM Models**: glm-4.6, grok-code-fast-1, glm-4-air, glm-4-airx
+- **Local Models**: Llama 3.1, Qwen 2.5, DeepSeek, and any Ollama-supported model
+- **Cloud Providers**: OpenAI (GPT-4), Anthropic (Claude), Google (Gemini), X.AI (Grok), OpenRouter, Groq
+- **Z.AI Platform**: Native support for z.ai GLM API server (cloud & local deployments)
 - **Flexible Configuration**: Switch between providers seamlessly
-- **OpenAI-Compatible API**: Works with any OpenAI-compatible endpoint
+- **OpenAI-Compatible API**: Works with ANY OpenAI-compatible endpoint
+- **Full Backward Compatibility**: All models from original grok-cli still supported
 
 ### 🤖 **Intelligent Automation**
 - **Smart File Operations**: AI automatically reads, creates, and edits files
@@ -398,21 +401,40 @@ ax-cli --directory /path/to/project --prompt "List all TypeScript files"
 
 #### Supported Providers
 
-| Provider | Base URL | Best For |
-|----------|----------|----------|
-| **X.AI (Grok)** | `https://api.x.ai/v1` | Fast code generation, reasoning |
-| **OpenAI** | `https://api.openai.com/v1` | GPT-4, GPT-4 Turbo, GPT-3.5 |
-| **Anthropic** | `https://api.anthropic.com/v1` | Claude 3.5 Sonnet, Claude 3 Opus |
-| **OpenRouter** | `https://openrouter.ai/api/v1` | Multi-model access, routing |
-| **Groq** | `https://api.groq.com/openai/v1` | Ultra-fast inference |
+**AX CLI supports ANY OpenAI-compatible API endpoint**, making it universally compatible with major AI providers.
+
+| Provider | Base URL | Supported Models | Best For |
+|----------|----------|------------------|----------|
+| **Z.AI** | `https://api.z.ai/v1` | GLM-4.6, GLM-4-Air, GLM-4-AirX | GLM models (cloud & local), 200K context, reasoning mode |
+| **X.AI (Grok)** | `https://api.x.ai/v1` | Grok, Grok Code Fast | Fast code generation, X.AI ecosystem |
+| **OpenAI** | `https://api.openai.com/v1` | GPT-4, GPT-4 Turbo, GPT-3.5 | General purpose, production-ready |
+| **Anthropic** | `https://api.anthropic.com/v1` | Claude 3.5 Sonnet, Claude 3 Opus | Long context, advanced reasoning |
+| **Google** | `https://openrouter.ai/api/v1` | Gemini Pro 1.5 (via OpenRouter) | Multi-modal, Google ecosystem |
+| **OpenRouter** | `https://openrouter.ai/api/v1` | 100+ models from all providers | Model routing, fallback strategies |
+| **Groq** | `https://api.groq.com/openai/v1` | Llama, Mistral, Gemma | Ultra-fast inference (500+ tokens/sec) |
+| **Ollama** | `http://localhost:11434/v1` | Llama, Qwen, DeepSeek, GLM, any | Complete privacy, offline operation |
+
+#### Built-in Models
+
+AX CLI includes 4 pre-configured GLM models optimized for different use cases:
+
+| Model | Context | Max Output | Thinking Mode | Best For |
+|-------|---------|-----------|---------------|----------|
+| **glm-4.6** ⭐ | 200K | 128K | ✅ Yes | Default - Long context, reasoning tasks |
+| **grok-code-fast-1** | 128K | 4K | ❌ No | Fast code generation, quick responses |
+| **glm-4-air** | 128K | 8K | ❌ No | Balanced performance, general tasks |
+| **glm-4-airx** | 8K | 8K | ❌ No | Lightweight, quick interactions |
+
+⭐ **Default Model**: glm-4.6 is the default model for AX CLI
 
 #### Step 1: Get API Key
 
 1. Sign up at your chosen provider:
+   - [Z.AI](https://docs.z.ai) - GLM models (recommended for GLM 4.6)
    - [X.AI (Grok)](https://x.ai) - Fast code models
    - [OpenAI](https://platform.openai.com) - GPT-4 and GPT-3.5
    - [Anthropic](https://console.anthropic.com) - Claude 3.5 Sonnet
-   - [OpenRouter](https://openrouter.ai) - Multi-model access
+   - [OpenRouter](https://openrouter.ai) - Multi-model access to 100+ models
 
 2. Generate an API key from your provider's dashboard
 
@@ -472,6 +494,54 @@ export MORPH_API_KEY="your_morph_key_here"
 
 ---
 
+###  Multi-Provider Usage Examples
+
+AX CLI works with ANY OpenAI-compatible API. Here are examples for popular providers:
+
+**Z.AI (GLM Models - Recommended)**
+```bash
+# Cloud GLM 4.6 via Z.AI
+ax-cli --api-key YOUR_ZAI_KEY --base-url https://api.z.ai/v1 --model glm-4.6
+
+# Local Z.AI deployment
+ax-cli --base-url http://localhost:8000/v1 --model glm-4.6
+```
+
+**OpenAI (GPT-4)**
+```bash
+ax-cli --api-key YOUR_OPENAI_KEY --base-url https://api.openai.com/v1 --model gpt-4
+```
+
+**Anthropic (Claude)**
+```bash
+ax-cli --api-key YOUR_ANTHROPIC_KEY --base-url https://api.anthropic.com/v1 --model claude-3.5-sonnet
+```
+
+**Google Gemini (via OpenRouter)**
+```bash
+ax-cli --api-key YOUR_OPENROUTER_KEY --base-url https://openrouter.ai/api/v1 --model google/gemini-pro-1.5
+```
+
+**Ollama (Local - No API Key Needed)**
+```bash
+# Any Ollama model
+ax-cli --base-url http://localhost:11434/v1 --model llama3.1
+ax-cli --base-url http://localhost:11434/v1 --model qwen2.5
+ax-cli --base-url http://localhost:11434/v1 --model deepseek-coder
+```
+
+**X.AI (Grok)**
+```bash
+ax-cli --api-key YOUR_XAI_KEY --base-url https://api.x.ai/v1 --model grok-code-fast-1
+```
+
+**OpenRouter (100+ Models)**
+```bash
+ax-cli --api-key YOUR_OPENROUTER_KEY --base-url https://openrouter.ai/api/v1 --model anthropic/claude-3.5-sonnet
+```
+
+---
+
 ## 📖 Usage
 
 ### Interactive Mode
@@ -479,17 +549,21 @@ export MORPH_API_KEY="your_morph_key_here"
 Start a conversational AI session:
 
 ```bash
-# Basic usage
+# Basic usage (uses glm-4.6 by default)
 ax-cli
 
 # Specify working directory
 ax-cli --directory /path/to/project
 
-# Use specific model
+# Use specific built-in model
 ax-cli --model grok-code-fast-1
+ax-cli --model glm-4-air
 
-# Offline mode with local GLM
-ax-cli --model glm4:9b --base-url http://localhost:11434/v1
+# Connect to Z.AI
+ax-cli --base-url https://api.z.ai/v1 --model glm-4.6
+
+# Offline mode with Ollama
+ax-cli --model llama3.1 --base-url http://localhost:11434/v1
 ```
 
 **Example Session:**
