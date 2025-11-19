@@ -4,10 +4,14 @@
  */
 
 import { z } from 'zod';
+import { __brand, MessageRoleEnum, ToolCallIdSchema, ModelIdSchema } from '@ax-cli/schemas';
+
+// Re-export __brand to satisfy TypeScript's type resolution
+export { __brand };
 
 // Grok Tool Call Schema
 export const GrokToolCallSchema = z.object({
-  id: z.string(),
+  id: ToolCallIdSchema,
   type: z.literal('function'),
   function: z.object({
     name: z.string(),
@@ -19,10 +23,10 @@ export type GrokToolCall = z.infer<typeof GrokToolCallSchema>;
 
 // Grok Message Schema
 export const GrokMessageSchema = z.object({
-  role: z.enum(['system', 'user', 'assistant', 'tool']),
+  role: MessageRoleEnum,
   content: z.string().nullable(),
   tool_calls: z.array(GrokToolCallSchema).optional(),
-  tool_call_id: z.string().optional(),
+  tool_call_id: ToolCallIdSchema.optional(),
   name: z.string().optional(),
 });
 
@@ -33,7 +37,7 @@ export const GrokResponseSchema = z.object({
   id: z.string().optional(),
   object: z.string().optional(),
   created: z.number().optional(),
-  model: z.string().optional(),
+  model: ModelIdSchema.optional(),
   choices: z.array(
     z.object({
       index: z.number().optional(),

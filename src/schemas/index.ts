@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import { __brand, MessageRoleEnum, FinishReasonEnum, TransportEnum, ModelIdSchema, MCPServerIdSchema } from '@ax-cli/schemas';
+
+// Re-export __brand to satisfy TypeScript's type resolution
+export { __brand };
 
 /**
  * Configuration schemas using Zod for runtime validation
@@ -8,18 +12,18 @@ import { z } from 'zod';
 export const UserSettingsSchema = z.object({
   apiKey: z.string().optional(),
   baseURL: z.string().url().optional(),
-  defaultModel: z.string().optional(),
-  models: z.array(z.string()).optional(),
+  defaultModel: ModelIdSchema.optional(),
+  models: z.array(ModelIdSchema).optional(),
 });
 
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
 
 // Project settings schema
 export const ProjectSettingsSchema = z.object({
-  model: z.string().optional(),
+  model: ModelIdSchema.optional(),
   mcpServers: z.record(z.string(), z.object({
-    name: z.string(),
-    transport: z.enum(['stdio', 'http', 'sse']),
+    name: MCPServerIdSchema,
+    transport: TransportEnum,
     command: z.string().optional(),
     args: z.array(z.string()).optional(),
     url: z.string().url().optional(),
@@ -31,8 +35,8 @@ export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
 
 // MCP Server configuration schema
 export const MCPServerConfigSchema = z.object({
-  name: z.string().min(1, 'Server name is required'),
-  transport: z.enum(['stdio', 'http', 'sse']),
+  name: MCPServerIdSchema,
+  transport: TransportEnum,
   command: z.string().optional(),
   args: z.array(z.string()).optional(),
   url: z.string().url().optional(),
@@ -67,11 +71,11 @@ export const APIResponseSchema = z.object({
   id: z.string(),
   object: z.string(),
   created: z.number(),
-  model: z.string(),
+  model: ModelIdSchema,
   choices: z.array(z.object({
     index: z.number(),
     message: z.object({
-      role: z.enum(['system', 'user', 'assistant', 'tool']),
+      role: MessageRoleEnum,
       content: z.string().nullable(),
       tool_calls: z.array(z.object({
         id: z.string(),
@@ -82,7 +86,7 @@ export const APIResponseSchema = z.object({
         }),
       })).optional(),
     }),
-    finish_reason: z.enum(['stop', 'length', 'tool_calls', 'content_filter']).nullable(),
+    finish_reason: FinishReasonEnum.nullable(),
   })),
   usage: z.object({
     prompt_tokens: z.number(),

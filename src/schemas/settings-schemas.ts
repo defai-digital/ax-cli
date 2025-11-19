@@ -4,16 +4,20 @@
  */
 
 import { z } from 'zod';
+import { __brand, ModelIdSchema, MCPServerIdSchema } from '@ax-cli/schemas';
+
+// Re-export __brand to satisfy TypeScript's type resolution
+export { __brand };
 
 // User Settings Schema
 export const UserSettingsSchema = z.object({
   apiKey: z.string().optional(),
   baseURL: z.string().optional(), // Remove .url() to allow any string
-  defaultModel: z.string().optional(),
-  currentModel: z.string().optional(),
+  defaultModel: ModelIdSchema.optional(),
+  currentModel: ModelIdSchema.optional(),
   maxTokens: z.number().int().positive().optional(),
   temperature: z.number().min(0).max(2).optional(),
-  models: z.array(z.string()).optional(),
+  models: z.array(ModelIdSchema).optional(),
   confirmations: z.object({
     fileOperations: z.boolean().optional(),
     bashCommands: z.boolean().optional(),
@@ -23,8 +27,8 @@ export const UserSettingsSchema = z.object({
 // Project Settings Schema
 export const ProjectSettingsSchema = z.object({
   name: z.string().optional(),
-  model: z.string().optional(), // Legacy field
-  currentModel: z.string().optional(),
+  model: ModelIdSchema.optional(), // Legacy field
+  currentModel: ModelIdSchema.optional(),
   customInstructions: z.string().optional(),
   excludePatterns: z.array(z.string()).optional(),
   includePatterns: z.array(z.string()).optional(),
@@ -33,7 +37,7 @@ export const ProjectSettingsSchema = z.object({
 
 // Model Option Schema
 export const ModelOptionSchema = z.object({
-  model: z.string().min(1),
+  model: ModelIdSchema,
   description: z.string().optional(),
   maxTokens: z.number().int().positive().optional(),
 });
@@ -49,7 +53,7 @@ export const MCPTransportConfigSchema = z.object({
 });
 
 export const MCPServerConfigSchema = z.object({
-  name: z.string().min(1),
+  name: MCPServerIdSchema,
   transport: MCPTransportConfigSchema,
   command: z.string().optional(), // Legacy support
   args: z.array(z.string()).optional(), // Legacy support
