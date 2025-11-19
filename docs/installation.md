@@ -660,7 +660,7 @@ ax-cli --prompt "Hello from AX CLI"
 **Cloud Provider Example (X.AI/Grok):**
 ```bash
 # Set API key
-export GROK_API_KEY="your_api_key_here"
+export YOUR_API_KEY="your_api_key_here"
 
 # Test
 ax-cli --api-key "your_api_key_here" \
@@ -887,7 +887,7 @@ Error: 401 Unauthorized
 2. Check configuration:
 ```bash
 # Verify key is set
-echo $GROK_API_KEY  # Should not be empty
+echo $YOUR_API_KEY  # Should not be empty
 
 # Or check config file
 cat ~/.ax-cli/config.json
@@ -895,7 +895,7 @@ cat ~/.ax-cli/config.json
 
 3. Use environment variable directly:
 ```bash
-export GROK_API_KEY="your_key_here"
+export YOUR_API_KEY="your_key_here"
 ax-cli --prompt "Test"
 ```
 
@@ -1023,7 +1023,7 @@ Key environment variables for AX CLI:
 
 ```bash
 # API Configuration
-GROK_API_KEY="your_api_key"           # API key for provider
+YOUR_API_KEY="your_api_key"           # API key for provider
 GROK_BASE_URL="https://api.x.ai/v1"   # API endpoint
 GROK_MODEL="glm-4.6"                  # Default model
 

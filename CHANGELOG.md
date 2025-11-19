@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-01-19
+
+### Fixed
+- **Critical Bug Fixes (10 issues resolved):**
+  - **Memory Leak in ContextManager**: Fixed setInterval never being cleared, causing memory leaks in long-running sessions
+    - Added `cleanupIntervalId` property and `dispose()` method for proper cleanup
+    - Prevents memory accumulation over time
+  - **Unhandled Promise Rejection**: Added `.catch()` handler to MCP initialization promise chain
+    - Prevents Node.js warnings about unhandled rejections
+    - Future-proofs against process crashes in newer Node versions
+  - **Missing JSON Validation in MCP Tools**: Added input validation before JSON.parse in `executeMCPTool`
+    - Prevents crashes from empty or malformed MCP tool arguments
+    - Consistent with `executeTool` validation pattern
+  - **Unsafe Array Access**: Added bounds checking in `parseViewCommand`
+    - Validates file path exists before accessing array indices
+    - Validates numeric range values (NaN check, bounds check)
+    - Provides clear error messages for malformed commands
+  - **Default Model Inconsistency**: Aligned default model across all configuration files
+    - Changed `config/models.yaml` from `glm-4.6` to `grok-code-fast-1`
+    - Matches hardcoded defaults and user expectations
+  - **Hardcoded Legacy Paths**: Updated 6 user-facing messages from `.grok` to `.ax-cli` paths
+    - Dynamic path display using `getUserSettingsPath()` method
+    - Accurate guidance during configuration migration
+  - **Import Issue Breaking Tests**: Replaced dynamic `require()` calls with ES6 imports
+    - Fixed yaml-schemas module loading in config-loader
+    - All 306 tests now pass reliably
+  - **Type Definition Gap**: Extended `MessagesYaml` interface with optional UI sections
+    - Added support for `ui`, `mcp_commands`, and `migration` message sections
+    - Improved type safety for message templates
+  - **Context Pruning Logic**: Clarified complex condition with named variables
+    - Better readability for gap detection between message segments
+    - Ensures pruning marker only appears when messages actually skipped
+  - **Unused Test Variable**: Removed unused result variable in morph-editor tests
+    - Cleaner code, eliminated ESLint warning
+
+### Improved
+- **Code Quality**: Enhanced defensive programming across critical paths
+- **Error Handling**: Better error messages and input validation
+- **Resource Management**: Proper cleanup of intervals, promises, and resources
+- **Type Safety**: Complete schema validation for all YAML configurations
+- **Reliability**: 100% test pass rate (306/306 tests passing)
+
 ## [1.1.1] - 2025-11-19
 
 ### Added

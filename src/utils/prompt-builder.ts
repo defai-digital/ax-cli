@@ -18,6 +18,11 @@ export function buildSystemPrompt(options: {
   // Identity
   sections.push(config.system_prompt.identity);
 
+  // Core principles (if defined)
+  if (config.system_prompt.core_principles) {
+    sections.push(formatSection(config.system_prompt.core_principles));
+  }
+
   // Custom instructions (if provided)
   if (options.customInstructions) {
     sections.push(

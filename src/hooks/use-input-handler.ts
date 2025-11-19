@@ -409,7 +409,7 @@ Direct Commands (executed immediately):
   touch <file>- Create empty file
 
 Model Configuration:
-  Edit ~/.grok/models.json to add custom models (Claude, GPT, Gemini, etc.)
+  Edit ~/.ax-cli/config.json to configure default model and settings
 
 For complex operations, just describe what you want in natural language.
 Examples:

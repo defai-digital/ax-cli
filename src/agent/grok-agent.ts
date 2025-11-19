@@ -107,6 +107,9 @@ export class GrokAgent extends EventEmitter {
       } catch (error) {
         console.warn("MCP initialization failed:", error);
       }
+    }).catch((error) => {
+      // Catch any unhandled promise rejections
+      console.warn("Unexpected error during MCP initialization:", error);
     });
   }
 
@@ -704,6 +707,14 @@ export class GrokAgent extends EventEmitter {
 
   private async executeMCPTool(toolCall: GrokToolCall): Promise<ToolResult> {
     try {
+      // Defensive: ensure arguments is a valid JSON string
+      if (!toolCall.function.arguments || toolCall.function.arguments.trim() === '') {
+        return {
+          success: false,
+          error: `MCP tool ${toolCall.function.name} called with empty arguments`,
+        };
+      }
+
       const args = JSON.parse(toolCall.function.arguments);
       const mcpManager = getMCPManager();
 

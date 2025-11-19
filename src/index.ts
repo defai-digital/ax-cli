@@ -77,11 +77,11 @@ async function saveCommandLineSettings(
     // Update with command line values
     if (apiKey) {
       manager.updateUserSetting("apiKey", apiKey);
-      console.log("✅ API key saved to ~/.grok/user-settings.json");
+      console.log(`✅ API key saved to ${manager.getUserSettingsPath()}`);
     }
     if (baseURL) {
       manager.updateUserSetting("baseURL", baseURL);
-      console.log("✅ Base URL saved to ~/.grok/user-settings.json");
+      console.log(`✅ Base URL saved to ${manager.getUserSettingsPath()}`);
     }
   } catch (error) {
     console.warn(
@@ -357,7 +357,7 @@ program
 
       if (!apiKey) {
         console.error(
-          "❌ Error: API key required. Set YOUR_API_KEY environment variable, use --api-key flag, or save to ~/.grok/user-settings.json"
+          "❌ Error: API key required. Set YOUR_API_KEY environment variable, use --api-key flag, or save to ~/.ax-cli/config.json"
         );
         process.exit(1);
       }
@@ -442,7 +442,7 @@ gitCommand
 
       if (!apiKey) {
         console.error(
-          "❌ Error: API key required. Set YOUR_API_KEY environment variable, use --api-key flag, or save to ~/.grok/user-settings.json"
+          "❌ Error: API key required. Set YOUR_API_KEY environment variable, use --api-key flag, or save to ~/.ax-cli/config.json"
         );
         process.exit(1);
       }

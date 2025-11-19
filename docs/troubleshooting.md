@@ -202,7 +202,7 @@ sudo chown -R $(whoami) /usr/local/bin
 
 **Symptoms:**
 ```
-Error: API key required. Set GROK_API_KEY environment variable,
+Error: API key required. Set YOUR_API_KEY environment variable,
 use --api-key flag, or save to ~/.ax/user-settings.json
 ```
 
@@ -211,21 +211,21 @@ use --api-key flag, or save to ~/.ax/user-settings.json
 **1. Set environment variable (One-time)**
 ```bash
 # For current session
-export GROK_API_KEY="your_api_key_here"
+export YOUR_API_KEY="your_api_key_here"
 ax-cli -p "test prompt"
 
 # Or use with command
-GROK_API_KEY="your_api_key_here" ax-cli -p "test prompt"
+YOUR_API_KEY="your_api_key_here" ax-cli -p "test prompt"
 ```
 
 **2. Permanently set in shell config**
 ```bash
 # For Bash (~/.bashrc)
-echo 'export GROK_API_KEY="your_api_key_here"' >> ~/.bashrc
+echo 'export YOUR_API_KEY="your_api_key_here"' >> ~/.bashrc
 source ~/.bashrc
 
 # For Zsh (~/.zshrc)
-echo 'export GROK_API_KEY="your_api_key_here"' >> ~/.zshrc
+echo 'export YOUR_API_KEY="your_api_key_here"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
@@ -256,7 +256,7 @@ ax-cli -p "test" --api-key "your_api_key_here"
 ```bash
 # AX CLI checks in this order:
 # 1. Command line: --api-key
-# 2. Environment: GROK_API_KEY
+# 2. Environment: YOUR_API_KEY
 # 3. Project: .ax/settings.json
 # 4. User: ~/.ax/user-settings.json
 # 5. Defaults: built-in defaults
@@ -283,7 +283,7 @@ API key format is incorrect
 For **X.AI (Grok)**:
 ```bash
 # Should start with "xai-"
-echo $GROK_API_KEY | grep "^xai-"  # Should match
+echo $YOUR_API_KEY | grep "^xai-"  # Should match
 ```
 
 For **Z.AI (GLM)**:
@@ -295,13 +295,13 @@ For **Z.AI (GLM)**:
 For **OpenRouter**:
 ```bash
 # Should start with "sk-or-"
-echo $GROK_API_KEY | grep "^sk-or-"  # Should match
+echo $YOUR_API_KEY | grep "^sk-or-"  # Should match
 ```
 
 **2. Verify API key validity**
 ```bash
 # Test with curl
-curl -H "Authorization: Bearer $GROK_API_KEY" \
+curl -H "Authorization: Bearer $YOUR_API_KEY" \
   https://api.x.ai/v1/models \
   | head -20
 
@@ -311,10 +311,10 @@ curl -H "Authorization: Bearer $GROK_API_KEY" \
 **3. Check for whitespace or special characters**
 ```bash
 # Ensure no extra spaces
-echo "$GROK_API_KEY" | od -c | grep -E "^\s+$"  # Should be empty
+echo "$YOUR_API_KEY" | od -c | grep -E "^\s+$"  # Should be empty
 
 # Check for common issues
-echo "${#GROK_API_KEY}"  # Should show length without spaces
+echo "${#YOUR_API_KEY}"  # Should show length without spaces
 ```
 
 **4. Regenerate API key**
@@ -368,7 +368,7 @@ git commit -m "Add secrets to .gitignore"
 **4. Use environment variables for CI/CD**
 ```bash
 # In CI/CD (GitHub Actions, GitLab CI, etc.)
-# Add GROK_API_KEY as a secret environment variable
+# Add YOUR_API_KEY as a secret environment variable
 # Never hardcode in scripts or config files
 ```
 
@@ -465,7 +465,7 @@ cat ~/.ax/user-settings.json | grep baseURL
 **3. Test connection with curl**
 ```bash
 # Test with API key
-curl -H "Authorization: Bearer $GROK_API_KEY" \
+curl -H "Authorization: Bearer $YOUR_API_KEY" \
   -X POST https://api.x.ai/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"grok-code-fast-1","messages":[{"role":"user","content":"test"}]}' \
@@ -514,7 +514,7 @@ Error: Authentication failed
 **1. Verify API key is correctly set**
 ```bash
 # Check in order of priority
-echo $GROK_API_KEY              # Environment variable
+echo $YOUR_API_KEY              # Environment variable
 cat ~/.ax/user-settings.json    # User settings
 cat .ax/settings.json           # Project settings
 ```
@@ -522,10 +522,10 @@ cat .ax/settings.json           # Project settings
 **2. Check for common typos**
 ```bash
 # Look for spacing issues
-echo "$GROK_API_KEY" | sed 's/./& /g'  # Show each character
+echo "$YOUR_API_KEY" | sed 's/./& /g'  # Show each character
 
 # Check length is reasonable
-echo "${#GROK_API_KEY}"  # Should be > 20 characters
+echo "${#YOUR_API_KEY}"  # Should be > 20 characters
 ```
 
 **3. Verify API key hasn't expired**
@@ -1437,7 +1437,7 @@ env | grep GROK
 env | grep DEBUG
 
 # See specific var
-echo $GROK_API_KEY
+echo $YOUR_API_KEY
 echo $GROK_BASE_URL
 ```
 

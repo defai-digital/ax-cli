@@ -4,6 +4,11 @@ import * as os from "os";
 import { UserSettingsSchema, ProjectSettingsSchema } from "../schemas/settings-schemas.js";
 import type { UserSettings, ProjectSettings } from "../schemas/settings-schemas.js";
 import { ModelIdSchema } from '@ax-cli/schemas';
+import { loadMessagesConfig, formatMessage } from "./config-loader.js";
+
+// Load migration messages from YAML
+const messages = loadMessagesConfig();
+const migrationMessages = messages.migration || {};
 
 // Re-export types for external use
 export type { UserSettings, ProjectSettings };
@@ -102,10 +107,18 @@ export class SettingsManager {
         fs.copyFileSync(oldUserPath, newUserPath);
         fs.chmodSync(newUserPath, 0o600); // Secure permissions for API key
 
-        details.push(`✅ Migrated user settings: ${oldUserPath} → ${newUserPath}`);
+        const successMsg = formatMessage(
+          migrationMessages.user_settings_success || "✅ Migrated user settings: {oldPath} → {newPath}",
+          { oldPath: oldUserPath, newPath: newUserPath }
+        );
+        details.push(successMsg);
         migrated = true;
       } catch (error) {
-        details.push(`❌ Failed to migrate user settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        const errorMsg = formatMessage(
+          migrationMessages.user_settings_failed || "❌ Failed to migrate user settings: {error}",
+          { error: error instanceof Error ? error.message : 'Unknown error' }
+        );
+        details.push(errorMsg);
       }
     }
 
@@ -124,15 +137,23 @@ export class SettingsManager {
         // Copy file
         fs.copyFileSync(oldProjectPath, newProjectPath);
 
-        details.push(`✅ Migrated project settings: ${oldProjectPath} → ${newProjectPath}`);
+        const successMsg = formatMessage(
+          migrationMessages.project_settings_success || "✅ Migrated project settings: {oldPath} → {newPath}",
+          { oldPath: oldProjectPath, newPath: newProjectPath }
+        );
+        details.push(successMsg);
         migrated = true;
       } catch (error) {
-        details.push(`❌ Failed to migrate project settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        const errorMsg = formatMessage(
+          migrationMessages.project_settings_failed || "❌ Failed to migrate project settings: {error}",
+          { error: error instanceof Error ? error.message : 'Unknown error' }
+        );
+        details.push(errorMsg);
       }
     }
 
     if (!migrated) {
-      details.push('ℹ️  No migration needed - already using .ax-cli paths or no old settings found');
+      details.push(migrationMessages.no_migration_needed || 'ℹ️  No migration needed - already using .ax-cli paths or no old settings found');
     }
 
     // Update the instance paths to use new locations
@@ -412,7 +433,7 @@ export class SettingsManager {
    */
   public getApiKey(): string | undefined {
     // First check environment variable
-    const envApiKey = process.env.GROK_API_KEY;
+    const envApiKey = process.env.YOUR_API_KEY;
     if (envApiKey) {
       return envApiKey;
     }
@@ -436,6 +457,20 @@ export class SettingsManager {
     return (
       userBaseURL || DEFAULT_USER_SETTINGS.baseURL || "https://api.x.ai/v1"
     );
+  }
+
+  /**
+   * Get the actual user settings path being used
+   */
+  public getUserSettingsPath(): string {
+    return this.userSettingsPath;
+  }
+
+  /**
+   * Get the actual project settings path being used
+   */
+  public getProjectSettingsPath(): string {
+    return this.projectSettingsPath;
   }
 }
 

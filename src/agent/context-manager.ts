@@ -31,6 +31,12 @@ export class ContextManager {
   private keepFirstMessages: number;
   private reservedTokens: number;
 
+  // Memoization cache for token counting
+  // Use Map with JSON serialized messages as key for cache lookup
+  private tokenCache = new Map<string, { count: number; timestamp: number }>();
+  private readonly CACHE_TTL = 60000; // 1 minute TTL
+  private cleanupIntervalId: NodeJS.Timeout | null = null;
+
   constructor(options: ContextManagerOptions) {
     this.model = options.model;
     const modelConfig = GLM_MODELS[this.model as keyof typeof GLM_MODELS];
@@ -40,31 +46,88 @@ export class ContextManager {
     this.keepRecentToolRounds = options.keepRecentToolRounds || 8;
     this.keepFirstMessages = options.keepFirstMessages || 2;
     this.reservedTokens = options.reservedTokens || 3000;
+
+    // Periodic cache cleanup to prevent memory leaks
+    this.cleanupIntervalId = setInterval(() => this.cleanupCache(), 60000); // Cleanup every minute
   }
 
   /**
-   * Check if context needs pruning
+   * Memoized token counting with cache
+   * Uses message content hash as cache key
+   */
+  private getCachedTokenCount(messages: GrokMessage[], tokenCounter: TokenCounter): number {
+    // Create cache key from message array
+    // Use a simplified hash based on message count, roles, and content lengths
+    const cacheKey = this.createMessageCacheKey(messages);
+
+    // Check cache
+    const cached = this.tokenCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < this.CACHE_TTL) {
+      return cached.count;
+    }
+
+    // Count tokens and cache result
+    const count = tokenCounter.countMessageTokens(messages as any);
+    this.tokenCache.set(cacheKey, { count, timestamp: Date.now() });
+
+    return count;
+  }
+
+  /**
+   * Create a cache key from messages
+   * Fast hashing without full serialization
+   */
+  private createMessageCacheKey(messages: GrokMessage[]): string {
+    // Use message count + roles + content lengths as a fast hash
+    return messages.map(m => {
+      const contentLen = typeof m.content === 'string' ? m.content.length : 0;
+      const toolCallsLen = (m as any).tool_calls?.length || 0;
+      return `${m.role}:${contentLen}:${toolCallsLen}`;
+    }).join('|');
+  }
+
+  /**
+   * Clean up expired cache entries
+   */
+  private cleanupCache(): void {
+    const now = Date.now();
+    for (const [key, value] of this.tokenCache.entries()) {
+      if (now - value.timestamp > this.CACHE_TTL) {
+        this.tokenCache.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Clear the token cache (useful for testing)
+   */
+  clearCache(): void {
+    this.tokenCache.clear();
+  }
+
+  /**
+   * Check if context needs pruning (with caching)
    */
   shouldPrune(messages: GrokMessage[], tokenCounter: TokenCounter): boolean {
-    const currentTokens = tokenCounter.countMessageTokens(messages as any);
+    const currentTokens = this.getCachedTokenCount(messages, tokenCounter);
     const threshold = this.contextWindow * this.pruneThreshold;
     return currentTokens > threshold;
   }
 
   /**
-   * Check if we're approaching hard limit
+   * Check if we're approaching hard limit (with caching)
    */
   isNearHardLimit(messages: GrokMessage[], tokenCounter: TokenCounter): boolean {
-    const currentTokens = tokenCounter.countMessageTokens(messages as any);
+    const currentTokens = this.getCachedTokenCount(messages, tokenCounter);
     const limit = this.contextWindow * this.hardLimit;
     return currentTokens > limit;
   }
 
   /**
-   * Get current context usage statistics
+   * Get current context usage statistics (with caching)
    */
   getStats(messages: GrokMessage[], tokenCounter: TokenCounter) {
-    const currentTokens = tokenCounter.countMessageTokens(messages as any);
+    const currentTokens = this.getCachedTokenCount(messages, tokenCounter);
     const percentage = (currentTokens / this.contextWindow) * 100;
     const available = this.contextWindow - currentTokens;
 
@@ -73,8 +136,8 @@ export class ContextManager {
       contextWindow: this.contextWindow,
       percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
       available,
-      shouldPrune: this.shouldPrune(messages, tokenCounter),
-      isNearLimit: this.isNearHardLimit(messages, tokenCounter),
+      shouldPrune: currentTokens > (this.contextWindow * this.pruneThreshold),
+      isNearLimit: currentTokens > (this.contextWindow * this.hardLimit),
     };
   }
 
@@ -269,7 +332,10 @@ export class ContextManager {
     const result = [...firstMessages];
 
     // Add context marker if we skipped messages
-    if (recentMessages.length > 0 && firstMessageEnd + 1 < workingMessages.length - recentMessages.length) {
+    // Check if there's a gap between first messages and recent messages
+    const gapStart = firstMessageEnd + 1;
+    const gapEnd = workingMessages.length - recentMessages.length;
+    if (recentMessages.length > 0 && gapStart < gapEnd) {
       result.push({
         role: 'system',
         content: '[Previous conversation context pruned to manage token limits]',
@@ -279,6 +345,18 @@ export class ContextManager {
     result.push(...recentMessages);
 
     return result;
+  }
+
+  /**
+   * Cleanup method to clear interval and prevent memory leaks
+   * Should be called when the ContextManager is no longer needed
+   */
+  dispose(): void {
+    if (this.cleanupIntervalId) {
+      clearInterval(this.cleanupIntervalId);
+      this.cleanupIntervalId = null;
+    }
+    this.tokenCache.clear();
   }
 
   /**

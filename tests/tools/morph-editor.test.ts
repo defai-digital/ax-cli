@@ -640,7 +640,7 @@ describe('MorphEditorTool', () => {
         data: { choices: [{ message: { content: 'merged' } }] },
       });
 
-      const result = await morphEditor.editFile(
+      await morphEditor.editFile(
         'test.txt',
         largeInstruction,
         largeCode

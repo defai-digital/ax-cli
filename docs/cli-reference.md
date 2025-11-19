@@ -32,7 +32,7 @@ ax-cli [options]
 |------|-----------|-------------|---------|
 | `-V` | `--version` | Output version number | `ax-cli -V` |
 | `-d` | `--directory <dir>` | Set working directory | `ax-cli -d /path/to/project` |
-| `-k` | `--api-key <key>` | API key (or GROK_API_KEY env var) | `ax-cli -k your_api_key` |
+| `-k` | `--api-key <key>` | API key (or YOUR_API_KEY env var) | `ax-cli -k your_api_key` |
 | `-u` | `--base-url <url>` | API base URL (or GROK_BASE_URL env var) | `ax-cli -u https://api.example.com/v1` |
 | `-m` | `--model <model>` | AI model to use (or GROK_MODEL env var) | `ax-cli -m glm-4.6` |
 | `-p` | `--prompt <prompt>` | Single prompt (headless mode) | `ax-cli -p "list TypeScript files"` |
@@ -715,7 +715,7 @@ GROK_MODEL=grok-code-fast-1 ax-cli
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `GROK_API_KEY` | API key for authentication | `export GROK_API_KEY=your_key` |
+| `YOUR_API_KEY` | API key for authentication | `export YOUR_API_KEY=your_key` |
 | `GROK_BASE_URL` | API endpoint URL | `export GROK_BASE_URL=https://api.x.ai/v1` |
 | `GROK_MODEL` | Default AI model | `export GROK_MODEL=glm-4.6` |
 | `GROK_MAX_TOKENS` | Maximum response tokens | `export GROK_MAX_TOKENS=8192` |
@@ -836,7 +836,7 @@ ax-cli -m glm-4.6  # Verify model name
 ### API Key Issues
 ```bash
 # Check environment variable
-echo $GROK_API_KEY
+echo $YOUR_API_KEY
 
 # Or provide via flag
 ax-cli -k your_api_key

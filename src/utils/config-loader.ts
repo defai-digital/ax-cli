@@ -1,6 +1,6 @@
 /**
  * YAML Configuration Loader
- * Loads and caches configuration from YAML files
+ * Loads and caches configuration from YAML files with Zod validation
  */
 
 import * as fs from 'fs-extra';
@@ -8,6 +8,8 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { z } from 'zod';
+import { ModelsYamlSchema, SettingsYamlSchema, PromptsYamlSchema, MessagesYamlSchema } from '../schemas/yaml-schemas.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -25,9 +27,9 @@ function getConfigDir(): string {
 }
 
 /**
- * Load a YAML configuration file
+ * Load a YAML configuration file with optional schema validation
  */
-export function loadYamlConfig<T = any>(filename: string): T {
+export function loadYamlConfig<T = any>(filename: string, schema?: z.ZodSchema<T>): T {
   // Check cache first
   if (configCache.has(filename)) {
     return configCache.get(filename) as T;
@@ -36,12 +38,21 @@ export function loadYamlConfig<T = any>(filename: string): T {
   try {
     const configPath = path.join(getConfigDir(), filename);
     const fileContents = fs.readFileSync(configPath, 'utf8');
-    const config = yaml.load(fileContents) as T;
+    const config = yaml.load(fileContents);
+
+    // Validate with schema if provided
+    if (schema) {
+      const result = schema.safeParse(config);
+      if (!result.success) {
+        throw new Error(`Validation failed for ${filename}: ${result.error.message}`);
+      }
+      configCache.set(filename, result.data);
+      return result.data;
+    }
 
     // Cache the result
     configCache.set(filename, config);
-
-    return config;
+    return config as T;
   } catch (error) {
     throw new Error(`Failed to load config file ${filename}: ${(error as Error).message}`);
   }
@@ -78,7 +89,7 @@ export interface ModelsYaml {
 }
 
 export function loadModelsConfig(): ModelsYaml {
-  return loadYamlConfig<ModelsYaml>('models.yaml');
+  return loadYamlConfig<ModelsYaml>('models.yaml', ModelsYamlSchema);
 }
 
 /**
@@ -127,7 +138,7 @@ export interface SettingsYaml {
 }
 
 export function loadSettingsConfig(): SettingsYaml {
-  return loadYamlConfig<SettingsYaml>('settings.yaml');
+  return loadYamlConfig<SettingsYaml>('settings.yaml', SettingsYamlSchema);
 }
 
 /**
@@ -144,6 +155,7 @@ export interface PromptSection {
 export interface PromptsYaml {
   system_prompt: {
     identity: string;
+    core_principles?: PromptSection;
     tools_header: string;
     tools: Array<{
       name: string;
@@ -158,7 +170,7 @@ export interface PromptsYaml {
 }
 
 export function loadPromptsConfig(): PromptsYaml {
-  return loadYamlConfig<PromptsYaml>('prompts.yaml');
+  return loadYamlConfig<PromptsYaml>('prompts.yaml', PromptsYamlSchema);
 }
 
 /**
@@ -169,10 +181,16 @@ export interface MessagesYaml {
   warnings: Record<string, string>;
   success: Record<string, string>;
   info: Record<string, string>;
+  ui?: {
+    api_key_input?: Record<string, string>;
+    [key: string]: Record<string, string> | undefined;
+  };
+  mcp_commands?: Record<string, string>;
+  migration?: Record<string, string>;
 }
 
 export function loadMessagesConfig(): MessagesYaml {
-  return loadYamlConfig<MessagesYaml>('messages.yaml');
+  return loadYamlConfig<MessagesYaml>('messages.yaml', MessagesYamlSchema);
 }
 
 /**

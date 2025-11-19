@@ -73,7 +73,7 @@ npm link
 
 ```bash
 # Set your API key (for cloud providers)
-export GROK_API_KEY=your_api_key_here
+export YOUR_API_KEY=your_api_key_here
 
 # Or configure in settings
 ax-cli  # Will prompt for API key on first run

@@ -192,7 +192,7 @@ jobs:
 
       - name: Run code analysis
         env:
-          GROK_API_KEY: ${{ secrets.GROK_API_KEY }}
+          YOUR_API_KEY: ${{ secrets.YOUR_API_KEY }}
         run: |
           ax-cli -p "analyze code quality and suggest improvements" \
             -d ${{ github.workspace }} \
@@ -874,7 +874,7 @@ ax-cli -p "complex task" --max-tool-rounds 200
 
 ```bash
 # Verify environment variable
-echo $GROK_API_KEY
+echo $YOUR_API_KEY
 
 # Or pass directly
 ax-cli --api-key "your-key" -p "test prompt"
@@ -1001,7 +1001,7 @@ ax-cli mcp add github --transport stdio --args "@modelcontextprotocol/server-git
 ### Environment Variables
 
 ```bash
-GROK_API_KEY=your-key
+YOUR_API_KEY=your-key
 GROK_BASE_URL=https://api.x.ai/v1
 GROK_MODEL=glm-4.6
 GROK_MAX_TOKENS=8192

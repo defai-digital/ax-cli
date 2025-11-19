@@ -4,6 +4,7 @@ import { getMCPManager } from '../grok/tools.js';
 import { MCPServerConfig } from '../mcp/client.js';
 import { MCPServerIdSchema } from '@ax-cli/schemas';
 import chalk from 'chalk';
+import { ConsoleMessenger } from '../utils/console-messenger.js';
 
 export function createMCPCommand(): Command {
   const mcpCommand = new Command('mcp');
@@ -25,16 +26,16 @@ export function createMCPCommand(): Command {
         if (PREDEFINED_SERVERS[name]) {
           const config = PREDEFINED_SERVERS[name];
           addMCPServer(config);
-          console.log(chalk.green(`✓ Added predefined MCP server: ${name}`));
-          
+          ConsoleMessenger.plain('mcp_commands.server_predefined', { name });
+
           // Try to connect immediately
           const manager = getMCPManager();
           await manager.addServer(config);
-          console.log(chalk.green(`✓ Connected to MCP server: ${name}`));
-          
+          ConsoleMessenger.plain('mcp_commands.server_connected', { name });
+
           const tools = manager.getTools().filter(t => t.serverName === name);
-          console.log(chalk.blue(`  Available tools: ${tools.length}`));
-          
+          ConsoleMessenger.plain('mcp_commands.tools_available', { count: tools.length });
+
           return;
         }
 
@@ -43,16 +44,16 @@ export function createMCPCommand(): Command {
         
         if (transportType === 'stdio') {
           if (!options.command) {
-            console.error(chalk.red('Error: --command is required for stdio transport'));
+            ConsoleMessenger.error('mcp_commands.error_command_required');
             process.exit(1);
           }
         } else if (transportType === 'http' || transportType === 'sse' || transportType === 'streamable_http') {
           if (!options.url) {
-            console.error(chalk.red(`Error: --url is required for ${transportType} transport`));
+            ConsoleMessenger.error('mcp_commands.error_url_required', { transport: transportType });
             process.exit(1);
           }
         } else {
-          console.error(chalk.red('Error: Transport type must be stdio, http, sse, or streamable_http'));
+          ConsoleMessenger.error('mcp_commands.error_invalid_transport');
           process.exit(1);
         }
 
@@ -87,18 +88,18 @@ export function createMCPCommand(): Command {
         };
 
         addMCPServer(config);
-        console.log(chalk.green(`✓ Added MCP server: ${name}`));
-        
+        ConsoleMessenger.plain('mcp_commands.server_added', { name });
+
         // Try to connect immediately
         const manager = getMCPManager();
         await manager.addServer(config);
-        console.log(chalk.green(`✓ Connected to MCP server: ${name}`));
-        
+        ConsoleMessenger.plain('mcp_commands.server_connected', { name });
+
         const tools = manager.getTools().filter(t => t.serverName === name);
-        console.log(chalk.blue(`  Available tools: ${tools.length}`));
+        ConsoleMessenger.plain('mcp_commands.tools_available', { count: tools.length });
 
       } catch (error: any) {
-        console.error(chalk.red(`Error adding MCP server: ${error.message}`));
+        ConsoleMessenger.error('mcp_commands.error_adding_server', { error: error.message });
         process.exit(1);
       }
     });
@@ -113,7 +114,7 @@ export function createMCPCommand(): Command {
         try {
           config = JSON.parse(jsonConfig);
         } catch {
-          console.error(chalk.red('Error: Invalid JSON configuration'));
+          ConsoleMessenger.error('mcp_commands.error_invalid_json');
           process.exit(1);
         }
 
@@ -139,18 +140,18 @@ export function createMCPCommand(): Command {
         }
 
         addMCPServer(serverConfig);
-        console.log(chalk.green(`✓ Added MCP server: ${name}`));
-        
+        ConsoleMessenger.plain('mcp_commands.server_added', { name });
+
         // Try to connect immediately
         const manager = getMCPManager();
         await manager.addServer(serverConfig);
-        console.log(chalk.green(`✓ Connected to MCP server: ${name}`));
-        
+        ConsoleMessenger.plain('mcp_commands.server_connected', { name });
+
         const tools = manager.getTools().filter(t => t.serverName === name);
-        console.log(chalk.blue(`  Available tools: ${tools.length}`));
+        ConsoleMessenger.plain('mcp_commands.tools_available', { count: tools.length });
 
       } catch (error: any) {
-        console.error(chalk.red(`Error adding MCP server: ${error.message}`));
+        ConsoleMessenger.error('mcp_commands.error_adding_server', { error: error.message });
         process.exit(1);
       }
     });
@@ -164,9 +165,9 @@ export function createMCPCommand(): Command {
         const manager = getMCPManager();
         await manager.removeServer(name);
         removeMCPServer(name);
-        console.log(chalk.green(`✓ Removed MCP server: ${name}`));
+        ConsoleMessenger.plain('mcp_commands.server_removed', { name });
       } catch (error: any) {
-        console.error(chalk.red(`Error removing MCP server: ${error.message}`));
+        ConsoleMessenger.error('mcp_commands.error_removing_server', { error: error.message });
         process.exit(1);
       }
     });
@@ -178,22 +179,22 @@ export function createMCPCommand(): Command {
     .action(() => {
       const config = loadMCPConfig();
       const manager = getMCPManager();
-      
+
       if (config.servers.length === 0) {
-        console.log(chalk.yellow('No MCP servers configured'));
+        ConsoleMessenger.warning('mcp_commands.no_servers');
         return;
       }
 
-      console.log(chalk.bold('Configured MCP servers:'));
+      ConsoleMessenger.bold('mcp_commands.list_header');
       console.log();
 
       for (const server of config.servers) {
         const isConnected = manager.getServers().includes(server.name);
-        const status = isConnected 
-          ? chalk.green('✓ Connected') 
+        const statusMsg = isConnected
+          ? chalk.green('✓ Connected')
           : chalk.red('✗ Disconnected');
-        
-        console.log(`${chalk.bold(server.name)}: ${status}`);
+
+        console.log(`${chalk.bold(server.name)}: ${statusMsg}`);
         
         // Display transport information
         if (server.transport) {

@@ -115,7 +115,7 @@ AX CLI respects standard environment variables for configuration. These take pre
 
 | Variable | Purpose | Example | Required |
 |----------|---------|---------|----------|
-| `GROK_API_KEY` | API key for cloud providers | `xai-your_key_here` | Conditional* |
+| `YOUR_API_KEY` | API key for cloud providers | `xai-your_key_here` | Conditional* |
 | `GROK_BASE_URL` | API endpoint URL | `https://api.x.ai/v1` | No |
 | `GROK_MODEL` | Default model to use | `grok-code-fast-1` | No |
 | `GROK_MAX_TOKENS` | Maximum output tokens | `8192` | No |
@@ -135,10 +135,10 @@ AX CLI respects standard environment variables for configuration. These take pre
 **Bash/Zsh**:
 ```bash
 # One-time export (current session only)
-export GROK_API_KEY="your_key_here"
+export YOUR_API_KEY="your_key_here"
 
 # Permanent (add to ~/.bashrc or ~/.zshrc)
-echo 'export GROK_API_KEY="your_key_here"' >> ~/.bashrc
+echo 'export YOUR_API_KEY="your_key_here"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -153,7 +153,7 @@ cp .env.example .env
 **Temporary Override**:
 ```bash
 # Use only for this command
-GROK_API_KEY="test_key" ax-cli -p "test prompt"
+YOUR_API_KEY="test_key" ax-cli -p "test prompt"
 ```
 
 ---
@@ -654,7 +654,7 @@ AX CLI supports ANY OpenAI-compatible API endpoint:
 
 **Option 2: Environment Variables**
 ```bash
-export GROK_API_KEY="your_key"
+export YOUR_API_KEY="your_key"
 export GROK_BASE_URL="https://api.provider.com/v1"
 export GROK_MODEL="provider-model-name"
 ```
@@ -989,7 +989,7 @@ ax-cli
 ```bash
 # Create .env file
 cat > .env <<'EOF'
-GROK_API_KEY=your_api_key
+YOUR_API_KEY=your_api_key
 GROK_BASE_URL=https://api.x.ai/v1
 GROK_MODEL=grok-code-fast-1
 EOF
@@ -1038,7 +1038,7 @@ cp .grok/AX.md .ax/AX.md
 1. Verify file locations: `~/.ax/user-settings.json`, `.ax/settings.json`
 2. Validate JSON syntax: use [jsonlint.com](https://jsonlint.com)
 3. Check file permissions: `ls -la ~/.ax/`
-4. Verify environment variables: `echo $GROK_API_KEY`
+4. Verify environment variables: `echo $YOUR_API_KEY`
 
 **Debug**:
 ```bash
@@ -1051,7 +1051,7 @@ ax-cli --help  # Shows loaded configuration
 ```bash
 # Check in this order:
 1. CLI flag: ax-cli --api-key your_key
-2. Environment: echo $GROK_API_KEY
+2. Environment: echo $YOUR_API_KEY
 3. Project settings: cat .ax/settings.json
 4. User settings: cat ~/.ax/user-settings.json
 ```

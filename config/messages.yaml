@@ -2,7 +2,7 @@
 # Externalized strings for easy localization and maintenance
 
 errors:
-  api_key_required: "API key required. Set YOUR_API_KEY environment variable, use --api-key flag, or save to ~/.grok/user-settings.json"
+  api_key_required: "API key required. Set YOUR_API_KEY environment variable, use --api-key flag, or save to ~/.ax-cli/config.json"
   transport_config_required: "Transport configuration is required"
   tool_not_found: "Tool {toolName} not found"
   server_not_connected: "Server {serverName} not connected"
@@ -27,3 +27,48 @@ info:
   loading_tools: "Loading tools..."
   initializing_mcp: "Initializing MCP servers..."
   context_stats: "Context: {current}/{total} tokens ({percentage}%)"
+
+# UI Component Messages
+ui:
+  api_key_input:
+    title: "🔑 Grok API Key Required"
+    prompt: "Please enter your Grok API key to continue:"
+    error_empty: "API key cannot be empty"
+    error_invalid: "Invalid API key format"
+    success_saved: "✅ API key saved to {path}"
+    warning_not_saved: "⚠️ Could not save API key to settings file"
+    session_only: "API key set for current session only"
+    help_submit: "• Press Enter to submit"
+    help_exit: "• Press Ctrl+C to exit"
+    save_location: "Note: API key will be saved to {path}"
+    validating: "🔄 Validating API key..."
+
+# MCP Command Messages
+mcp_commands:
+  server_added: "✓ Added MCP server: {name}"
+  server_predefined: "✓ Added predefined MCP server: {name}"
+  server_connected: "✓ Connected to MCP server: {name}"
+  server_removed: "✓ Removed MCP server: {name}"
+  tools_available: "  Available tools: {count}"
+  error_command_required: "Error: --command is required for stdio transport"
+  error_url_required: "Error: --url is required for {transport} transport"
+  error_invalid_transport: "Error: Transport type must be stdio, http, sse, or streamable_http"
+  error_invalid_json: "Error: Invalid JSON configuration"
+  error_adding_server: "Error adding MCP server: {error}"
+  error_removing_server: "Error removing MCP server: {error}"
+  no_servers: "No MCP servers configured"
+  list_header: "Configured MCP servers:"
+  status_connected: "✓ Connected"
+  status_disconnected: "✗ Disconnected"
+  transport_label: "  Transport: {type}"
+  command_label: "  Command: {command}"
+  url_label: "  URL: {url}"
+  tools_count: "  Tools: {count}"
+
+# Migration Messages
+migration:
+  user_settings_success: "✅ Migrated user settings: {oldPath} → {newPath}"
+  user_settings_failed: "❌ Failed to migrate user settings: {error}"
+  project_settings_success: "✅ Migrated project settings: {oldPath} → {newPath}"
+  project_settings_failed: "❌ Failed to migrate project settings: {error}"
+  no_migration_needed: "ℹ️  No migration needed - already using .ax-cli paths or no old settings found"

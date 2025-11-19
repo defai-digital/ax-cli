@@ -12,7 +12,7 @@ npm install @ax-cli/schemas
 
 ## What is Single Source of Truth (SSOT)?
 
-**單一真相來源（SSOT）**：所有模組 (API / MCP / Usage) 共享同一套型別定義契約。
+**Single Source of Truth (SSOT)**: All modules (API / MCP / Usage) share the same type definition contract.
 
 Before @ax-cli/schemas, type definitions were scattered across the codebase, leading to:
 - Duplicated schema definitions

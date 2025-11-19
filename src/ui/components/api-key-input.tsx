@@ -2,6 +2,11 @@ import React, { useState } from "react";
 import { Box, Text, useInput, useApp } from "ink";
 import { GrokAgent } from "../../agent/grok-agent.js";
 import { getSettingsManager } from "../../utils/settings-manager.js";
+import { loadMessagesConfig, formatMessage } from "../../utils/config-loader.js";
+
+// Load UI messages from YAML configuration
+const messages = loadMessagesConfig();
+const uiMessages = messages.ui?.api_key_input || {};
 
 interface ApiKeyInputProps {
   onApiKeySet: (agent: GrokAgent) => void;
@@ -42,7 +47,7 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
 
   const handleSubmit = async () => {
     if (!input.trim()) {
-      setError("API key cannot be empty");
+      setError(uiMessages.error_empty || "API key cannot be empty");
       return;
     }
 
@@ -50,38 +55,52 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
     try {
       const apiKey = input.trim();
       const agent = new GrokAgent(apiKey);
-      
+
       // Set environment variable for current process
-      process.env.GROK_API_KEY = apiKey;
-      
+      process.env.YOUR_API_KEY = apiKey;
+
       // Save to user settings
       try {
         const manager = getSettingsManager();
+        const settingsPath = manager.getUserSettingsPath();
         manager.updateUserSetting('apiKey', apiKey);
-        console.log(`\n✅ API key saved to ~/.grok/user-settings.json`);
+
+        const successMsg = formatMessage(
+          uiMessages.success_saved || "✅ API key saved to {path}",
+          { path: settingsPath }
+        );
+        console.log(`\n${successMsg}`);
       } catch {
-        console.log('\n⚠️ Could not save API key to settings file');
-        console.log('API key set for current session only');
+        console.log(`\n${uiMessages.warning_not_saved || "⚠️ Could not save API key to settings file"}`);
+        console.log(uiMessages.session_only || "API key set for current session only");
       }
 
       onApiKeySet(agent);
     } catch {
-      setError("Invalid API key format");
+      setError(uiMessages.error_invalid || "Invalid API key format");
       setIsSubmitting(false);
     }
   };
 
-  const displayText = input.length > 0 ? 
-    (isSubmitting ? "*".repeat(input.length) : "*".repeat(input.length) + "█") : 
+  const displayText = input.length > 0 ?
+    (isSubmitting ? "*".repeat(input.length) : "*".repeat(input.length) + "█") :
     (isSubmitting ? " " : "█");
+
+  // Get settings path for display
+  const manager = getSettingsManager();
+  const settingsPath = manager.getUserSettingsPath();
+  const saveLocationMsg = formatMessage(
+    uiMessages.save_location || "Note: API key will be saved to {path}",
+    { path: settingsPath }
+  );
 
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1}>
-      <Text color="yellow">🔑 Grok API Key Required</Text>
+      <Text color="yellow">{uiMessages.title || "🔑 Grok API Key Required"}</Text>
       <Box marginBottom={1}>
-        <Text color="gray">Please enter your Grok API key to continue:</Text>
+        <Text color="gray">{uiMessages.prompt || "Please enter your Grok API key to continue:"}</Text>
       </Box>
-      
+
       <Box borderStyle="round" borderColor="blue" paddingX={1} marginBottom={1}>
         <Text color="gray">❯ </Text>
         <Text>{displayText}</Text>
@@ -94,14 +113,14 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
       ) : null}
 
       <Box flexDirection="column" marginTop={1}>
-        <Text color="gray" dimColor>• Press Enter to submit</Text>
-        <Text color="gray" dimColor>• Press Ctrl+C to exit</Text>
-        <Text color="gray" dimColor>Note: API key will be saved to ~/.grok/user-settings.json</Text>
+        <Text color="gray" dimColor>{uiMessages.help_submit || "• Press Enter to submit"}</Text>
+        <Text color="gray" dimColor>{uiMessages.help_exit || "• Press Ctrl+C to exit"}</Text>
+        <Text color="gray" dimColor>{saveLocationMsg}</Text>
       </Box>
 
       {isSubmitting ? (
         <Box marginTop={1}>
-          <Text color="yellow">🔄 Validating API key...</Text>
+          <Text color="yellow">{uiMessages.validating || "🔄 Validating API key..."}</Text>
         </Box>
       ) : null}
     </Box>

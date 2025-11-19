@@ -72,7 +72,7 @@ GROK_BASE_URL=http://localhost:11434/v1
 GROK_MODEL=glm4:9b
 
 # OR for testing with cloud providers
-GROK_API_KEY=your_api_key_here
+YOUR_API_KEY=your_api_key_here
 GROK_BASE_URL=https://api.x.ai/v1
 GROK_MODEL=grok-code-fast-1
 

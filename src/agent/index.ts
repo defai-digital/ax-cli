@@ -85,16 +85,22 @@ export class Agent {
 
   private parseViewCommand(input: string): { path: string; range?: [number, number] } {
     const parts = input.split(' ');
+    if (parts.length < 2) {
+      throw new Error('View command requires a file path');
+    }
+
     const path = parts[1];
-    
+
     if (parts.length > 2) {
       const rangePart = parts[2];
       if (rangePart.includes('-')) {
         const [start, end] = rangePart.split('-').map(Number);
-        return { path, range: [start, end] };
+        if (!isNaN(start) && !isNaN(end) && start > 0 && end >= start) {
+          return { path, range: [start, end] };
+        }
       }
     }
-    
+
     return { path };
   }
 

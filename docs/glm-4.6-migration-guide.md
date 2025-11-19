@@ -232,7 +232,7 @@ A: Verify you're using `model: 'glm-4.6'`. Other models don't support thinking.
 ```typescript
 import { GrokClient } from './grok/client.js';
 
-const client = new GrokClient(process.env.GROK_API_KEY!);
+const client = new GrokClient(process.env.YOUR_API_KEY!);
 
 async function askQuestion(question: string) {
   const messages = [{ role: 'user', content: question }];
@@ -247,7 +247,7 @@ async function askQuestion(question: string) {
 import { GrokClient } from './grok/client.js';
 import type { ChatOptions } from './grok/types.js';
 
-const client = new GrokClient(process.env.GROK_API_KEY!);
+const client = new GrokClient(process.env.YOUR_API_KEY!);
 
 async function askQuestion(question: string, enableThinking = false) {
   const messages = [{ role: 'user', content: question }];
