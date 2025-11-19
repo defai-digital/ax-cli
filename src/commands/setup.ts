@@ -1,7 +1,7 @@
 import { Command } from 'commander';
-import { getSettingsManager } from '../utils/settings-manager.js';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
+import { homedir } from 'os';
 import enquirer from 'enquirer';
 import chalk from 'chalk';
 
@@ -30,8 +30,9 @@ export function createSetupCommand(): Command {
       try {
         console.log(chalk.cyan('\n🚀 AX CLI Setup\n'));
 
-        const manager = getSettingsManager();
-        const configPath = manager.getUserSettingsPath();
+        // Always use the NEW path ~/.ax-cli/config.json
+        // (not the backward-compatible path from SettingsManager)
+        const configPath = join(homedir(), '.ax-cli', 'config.json');
         const configDir = dirname(configPath);
 
         // Check if config already exists
