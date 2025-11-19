@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useInput } from "ink";
 import { GrokAgent, ChatEntry } from "../agent/grok-agent.js";
 import { ConfirmationService } from "../utils/confirmation-service.js";
@@ -183,7 +183,7 @@ export function useInputHandler({
     }
   };
 
-  const handleInputChange = (newInput: string) => {
+  const handleInputChange = useCallback((newInput: string) => {
     // Update command suggestions based on input
     if (newInput.startsWith("/")) {
       setShowCommandSuggestions(true);
@@ -192,7 +192,7 @@ export function useInputHandler({
       setShowCommandSuggestions(false);
       setSelectedCommandIndex(0);
     }
-  };
+  }, []);
 
   const {
     input,
@@ -216,7 +216,7 @@ export function useInputHandler({
   // Update command suggestions when input changes
   useEffect(() => {
     handleInputChange(input);
-  }, [input]);
+  }, [input, handleInputChange]);
 
   const commandSuggestions: CommandSuggestion[] = [
     { command: "/help", description: "Show help information" },
