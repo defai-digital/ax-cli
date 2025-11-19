@@ -153,7 +153,11 @@ export class MCPManager extends EventEmitter {
     }
 
     // Extract the original tool name (remove mcp__servername__ prefix)
-    const originalToolName = toolName.replace(`mcp__${tool.serverName}__`, '');
+    // Use a more robust approach that only removes the prefix once
+    const prefix = `mcp__${tool.serverName}__`;
+    const originalToolName = toolName.startsWith(prefix)
+      ? toolName.substring(prefix.length)
+      : toolName;
 
     const result = await client.callTool({
       name: originalToolName,

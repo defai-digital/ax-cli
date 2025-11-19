@@ -65,8 +65,24 @@ export class ConfirmationService extends EventEmitter {
     }
 
     // Create a promise that will be resolved by the UI component
+    // Add a timeout to prevent hanging indefinitely
     this.pendingConfirmation = new Promise<ConfirmationResult>((resolve) => {
       this.resolveConfirmation = resolve;
+
+      // Set a timeout of 60 seconds for confirmation
+      const timeoutId = setTimeout(() => {
+        if (this.resolveConfirmation) {
+          this.resolveConfirmation({
+            confirmed: false,
+            feedback: 'Confirmation timeout - auto-rejected after 60 seconds'
+          });
+          this.resolveConfirmation = null;
+          this.pendingConfirmation = null;
+        }
+      }, 60000); // 60 second timeout
+
+      // Store timeout ID to clear it if confirmation comes early
+      (this as any)._confirmationTimeoutId = timeoutId;
     });
 
     // Emit custom event that the UI can listen to (using setImmediate to ensure the UI updates)
@@ -91,6 +107,12 @@ export class ConfirmationService extends EventEmitter {
 
   confirmOperation(confirmed: boolean, dontAskAgain?: boolean): void {
     if (this.resolveConfirmation) {
+      // Clear the timeout if it exists
+      if ((this as any)._confirmationTimeoutId) {
+        clearTimeout((this as any)._confirmationTimeoutId);
+        (this as any)._confirmationTimeoutId = null;
+      }
+
       this.resolveConfirmation({ confirmed, dontAskAgain });
       this.resolveConfirmation = null;
       this.pendingConfirmation = null;
@@ -99,6 +121,12 @@ export class ConfirmationService extends EventEmitter {
 
   rejectOperation(feedback?: string): void {
     if (this.resolveConfirmation) {
+      // Clear the timeout if it exists
+      if ((this as any)._confirmationTimeoutId) {
+        clearTimeout((this as any)._confirmationTimeoutId);
+        (this as any)._confirmationTimeoutId = null;
+      }
+
       this.resolveConfirmation({ confirmed: false, feedback });
       this.resolveConfirmation = null;
       this.pendingConfirmation = null;
