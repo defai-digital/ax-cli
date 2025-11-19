@@ -327,6 +327,8 @@ export class GrokAgent extends EventEmitter {
         } else if (Array.isArray(acc[key]) && Array.isArray(value)) {
           const accArray = acc[key] as any[];
           for (let i = 0; i < value.length; i++) {
+            // Validate that value[i] exists before processing
+            if (value[i] === undefined || value[i] === null) continue;
             if (!accArray[i]) accArray[i] = {};
             accArray[i] = reduce(accArray[i], value[i]);
           }
