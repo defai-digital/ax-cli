@@ -106,6 +106,7 @@ export class HttpTransport extends EventEmitter implements MCPTransport {
 
   async disconnect(): Promise<void> {
     this.client = undefined;
+    this.removeAllListeners();
   }
 
   getType(): TransportType {
@@ -137,7 +138,7 @@ export class SSETransport extends EventEmitter implements MCPTransport {
   }
 
   async disconnect(): Promise<void> {
-    // Nothing to disconnect for SSE
+    this.removeAllListeners();
   }
 
   getType(): TransportType {
@@ -156,7 +157,7 @@ class HttpClientTransport extends EventEmitter implements Transport {
   }
 
   async close(): Promise<void> {
-    // Nothing to close for HTTP transport
+    this.removeAllListeners();
   }
 
   async send(message: any): Promise<any> {
@@ -180,7 +181,7 @@ class SSEClientTransport extends EventEmitter implements Transport {
   }
 
   async close(): Promise<void> {
-    // Nothing to close for basic SSE transport
+    this.removeAllListeners();
   }
 
   async send(message: any): Promise<any> {
@@ -221,7 +222,7 @@ export class StreamableHttpTransport extends EventEmitter implements MCPTranspor
   }
 
   async disconnect(): Promise<void> {
-    // Nothing to disconnect for streamable HTTP
+    this.removeAllListeners();
   }
 
   getType(): TransportType {
@@ -240,7 +241,7 @@ class StreamableHttpClientTransport extends EventEmitter implements Transport {
   }
 
   async close(): Promise<void> {
-    // Nothing to close for streamable HTTP transport
+    this.removeAllListeners();
   }
 
   async send(message: any): Promise<any> {

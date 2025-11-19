@@ -125,7 +125,7 @@ export class Agent {
     
     return {
       path: match[1],
-      line: parseInt(match[2]),
+      line: parseInt(match[2], 10),
       content: match[3]
     };
   }

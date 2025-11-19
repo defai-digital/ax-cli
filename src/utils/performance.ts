@@ -102,14 +102,15 @@ export function measure<T>(name: string, fn: () => T): [T, number] {
 
 /**
  * Debounce function to limit execution rate
+ * Returns a tuple of [debounced function, cleanup function]
  */
 export function debounce<TArgs extends any[]>(
   fn: (...args: TArgs) => void,
   delay: number
-): (...args: TArgs) => void {
+): [(...args: TArgs) => void, () => void] {
   let timeoutId: NodeJS.Timeout | null = null;
 
-  return (...args: TArgs) => {
+  const debouncedFn = (...args: TArgs) => {
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
@@ -119,25 +120,47 @@ export function debounce<TArgs extends any[]>(
       timeoutId = null;
     }, delay);
   };
+
+  const cleanup = () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+  };
+
+  return [debouncedFn, cleanup];
 }
 
 /**
  * Throttle function to limit execution frequency
+ * Returns a tuple of [throttled function, cleanup function]
  */
 export function throttle<TArgs extends any[]>(
   fn: (...args: TArgs) => void,
   limit: number
-): (...args: TArgs) => void {
+): [(...args: TArgs) => void, () => void] {
   let inThrottle = false;
+  let timeoutId: NodeJS.Timeout | null = null;
 
-  return (...args: TArgs) => {
+  const throttledFn = (...args: TArgs) => {
     if (!inThrottle) {
       fn(...args);
       inThrottle = true;
 
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         inThrottle = false;
+        timeoutId = null;
       }, limit);
     }
   };
+
+  const cleanup = () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    inThrottle = false;
+  };
+
+  return [throttledFn, cleanup];
 }

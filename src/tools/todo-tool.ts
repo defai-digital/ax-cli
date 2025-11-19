@@ -126,9 +126,15 @@ export class TodoTool {
           };
         }
 
-        if (update.status) todo.status = update.status as any;
-        if (update.content) todo.content = update.content;
-        if (update.priority) todo.priority = update.priority as any;
+        if (update.status) {
+          todo.status = update.status as 'pending' | 'in_progress' | 'completed';
+        }
+        if (update.content) {
+          todo.content = update.content;
+        }
+        if (update.priority) {
+          todo.priority = update.priority as 'high' | 'medium' | 'low';
+        }
 
         updatedIds.push(update.id);
       }

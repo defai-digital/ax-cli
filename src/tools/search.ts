@@ -194,6 +194,7 @@ export class SearchTool {
       const rg = spawn("rg", args);
       let output = "";
       let errorOutput = "";
+      let isResolved = false;
 
       rg.stdout.on("data", (data) => {
         output += data.toString();
@@ -204,6 +205,9 @@ export class SearchTool {
       });
 
       rg.on("close", (code) => {
+        if (isResolved) return;
+        isResolved = true;
+
         if (code === 0 || code === 1) {
           // 0 = found, 1 = not found
           const results = this.parseRipgrepOutput(output);
@@ -214,6 +218,13 @@ export class SearchTool {
       });
 
       rg.on("error", (error) => {
+        if (isResolved) return;
+        isResolved = true;
+
+        // Kill process if it's still running
+        if (!rg.killed) {
+          rg.kill('SIGTERM');
+        }
         reject(error);
       });
     });

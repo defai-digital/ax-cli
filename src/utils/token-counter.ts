@@ -46,7 +46,7 @@ export class TokenCounter {
     let totalTokens = 0;
 
     for (const message of messages) {
-      // Every message follows <|start|>{role/name}\n{content}<|end|\>\n
+      // Every message follows <|start|>{role/name}\n{content}<|end|>\n
       totalTokens += TOKEN_CONFIG.TOKENS_PER_MESSAGE;
 
       if (message.content && typeof message.content === 'string') {
