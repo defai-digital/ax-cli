@@ -127,6 +127,11 @@ export function useInputHandler({
           return true;
         }
         if (key.tab || key.return) {
+          // Check if there are any suggestions available
+          if (filteredSuggestions.length === 0) {
+            return true; // No suggestions, do nothing
+          }
+
           const safeIndex = Math.min(
             selectedCommandIndex,
             filteredSuggestions.length - 1

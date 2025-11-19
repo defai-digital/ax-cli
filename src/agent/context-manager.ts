@@ -240,7 +240,14 @@ export class ContextManager {
 
     // Calculate how many recent messages we can keep
     const firstTokens = tokenCounter.countMessageTokens(firstMessages as any);
-    const availableTokens = (this.contextWindow * this.pruneThreshold) - firstTokens - this.reservedTokens;
+    const availableTokens = Math.max(0,
+      (this.contextWindow * this.pruneThreshold) - firstTokens - this.reservedTokens
+    );
+
+    // If no space left, return minimal context (system + first messages only)
+    if (availableTokens <= 0) {
+      return [systemMessage, ...firstMessages];
+    }
 
     // Add recent messages from the end
     const recentMessages: GrokMessage[] = [];

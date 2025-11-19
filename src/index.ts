@@ -317,7 +317,7 @@ program
   .version(getVersion(), "-v, --version", "output the current version")
   .argument("[message...]", "Initial message to send to Grok")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
-  .option("-k, --api-key <key>", "Grok API key (or set GROK_API_KEY env var)")
+  .option("-k, --api-key <key>", "Grok API key (or set YOUR_API_KEY env var)")
   .option(
     "-u, --base-url <url>",
     "Grok API base URL (or set GROK_BASE_URL env var)"
@@ -353,11 +353,11 @@ program
       const apiKey = options.apiKey || loadApiKey();
       const baseURL = options.baseUrl || loadBaseURL();
       const model = options.model || loadModel();
-      const maxToolRounds = parseInt(options.maxToolRounds) || 400;
+      const maxToolRounds = parseInt(String(options.maxToolRounds), 10) || 400;
 
       if (!apiKey) {
         console.error(
-          "❌ Error: API key required. Set GROK_API_KEY environment variable, use --api-key flag, or save to ~/.grok/user-settings.json"
+          "❌ Error: API key required. Set YOUR_API_KEY environment variable, use --api-key flag, or save to ~/.grok/user-settings.json"
         );
         process.exit(1);
       }
@@ -406,7 +406,7 @@ gitCommand
   .command("commit-and-push")
   .description("Generate AI commit message and push to remote")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
-  .option("-k, --api-key <key>", "Grok API key (or set GROK_API_KEY env var)")
+  .option("-k, --api-key <key>", "Grok API key (or set YOUR_API_KEY env var)")
   .option(
     "-u, --base-url <url>",
     "Grok API base URL (or set GROK_BASE_URL env var)"
@@ -438,11 +438,11 @@ gitCommand
       const apiKey = options.apiKey || loadApiKey();
       const baseURL = options.baseUrl || loadBaseURL();
       const model = options.model || loadModel();
-      const maxToolRounds = parseInt(options.maxToolRounds) || 400;
+      const maxToolRounds = parseInt(String(options.maxToolRounds), 10) || 400;
 
       if (!apiKey) {
         console.error(
-          "❌ Error: API key required. Set GROK_API_KEY environment variable, use --api-key flag, or save to ~/.grok/user-settings.json"
+          "❌ Error: API key required. Set YOUR_API_KEY environment variable, use --api-key flag, or save to ~/.grok/user-settings.json"
         );
         process.exit(1);
       }

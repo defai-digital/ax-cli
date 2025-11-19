@@ -1,4 +1,4 @@
-import { GrokClient, GrokMessage, GrokToolCall } from "../grok/client.js";
+import { GrokClient, GrokMessage, GrokToolCall, GrokTool } from "../grok/client.js";
 import {
   getAllGrokTools,
   getMCPManager,
@@ -457,7 +457,17 @@ Current working directory: ${process.cwd()}`,
         }
 
         // Stream response and accumulate
-        const tools = await getAllGrokTools();
+        let tools: GrokTool[];
+        try {
+          tools = await getAllGrokTools();
+        } catch (error: any) {
+          yield {
+            type: "content",
+            content: `\n⚠️ Error loading tools: ${error.message}\nContinuing with limited functionality...\n\n`
+          };
+          tools = []; // Continue with no tools
+        }
+
         const stream = this.grokClient.chatStream(
           this.messages,
           tools,

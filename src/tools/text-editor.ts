@@ -518,27 +518,34 @@ export class TextEditorTool {
         while (oldEnd < oldLines.length || newEnd < newLines.length) {
           let matchFound = false;
           let matchLength = 0;
-          
+
           for (let k = 0; k < Math.min(2, oldLines.length - oldEnd, newLines.length - newEnd); k++) {
-            if (oldEnd + k < oldLines.length && 
-                newEnd + k < newLines.length && 
+            if (oldEnd + k < oldLines.length &&
+                newEnd + k < newLines.length &&
                 oldLines[oldEnd + k] === newLines[newEnd + k]) {
               matchLength++;
             } else {
               break;
             }
           }
-          
+
           if (matchLength >= 2 || (oldEnd >= oldLines.length && newEnd >= newLines.length)) {
             matchFound = true;
           }
-          
+
           if (matchFound) {
             break;
           }
-          
-          if (oldEnd < oldLines.length) oldEnd++;
-          if (newEnd < newLines.length) newEnd++;
+
+          // Prevent infinite loop - ensure progress is made
+          let progress = false;
+          if (oldEnd < oldLines.length) { oldEnd++; progress = true; }
+          if (newEnd < newLines.length) { newEnd++; progress = true; }
+
+          if (!progress) {
+            // Both reached end, force exit to prevent infinite loop
+            break;
+          }
         }
         
         changes.push({

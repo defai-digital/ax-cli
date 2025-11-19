@@ -31,7 +31,8 @@ export class MCPManager extends EventEmitter {
     // Check if already connecting to prevent race condition
     const pending = this.pendingConnections.get(config.name);
     if (pending) {
-      return pending;
+      await pending; // Wait for the connection to complete
+      return;
     }
 
     // Create a promise for this connection attempt
