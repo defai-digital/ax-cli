@@ -49,19 +49,23 @@ export class SettingsManager {
   private readonly CACHE_TTL = 5000; // 5 seconds TTL for cache
 
   private constructor() {
-    // User settings path: ~/.grok/user-settings.json
-    this.userSettingsPath = path.join(
-      os.homedir(),
-      ".grok",
-      "user-settings.json"
-    );
+    // NEW: User settings path: ~/.ax-cli/config.json
+    // Fallback to ~/.grok/user-settings.json for backward compatibility
+    const newUserPath = path.join(os.homedir(), ".ax-cli", "config.json");
+    const oldUserPath = path.join(os.homedir(), ".grok", "user-settings.json");
 
-    // Project settings path: .grok/settings.json (in current working directory)
-    this.projectSettingsPath = path.join(
-      process.cwd(),
-      ".grok",
-      "settings.json"
-    );
+    this.userSettingsPath = fs.existsSync(oldUserPath) && !fs.existsSync(newUserPath)
+      ? oldUserPath  // Use old path if it exists and new doesn't
+      : newUserPath; // Prefer new path
+
+    // NEW: Project settings path: .ax-cli/settings.json
+    // Fallback to .grok/settings.json for backward compatibility
+    const newProjectPath = path.join(process.cwd(), ".ax-cli", "settings.json");
+    const oldProjectPath = path.join(process.cwd(), ".grok", "settings.json");
+
+    this.projectSettingsPath = fs.existsSync(oldProjectPath) && !fs.existsSync(newProjectPath)
+      ? oldProjectPath  // Use old path if it exists and new doesn't
+      : newProjectPath; // Prefer new path
   }
 
   /**
@@ -72,6 +76,75 @@ export class SettingsManager {
       SettingsManager.instance = new SettingsManager();
     }
     return SettingsManager.instance;
+  }
+
+  /**
+   * Migrate from old .grok paths to new .ax-cli paths
+   * This is a one-time migration helper
+   */
+  public migrateFromGrokToAxCli(): { migrated: boolean; details: string[] } {
+    const details: string[] = [];
+    let migrated = false;
+
+    // Migrate user settings
+    const oldUserPath = path.join(os.homedir(), ".grok", "user-settings.json");
+    const newUserPath = path.join(os.homedir(), ".ax-cli", "config.json");
+
+    if (fs.existsSync(oldUserPath) && !fs.existsSync(newUserPath)) {
+      try {
+        // Create new directory
+        const newUserDir = path.dirname(newUserPath);
+        if (!fs.existsSync(newUserDir)) {
+          fs.mkdirSync(newUserDir, { recursive: true, mode: 0o700 });
+        }
+
+        // Copy file
+        fs.copyFileSync(oldUserPath, newUserPath);
+        fs.chmodSync(newUserPath, 0o600); // Secure permissions for API key
+
+        details.push(`✅ Migrated user settings: ${oldUserPath} → ${newUserPath}`);
+        migrated = true;
+      } catch (error) {
+        details.push(`❌ Failed to migrate user settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    // Migrate project settings
+    const oldProjectPath = path.join(process.cwd(), ".grok", "settings.json");
+    const newProjectPath = path.join(process.cwd(), ".ax-cli", "settings.json");
+
+    if (fs.existsSync(oldProjectPath) && !fs.existsSync(newProjectPath)) {
+      try {
+        // Create new directory
+        const newProjectDir = path.dirname(newProjectPath);
+        if (!fs.existsSync(newProjectDir)) {
+          fs.mkdirSync(newProjectDir, { recursive: true });
+        }
+
+        // Copy file
+        fs.copyFileSync(oldProjectPath, newProjectPath);
+
+        details.push(`✅ Migrated project settings: ${oldProjectPath} → ${newProjectPath}`);
+        migrated = true;
+      } catch (error) {
+        details.push(`❌ Failed to migrate project settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    if (!migrated) {
+      details.push('ℹ️  No migration needed - already using .ax-cli paths or no old settings found');
+    }
+
+    // Update the instance paths to use new locations
+    this.userSettingsPath = newUserPath;
+    this.projectSettingsPath = newProjectPath;
+
+    // Invalidate cache after migration
+    this.userSettingsCache = null;
+    this.projectSettingsCache = null;
+    this.cacheTimestamp = { user: 0, project: 0 };
+
+    return { migrated, details };
   }
 
   /**
