@@ -138,6 +138,8 @@ ax-cli
 /init              # Initialize project
 /clear             # Clear chat history
 /models            # Switch AI model
+/usage             # Show API usage statistics
+/version           # Show AX CLI version
 /commit-and-push   # AI-powered git commit
 /exit              # Exit application
 ```
@@ -166,6 +168,31 @@ ax-cli init --force
 # Verbose output
 ax-cli init --verbose
 ```
+
+### Usage Tracking
+
+Track your API usage across the current session:
+
+```bash
+# Show current session usage statistics
+ax-cli usage show
+
+# Show detailed breakdown by model
+ax-cli usage show --detailed
+
+# Export as JSON
+ax-cli usage show --json
+
+# Reset session statistics
+ax-cli usage reset
+```
+
+**Phase 1**: Z.AI provider with session-based tracking
+- Tracks prompt tokens, completion tokens, and reasoning tokens
+- Per-model breakdown available
+- Historical data available via Z.AI dashboard: https://z.ai/manage-apikey/billing
+
+**Phase 2** (Coming Soon): Support for additional providers (OpenAI, Anthropic, etc.)
 
 [CLI Reference →](docs/cli-reference.md) | [Usage Guide →](docs/usage.md)
 

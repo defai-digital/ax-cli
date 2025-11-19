@@ -18,6 +18,7 @@ import { loadCustomInstructions } from "../utils/custom-instructions.js";
 import { getSettingsManager } from "../utils/settings-manager.js";
 import { ContextManager } from "./context-manager.js";
 import { buildSystemPrompt } from "../utils/prompt-builder.js";
+import { getUsageTracker } from "../utils/usage-tracker.js";
 
 export interface ChatEntry {
   type: "user" | "assistant" | "tool_result" | "tool_call";
@@ -423,6 +424,7 @@ export class LLMAgent extends EventEmitter {
     let accumulatedMessage: any = {};
     let accumulatedContent = "";
     let toolCallsYielded = false;
+    let usageData: any = null;
 
     for await (const chunk of stream) {
       // Check for cancellation in the streaming loop
@@ -433,6 +435,11 @@ export class LLMAgent extends EventEmitter {
       }
 
       if (!chunk.choices?.[0]) continue;
+
+      // Capture usage data from chunks (usually in the final chunk)
+      if (chunk.usage) {
+        usageData = chunk.usage;
+      }
 
       // Accumulate the message using reducer
       accumulatedMessage = this.messageReducer(accumulatedMessage, chunk);
@@ -486,6 +493,12 @@ export class LLMAgent extends EventEmitter {
           };
         }
       }
+    }
+
+    // Track usage if available
+    if (usageData) {
+      const tracker = getUsageTracker();
+      tracker.trackUsage(this.llmClient.getCurrentModel(), usageData);
     }
 
     return { accumulated: accumulatedMessage, content: accumulatedContent, yielded: toolCallsYielded };

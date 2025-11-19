@@ -3,6 +3,7 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat";
 import { safeValidateGrokResponse } from "../schemas/api-schemas.js";
 import { ErrorCategory, createErrorMessage } from "../utils/error-handler.js";
 import { GLM_MODELS, DEFAULT_MODEL, type SupportedModel } from "../constants.js";
+import { getUsageTracker } from "../utils/usage-tracker.js";
 import type {
   ChatOptions,
   ThinkingConfig,
@@ -244,7 +245,14 @@ export class LLMClient {
         // Return response anyway for backward compatibility, but log warning
       }
 
-      return response as LLMResponse;
+      // Track usage
+      const llmResponse = response as LLMResponse;
+      if (llmResponse.usage) {
+        const tracker = getUsageTracker();
+        tracker.trackUsage(model, llmResponse.usage);
+      }
+
+      return llmResponse;
     } catch (error: any) {
       // Enhance error message with context
       const modelInfo = options?.model || this.currentModel;

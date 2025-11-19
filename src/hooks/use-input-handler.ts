@@ -8,6 +8,8 @@ import { filterCommandSuggestions } from "../ui/components/command-suggestions.j
 import { loadModelConfig, updateCurrentModel } from "../utils/model-config.js";
 import { ProjectAnalyzer } from "../utils/project-analyzer.js";
 import { InstructionGenerator } from "../utils/instruction-generator.js";
+import { getUsageTracker } from "../utils/usage-tracker.js";
+import { getVersion } from "../utils/version.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -232,6 +234,8 @@ export function useInputHandler({
     { command: "/clear", description: "Clear chat history" },
     { command: "/init", description: "Initialize project with smart analysis" },
     { command: "/models", description: "Switch AI Model" },
+    { command: "/usage", description: "Show API usage statistics" },
+    { command: "/version", description: "Show AX CLI version" },
     { command: "/commit-and-push", description: "AI commit & push to remote" },
     { command: "/exit", description: "Exit the application" },
   ];
@@ -384,6 +388,8 @@ Built-in Commands:
   /init       - Initialize project with smart analysis
   /help       - Show this help
   /models     - Switch between available models
+  /usage      - Show API usage statistics
+  /version    - Show AX CLI version
   /exit       - Exit application
   exit, quit  - Exit application
 
@@ -419,6 +425,58 @@ Examples:
         timestamp: new Date(),
       };
       setChatHistory((prev) => [...prev, helpEntry]);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/usage") {
+      const tracker = getUsageTracker();
+      const stats = tracker.getSessionStats();
+
+      let usageContent = "📊 **API Usage Statistics**\n\n";
+
+      if (stats.totalRequests === 0) {
+        usageContent += "No API requests made in this session.";
+      } else {
+        usageContent += `**Current Session:**\n`;
+        usageContent += `  • Total Requests: ${stats.totalRequests.toLocaleString()}\n`;
+        usageContent += `  • Prompt Tokens: ${stats.totalPromptTokens.toLocaleString()}\n`;
+        usageContent += `  • Completion Tokens: ${stats.totalCompletionTokens.toLocaleString()}\n`;
+        usageContent += `  • Total Tokens: ${stats.totalTokens.toLocaleString()}\n`;
+
+        if (stats.totalReasoningTokens > 0) {
+          usageContent += `  • Reasoning Tokens: ${stats.totalReasoningTokens.toLocaleString()}\n`;
+        }
+
+        if (stats.byModel.size > 0) {
+          usageContent += `\n**By Model:**\n`;
+          for (const [model, modelStats] of stats.byModel.entries()) {
+            usageContent += `  • ${model}: ${modelStats.totalTokens.toLocaleString()} tokens (${modelStats.requests} requests)\n`;
+          }
+        }
+
+        usageContent += `\n💡 Use \`ax-cli usage show --detailed\` for full breakdown`;
+        usageContent += `\n💡 Historical data: https://z.ai/manage-apikey/billing`;
+      }
+
+      const usageEntry: ChatEntry = {
+        type: "assistant",
+        content: usageContent,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, usageEntry]);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/version") {
+      const version = getVersion();
+      const versionEntry: ChatEntry = {
+        type: "assistant",
+        content: `🤖 **AX CLI Version ${version}**\n\nEnterprise-Class AI Command Line Interface\nPrimary support for GLM (General Language Model)\n\n💡 Check for updates: \`ax-cli update\`\n💡 Documentation: https://github.com/defai-digital/ax-cli`,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, versionEntry]);
       clearInput();
       return true;
     }

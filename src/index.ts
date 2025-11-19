@@ -11,6 +11,7 @@ import { createMCPCommand } from "./commands/mcp.js";
 import { createInitCommand } from "./commands/init.js";
 import { createUpdateCommand } from "./commands/update.js";
 import { createSetupCommand } from "./commands/setup.js";
+import { createUsageCommand } from "./commands/usage.js";
 import { getVersion } from "./utils/version.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat";
 
@@ -539,5 +540,8 @@ program.addCommand(createUpdateCommand());
 
 // Setup command
 program.addCommand(createSetupCommand());
+
+// Usage command
+program.addCommand(createUsageCommand());
 
 program.parse();
