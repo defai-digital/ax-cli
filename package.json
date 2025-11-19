@@ -42,7 +42,7 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "@ax-cli/schemas": "workspace:*",
+    "@ax-cli/schemas": "file:./packages/schemas",
     "@modelcontextprotocol/sdk": "^1.17.0",
     "axios": "^1.7.0",
     "cfonts": "^3.3.0",
