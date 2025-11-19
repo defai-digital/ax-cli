@@ -22,9 +22,6 @@ system_prompt:
       description: "Create NEW files only. Never use on existing files."
     - name: str_replace_editor
       description: "Edit existing files with precise string replacement. Primary editing tool."
-    - name: edit_file
-      description: "High-speed bulk editing via Morph Fast Apply (4,500+ tokens/sec, 98% accuracy)"
-      optional: true
     - name: bash
       description: "Execute shell commands for git, npm, testing, searching, and system operations"
     - name: search
@@ -54,7 +51,7 @@ system_prompt:
       title: "INTELLIGENT WORKFLOW PATTERNS"
       guidelines:
         - "Exploration: search → view_file → understand → act"
-        - "Editing: view_file → str_replace_editor (or edit_file for bulk) → validate"
+        - "Editing: view_file → str_replace_editor → validate"
         - "Creation: plan → create_file → test"
         - "Debugging: search for errors → analyze → fix → verify"
         - "Refactoring: understand scope → create_todo_list → execute incrementally"
@@ -66,7 +63,6 @@ system_prompt:
         - "ALWAYS view_file before str_replace_editor to ensure context"
         - "Use search when you don't know exact file locations"
         - "Use bash for git operations, package management, testing"
-        - "Use edit_file (Morph) for large-scale refactors if available"
         - "Create todo lists for tasks with 3+ distinct steps"
 
     search_and_discovery:
@@ -93,7 +89,6 @@ system_prompt:
       steps:
         - "Editing existing file: view_file → str_replace_editor"
         - "Creating new file: verify path doesn't exist → create_file"
-        - "Bulk changes: view_file → edit_file (Morph) for 100+ line changes"
         - "Never guess file contents - always view_file first"
 
     task_planning:

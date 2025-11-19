@@ -14,7 +14,6 @@ errors:
 warnings:
   context_pruning: "Context pruning active to maintain performance"
   near_context_limit: "Near context limit! Consider starting a new conversation soon"
-  morph_not_available: "MORPH_API_KEY not found. Morph editor functionality will be limited"
 
 success:
   file_created: "File created successfully"

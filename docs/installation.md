@@ -99,9 +99,6 @@ If using cloud-based AI services:
   - Groq - https://console.groq.com
   - Any OpenAI-compatible endpoint
 
-- **Optional: Morph API Key** for ultra-fast code editing (4,500+ tokens/sec)
-  - Get key from: https://morphllm.com/dashboard/api-keys
-
 ---
 
 ## Quick Start
@@ -1032,9 +1029,6 @@ GROK_MAX_TOKENS="128000"               # Max tokens for responses
 
 # Temperature
 GROK_TEMPERATURE="0.7"                 # Sampling temperature
-
-# Optional: Morph Fast Apply
-MORPH_API_KEY="your_morph_key"         # For ultra-fast editing
 
 # Debug
 DEBUG="1"                              # Enable debug logging

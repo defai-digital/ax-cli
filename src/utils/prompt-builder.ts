@@ -9,7 +9,6 @@ import { loadPromptsConfig, type PromptSection } from './config-loader.js';
  * Build the system prompt for the AI assistant
  */
 export function buildSystemPrompt(options: {
-  hasMorphEditor: boolean;
   customInstructions?: string;
 }): string {
   const config = loadPromptsConfig();
@@ -37,7 +36,7 @@ export function buildSystemPrompt(options: {
 
   // List tools
   const toolsList = config.system_prompt.tools
-    .filter(tool => !tool.optional || (tool.optional && tool.name === 'edit_file' && options.hasMorphEditor))
+    .filter(tool => !tool.optional)
     .map(tool => `- ${tool.name}: ${tool.description}`)
     .join('\n');
   sections.push(toolsList);

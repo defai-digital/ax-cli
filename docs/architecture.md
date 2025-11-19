@@ -589,7 +589,6 @@ src/
 ├── tools/
 │   ├── bash.ts                # Shell command execution
 │   ├── text-editor.ts         # Standard file editing
-│   ├── morph-editor.ts        # Fast Apply editing (optional)
 │   ├── search.ts              # File search with ripgrep
 │   ├── todo-tool.ts           # Todo list management
 │   └── confirmation-tool.ts   # User confirmations

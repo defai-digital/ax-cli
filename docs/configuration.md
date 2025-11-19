@@ -61,7 +61,6 @@ AX CLI uses a **two-tier configuration system** designed for maximum flexibility
 - Default API key and base URL
 - Preferred default model
 - Available models list
-- Morph API key (optional)
 
 **Directory Structure**:
 ```bash
@@ -127,7 +126,6 @@ AX CLI respects standard environment variables for configuration. These take pre
 
 | Variable | Purpose | Example |
 |----------|---------|---------|
-| `MORPH_API_KEY` | Morph Fast Apply key | `morph_your_key_here` |
 | `DEBUG` | Enable debug logging | `1` |
 
 ### Setting Environment Variables

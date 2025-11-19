@@ -7,7 +7,6 @@ import {
 import { loadMCPConfig } from "../mcp/config.js";
 import {
   TextEditorTool,
-  MorphEditorTool,
   BashTool,
   TodoTool,
   SearchTool,
@@ -48,7 +47,6 @@ export interface StreamingChunk {
 export class GrokAgent extends EventEmitter {
   private grokClient: GrokClient;
   private textEditor: TextEditorTool;
-  private morphEditor: MorphEditorTool | null;
   private bash: BashTool;
   private todoTool: TodoTool;
   private search: SearchTool;
@@ -72,7 +70,6 @@ export class GrokAgent extends EventEmitter {
     this.maxToolRounds = maxToolRounds || 400;
     this.grokClient = new GrokClient(apiKey, modelToUse, baseURL);
     this.textEditor = new TextEditorTool();
-    this.morphEditor = process.env.MORPH_API_KEY ? new MorphEditorTool() : null;
     this.bash = new BashTool();
     this.todoTool = new TodoTool();
     this.search = new SearchTool();
@@ -85,7 +82,6 @@ export class GrokAgent extends EventEmitter {
     // Build system prompt from YAML configuration
     const customInstructions = loadCustomInstructions();
     const systemPrompt = buildSystemPrompt({
-      hasMorphEditor: !!this.morphEditor,
       customInstructions: customInstructions || undefined,
     });
 
@@ -762,20 +758,6 @@ export class GrokAgent extends EventEmitter {
             args.old_str,
             args.new_str,
             args.replace_all
-          );
-
-        case "edit_file":
-          if (!this.morphEditor) {
-            return {
-              success: false,
-              error:
-                "Morph Fast Apply not available. Please set MORPH_API_KEY environment variable to use this feature.",
-            };
-          }
-          return await this.morphEditor.editFile(
-            args.target_file,
-            args.instructions,
-            args.code_edit
           );
 
         case "bash":

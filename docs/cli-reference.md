@@ -720,7 +720,6 @@ GROK_MODEL=grok-code-fast-1 ax-cli
 | `GROK_MODEL` | Default AI model | `export GROK_MODEL=glm-4.6` |
 | `GROK_MAX_TOKENS` | Maximum response tokens | `export GROK_MAX_TOKENS=8192` |
 | `GROK_TEMPERATURE` | Response creativity (0-2) | `export GROK_TEMPERATURE=0.7` |
-| `MORPH_API_KEY` | Morph Fast Apply API key | `export MORPH_API_KEY=your_morph_key` |
 
 ---
 

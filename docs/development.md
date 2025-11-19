@@ -76,9 +76,6 @@ YOUR_API_KEY=your_api_key_here
 GROK_BASE_URL=https://api.x.ai/v1
 GROK_MODEL=grok-code-fast-1
 
-# Optional: Morph Fast Apply
-MORPH_API_KEY=your_morph_key
-
 # Debug mode
 DEBUG=1
 ```
@@ -373,7 +370,6 @@ ax-cli/
 │   ├── tools/
 │   │   ├── bash.ts                   # Shell command execution
 │   │   ├── text-editor.ts            # Standard file editing
-│   │   ├── morph-editor.ts           # Fast Apply editing (optional)
 │   │   ├── search.ts                 # File search with ripgrep
 │   │   ├── todo-tool.ts              # Todo list management
 │   │   ├── confirmation-tool.ts      # User confirmations

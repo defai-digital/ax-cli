@@ -114,8 +114,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Context Pruning Logic**: Clarified complex condition with named variables
     - Better readability for gap detection between message segments
     - Ensures pruning marker only appears when messages actually skipped
-  - **Unused Test Variable**: Removed unused result variable in morph-editor tests
-    - Cleaner code, eliminated ESLint warning
 
 ### Improved
 - **Code Quality**: Enhanced defensive programming across critical paths

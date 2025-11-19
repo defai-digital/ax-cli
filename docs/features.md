@@ -364,23 +364,6 @@ AX CLI provides multiple ways to extend functionality and customize behavior.
 - Jira: Issue management (via MCP)
 - Custom servers: Build your own MCP servers
 
-### Morph Fast Apply
-
-**High-Speed Code Editing** (Optional)
-- **4,500+ tokens/second** editing performance
-- Dramatically faster for large codebase modifications
-- Optional integration (requires Morph API key)
-
-**Use Case**
-```bash
-# Standard editing (via built-in text editor)
-ax-cli -p "Update all imports in the entire codebase to use new paths"
-# May take moderate time for large projects
-
-# With Morph Fast Apply (when enabled)
-# Same operation completes 5-10x faster
-```
-
 ---
 
 ## Developer Experience
