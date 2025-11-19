@@ -721,9 +721,13 @@ export class GrokAgent extends EventEmitter {
       const result = await mcpManager.callTool(toolCall.function.name, args);
 
       if (result.isError) {
+        // Extract error message from MCP result content
+        const errorMsg = result.content && result.content.length > 0
+          ? (result.content[0] as any)?.text || "MCP tool error"
+          : "MCP tool error";
         return {
           success: false,
-          error: (result.content[0] as any)?.text || "MCP tool error",
+          error: errorMsg,
         };
       }
 

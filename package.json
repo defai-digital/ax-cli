@@ -55,7 +55,7 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "@ax-cli/schemas": "file:./packages/schemas",
+    "@ax-cli/schemas": "npm:@defai.digital/ax-cli-schemas@^1.0.0",
     "@modelcontextprotocol/sdk": "^1.17.0",
     "axios": "^1.7.0",
     "cfonts": "^3.3.0",

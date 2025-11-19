@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Box, Text, useInput, useApp } from "ink";
 import { GrokAgent } from "../../agent/grok-agent.js";
 import { getSettingsManager } from "../../utils/settings-manager.js";
@@ -86,13 +86,15 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
     (isSubmitting ? "*".repeat(input.length) : "*".repeat(input.length) + "█") :
     (isSubmitting ? " " : "█");
 
-  // Get settings path for display
-  const manager = getSettingsManager();
-  const settingsPath = manager.getUserSettingsPath();
-  const saveLocationMsg = formatMessage(
-    uiMessages.save_location || "Note: API key will be saved to {path}",
-    { path: settingsPath }
-  );
+  // Get settings path for display - memoized to avoid repeated calls
+  const saveLocationMsg = useMemo(() => {
+    const manager = getSettingsManager();
+    const settingsPath = manager.getUserSettingsPath();
+    return formatMessage(
+      uiMessages.save_location || "Note: API key will be saved to {path}",
+      { path: settingsPath }
+    );
+  }, [uiMessages.save_location]);
 
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1}>

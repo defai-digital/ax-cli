@@ -64,6 +64,8 @@ mcp_commands:
   command_label: "  Command: {command}"
   url_label: "  URL: {url}"
   tools_count: "  Tools: {count}"
+  warning_invalid_env: "⚠️  Invalid environment variable format (expected KEY=VALUE): {envVar}"
+  warning_invalid_header: "⚠️  Invalid header format (expected KEY=VALUE): {header}"
 
 # Migration Messages
 migration:

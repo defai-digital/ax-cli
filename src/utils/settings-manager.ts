@@ -5,6 +5,7 @@ import { UserSettingsSchema, ProjectSettingsSchema } from "../schemas/settings-s
 import type { UserSettings, ProjectSettings } from "../schemas/settings-schemas.js";
 import { ModelIdSchema } from '@ax-cli/schemas';
 import { loadMessagesConfig, formatMessage } from "./config-loader.js";
+import { parseJsonFile, writeJsonFile } from "./json-utils.js";
 
 // Load migration messages from YAML
 const messages = loadMessagesConfig();
@@ -195,22 +196,22 @@ export class SettingsManager {
         return { ...DEFAULT_USER_SETTINGS };
       }
 
-      const content = fs.readFileSync(this.userSettingsPath, "utf-8");
-      const rawSettings = JSON.parse(content);
+      // Use json-utils for consistent JSON handling
+      const parseResult = parseJsonFile<UserSettings>(
+        this.userSettingsPath,
+        UserSettingsSchema
+      );
 
-      // Validate with Zod schema
-      const validationResult = UserSettingsSchema.safeParse(rawSettings);
-
-      if (!validationResult.success) {
+      if (!parseResult.success) {
         console.warn(
-          "User settings validation failed, using defaults:",
-          validationResult.error.message
+          "Failed to load user settings:",
+          parseResult.error
         );
         return { ...DEFAULT_USER_SETTINGS };
       }
 
       // Merge with defaults to ensure all required fields exist
-      const settings = { ...DEFAULT_USER_SETTINGS, ...validationResult.data };
+      const settings = { ...DEFAULT_USER_SETTINGS, ...parseResult.data };
       this.userSettingsCache = settings;
       this.cacheTimestamp.user = Date.now();
       return settings;
@@ -236,11 +237,10 @@ export class SettingsManager {
       // Read existing settings directly to avoid recursion
       let existingSettings: UserSettings = { ...DEFAULT_USER_SETTINGS };
       if (fs.existsSync(this.userSettingsPath)) {
-        try {
-          const content = fs.readFileSync(this.userSettingsPath, "utf-8");
-          const parsed = JSON.parse(content);
-          existingSettings = { ...DEFAULT_USER_SETTINGS, ...parsed };
-        } catch {
+        const parseResult = parseJsonFile<UserSettings>(this.userSettingsPath);
+        if (parseResult.success) {
+          existingSettings = { ...DEFAULT_USER_SETTINGS, ...parseResult.data };
+        } else {
           // If file is corrupted, use defaults
           console.warn("Corrupted user settings file, using defaults");
         }
@@ -248,11 +248,20 @@ export class SettingsManager {
 
       const mergedSettings = { ...existingSettings, ...settings };
 
-      fs.writeFileSync(
+      // Use json-utils for consistent writing
+      const writeResult = writeJsonFile(
         this.userSettingsPath,
-        JSON.stringify(mergedSettings, null, 2),
-        { mode: 0o600 } // Secure permissions for API key
+        mergedSettings,
+        undefined, // no schema
+        true // pretty
       );
+
+      if (!writeResult.success) {
+        throw new Error(`Failed to write settings: ${writeResult.error}`);
+      }
+
+      // Set secure permissions for API key
+      fs.chmodSync(this.userSettingsPath, 0o600);
 
       // Invalidate cache after save
       this.userSettingsCache = null;
@@ -295,29 +304,29 @@ export class SettingsManager {
       return this.projectSettingsCache;
     }
 
-    try{
+    try {
       if (!fs.existsSync(this.projectSettingsPath)) {
         // Create default project settings if file doesn't exist
         this.saveProjectSettings(DEFAULT_PROJECT_SETTINGS);
         return { ...DEFAULT_PROJECT_SETTINGS };
       }
 
-      const content = fs.readFileSync(this.projectSettingsPath, "utf-8");
-      const rawSettings = JSON.parse(content);
+      // Use json-utils for consistent JSON handling
+      const parseResult = parseJsonFile<ProjectSettings>(
+        this.projectSettingsPath,
+        ProjectSettingsSchema
+      );
 
-      // Validate with Zod schema
-      const validationResult = ProjectSettingsSchema.safeParse(rawSettings);
-
-      if (!validationResult.success) {
+      if (!parseResult.success) {
         console.warn(
-          "Project settings validation failed, using defaults:",
-          validationResult.error.message
+          "Failed to load project settings:",
+          parseResult.error
         );
         return { ...DEFAULT_PROJECT_SETTINGS };
       }
 
       // Merge with defaults
-      const settings = { ...DEFAULT_PROJECT_SETTINGS, ...validationResult.data };
+      const settings = { ...DEFAULT_PROJECT_SETTINGS, ...parseResult.data };
       this.projectSettingsCache = settings;
       this.cacheTimestamp.project = Date.now();
       return settings;
@@ -343,11 +352,10 @@ export class SettingsManager {
       // Read existing settings directly to avoid recursion
       let existingSettings: ProjectSettings = { ...DEFAULT_PROJECT_SETTINGS };
       if (fs.existsSync(this.projectSettingsPath)) {
-        try {
-          const content = fs.readFileSync(this.projectSettingsPath, "utf-8");
-          const parsed = JSON.parse(content);
-          existingSettings = { ...DEFAULT_PROJECT_SETTINGS, ...parsed };
-        } catch {
+        const parseResult = parseJsonFile<ProjectSettings>(this.projectSettingsPath);
+        if (parseResult.success) {
+          existingSettings = { ...DEFAULT_PROJECT_SETTINGS, ...parseResult.data };
+        } else {
           // If file is corrupted, use defaults
           console.warn("Corrupted project settings file, using defaults");
         }
@@ -355,10 +363,17 @@ export class SettingsManager {
 
       const mergedSettings = { ...existingSettings, ...settings };
 
-      fs.writeFileSync(
+      // Use json-utils for consistent writing
+      const writeResult = writeJsonFile(
         this.projectSettingsPath,
-        JSON.stringify(mergedSettings, null, 2)
+        mergedSettings,
+        undefined, // no schema
+        true // pretty
       );
+
+      if (!writeResult.success) {
+        throw new Error(`Failed to write settings: ${writeResult.error}`);
+      }
 
       // Invalidate cache after save
       this.projectSettingsCache = null;

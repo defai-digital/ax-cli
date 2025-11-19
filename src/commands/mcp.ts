@@ -61,8 +61,10 @@ export function createMCPCommand(): Command {
         const env: Record<string, string> = {};
         for (const envVar of options.env || []) {
           const [key, value] = envVar.split('=', 2);
-          if (key && value) {
+          if (key && value !== undefined) {
             env[key] = value;
+          } else {
+            ConsoleMessenger.warning('mcp_commands.warning_invalid_env', { envVar });
           }
         }
 
@@ -70,8 +72,10 @@ export function createMCPCommand(): Command {
         const headers: Record<string, string> = {};
         for (const header of options.headers || []) {
           const [key, value] = header.split('=', 2);
-          if (key && value) {
+          if (key && value !== undefined) {
             headers[key] = value;
+          } else {
+            ConsoleMessenger.warning('mcp_commands.warning_invalid_header', { header });
           }
         }
 

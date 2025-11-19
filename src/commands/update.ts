@@ -3,6 +3,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import chalk from "chalk";
 import { createInterface } from "readline";
+import { parseJson } from "../utils/json-utils.js";
 
 const execAsync = promisify(exec);
 
@@ -17,13 +18,18 @@ async function getCurrentVersion(): Promise<string> {
     const { stdout } = await execAsync(
       `npm list -g ${PACKAGE_NAME} --depth=0 --json`
     );
-    try {
-      const result = JSON.parse(stdout);
-      return result.dependencies?.[PACKAGE_NAME]?.version || "unknown";
-    } catch {
+
+    // Use json-utils for safe parsing
+    const parseResult = parseJson<{
+      dependencies?: { [key: string]: { version?: string } };
+    }>(stdout);
+
+    if (!parseResult.success) {
       // JSON parse failed, fallback
       return "unknown";
     }
+
+    return parseResult.data.dependencies?.[PACKAGE_NAME]?.version || "unknown";
   } catch {
     // Fallback to package.json
     try {
@@ -36,8 +42,14 @@ async function getCurrentVersion(): Promise<string> {
       const pkgPath = join(__dirname, "../../package.json");
 
       const content = await readFile(pkgPath, "utf-8");
-      const pkg = JSON.parse(content);
-      return pkg.version || "unknown";
+
+      // Use json-utils for safe parsing
+      const parseResult = parseJson<{ version?: string }>(content);
+      if (!parseResult.success) {
+        return "unknown";
+      }
+
+      return parseResult.data.version || "unknown";
     } catch {
       return "unknown";
     }
@@ -82,29 +94,32 @@ async function showChangelog(_from: string, to: string): Promise<void> {
       `curl -s https://api.github.com/repos/defai-digital/ax-cli/releases/tags/v${to}`
     );
 
-    try {
-      const release = JSON.parse(stdout);
+    // Use json-utils for safe parsing
+    const parseResult = parseJson<{ body?: string }>(stdout);
 
-      if (release.body) {
-        // Parse and display first few lines
-        const lines = release.body.split("\n").slice(0, 10);
-        lines.forEach((line: string) => {
-          if (line.startsWith("#")) {
-            console.log(chalk.bold(line));
-          } else if (line.trim()) {
-            console.log(chalk.gray(line));
-          }
-        });
-        console.log(chalk.gray("\n..."));
-        console.log(
-          chalk.gray(
-            `Full changelog: https://github.com/defai-digital/ax-cli/releases/tag/v${to}`
-          )
-        );
-      }
-    } catch {
+    if (!parseResult.success) {
       // JSON parse failed
       throw new Error('Failed to parse GitHub API response');
+    }
+
+    const release = parseResult.data;
+
+    if (release.body) {
+      // Parse and display first few lines
+      const lines = release.body.split("\n").slice(0, 10);
+      lines.forEach((line: string) => {
+        if (line.startsWith("#")) {
+          console.log(chalk.bold(line));
+        } else if (line.trim()) {
+          console.log(chalk.gray(line));
+        }
+      });
+      console.log(chalk.gray("\n..."));
+      console.log(
+        chalk.gray(
+          `Full changelog: https://github.com/defai-digital/ax-cli/releases/tag/v${to}`
+        )
+      );
     }
   } catch {
     // If changelog fetch fails, continue silently
