@@ -12,7 +12,7 @@ export class TokenCounter {
       this.encoder = encoding_for_model(model as any);
     } catch {
       // Fallback to cl100k_base (used by GPT-4 and most modern models)
-      this.encoder = get_encoding(TOKEN_CONFIG.DEFAULT_ENCODING);
+      this.encoder = get_encoding(TOKEN_CONFIG.DEFAULT_ENCODING as any);
     }
     // Initialize cache with configured limit
     this.cache = new LRUCache({ maxSize: TOKEN_CONFIG.CACHE_MAX_SIZE });

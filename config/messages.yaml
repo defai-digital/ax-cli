@@ -1,0 +1,29 @@
+# Error Messages and User-Facing Text
+# Externalized strings for easy localization and maintenance
+
+errors:
+  api_key_required: "API key required. Set YOUR_API_KEY environment variable, use --api-key flag, or save to ~/.grok/user-settings.json"
+  transport_config_required: "Transport configuration is required"
+  tool_not_found: "Tool {toolName} not found"
+  server_not_connected: "Server {serverName} not connected"
+  file_not_found: "File not found: {filePath}"
+  directory_not_found: "Directory not found: {dirPath}"
+  invalid_model: "Invalid model: {model}"
+  context_limit_exceeded: "Context limit exceeded"
+
+warnings:
+  context_pruning: "Context pruning active to maintain performance"
+  near_context_limit: "Near context limit! Consider starting a new conversation soon"
+  morph_not_available: "MORPH_API_KEY not found. Morph editor functionality will be limited"
+
+success:
+  file_created: "File created successfully"
+  file_updated: "File updated successfully"
+  command_executed: "Command executed successfully"
+  server_connected: "Server connected successfully"
+
+info:
+  processing: "Processing..."
+  loading_tools: "Loading tools..."
+  initializing_mcp: "Initializing MCP servers..."
+  context_stats: "Context: {current}/{total} tokens ({percentage}%)"

@@ -1,0 +1,50 @@
+# Application Settings Configuration
+# Global configuration values for AX CLI
+
+agent:
+  max_tool_rounds: 400
+  default_timeout: 360000  # 6 minutes in milliseconds
+  default_max_tokens: 8192
+
+file:
+  max_file_size: 1048576  # 1MB in bytes
+  max_buffer_size: 1048576  # 1MB for bash commands
+  diff_context_lines: 3
+
+history:
+  max_history_size: 1000
+
+mcp:
+  client_name: ax-cli
+  client_version: 1.0.0
+  default_timeout: 30000  # 30 seconds
+
+ui:
+  status_update_interval: 2000  # 2 seconds
+  processing_timer_interval: 1000  # 1 second
+
+token:
+  tokens_per_message: 3
+  tokens_for_reply_priming: 3
+  default_model: gpt-4
+  default_encoding: cl100k_base
+  cache_max_size: 1000
+
+cache:
+  default_max_size: 1000
+  default_ttl: 300000  # 5 minutes
+
+performance:
+  debounce_delay: 300  # milliseconds
+  throttle_limit: 1000  # milliseconds
+  slow_operation_threshold: 1000  # milliseconds
+
+tool_names:
+  bash: execute_bash
+  text_editor: str_replace_editor
+  read_file: read_file
+  write_file: write_to_file
+  list_files: list_files
+  search: search_files
+  create_todo: create_todo_list
+  update_todo: update_todo_list

@@ -1,127 +1,108 @@
 /**
  * Application-wide constants
- * Centralized configuration values to avoid magic numbers/strings
+ * Now loaded from YAML configuration files for better maintainability
  */
+
+import { loadModelsConfig, loadSettingsConfig, loadMessagesConfig, formatMessage } from './utils/config-loader.js';
+
+// Load configurations from YAML files
+const modelsYaml = loadModelsConfig();
+const settingsYaml = loadSettingsConfig();
+const messagesYaml = loadMessagesConfig();
 
 // Agent Configuration
 export const AGENT_CONFIG = {
-  MAX_TOOL_ROUNDS: 400,
-  DEFAULT_TIMEOUT: 360000, // 6 minutes
-  DEFAULT_MAX_TOKENS: 8192, // Updated for GLM-4.6 (was 1536)
+  MAX_TOOL_ROUNDS: settingsYaml.agent.max_tool_rounds,
+  DEFAULT_TIMEOUT: settingsYaml.agent.default_timeout,
+  DEFAULT_MAX_TOKENS: settingsYaml.agent.default_max_tokens,
 } as const;
 
-// GLM Model Configuration
-export const GLM_MODELS = {
-  "glm-4.6": {
-    name: "glm-4.6",
-    contextWindow: 200000,      // 200K tokens
-    maxOutputTokens: 128000,    // 128K max output
-    defaultMaxTokens: 8192,     // Conservative default
-    supportsThinking: true,
-    defaultTemperature: 0.7,
-    temperatureRange: { min: 0.6, max: 1.0 },
-    tokenEfficiency: 1.3,       // 30% more efficient
-  },
-  "grok-code-fast-1": {
-    name: "grok-code-fast-1",
-    contextWindow: 128000,      // 128K tokens
-    maxOutputTokens: 4096,
-    defaultMaxTokens: 1536,
-    supportsThinking: false,
-    defaultTemperature: 0.7,
-    temperatureRange: { min: 0.0, max: 2.0 },
-    tokenEfficiency: 1.0,
-  },
-  "glm-4-air": {
-    name: "glm-4-air",
-    contextWindow: 128000,
-    maxOutputTokens: 8192,
-    defaultMaxTokens: 4096,
-    supportsThinking: false,
-    defaultTemperature: 0.7,
-    temperatureRange: { min: 0.6, max: 1.0 },
-    tokenEfficiency: 1.15,
-  },
-  "glm-4-airx": {
-    name: "glm-4-airx",
-    contextWindow: 8192,
-    maxOutputTokens: 8192,
-    defaultMaxTokens: 2048,
-    supportsThinking: false,
-    defaultTemperature: 0.7,
-    temperatureRange: { min: 0.6, max: 1.0 },
-    tokenEfficiency: 1.1,
-  },
-} as const;
+// Convert YAML model config to runtime format
+export const GLM_MODELS = Object.entries(modelsYaml.models).reduce((acc, [key, model]) => {
+  acc[key] = {
+    name: model.name,
+    contextWindow: model.context_window,
+    maxOutputTokens: model.max_output_tokens,
+    defaultMaxTokens: model.default_max_tokens,
+    supportsThinking: model.supports_thinking,
+    defaultTemperature: model.default_temperature,
+    temperatureRange: {
+      min: model.temperature_range.min,
+      max: model.temperature_range.max,
+    },
+    tokenEfficiency: model.token_efficiency,
+  };
+  return acc;
+}, {} as Record<string, {
+  name: string;
+  contextWindow: number;
+  maxOutputTokens: number;
+  defaultMaxTokens: number;
+  supportsThinking: boolean;
+  defaultTemperature: number;
+  temperatureRange: { min: number; max: number };
+  tokenEfficiency: number;
+}>);
 
 export type SupportedModel = keyof typeof GLM_MODELS;
-export const DEFAULT_MODEL: SupportedModel = "glm-4.6";
+export const DEFAULT_MODEL: SupportedModel = modelsYaml.default_model as SupportedModel;
 
 // File Operations
 export const FILE_CONFIG = {
-  MAX_FILE_SIZE: 1024 * 1024, // 1MB
-  MAX_BUFFER_SIZE: 1024 * 1024, // 1MB for bash commands
-  DIFF_CONTEXT_LINES: 3,
+  MAX_FILE_SIZE: settingsYaml.file.max_file_size,
+  MAX_BUFFER_SIZE: settingsYaml.file.max_buffer_size,
+  DIFF_CONTEXT_LINES: settingsYaml.file.diff_context_lines,
 } as const;
 
 // History Configuration
 export const HISTORY_CONFIG = {
-  MAX_HISTORY_SIZE: 1000,
+  MAX_HISTORY_SIZE: settingsYaml.history.max_history_size,
 } as const;
 
 // MCP Configuration
 export const MCP_CONFIG = {
-  CLIENT_NAME: 'ax-cli',
-  CLIENT_VERSION: '1.0.0',
-  DEFAULT_TIMEOUT: 30000, // 30 seconds
+  CLIENT_NAME: settingsYaml.mcp.client_name,
+  CLIENT_VERSION: settingsYaml.mcp.client_version,
+  DEFAULT_TIMEOUT: settingsYaml.mcp.default_timeout,
 } as const;
 
 // UI Configuration
 export const UI_CONFIG = {
-  STATUS_UPDATE_INTERVAL: 2000, // 2 seconds
-  PROCESSING_TIMER_INTERVAL: 1000, // 1 second
+  STATUS_UPDATE_INTERVAL: settingsYaml.ui.status_update_interval,
+  PROCESSING_TIMER_INTERVAL: settingsYaml.ui.processing_timer_interval,
 } as const;
 
 // Token Counting
 export const TOKEN_CONFIG = {
-  TOKENS_PER_MESSAGE: 3,
-  TOKENS_FOR_REPLY_PRIMING: 3,
-  DEFAULT_MODEL: 'gpt-4',
-  DEFAULT_ENCODING: 'cl100k_base',
-  CACHE_MAX_SIZE: 1000, // Maximum cached token counts
+  TOKENS_PER_MESSAGE: settingsYaml.token.tokens_per_message,
+  TOKENS_FOR_REPLY_PRIMING: settingsYaml.token.tokens_for_reply_priming,
+  DEFAULT_MODEL: settingsYaml.token.default_model,
+  DEFAULT_ENCODING: settingsYaml.token.default_encoding,
+  CACHE_MAX_SIZE: settingsYaml.token.cache_max_size,
 } as const;
 
 // Cache Configuration
 export const CACHE_CONFIG = {
-  DEFAULT_MAX_SIZE: 1000,
-  DEFAULT_TTL: 300000, // 5 minutes
+  DEFAULT_MAX_SIZE: settingsYaml.cache.default_max_size,
+  DEFAULT_TTL: settingsYaml.cache.default_ttl,
 } as const;
 
 // Performance Monitoring
 export const PERF_CONFIG = {
-  DEBOUNCE_DELAY: 300, // ms
-  THROTTLE_LIMIT: 1000, // ms
-  SLOW_OPERATION_THRESHOLD: 1000, // ms - log warning if operation takes longer
+  DEBOUNCE_DELAY: settingsYaml.performance.debounce_delay,
+  THROTTLE_LIMIT: settingsYaml.performance.throttle_limit,
+  SLOW_OPERATION_THRESHOLD: settingsYaml.performance.slow_operation_threshold,
 } as const;
 
 // Tool Names
-export const TOOL_NAMES = {
-  BASH: 'execute_bash',
-  TEXT_EDITOR: 'str_replace_editor',
-  READ_FILE: 'read_file',
-  WRITE_FILE: 'write_to_file',
-  LIST_FILES: 'list_files',
-  SEARCH: 'search_files',
-  CREATE_TODO: 'create_todo_list',
-  UPDATE_TODO: 'update_todo_list',
-} as const;
+export const TOOL_NAMES = settingsYaml.tool_names as Record<string, string>;
 
-// Error Messages
+// Error Messages with template support
 export const ERROR_MESSAGES = {
-  API_KEY_REQUIRED: 'API key required. Set GROK_API_KEY environment variable, use --api-key flag, or save to ~/.grok/user-settings.json',
-  TRANSPORT_CONFIG_REQUIRED: 'Transport configuration is required',
-  TOOL_NOT_FOUND: (toolName: string) => `Tool ${toolName} not found`,
-  SERVER_NOT_CONNECTED: (serverName: string) => `Server ${serverName} not connected`,
-  FILE_NOT_FOUND: (filePath: string) => `File not found: ${filePath}`,
-  DIRECTORY_NOT_FOUND: (dirPath: string) => `Directory not found: ${dirPath}`,
+  API_KEY_REQUIRED: messagesYaml.errors.api_key_required,
+  TRANSPORT_CONFIG_REQUIRED: messagesYaml.errors.transport_config_required,
+  TOOL_NOT_FOUND: (toolName: string) => formatMessage(messagesYaml.errors.tool_not_found, { toolName }),
+  SERVER_NOT_CONNECTED: (serverName: string) => formatMessage(messagesYaml.errors.server_not_connected, { serverName }),
+  FILE_NOT_FOUND: (filePath: string) => formatMessage(messagesYaml.errors.file_not_found, { filePath }),
+  DIRECTORY_NOT_FOUND: (dirPath: string) => formatMessage(messagesYaml.errors.directory_not_found, { dirPath }),
 } as const;
