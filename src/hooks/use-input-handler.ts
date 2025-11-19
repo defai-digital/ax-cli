@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useInput } from "ink";
-import { GrokAgent, ChatEntry } from "../agent/grok-agent.js";
+import { LLMAgent, ChatEntry } from "../agent/llm-agent.js";
 import { ConfirmationService } from "../utils/confirmation-service.js";
 import { useEnhancedInput, Key } from "./use-enhanced-input.js";
 
@@ -12,7 +12,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 interface UseInputHandlerProps {
-  agent: GrokAgent;
+  agent: LLMAgent;
   chatHistory: ChatEntry[];
   setChatHistory: React.Dispatch<React.SetStateAction<ChatEntry[]>>;
   setIsProcessing: (processing: boolean) => void;

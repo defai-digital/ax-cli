@@ -1,9 +1,9 @@
-import { GrokClient, GrokMessage, GrokToolCall, GrokTool } from "../grok/client.js";
+import { LLMClient, LLMMessage, LLMToolCall, LLMTool } from "../llm/client.js";
 import {
   getAllGrokTools,
   getMCPManager,
   initializeMCPServers,
-} from "../grok/tools.js";
+} from "../llm/tools.js";
 import { loadMCPConfig } from "../mcp/config.js";
 import {
   TextEditorTool,
@@ -23,8 +23,8 @@ export interface ChatEntry {
   type: "user" | "assistant" | "tool_result" | "tool_call";
   content: string;
   timestamp: Date;
-  toolCalls?: GrokToolCall[];
-  toolCall?: GrokToolCall;
+  toolCalls?: LLMToolCall[];
+  toolCall?: LLMToolCall;
   toolResult?: { success: boolean; output?: string; error?: string };
   isStreaming?: boolean;
   /** GLM-4.6 reasoning content (thinking mode) */
@@ -38,20 +38,20 @@ export interface StreamingChunk {
   content?: string;
   /** GLM-4.6 reasoning content chunk */
   reasoningContent?: string;
-  toolCalls?: GrokToolCall[];
-  toolCall?: GrokToolCall;
+  toolCalls?: LLMToolCall[];
+  toolCall?: LLMToolCall;
   toolResult?: ToolResult;
   tokenCount?: number;
 }
 
-export class GrokAgent extends EventEmitter {
-  private grokClient: GrokClient;
+export class LLMAgent extends EventEmitter {
+  private llmClient: LLMClient;
   private textEditor: TextEditorTool;
   private bash: BashTool;
   private todoTool: TodoTool;
   private search: SearchTool;
   private chatHistory: ChatEntry[] = [];
-  private messages: GrokMessage[] = [];
+  private messages: LLMMessage[] = [];
   private tokenCounter: TokenCounter;
   private contextManager: ContextManager;
   private abortController: AbortController | null = null;
@@ -68,7 +68,7 @@ export class GrokAgent extends EventEmitter {
     const savedModel = manager.getCurrentModel();
     const modelToUse = model || savedModel || "grok-code-fast-1";
     this.maxToolRounds = maxToolRounds || 400;
-    this.grokClient = new GrokClient(apiKey, modelToUse, baseURL);
+    this.llmClient = new LLMClient(apiKey, modelToUse, baseURL);
     this.textEditor = new TextEditorTool();
     this.bash = new BashTool();
     this.todoTool = new TodoTool();
@@ -110,7 +110,7 @@ export class GrokAgent extends EventEmitter {
   }
 
   private isGrokModel(): boolean {
-    const currentModel = this.grokClient.getCurrentModel();
+    const currentModel = this.llmClient.getCurrentModel();
     return currentModel.toLowerCase().includes("grok");
   }
 
@@ -158,7 +158,7 @@ export class GrokAgent extends EventEmitter {
 
     try {
       const tools = await getAllGrokTools();
-      let currentResponse = await this.grokClient.chat(
+      let currentResponse = await this.llmClient.chat(
         this.messages,
         tools,
         {
@@ -255,7 +255,7 @@ export class GrokAgent extends EventEmitter {
           }
 
           // Get next response - this might contain more tool calls
-          currentResponse = await this.grokClient.chat(
+          currentResponse = await this.llmClient.chat(
             this.messages,
             tools,
             {
@@ -401,7 +401,7 @@ export class GrokAgent extends EventEmitter {
    * Load tools with error handling
    * Returns tools array, logs error if loading fails
    */
-  private async loadToolsSafely(): Promise<GrokTool[]> {
+  private async loadToolsSafely(): Promise<LLMTool[]> {
     try {
       return await getAllGrokTools();
     } catch (error: any) {
@@ -514,7 +514,7 @@ export class GrokAgent extends EventEmitter {
    * Execute tool calls and yield results
    */
   private async *executeToolCalls(
-    toolCalls: GrokToolCall[],
+    toolCalls: LLMToolCall[],
     toolCallsYielded: boolean,
     inputTokens: { value: number },
     totalOutputTokens: { value: number }
@@ -614,7 +614,7 @@ export class GrokAgent extends EventEmitter {
         }
 
         // Create chat stream
-        const stream = this.grokClient.chatStream(
+        const stream = this.llmClient.chatStream(
           this.messages,
           tools,
           {
@@ -702,7 +702,7 @@ export class GrokAgent extends EventEmitter {
    * @returns Parsed arguments or error result
    */
   private parseToolArguments(
-    toolCall: GrokToolCall,
+    toolCall: LLMToolCall,
     toolType: string = 'Tool'
   ): { success: true; args: any } | { success: false; error: string } {
     if (!toolCall.function.arguments || toolCall.function.arguments.trim() === '') {
@@ -732,7 +732,7 @@ export class GrokAgent extends EventEmitter {
     }
   }
 
-  private async executeTool(toolCall: GrokToolCall): Promise<ToolResult> {
+  private async executeTool(toolCall: LLMToolCall): Promise<ToolResult> {
     try {
       const parseResult = this.parseToolArguments(toolCall, 'Tool');
       if (!parseResult.success) {
@@ -801,7 +801,7 @@ export class GrokAgent extends EventEmitter {
     }
   }
 
-  private async executeMCPTool(toolCall: GrokToolCall): Promise<ToolResult> {
+  private async executeMCPTool(toolCall: LLMToolCall): Promise<ToolResult> {
     try {
       const parseResult = this.parseToolArguments(toolCall, 'MCP tool');
       if (!parseResult.success) {
@@ -861,11 +861,11 @@ export class GrokAgent extends EventEmitter {
   }
 
   getCurrentModel(): string {
-    return this.grokClient.getCurrentModel();
+    return this.llmClient.getCurrentModel();
   }
 
   setModel(model: string): void {
-    this.grokClient.setModel(model);
+    this.llmClient.setModel(model);
     // Update token counter for new model
     this.tokenCounter.dispose();
     this.tokenCounter = createTokenCounter(model);

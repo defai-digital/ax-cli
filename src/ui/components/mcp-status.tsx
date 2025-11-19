@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text } from "ink";
-import { getMCPManager } from "../../grok/tools.js";
+import { getMCPManager } from "../../llm/tools.js";
 
 interface MCPStatusProps {}
 

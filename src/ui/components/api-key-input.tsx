@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Box, Text, useInput, useApp } from "ink";
-import { GrokAgent } from "../../agent/grok-agent.js";
+import { LLMAgent } from "../../agent/llm-agent.js";
 import { getSettingsManager } from "../../utils/settings-manager.js";
 import { loadMessagesConfig, formatMessage } from "../../utils/config-loader.js";
 
@@ -9,7 +9,7 @@ const messages = loadMessagesConfig();
 const uiMessages = messages.ui?.api_key_input || {};
 
 interface ApiKeyInputProps {
-  onApiKeySet: (agent: GrokAgent) => void;
+  onApiKeySet: (agent: LLMAgent) => void;
 }
 
 export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
@@ -54,7 +54,7 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
     setIsSubmitting(true);
     try {
       const apiKey = input.trim();
-      const agent = new GrokAgent(apiKey);
+      const agent = new LLMAgent(apiKey);
 
       // Set environment variable for current process
       process.env.YOUR_API_KEY = apiKey;

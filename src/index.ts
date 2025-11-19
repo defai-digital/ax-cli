@@ -3,7 +3,7 @@ import React from "react";
 import { render } from "ink";
 import { program } from "commander";
 import * as dotenv from "dotenv";
-import { GrokAgent } from "./agent/grok-agent.js";
+import { LLMAgent } from "./agent/llm-agent.js";
 import ChatInterface from "./ui/components/chat-interface.js";
 import { getSettingsManager } from "./utils/settings-manager.js";
 import { ConfirmationService } from "./utils/confirmation-service.js";
@@ -17,7 +17,7 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat";
 dotenv.config();
 
 // Global agent tracker for cleanup on exit
-let activeAgent: GrokAgent | null = null;
+let activeAgent: LLMAgent | null = null;
 
 // Disable default SIGINT handling to let Ink handle Ctrl+C
 // We'll handle exit through the input system instead
@@ -125,9 +125,9 @@ async function handleCommitAndPushHeadless(
   model?: string,
   maxToolRounds?: number
 ): Promise<void> {
-  let agent: GrokAgent | null = null;
+  let agent: LLMAgent | null = null;
   try {
-    agent = new GrokAgent(apiKey, baseURL, model, maxToolRounds);
+    agent = new LLMAgent(apiKey, baseURL, model, maxToolRounds);
 
     // Configure confirmation service for headless mode (auto-approve all operations)
     const confirmationService = ConfirmationService.getInstance();
@@ -253,9 +253,9 @@ async function processPromptHeadless(
   model?: string,
   maxToolRounds?: number
 ): Promise<void> {
-  let agent: GrokAgent | null = null;
+  let agent: LLMAgent | null = null;
   try {
-    agent = new GrokAgent(apiKey, baseURL, model, maxToolRounds);
+    agent = new LLMAgent(apiKey, baseURL, model, maxToolRounds);
 
     // Configure confirmation service for headless mode (auto-approve all operations)
     const confirmationService = ConfirmationService.getInstance();
@@ -401,7 +401,7 @@ program
       }
 
       // Interactive mode: launch UI
-      const agent = new GrokAgent(apiKey, baseURL, model, maxToolRounds);
+      const agent = new LLMAgent(apiKey, baseURL, model, maxToolRounds);
       activeAgent = agent; // Track for cleanup on exit
       console.log("🤖 Starting Grok CLI Conversational Assistant...\n");
 

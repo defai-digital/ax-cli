@@ -1,8 +1,8 @@
-import { GrokTool } from "./client.js";
+import { LLMTool } from "./client.js";
 import { MCPManager, MCPTool } from "../mcp/client.js";
 import { loadMCPConfig } from "../mcp/config.js";
 
-const BASE_GROK_TOOLS: GrokTool[] = [
+const BASE_GROK_TOOLS: LLMTool[] = [
   {
     type: "function",
     function: {
@@ -244,12 +244,12 @@ const BASE_GROK_TOOLS: GrokTool[] = [
 ];
 
 // Function to build tools array
-function buildGrokTools(): GrokTool[] {
+function buildGrokTools(): LLMTool[] {
   return [...BASE_GROK_TOOLS];
 }
 
 // Export dynamic tools array
-export const GROK_TOOLS: GrokTool[] = buildGrokTools();
+export const GROK_TOOLS: LLMTool[] = buildGrokTools();
 
 // Global MCP manager instance
 let mcpManager: MCPManager | null = null;
@@ -305,7 +305,7 @@ export async function initializeMCPServers(): Promise<void> {
   }
 }
 
-export function convertMCPToolToGrokTool(mcpTool: MCPTool): GrokTool {
+export function convertMCPToolToGrokTool(mcpTool: MCPTool): LLMTool {
   return {
     type: "function",
     function: {
@@ -320,7 +320,7 @@ export function convertMCPToolToGrokTool(mcpTool: MCPTool): GrokTool {
   };
 }
 
-export function addMCPToolsToGrokTools(baseTools: GrokTool[]): GrokTool[] {
+export function addMCPToolsToGrokTools(baseTools: LLMTool[]): LLMTool[] {
   if (!mcpManager) {
     return baseTools;
   }
@@ -331,7 +331,7 @@ export function addMCPToolsToGrokTools(baseTools: GrokTool[]): GrokTool[] {
   return [...baseTools, ...grokMCPTools];
 }
 
-export async function getAllGrokTools(): Promise<GrokTool[]> {
+export async function getAllGrokTools(): Promise<LLMTool[]> {
   const manager = getMCPManager();
   // Try to initialize servers if not already done, but don't block
   manager.ensureServersInitialized().catch(() => {

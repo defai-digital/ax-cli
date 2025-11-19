@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Box, Text } from "ink";
-import { GrokAgent, ChatEntry } from "../../agent/grok-agent.js";
+import { LLMAgent, ChatEntry } from "../../agent/llm-agent.js";
 import { useInputHandler } from "../../hooks/use-input-handler.js";
 import { LoadingSpinner } from "./loading-spinner.js";
 import { CommandSuggestions } from "./command-suggestions.js";
@@ -17,7 +17,7 @@ import ApiKeyInput from "./api-key-input.js";
 import cfonts from "cfonts";
 
 interface ChatInterfaceProps {
-  agent?: GrokAgent;
+  agent?: LLMAgent;
   initialMessage?: string;
 }
 
@@ -26,7 +26,7 @@ function ChatInterfaceWithAgent({
   agent,
   initialMessage,
 }: {
-  agent: GrokAgent;
+  agent: LLMAgent;
   initialMessage?: string;
 }) {
   const [chatHistory, setChatHistory] = useState<ChatEntry[]>([]);
@@ -436,11 +436,11 @@ export default function ChatInterface({
   agent,
   initialMessage,
 }: ChatInterfaceProps) {
-  const [currentAgent, setCurrentAgent] = useState<GrokAgent | null>(
+  const [currentAgent, setCurrentAgent] = useState<LLMAgent | null>(
     agent || null
   );
 
-  const handleApiKeySet = (newAgent: GrokAgent) => {
+  const handleApiKeySet = (newAgent: LLMAgent) => {
     setCurrentAgent(newAgent);
   };
 

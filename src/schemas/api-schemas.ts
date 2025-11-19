@@ -10,7 +10,7 @@ import { ToolCallIdSchema, ModelIdSchema } from '@ax-cli/schemas';
 const MessageRoleEnum = z.enum(['system', 'user', 'assistant', 'tool']);
 
 // Grok Tool Call Schema
-export const GrokToolCallSchema: z.ZodType<any> = z.object({
+export const LLMToolCallSchema: z.ZodType<any> = z.object({
   id: ToolCallIdSchema,
   type: z.literal('function'),
   function: z.object({
@@ -19,21 +19,21 @@ export const GrokToolCallSchema: z.ZodType<any> = z.object({
   }),
 });
 
-export type GrokToolCall = z.infer<typeof GrokToolCallSchema>;
+export type LLMToolCall = z.infer<typeof LLMToolCallSchema>;
 
 // Grok Message Schema
-export const GrokMessageSchema: z.ZodType<any> = z.object({
+export const LLMMessageSchema: z.ZodType<any> = z.object({
   role: MessageRoleEnum,
   content: z.string().nullable(),
-  tool_calls: z.array(GrokToolCallSchema).optional(),
+  tool_calls: z.array(LLMToolCallSchema).optional(),
   tool_call_id: ToolCallIdSchema.optional(),
   name: z.string().optional(),
 });
 
-export type GrokMessage = z.infer<typeof GrokMessageSchema>;
+export type LLMMessage = z.infer<typeof LLMMessageSchema>;
 
 // Grok Response Schema
-export const GrokResponseSchema: z.ZodType<any> = z.object({
+export const LLMResponseSchema: z.ZodType<any> = z.object({
   id: z.string().optional(),
   object: z.string().optional(),
   created: z.number().optional(),
@@ -44,7 +44,7 @@ export const GrokResponseSchema: z.ZodType<any> = z.object({
       message: z.object({
         role: z.string(),
         content: z.string().nullable(),
-        tool_calls: z.array(GrokToolCallSchema).optional(),
+        tool_calls: z.array(LLMToolCallSchema).optional(),
       }),
       finish_reason: z.string().nullable(),
     })
@@ -58,7 +58,7 @@ export const GrokResponseSchema: z.ZodType<any> = z.object({
     .optional(),
 });
 
-export type GrokResponse = z.infer<typeof GrokResponseSchema>;
+export type LLMResponse = z.infer<typeof LLMResponseSchema>;
 
 // Search Parameters Schema
 export const SearchParametersSchema = z.object({
@@ -82,11 +82,11 @@ export const StreamingChunkSchema: z.ZodType<any> = z.discriminatedUnion('type',
   }),
   z.object({
     type: z.literal('tool_calls'),
-    toolCalls: z.array(GrokToolCallSchema),
+    toolCalls: z.array(LLMToolCallSchema),
   }),
   z.object({
     type: z.literal('tool_result'),
-    toolCall: GrokToolCallSchema,
+    toolCall: LLMToolCallSchema,
     toolResult: z.object({
       success: z.boolean(),
       output: z.string().optional(),
@@ -109,8 +109,8 @@ export const ChatEntrySchema: z.ZodType<any> = z.object({
   type: z.enum(['user', 'assistant', 'tool_result', 'tool_call']),
   content: z.string(),
   timestamp: z.date(),
-  toolCalls: z.array(GrokToolCallSchema).optional(),
-  toolCall: GrokToolCallSchema.optional(),
+  toolCalls: z.array(LLMToolCallSchema).optional(),
+  toolCall: LLMToolCallSchema.optional(),
   toolResult: z
     .object({
       success: z.boolean(),
@@ -127,24 +127,24 @@ export type ChatEntry = z.infer<typeof ChatEntrySchema>;
  * Validation helper functions
  */
 
-export function validateGrokResponse(data: unknown): GrokResponse {
-  return GrokResponseSchema.parse(data);
+export function validateLLMResponse(data: unknown): LLMResponse {
+  return LLMResponseSchema.parse(data);
 }
 
 export function safeValidateGrokResponse(data: unknown): {
   success: boolean;
-  data?: GrokResponse;
+  data?: LLMResponse;
   error?: z.ZodError;
 } {
-  const result = GrokResponseSchema.safeParse(data);
+  const result = LLMResponseSchema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };
   }
   return { success: false, error: result.error };
 }
 
-export function validateToolCall(data: unknown): GrokToolCall {
-  return GrokToolCallSchema.parse(data);
+export function validateToolCall(data: unknown): LLMToolCall {
+  return LLMToolCallSchema.parse(data);
 }
 
 export function validateChatEntry(data: unknown): ChatEntry {

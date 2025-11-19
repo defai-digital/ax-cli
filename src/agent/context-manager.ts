@@ -3,7 +3,7 @@
  * Prevents context window overflow through intelligent pruning
  */
 
-import type { GrokMessage } from '../grok/client.js';
+import type { LLMMessage } from '../llm/client.js';
 import type { TokenCounter } from '../utils/token-counter.js';
 import { GLM_MODELS } from '../constants.js';
 
@@ -52,7 +52,7 @@ export class ContextManager {
    * Memoized token counting with cache and lazy cleanup
    * Uses message content hash as cache key
    */
-  private getCachedTokenCount(messages: GrokMessage[], tokenCounter: TokenCounter): number {
+  private getCachedTokenCount(messages: LLMMessage[], tokenCounter: TokenCounter): number {
     // Create cache key from message array
     // Use a simplified hash based on message count, roles, and content lengths
     const cacheKey = this.createMessageCacheKey(messages);
@@ -87,7 +87,7 @@ export class ContextManager {
    * Fast hashing without full serialization
    * Includes content sample to prevent collisions
    */
-  private createMessageCacheKey(messages: GrokMessage[]): string {
+  private createMessageCacheKey(messages: LLMMessage[]): string {
     // Use message count + roles + content lengths + content sample as a fast hash
     return messages.map(m => {
       const contentLen = typeof m.content === 'string' ? m.content.length : 0;
@@ -122,7 +122,7 @@ export class ContextManager {
   /**
    * Check if context needs pruning (with caching)
    */
-  shouldPrune(messages: GrokMessage[], tokenCounter: TokenCounter): boolean {
+  shouldPrune(messages: LLMMessage[], tokenCounter: TokenCounter): boolean {
     const currentTokens = this.getCachedTokenCount(messages, tokenCounter);
     const threshold = this.contextWindow * this.pruneThreshold;
     return currentTokens > threshold;
@@ -131,7 +131,7 @@ export class ContextManager {
   /**
    * Check if we're approaching hard limit (with caching)
    */
-  isNearHardLimit(messages: GrokMessage[], tokenCounter: TokenCounter): boolean {
+  isNearHardLimit(messages: LLMMessage[], tokenCounter: TokenCounter): boolean {
     const currentTokens = this.getCachedTokenCount(messages, tokenCounter);
     const limit = this.contextWindow * this.hardLimit;
     return currentTokens > limit;
@@ -140,7 +140,7 @@ export class ContextManager {
   /**
    * Get current context usage statistics (with caching)
    */
-  getStats(messages: GrokMessage[], tokenCounter: TokenCounter) {
+  getStats(messages: LLMMessage[], tokenCounter: TokenCounter) {
     const currentTokens = this.getCachedTokenCount(messages, tokenCounter);
     const percentage = (currentTokens / this.contextWindow) * 100;
     const available = this.contextWindow - currentTokens;
@@ -164,7 +164,7 @@ export class ContextManager {
    * 4. Remove old tool results (most verbose, least valuable)
    * 5. Apply sliding window if still over threshold
    */
-  pruneMessages(messages: GrokMessage[], tokenCounter: TokenCounter): GrokMessage[] {
+  pruneMessages(messages: LLMMessage[], tokenCounter: TokenCounter): LLMMessage[] {
     // Always keep system message - validate first
     if (messages.length === 0 || messages[0].role !== 'system') {
       throw new Error('First message must be system message');
@@ -189,7 +189,7 @@ export class ContextManager {
     const recentMessageIndices = new Set(recentRounds.flat());
 
     // Step 4: Build pruned message list
-    const prunedMessages: GrokMessage[] = [systemMessage];
+    const prunedMessages: LLMMessage[] = [systemMessage];
 
     for (let i = 0; i < workingMessages.length; i++) {
       const message = workingMessages[i];
@@ -226,7 +226,7 @@ export class ContextManager {
   /**
    * Identify important messages to preserve
    */
-  private identifyImportantMessages(messages: GrokMessage[]): Set<number> {
+  private identifyImportantMessages(messages: LLMMessage[]): Set<number> {
     const important = new Set<number>();
 
     // Keep first N user messages (important project context)
@@ -249,7 +249,7 @@ export class ContextManager {
    * Identify tool execution rounds
    * A round is: user -> assistant (with tool_calls) -> tool results -> assistant (response)
    */
-  private identifyToolRounds(messages: GrokMessage[]): number[][] {
+  private identifyToolRounds(messages: LLMMessage[]): number[][] {
     const rounds: number[][] = [];
     let currentRound: number[] = [];
     let inRound = false;
@@ -297,12 +297,12 @@ export class ContextManager {
   /**
    * Apply sliding window: keep first few + last many messages
    */
-  private applySlidingWindow(messages: GrokMessage[], tokenCounter: TokenCounter): GrokMessage[] {
+  private applySlidingWindow(messages: LLMMessage[], tokenCounter: TokenCounter): LLMMessage[] {
     const systemMessage = messages[0];
     const workingMessages = messages.slice(1);
 
     // Start with system message + first 2 user messages
-    const firstMessages: GrokMessage[] = [systemMessage];
+    const firstMessages: LLMMessage[] = [systemMessage];
     let userCount = 0;
     let firstMessageEnd = 0;
 
@@ -327,7 +327,7 @@ export class ContextManager {
     }
 
     // Add recent messages from the end
-    const recentMessages: GrokMessage[] = [];
+    const recentMessages: LLMMessage[] = [];
     let recentTokens = 0;
 
     for (let i = workingMessages.length - 1; i > firstMessageEnd; i--) {

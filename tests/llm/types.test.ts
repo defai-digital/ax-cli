@@ -9,7 +9,7 @@ import {
   isGLM46Response,
   hasReasoningContent,
   type ThinkingConfig,
-} from '../../src/grok/types.js';
+} from '../../src/llm/types.js';
 import { parseReasoningSteps } from '../../src/ui/components/reasoning-display.js';
 
 describe('GLM-4.6 Type Validation', () => {

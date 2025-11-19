@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ContextManager } from '../../src/agent/context-manager.js';
 import { createTokenCounter } from '../../src/utils/token-counter.js';
-import type { GrokMessage } from '../../src/grok/client.js';
+import type { LLMMessage } from '../../src/llm/client.js';
 
 describe('ContextManager', () => {
   let contextManager: ContextManager;
@@ -20,7 +20,7 @@ describe('ContextManager', () => {
 
   describe('shouldPrune', () => {
     it('should return false for small message arrays', () => {
-      const messages: GrokMessage[] = [
+      const messages: LLMMessage[] = [
         { role: 'system', content: 'You are an assistant.' },
         { role: 'user', content: 'Hello' },
       ];
@@ -30,7 +30,7 @@ describe('ContextManager', () => {
 
     it('should return true when approaching threshold', () => {
       // Create a large number of messages to exceed threshold
-      const messages: GrokMessage[] = [
+      const messages: LLMMessage[] = [
         { role: 'system', content: 'You are an assistant.' },
       ];
 
@@ -47,7 +47,7 @@ describe('ContextManager', () => {
 
   describe('isNearHardLimit', () => {
     it('should return false for normal usage', () => {
-      const messages: GrokMessage[] = [
+      const messages: LLMMessage[] = [
         { role: 'system', content: 'You are an assistant.' },
         { role: 'user', content: 'Hello' },
       ];
@@ -58,7 +58,7 @@ describe('ContextManager', () => {
 
   describe('getStats', () => {
     it('should calculate statistics correctly', () => {
-      const messages: GrokMessage[] = [
+      const messages: LLMMessage[] = [
         { role: 'system', content: 'You are an assistant.' },
         { role: 'user', content: 'Hello' },
         { role: 'assistant', content: 'Hi there!' },
@@ -78,7 +78,7 @@ describe('ContextManager', () => {
 
   describe('pruneMessages', () => {
     it('should keep system message', () => {
-      const messages: GrokMessage[] = [
+      const messages: LLMMessage[] = [
         { role: 'system', content: 'You are an assistant.' },
         { role: 'user', content: 'Test' },
       ];
@@ -90,7 +90,7 @@ describe('ContextManager', () => {
     });
 
     it('should keep first user messages', () => {
-      const messages: GrokMessage[] = [
+      const messages: LLMMessage[] = [
         { role: 'system', content: 'System' },
         { role: 'user', content: 'First message' },
         { role: 'assistant', content: 'Response 1' },
@@ -113,7 +113,7 @@ describe('ContextManager', () => {
     });
 
     it('should preserve tool execution rounds', () => {
-      const messages: GrokMessage[] = [
+      const messages: LLMMessage[] = [
         { role: 'system', content: 'System' },
         { role: 'user', content: 'Execute tool' },
         {
@@ -139,7 +139,7 @@ describe('ContextManager', () => {
     });
 
     it('should not prune if under threshold', () => {
-      const messages: GrokMessage[] = [
+      const messages: LLMMessage[] = [
         { role: 'system', content: 'System' },
         { role: 'user', content: 'Hello' },
         { role: 'assistant', content: 'Hi' },
@@ -152,7 +152,7 @@ describe('ContextManager', () => {
     });
 
     it('should throw error if first message is not system', () => {
-      const messages: GrokMessage[] = [
+      const messages: LLMMessage[] = [
         { role: 'user', content: 'Hello' },
       ];
 

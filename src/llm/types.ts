@@ -8,7 +8,7 @@
  * @see https://docs.z.ai/guides/llm/glm-4.6
  */
 
-import type { GrokTool, GrokToolCall, SearchOptions } from "./client.js";
+import type { LLMTool, LLMToolCall, SearchOptions } from "./client.js";
 
 /**
  * Thinking/Reasoning configuration for GLM-4.6
@@ -83,7 +83,7 @@ export interface ChatOptions {
   /**
    * Tools/functions available for the model to call
    */
-  tools?: GrokTool[];
+  tools?: LLMTool[];
 
   /**
    * Enable streaming responses
@@ -113,7 +113,7 @@ export interface GLM46Response {
        * Contains the step-by-step thought process before the final answer
        */
       reasoning_content?: string;
-      tool_calls?: GrokToolCall[];
+      tool_calls?: LLMToolCall[];
     };
     finish_reason: string;
   }>;

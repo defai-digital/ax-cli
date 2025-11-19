@@ -9,9 +9,9 @@ import type {
   GLM46StreamChunk,
 } from "./types.js";
 
-export type GrokMessage = ChatCompletionMessageParam;
+export type LLMMessage = ChatCompletionMessageParam;
 
-export interface GrokTool {
+export interface LLMTool {
   type: "function";
   function: {
     name: string;
@@ -24,7 +24,7 @@ export interface GrokTool {
   };
 }
 
-export interface GrokToolCall {
+export interface LLMToolCall {
   id: string;
   type: "function";
   function: {
@@ -42,13 +42,13 @@ export interface SearchOptions {
   search_parameters?: SearchParameters;
 }
 
-export interface GrokResponse {
+export interface LLMResponse {
   choices: Array<{
     message: {
       role: string;
       content: string | null;
       reasoning_content?: string;  // GLM-4.6 support
-      tool_calls?: GrokToolCall[];
+      tool_calls?: LLMToolCall[];
     };
     finish_reason: string;
   }>;
@@ -61,7 +61,7 @@ export interface GrokResponse {
 }
 
 /**
- * GrokClient - Enhanced client for GLM-4.6 API
+ * LLMClient - Enhanced client for GLM-4.6 API
  *
  * Supports advanced features including:
  * - Thinking/reasoning mode
@@ -69,7 +69,7 @@ export interface GrokResponse {
  * - Extended context windows (up to 200K tokens)
  * - Multiple model support
  */
-export class GrokClient {
+export class LLMClient {
   private client: OpenAI;
   private currentModel: SupportedModel;
   private defaultMaxTokens: number;
@@ -179,7 +179,7 @@ export class GrokClient {
    * @param messages - Conversation messages
    * @param tools - Available tools/functions
    * @param options - Chat options including temperature, thinking mode, etc.
-   * @returns Promise<GrokResponse>
+   * @returns Promise<LLMResponse>
    *
    * @example
    * ```typescript
@@ -192,10 +192,10 @@ export class GrokClient {
    * ```
    */
   async chat(
-    messages: GrokMessage[],
-    tools?: GrokTool[],
+    messages: LLMMessage[],
+    tools?: LLMTool[],
     options?: ChatOptions
-  ): Promise<GrokResponse> {
+  ): Promise<LLMResponse> {
     try {
       // Merge options with defaults
       const model = this.validateModel(options?.model || this.currentModel);
@@ -244,7 +244,7 @@ export class GrokClient {
         // Return response anyway for backward compatibility, but log warning
       }
 
-      return response as GrokResponse;
+      return response as LLMResponse;
     } catch (error: any) {
       // Enhance error message with context
       const modelInfo = options?.model || this.currentModel;
@@ -279,8 +279,8 @@ export class GrokClient {
    * ```
    */
   async *chatStream(
-    messages: GrokMessage[],
-    tools?: GrokTool[],
+    messages: LLMMessage[],
+    tools?: LLMTool[],
     options?: ChatOptions
   ): AsyncGenerator<GLM46StreamChunk, void, unknown> {
     try {
@@ -336,8 +336,8 @@ export class GrokClient {
   async search(
     query: string,
     searchParameters?: SearchParameters
-  ): Promise<GrokResponse> {
-    const searchMessage: GrokMessage = {
+  ): Promise<LLMResponse> {
+    const searchMessage: LLMMessage = {
       role: "user",
       content: query,
     };
