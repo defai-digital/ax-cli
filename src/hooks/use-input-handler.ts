@@ -231,7 +231,7 @@ export function useInputHandler({
     { command: "/help", description: "Show help information" },
     { command: "/clear", description: "Clear chat history" },
     { command: "/init", description: "Initialize project with smart analysis" },
-    { command: "/models", description: "Switch Grok Model" },
+    { command: "/models", description: "Switch AI Model" },
     { command: "/commit-and-push", description: "AI commit & push to remote" },
     { command: "/exit", description: "Exit the application" },
   ];
@@ -377,7 +377,7 @@ export function useInputHandler({
     if (trimmedInput === "/help") {
       const helpEntry: ChatEntry = {
         type: "assistant",
-        content: `Grok CLI Help:
+        content: `AX CLI Help:
 
 Built-in Commands:
   /clear      - Clear chat history

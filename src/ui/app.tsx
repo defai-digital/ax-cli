@@ -123,7 +123,7 @@ export default function App({ agent }: Props) {
     <Box flexDirection="column" padding={1}>
       <Box marginBottom={1}>
         <Text bold color="cyan">
-          🔧 Grok CLI - Text Editor Agent
+          🔧 AX CLI - AI Assistant
         </Text>
       </Box>
       

@@ -336,7 +336,7 @@ program
     "Enterprise-Class AI Command Line Interface - Primary support for GLM (General Language Model) with multi-provider AI orchestration"
   )
   .version(getVersion(), "-v, --version", "output the current version")
-  .argument("[message...]", "Initial message to send to Grok")
+  .argument("[message...]", "Initial message to send to AI")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
   .option("-k, --api-key <key>", "Grok API key (or set YOUR_API_KEY env var)")
   .option(
@@ -403,7 +403,7 @@ program
       // Interactive mode: launch UI
       const agent = new LLMAgent(apiKey, baseURL, model, maxToolRounds);
       activeAgent = agent; // Track for cleanup on exit
-      console.log("🤖 Starting Grok CLI Conversational Assistant...\n");
+      console.log("🤖 Starting AX CLI AI Assistant...\n");
 
       ensureUserSettingsDirectory();
 
@@ -421,7 +421,7 @@ program
         activeAgent = null;
       }
     } catch (error: any) {
-      console.error("❌ Error initializing Grok CLI:", error.message);
+      console.error("❌ Error initializing AX CLI:", error.message);
       process.exit(1);
     }
   });

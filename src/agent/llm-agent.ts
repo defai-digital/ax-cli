@@ -173,7 +173,7 @@ export class LLMAgent extends EventEmitter {
         const assistantMessage = currentResponse.choices[0]?.message;
 
         if (!assistantMessage) {
-          throw new Error("No response from Grok");
+          throw new Error("No response from AI");
         }
 
         // Handle tool calls

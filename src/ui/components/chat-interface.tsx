@@ -344,7 +344,7 @@ function ChatInterfaceWithAgent({
             </Text>
             <Text color="gray">2. Be specific for the best results.</Text>
             <Text color="gray">
-              3. Create GROK.md files to customize your interactions with Grok.
+              3. Create AX.md files to customize your interactions with AI.
             </Text>
             <Text color="gray">
               4. Press Shift+Tab to toggle auto-edit mode.
