@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ProjectAnalyzer } from '../utils/project-analyzer.js';
 import { LLMOptimizedInstructionGenerator } from '../utils/llm-optimized-instruction-generator.js';
+import { InitWizard } from './init/wizard.js';
 import type { InitOptions } from '../types/project-analysis.js';
 
 export function createInitCommand(): Command {
@@ -15,11 +16,19 @@ export function createInitCommand(): Command {
     .option('-f, --force', 'Force regeneration even if files exist', false)
     .option('-v, --verbose', 'Verbose output showing analysis details', false)
     .option('-d, --directory <dir>', 'Project directory to analyze', process.cwd())
-    .action(async (options: InitOptions & { directory?: string }) => {
+    .option('-y, --yes', 'Skip interactive prompts and use defaults', false)
+    .option('--no-interaction', 'Run in non-interactive mode', false)
+    .action(async (options: InitOptions & { directory?: string; yes?: boolean; noInteraction?: boolean }) => {
       try {
         const projectRoot = options.directory || process.cwd();
 
-        console.log('🔍 Analyzing project...\n');
+        // Run interactive wizard for first-time users (unless --yes or --no-interaction)
+        const wizard = new InitWizard({
+          nonInteractive: options.noInteraction,
+          yes: options.yes,
+        });
+
+        const wizardResult = await wizard.run();
 
         // Change to project directory if specified
         if (options.directory) {
@@ -100,19 +109,13 @@ export function createInitCommand(): Command {
           result.warnings.forEach(w => console.log(`   - ${w}`));
         }
 
-        // Display next steps
-        console.log('\n🎉 Project initialized successfully!\n');
-        console.log('📝 Custom instructions have been generated at:');
-        console.log(`   ${customMdPath}\n`);
-        console.log('💡 Next steps:');
-        console.log('   1. Review and customize the instructions if needed');
-        console.log('   2. Run AX CLI - it will automatically use these instructions');
-        console.log('   3. Use `ax-cli init --force` to regenerate after project changes\n');
+        // Show completion summary using wizard
+        await wizard.showCompletion(wizardResult, projectInfo);
 
         // Check for legacy .grok directory
         const legacyGrokDir = path.join(projectRoot, '.grok');
         if (fs.existsSync(legacyGrokDir)) {
-          console.log('ℹ️  Legacy .grok directory detected');
+          console.log('\nℹ️  Legacy .grok directory detected');
           console.log('   Consider migrating to .ax-cli by copying custom settings\n');
         }
 

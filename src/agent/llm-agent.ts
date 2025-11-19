@@ -57,6 +57,7 @@ export class LLMAgent extends EventEmitter {
   private contextManager: ContextManager;
   private abortController: AbortController | null = null;
   private maxToolRounds: number;
+  private recentToolCalls: Map<string, number> = new Map(); // Track recent tool calls to detect loops
 
   constructor(
     apiKey: string,
@@ -115,6 +116,47 @@ export class LLMAgent extends EventEmitter {
     return currentModel.toLowerCase().includes("grok");
   }
 
+  /**
+   * Detect if a tool call is repetitive (likely causing a loop)
+   * Returns true if the same tool with similar arguments was called multiple times recently
+   */
+  private isRepetitiveToolCall(toolCall: LLMToolCall): boolean {
+    try {
+      // Create a signature for this tool call (tool name + normalized args)
+      const args = JSON.parse(toolCall.function.arguments || '{}');
+      const signature = `${toolCall.function.name}:${JSON.stringify(args)}`;
+
+      // Check if we've seen this exact call recently
+      const count = this.recentToolCalls.get(signature) || 0;
+      this.recentToolCalls.set(signature, count + 1);
+
+      // If we've seen this exact call 2+ times in recent history, it's likely looping
+      if (count >= 2) {
+        return true;
+      }
+
+      // Clean up old entries (keep only last 20 unique calls)
+      if (this.recentToolCalls.size > 20) {
+        const firstKey = this.recentToolCalls.keys().next().value;
+        if (firstKey !== undefined) {
+          this.recentToolCalls.delete(firstKey);
+        }
+      }
+
+      return false;
+    } catch {
+      // If we can't parse, assume it's not repetitive
+      return false;
+    }
+  }
+
+  /**
+   * Reset the tool call tracking (called at start of new user message)
+   */
+  private resetToolCallTracking(): void {
+    this.recentToolCalls.clear();
+  }
+
   // Heuristic: enable web search only when likely needed
   private shouldUseSearchFor(message: string): boolean {
     const q = message.toLowerCase();
@@ -144,6 +186,9 @@ export class LLMAgent extends EventEmitter {
   }
 
   async processUserMessage(message: string): Promise<ChatEntry[]> {
+    // Reset tool call tracking for new message
+    this.resetToolCallTracking();
+
     // Add user message to conversation
     const userEntry: ChatEntry = {
       type: "user",
@@ -183,6 +228,23 @@ export class LLMAgent extends EventEmitter {
           assistantMessage.tool_calls.length > 0
         ) {
           toolRounds++;
+
+          // Check for repetitive tool calls (loop detection)
+          const hasRepetitiveCall = assistantMessage.tool_calls.some(
+            (tc: LLMToolCall) => this.isRepetitiveToolCall(tc)
+          );
+
+          if (hasRepetitiveCall) {
+            const warningEntry: ChatEntry = {
+              type: "assistant",
+              content:
+                "⚠️ Detected repetitive tool calls. Stopping to prevent infinite loop.\n\nI apologize, but I seem to be stuck in a loop trying to answer your question. Let me provide what I can without further tool use.",
+              timestamp: new Date(),
+            };
+            this.chatHistory.push(warningEntry);
+            newEntries.push(warningEntry);
+            break;
+          }
 
           // Add assistant message with tool calls
           const assistantEntry: ChatEntry = {
@@ -591,6 +653,9 @@ export class LLMAgent extends EventEmitter {
     // Create new abort controller for this request
     this.abortController = new AbortController();
 
+    // Reset tool call tracking for new message
+    this.resetToolCallTracking();
+
     // Prepare user message and get input tokens
     const inputTokensRef = { value: this.prepareUserMessageForStreaming(message) };
     yield {
@@ -662,6 +727,20 @@ export class LLMAgent extends EventEmitter {
         // Handle tool calls if present
         if (streamResult.accumulated.tool_calls?.length > 0) {
           toolRounds++;
+
+          // Check for repetitive tool calls (loop detection)
+          const hasRepetitiveCall = streamResult.accumulated.tool_calls.some(
+            (tc: LLMToolCall) => this.isRepetitiveToolCall(tc)
+          );
+
+          if (hasRepetitiveCall) {
+            yield {
+              type: "content",
+              content: "\n\n⚠️ Detected repetitive tool calls. Stopping to prevent infinite loop.\n\nI apologize, but I seem to be stuck in a loop trying to answer your question. Let me provide what I can without further tool use.",
+            };
+            break;
+          }
+
           yield* this.executeToolCalls(
             streamResult.accumulated.tool_calls,
             streamResult.yielded,

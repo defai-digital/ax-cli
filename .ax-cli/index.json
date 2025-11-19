@@ -1,6 +1,6 @@
 {
   "projectName": "@defai.digital/ax-cli",
-  "version": "1.1.0",
+  "version": "2.3.1",
   "primaryLanguage": "TypeScript",
   "techStack": [
     "React",
@@ -16,6 +16,7 @@
   "directories": {
     "source": "src",
     "tests": "tests",
+    "config": "config",
     "tools": "src/tools"
   },
   "keyFiles": [
@@ -33,11 +34,11 @@
     "validation": "zod"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "npm run build:schemas && tsc",
     "test": "vitest run",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "dev": "bun run src/index.ts"
   },
   "packageManager": "npm",
-  "lastAnalyzed": "2025-11-19T07:45:34.457Z"
+  "lastAnalyzed": "2025-11-19T22:52:24.501Z"
 }

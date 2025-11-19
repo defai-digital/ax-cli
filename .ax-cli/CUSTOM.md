@@ -1,97 +1,119 @@
-# Custom Instructions for AX CLI
+# @defai.digital/ax-cli - Quick Reference
 
-**Project**: @defai.digital/ax-cli v1.1.0
-**Type**: cli
-**Language**: TypeScript
-**Stack**: React, Vitest, Zod, Commander, Ink, ESM, TypeScript
+**Type:** cli | **Lang:** TypeScript | **Ver:**  v2.3.1
+**Stack:** React, Vitest, Zod, Commander, Ink, ESM, TypeScript
 
-Generated: 11/19/2025, 2:45:34 AM
+---
 
-## Project Context
+## 🎯 Critical Rules
 
-- **Entry Point**: `dist/index.js`
-- **Package Manager**: npm
-- **Module System**: ESM
-- **CLI Tool**: This is a command-line interface application
+1. **ESM Imports:** Always use `.js` extension: `import { x } from './y.js'`
+2. **Validation:** Use zod for all external inputs
+3. **Types:** Explicit return types required on all functions
+4. **Testing:** 80%+ coverage, test error paths
+5. **Modules:** Use `import/export` (not `require/module.exports`)
 
-## Code Conventions
+---
+
+## 📋 Project Overview
+
+**Entry:** `dist/index.js` | **PM:** npm | **Module:** ESM
+
+
+**Directories:**
+- `src/` - Source code
+- `tests/` - Tests
+- `src/tools/` - Tools
+- `src/commands/` - Commands
+- `src/utils/` - Utilities
+
+---
+
+## 🔧 Code Patterns
 
 ### TypeScript
-- Use explicit type annotations for function parameters and returns
-- Prefer `const` and `let` over `var`
-- Use strict mode (strict type checking enabled)
-- **CRITICAL**: Always use `.js` extension in import statements (ESM requirement)
-  - Example: `import { foo } from "./bar.js"` (NOT "./bar" or "./bar.ts")
 
-### ES Modules
-- Use `import/export` syntax (not `require/module.exports`)
-- Top-level await is supported
+✅ **DO:**
+```typescript
+// Explicit types
+function process(x: string): Promise<Result> { }
 
-### Validation
-- Use **zod** for runtime validation
-- Validate all external inputs (API requests, file reads, user input)
-- Use `.safeParse()` for error handling
-
-## File Structure
-
-- **Source Code**: `src/`
-- **Tests**: `tests/`
-- **Tools**: `src/tools/`
-
-### Typical Structure
-- Commands: `src/commands/`
-- Utilities: `src/utils/`
-- Types: `src/types/`
-
-### Key Files
-- `package.json`: Node.js package configuration
-- `tsconfig.json`: TypeScript configuration
-- `vitest.config.ts`: Vitest test configuration
-- `.eslintrc.js`: ESLint configuration
-- `README.md`: Project documentation
-- `CLAUDE.md`: Claude-specific instructions
-
-## Development Workflow
-
-### Before Making Changes
-1. Read relevant files with `view_file` to understand current implementation
-2. Use `search` to find related code or patterns
-3. Check existing tests to understand expected behavior
-
-### Making Changes
-1. **NEVER** use `create_file` on existing files - use `str_replace_editor` instead
-2. Make focused, atomic changes
-3. Preserve existing code style and patterns
-4. Update related tests when modifying functionality
-
-### After Changes
-1. Run linter: `eslint . --ext .js,.jsx,.ts,.tsx`
-2. Run tests: `vitest run`
-3. Build: `tsc`
-
-## Testing Guidelines
-
-### Vitest
-- Use `describe`, `it`, `expect` for test structure
-- Place tests in `tests/` directory or `*.test.ts` files
-- Test edge cases: empty inputs, null/undefined, boundary conditions
-- Include Unicode and special character tests where relevant
-
-### Coverage Requirements
-- Aim for high test coverage (80%+ for new code)
-- Always test error paths and edge cases
-- Test both success and failure scenarios
-
-## Available Scripts
-
-- **Development**: `bun run src/index.ts`
-- **Build**: `tsc`
-- **Test**: `vitest run`
-- **Lint**: `eslint . --ext .js,.jsx,.ts,.tsx`
-
-### Quick Commands
-```bash
-npm run dev    # Start development
-npm test   # Run tests
-npm run build  # Build for production
+// ESM imports with .js extension
+import { foo } from './bar.js';
 ```
+
+❌ **DON'T:**
+```typescript
+// No any types
+function process(x: any) { }  // ❌
+
+// Missing .js extension
+import { foo } from './bar';  // ❌
+```
+
+### Validation (zod)
+
+✅ **DO:**
+```typescript
+const result = schema.safeParse(data);
+if (!result.success) {
+  return { success: false, error: result.error };
+}
+```
+
+### CLI Commands
+Commands should:
+- Accept options via flags (`-f, --flag <value>`)
+- Validate input before execution
+- Provide clear error messages
+- Return exit codes (0 = success, 1+ = error)
+
+---
+
+## 🔄 Workflow
+
+**Before:**
+- Read files to understand implementation
+- Search for related patterns
+- Review tests for expected behavior
+
+**Changes:**
+- Edit existing files (never recreate)
+- Keep changes focused and atomic
+- Preserve code style
+- Update tests when changing functionality
+
+**After:**
+1. Lint: `eslint . --ext .js,.jsx,.ts,.tsx`
+2. Test: `vitest run`
+3. Build: `npm run build:schemas && tsc`
+
+**Quick Commands:**
+```bash
+npm run dev     # Development
+npm test    # Run tests
+npm run build   # Production build
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### "Module not found" errors
+**Solution:** Add `.js` extension to imports (ESM requirement)
+```typescript
+// ✅ Correct
+import { x } from './y.js';
+
+// ❌ Wrong
+import { x } from './y';  // Missing .js
+```
+
+### zod validation errors
+**Solution:** Use `.safeParse()` for detailed error messages. Check schema matches data structure.
+
+### Tests fail locally but pass in CI
+**Solution:** Check Node version, clear node_modules, check environment-specific code
+
+### TypeScript compilation errors
+**Solution:** Check `tsconfig.json` settings, ensure all types are imported, verify `moduleResolution`
