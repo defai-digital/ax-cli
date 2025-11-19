@@ -2,9 +2,13 @@
 
 [![Tests](https://img.shields.io/badge/tests-306%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
 [![Coverage](https://img.shields.io/badge/coverage-98.29%25-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen?style=flat-square)](https://nodejs.org/)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D24.0.0-blue?style=flat-square)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9%2B-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+
+[![macOS](https://img.shields.io/badge/macOS-26-000000?style=flat-square&logo=apple)](https://www.apple.com/macos/)
+[![Windows](https://img.shields.io/badge/Windows-11-0078D6?style=flat-square&logo=windows)](https://www.microsoft.com/windows/)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-E95420?style=flat-square&logo=ubuntu)](https://ubuntu.com/)
 
 ![AX CLI Logo](.github/assets/ax-cli.png)
 
@@ -43,6 +47,18 @@ ax-cli -p "list all TypeScript files"
 [View all features →](docs/features.md)
 
 ## 📦 Installation
+
+### Supported Platforms
+
+AX CLI officially supports the following platforms:
+
+| Platform | Versions | Architecture |
+|----------|----------|--------------|
+| 🍎 **macOS** | 26+ | x64, ARM64 (Apple Silicon) |
+| 🪟 **Windows** | 11+ | x64, ARM64 |
+| 🐧 **Ubuntu** | 24.04+ | x64, ARM64 |
+
+**Note:** AX CLI may work on other platforms and older versions, but the above platforms are officially tested and supported.
 
 ### Prerequisites
 

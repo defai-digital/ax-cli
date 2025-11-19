@@ -101,6 +101,11 @@
   "engines": {
     "node": ">=24.0.0"
   },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
   "publishConfig": {
     "access": "public"
   },

@@ -22,6 +22,20 @@ A comprehensive guide to installing and verifying AX CLI on your system.
 
 Before installing AX CLI, ensure your system meets these requirements:
 
+### Supported Platforms
+
+AX CLI officially supports the following operating systems:
+
+| Platform | Versions | Architecture | Status |
+|----------|----------|--------------|--------|
+| 🍎 **macOS** | 26+ | x64, ARM64 (Apple Silicon) | ✅ Officially Supported |
+| 🪟 **Windows** | 11+ | x64, ARM64 | ✅ Officially Supported |
+| 🐧 **Ubuntu** | 24.04 LTS+ | x64, ARM64 | ✅ Officially Supported |
+
+**Other Linux distributions** (Debian, Fedora, CentOS, etc.) should work but are not officially tested.
+
+**Note:** AX CLI may work on older platform versions, but the versions listed above are officially tested and supported.
+
 ### Required
 
 #### Node.js 24+ (Critical Requirement)
