@@ -32,6 +32,29 @@ export class TextEditorTool {
 
         if (viewRange) {
           const [start, end] = viewRange;
+
+          // Validate line range
+          if (start < 1) {
+            return {
+              success: false,
+              error: `Invalid start line: ${start}. Line numbers must be >= 1.`,
+            };
+          }
+
+          if (end < start) {
+            return {
+              success: false,
+              error: `Invalid line range: end (${end}) must be >= start (${start}).`,
+            };
+          }
+
+          if (start > lines.length) {
+            return {
+              success: false,
+              error: `Start line ${start} exceeds file length (${lines.length} lines).`,
+            };
+          }
+
           const selectedLines = lines.slice(start - 1, end);
           const numberedLines = selectedLines
             .map((line, idx) => `${start + idx}: ${line}`)
@@ -315,6 +338,21 @@ export class TextEditorTool {
 
       const fileContent = await fs.readFile(resolvedPath, "utf-8");
       const lines = fileContent.split("\n");
+
+      // Validate insert line
+      if (insertLine < 1) {
+        return {
+          success: false,
+          error: `Invalid insert line: ${insertLine}. Line numbers must be >= 1.`,
+        };
+      }
+
+      if (insertLine > lines.length + 1) {
+        return {
+          success: false,
+          error: `Invalid insert line: ${insertLine}. File has ${lines.length} lines (can insert at line ${lines.length + 1} to append).`,
+        };
+      }
 
       lines.splice(insertLine - 1, 0, content);
       const newContent = lines.join("\n");
