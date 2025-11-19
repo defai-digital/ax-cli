@@ -146,6 +146,9 @@ export function createSetupCommand(): Command {
         }
 
         // Create configuration object with comments
+        // Use provider-specific max tokens (32k for GLM 4.6, others use reasonable defaults)
+        const maxTokens = selectedProvider.name === 'z.ai' ? 32768 : 8192;
+
         const config = {
           _comment: 'AX CLI Configuration',
           _provider: selectedProvider.displayName,
@@ -153,7 +156,7 @@ export function createSetupCommand(): Command {
           apiKey: apiKey,
           baseURL: selectedProvider.baseURL,
           model: selectedProvider.defaultModel,
-          maxTokens: 8192,
+          maxTokens: maxTokens,
           temperature: 0.7,
           mcpServers: {},
           _examples: {
@@ -191,7 +194,7 @@ export function createSetupCommand(): Command {
         console.log(chalk.dim('   Provider:    ') + chalk.white(selectedProvider.displayName));
         console.log(chalk.dim('   Base URL:    ') + chalk.white(selectedProvider.baseURL));
         console.log(chalk.dim('   Model:       ') + chalk.white(selectedProvider.defaultModel));
-        console.log(chalk.dim('   Max Tokens:  ') + chalk.white('8192'));
+        console.log(chalk.dim('   Max Tokens:  ') + chalk.white(maxTokens.toString()));
         console.log(chalk.dim('   Temperature: ') + chalk.white('0.7'));
 
         console.log(chalk.cyan('\n🎯 Next steps:\n'));
