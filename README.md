@@ -36,13 +36,35 @@ ax-cli -p "list all TypeScript files"
 
 ## ✨ Features
 
-- **🤖 Multi-Provider Support**: OpenAI, Anthropic, xAI, local models (Ollama)
+- **🤖 Multi-Provider Support**: Z.AI (GLM), xAI (Grok), OpenAI, Anthropic (Claude), Ollama (local)
 - **🧠 GLM 4.6 Optimized**: Primary support for General Language Model with advanced reasoning
+  - **32K max tokens** (industry-standard, matches Claude Code CLI)
+  - 200K context window, 128K max output capability
+  - 30% more token efficient than GLM 4.5
+  - Optimized for complex code generation and refactoring
 - **🔌 MCP Integration**: Model Context Protocol for extensible tool support
 - **✅ Production-Ready**: 98%+ test coverage, TypeScript strict mode, Zod validation
 - **🎯 Interactive & Headless**: Chat interface or one-shot commands
 - **📝 Smart Project Init**: Automatic project analysis and custom instructions
 - **🔄 Auto-Update**: Built-in update checker and installer
+
+### Max Tokens Configuration
+
+AX CLI uses **industry-standard max tokens** based on research of leading AI coding tools:
+
+| Tool | Max Tokens | Notes |
+|------|-----------|-------|
+| **Claude Code CLI** | 16k - 32k | Industry standard |
+| **GitHub Copilot** | 64k | GPT-4o default |
+| **Cursor AI** | 200k | With intelligent pruning |
+| **AX CLI (GLM 4.6)** | **32k** ✅ | Matches Claude Code upper default |
+| **AX CLI (Others)** | 8k | Appropriate for each model |
+
+**Why 32k for GLM 4.6?**
+- Competitive with industry leaders (Claude Code, GitHub Copilot)
+- GLM 4.6 supports up to 128k max output (our 32k is conservative at 25%)
+- Better for complex code generation, large file modifications, and multi-file context
+- Based on official Z.AI documentation and industry benchmarking
 
 [View all features →](docs/features.md)
 
