@@ -6,32 +6,80 @@ import enquirer from 'enquirer';
 import chalk from 'chalk';
 
 /**
- * Default configuration template for z.ai with GLM 4.6
+ * Provider configurations
  */
-const DEFAULT_CONFIG = {
-  apiKey: '',
-  baseURL: 'https://api.z.ai/api/coding/paas/v4',
-  model: 'glm-4.6',
-  maxTokens: 8192,
-  temperature: 0.7,
-  mcpServers: {}
+interface ProviderConfig {
+  name: string;
+  displayName: string;
+  baseURL: string;
+  defaultModel: string;
+  requiresApiKey: boolean;
+  website: string;
+  description: string;
+}
+
+const PROVIDERS: Record<string, ProviderConfig> = {
+  'z.ai': {
+    name: 'z.ai',
+    displayName: 'Z.AI (GLM Models)',
+    baseURL: 'https://api.z.ai/api/coding/paas/v4',
+    defaultModel: 'glm-4.6',
+    requiresApiKey: true,
+    website: 'https://z.ai',
+    description: 'Z.AI with GLM 4.6 - Advanced reasoning and 200K context window'
+  },
+  'xai': {
+    name: 'xai',
+    displayName: 'xAI (Grok)',
+    baseURL: 'https://api.x.ai/v1',
+    defaultModel: 'grok-code-fast-1',
+    requiresApiKey: true,
+    website: 'https://x.ai',
+    description: 'xAI Grok models - Fast coding assistance'
+  },
+  'openai': {
+    name: 'openai',
+    displayName: 'OpenAI',
+    baseURL: 'https://api.openai.com/v1',
+    defaultModel: 'gpt-4-turbo',
+    requiresApiKey: true,
+    website: 'https://platform.openai.com',
+    description: 'OpenAI GPT models - Industry-leading language models'
+  },
+  'anthropic': {
+    name: 'anthropic',
+    displayName: 'Anthropic (Claude)',
+    baseURL: 'https://api.anthropic.com/v1',
+    defaultModel: 'claude-3-5-sonnet-20241022',
+    requiresApiKey: true,
+    website: 'https://console.anthropic.com',
+    description: 'Anthropic Claude models - Advanced AI assistant'
+  },
+  'ollama': {
+    name: 'ollama',
+    displayName: 'Ollama (Local)',
+    baseURL: 'http://localhost:11434/v1',
+    defaultModel: 'llama3.1',
+    requiresApiKey: false,
+    website: 'https://ollama.ai',
+    description: 'Local models via Ollama - No API key required'
+  }
 };
 
 /**
- * Setup command - Initialize ~/.ax-cli/config.json with z.ai and GLM 4.6
+ * Setup command - Initialize ~/.ax-cli/config.json with provider selection
  */
 export function createSetupCommand(): Command {
   const setupCommand = new Command('setup');
 
   setupCommand
-    .description('Initialize AX CLI configuration with z.ai and GLM 4.6')
+    .description('Initialize AX CLI configuration with AI provider selection')
     .option('--force', 'Overwrite existing configuration')
     .action(async (options) => {
       try {
         console.log(chalk.cyan('\n🚀 AX CLI Setup\n'));
 
         // Always use the NEW path ~/.ax-cli/config.json
-        // (not the backward-compatible path from SettingsManager)
         const configPath = join(homedir(), '.ax-cli', 'config.json');
         const configDir = dirname(configPath);
 
@@ -59,26 +107,79 @@ export function createSetupCommand(): Command {
           console.log(chalk.green(`✓ Created config directory: ${configDir}`));
         }
 
-        // Prompt for API key
+        // Provider selection
         console.log(chalk.cyan('\n📝 Configuration Setup\n'));
-        console.log(chalk.dim('We\'ll set up your AX CLI with z.ai (https://z.ai) and GLM 4.6.\n'));
 
-        const response = await enquirer.prompt<{ apiKey: string }>({
-          type: 'password',
-          name: 'apiKey',
-          message: 'Enter your z.ai API key:',
-          validate: (value: string) => {
-            if (!value || value.trim().length === 0) {
-              return 'API key is required';
-            }
-            return true;
-          }
+        const providerChoices = Object.entries(PROVIDERS).map(([key, provider]) => ({
+          name: key,
+          message: `${provider.displayName} - ${provider.description}`
+        }));
+
+        const providerResponse = await enquirer.prompt<{ provider: string }>({
+          type: 'select',
+          name: 'provider',
+          message: 'Select your AI provider:',
+          choices: providerChoices
         });
 
-        // Create configuration object
+        const selectedProvider = PROVIDERS[providerResponse.provider];
+
+        // API Key prompt (if required)
+        let apiKey = '';
+        if (selectedProvider.requiresApiKey) {
+          console.log(chalk.dim(`\nGet your API key from: ${selectedProvider.website}\n`));
+
+          const apiKeyResponse = await enquirer.prompt<{ apiKey: string }>({
+            type: 'password',
+            name: 'apiKey',
+            message: `Enter your ${selectedProvider.displayName} API key:`,
+            validate: (value: string) => {
+              if (!value || value.trim().length === 0) {
+                return 'API key is required';
+              }
+              return true;
+            }
+          });
+          apiKey = apiKeyResponse.apiKey.trim();
+        } else {
+          console.log(chalk.green(`\n✓ ${selectedProvider.displayName} doesn't require an API key`));
+        }
+
+        // Create configuration object with comments
         const config = {
-          ...DEFAULT_CONFIG,
-          apiKey: response.apiKey.trim()
+          _comment: 'AX CLI Configuration',
+          _provider: selectedProvider.displayName,
+          _website: selectedProvider.website,
+          apiKey: apiKey,
+          baseURL: selectedProvider.baseURL,
+          model: selectedProvider.defaultModel,
+          maxTokens: 8192,
+          temperature: 0.7,
+          mcpServers: {},
+          _examples: {
+            _comment: 'Example configurations for different providers',
+            'z.ai': {
+              baseURL: 'https://api.z.ai/api/coding/paas/v4',
+              models: ['glm-4.6', 'glm-4-air', 'glm-4-airx']
+            },
+            'xai': {
+              baseURL: 'https://api.x.ai/v1',
+              models: ['grok-code-fast-1']
+            },
+            'openai': {
+              baseURL: 'https://api.openai.com/v1',
+              models: ['gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo']
+            },
+            'anthropic': {
+              baseURL: 'https://api.anthropic.com/v1',
+              models: ['claude-3-5-sonnet-20241022', 'claude-3-opus', 'claude-3-sonnet']
+            },
+            'ollama': {
+              baseURL: 'http://localhost:11434/v1',
+              models: ['llama3.1', 'codellama', 'mistral'],
+              note: 'No API key required for local Ollama'
+            }
+          }
         };
 
         // Write configuration file
@@ -87,11 +188,11 @@ export function createSetupCommand(): Command {
         console.log(chalk.green('\n✅ Configuration saved successfully!\n'));
         console.log(chalk.cyan('📄 Configuration details:\n'));
         console.log(chalk.dim('   Location:    ') + chalk.white(configPath));
-        console.log(chalk.dim('   Provider:    ') + chalk.white('z.ai (https://z.ai)'));
-        console.log(chalk.dim('   Base URL:    ') + chalk.white(config.baseURL));
-        console.log(chalk.dim('   Model:       ') + chalk.white(config.model));
-        console.log(chalk.dim('   Max Tokens:  ') + chalk.white(config.maxTokens.toString()));
-        console.log(chalk.dim('   Temperature: ') + chalk.white(config.temperature.toString()));
+        console.log(chalk.dim('   Provider:    ') + chalk.white(selectedProvider.displayName));
+        console.log(chalk.dim('   Base URL:    ') + chalk.white(selectedProvider.baseURL));
+        console.log(chalk.dim('   Model:       ') + chalk.white(selectedProvider.defaultModel));
+        console.log(chalk.dim('   Max Tokens:  ') + chalk.white('8192'));
+        console.log(chalk.dim('   Temperature: ') + chalk.white('0.7'));
 
         console.log(chalk.cyan('\n🎯 Next steps:\n'));
         console.log(chalk.white('   1. Start interactive mode:'));
@@ -102,9 +203,10 @@ export function createSetupCommand(): Command {
         console.log(chalk.dim('      $ ') + chalk.green('ax-cli init'));
 
         console.log(chalk.cyan('\n💡 Tips:\n'));
-        console.log(chalk.dim('   • Edit config:     ') + chalk.white(configPath));
-        console.log(chalk.dim('   • View help:       ') + chalk.white('ax-cli --help'));
-        console.log(chalk.dim('   • Documentation:   ') + chalk.white('https://github.com/defai-digital/ax-cli\n'));
+        console.log(chalk.dim('   • Edit config manually:  ') + chalk.white(configPath));
+        console.log(chalk.dim('   • See example configs:   ') + chalk.white('Check "_examples" in config file'));
+        console.log(chalk.dim('   • View help:             ') + chalk.white('ax-cli --help'));
+        console.log(chalk.dim('   • Documentation:         ') + chalk.white('https://github.com/defai-digital/ax-cli\n'));
 
       } catch (error: any) {
         if (error.message === 'canceled' || error.name === 'canceled') {
