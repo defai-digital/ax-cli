@@ -3,7 +3,7 @@
  * Centralized JSON operations with validation and error handling
  */
 
-import { readFileSync, writeFileSync } from 'fs-extra';
+import { readFileSync, writeFileSync } from 'fs';
 import { z } from 'zod';
 
 /**

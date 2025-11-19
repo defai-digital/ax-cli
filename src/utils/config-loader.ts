@@ -3,8 +3,8 @@
  * Loads and caches configuration from YAML files with Zod validation
  */
 
-import fs from 'fs-extra';
-import path from 'path';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import yaml from 'js-yaml';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -23,7 +23,7 @@ const configCache = new Map<string, any>();
 function getConfigDir(): string {
   // In development: src/utils -> ../../config
   // In production: dist/utils -> ../../config
-  return path.join(__dirname, '../../config');
+  return join(__dirname, '../../config');
 }
 
 /**
@@ -36,8 +36,8 @@ export function loadYamlConfig<T = any>(filename: string, schema?: z.ZodSchema<T
   }
 
   try {
-    const configPath = path.join(getConfigDir(), filename);
-    const fileContents = fs.readFileSync(configPath, 'utf8');
+    const configPath = join(getConfigDir(), filename);
+    const fileContents = readFileSync(configPath, 'utf8');
     const config = yaml.load(fileContents);
 
     // Validate with schema if provided
