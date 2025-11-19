@@ -11,11 +11,11 @@
 
 // Core brand type utilities
 export {
-  __brand,
   brand,
   unbrand,
   isBranded,
   createBrandFactory,
+  type __brand,
   type Brand,
   type ExtractBrand,
   type ExtractBase,

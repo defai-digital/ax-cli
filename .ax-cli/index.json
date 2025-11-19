@@ -1,0 +1,43 @@
+{
+  "projectName": "@defai.digital/ax-cli",
+  "version": "1.1.0",
+  "primaryLanguage": "TypeScript",
+  "techStack": [
+    "React",
+    "Vitest",
+    "Zod",
+    "Commander",
+    "Ink",
+    "ESM",
+    "TypeScript"
+  ],
+  "projectType": "cli",
+  "entryPoint": "dist/index.js",
+  "directories": {
+    "source": "src",
+    "tests": "tests",
+    "tools": "src/tools"
+  },
+  "keyFiles": [
+    "package.json",
+    "tsconfig.json",
+    "vitest.config.ts",
+    ".eslintrc.js",
+    "README.md",
+    "CLAUDE.md"
+  ],
+  "conventions": {
+    "moduleSystem": "esm",
+    "importExtension": ".js",
+    "testFramework": "vitest",
+    "validation": "zod"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "dev": "bun run src/index.ts"
+  },
+  "packageManager": "npm",
+  "lastAnalyzed": "2025-11-19T07:45:34.457Z"
+}

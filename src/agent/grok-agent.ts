@@ -17,6 +17,7 @@ import { EventEmitter } from "events";
 import { createTokenCounter, TokenCounter } from "../utils/token-counter.js";
 import { loadCustomInstructions } from "../utils/custom-instructions.js";
 import { getSettingsManager } from "../utils/settings-manager.js";
+import { ContextManager } from "./context-manager.js";
 
 export interface ChatEntry {
   type: "user" | "assistant" | "tool_result" | "tool_call";
@@ -53,6 +54,7 @@ export class GrokAgent extends EventEmitter {
   private chatHistory: ChatEntry[] = [];
   private messages: GrokMessage[] = [];
   private tokenCounter: TokenCounter;
+  private contextManager: ContextManager;
   private abortController: AbortController | null = null;
   private maxToolRounds: number;
 
@@ -74,6 +76,7 @@ export class GrokAgent extends EventEmitter {
     this.todoTool = new TodoTool();
     this.search = new SearchTool();
     this.tokenCounter = createTokenCounter(modelToUse);
+    this.contextManager = new ContextManager({ model: modelToUse });
 
     // Initialize MCP servers if configured
     this.initializeMCP();
@@ -411,6 +414,11 @@ Current working directory: ${process.cwd()}`,
     this.chatHistory.push(userEntry);
     this.messages.push({ role: "user", content: message });
 
+    // Apply context management before sending to API
+    if (this.contextManager.shouldPrune(this.messages, this.tokenCounter)) {
+      this.messages = this.contextManager.pruneMessages(this.messages, this.tokenCounter);
+    }
+
     // Calculate input tokens
     let inputTokens = this.tokenCounter.countMessageTokens(
       this.messages as any
@@ -419,6 +427,16 @@ Current working directory: ${process.cwd()}`,
       type: "token_count",
       tokenCount: inputTokens,
     };
+
+    // Check for context warnings
+    const stats = this.contextManager.getStats(this.messages, this.tokenCounter);
+    if (stats.shouldPrune || stats.isNearLimit) {
+      const warning = this.contextManager.createWarningMessage(stats);
+      yield {
+        type: "content",
+        content: `\n${warning}\n\n`,
+      };
+    }
 
     const maxToolRounds = this.maxToolRounds; // Prevent infinite loops
     let toolRounds = 0;

@@ -8,6 +8,9 @@ import ChatInterface from "./ui/components/chat-interface.js";
 import { getSettingsManager } from "./utils/settings-manager.js";
 import { ConfirmationService } from "./utils/confirmation-service.js";
 import { createMCPCommand } from "./commands/mcp.js";
+import { createInitCommand } from "./commands/init.js";
+import { createUpdateCommand } from "./commands/update.js";
+import { getVersion } from "./utils/version.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat";
 
 // Load environment variables
@@ -307,11 +310,11 @@ async function processPromptHeadless(
 }
 
 program
-  .name("grok")
+  .name("ax-cli")
   .description(
-    "A conversational AI CLI tool powered by Grok with text editor capabilities"
+    "Enterprise-Class AI Command Line Interface - Primary support for GLM (General Language Model) with multi-provider AI orchestration"
   )
-  .version("1.0.1")
+  .version(getVersion(), "-v, --version", "output the current version")
   .argument("[message...]", "Initial message to send to Grok")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
   .option("-k, --api-key <key>", "Grok API key (or set GROK_API_KEY env var)")
@@ -458,5 +461,11 @@ gitCommand
 
 // MCP command
 program.addCommand(createMCPCommand());
+
+// Init command
+program.addCommand(createInitCommand());
+
+// Update command
+program.addCommand(createUpdateCommand());
 
 program.parse();

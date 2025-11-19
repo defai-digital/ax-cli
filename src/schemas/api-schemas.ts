@@ -4,10 +4,12 @@
  */
 
 import { z } from 'zod';
-import { __brand, MessageRoleEnum, ToolCallIdSchema, ModelIdSchema } from '@ax-cli/schemas';
+import type { ToolCallId, ModelId } from '@ax-cli/schemas';
 
-// Re-export __brand to satisfy TypeScript's type resolution
-export { __brand };
+// Local schemas to avoid __brand symbol export issues
+const MessageRoleEnum = z.enum(['system', 'user', 'assistant', 'tool']);
+const ToolCallIdSchema = z.string() as z.ZodType<ToolCallId>;
+const ModelIdSchema = z.string() as z.ZodType<ModelId>;
 
 // Grok Tool Call Schema
 export const GrokToolCallSchema = z.object({

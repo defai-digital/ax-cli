@@ -4,10 +4,12 @@
  */
 
 import { z } from 'zod';
-import { __brand, ModelIdSchema, MCPServerIdSchema } from '@ax-cli/schemas';
+import type { ModelId, MCPServerId } from '@ax-cli/schemas';
 
-// Re-export __brand to satisfy TypeScript's type resolution
-export { __brand };
+// Local schemas to avoid __brand symbol export issues
+const ModelIdSchema = z.string() as z.ZodType<ModelId>;
+const MCPServerIdSchema = z.string() as z.ZodType<MCPServerId>;
+const TransportEnum = z.enum(['stdio', 'http', 'sse']);
 
 // User Settings Schema
 export const UserSettingsSchema = z.object({

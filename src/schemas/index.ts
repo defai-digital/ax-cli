@@ -1,8 +1,14 @@
 import { z } from 'zod';
-import { __brand, MessageRoleEnum, FinishReasonEnum, TransportEnum, ModelIdSchema, MCPServerIdSchema } from '@ax-cli/schemas';
+// Note: Importing directly to avoid __brand symbol export issues
+// These types use branded types internally which TypeScript needs to resolve
+import type { ModelId, MCPServerId } from '@ax-cli/schemas';
 
-// Re-export __brand to satisfy TypeScript's type resolution
-export { __brand };
+// Create local schemas that match the structure
+const MessageRoleEnum = z.enum(['system', 'user', 'assistant', 'tool']);
+const FinishReasonEnum = z.enum(['stop', 'length', 'tool_calls', 'content_filter']).nullable();
+const TransportEnum = z.enum(['stdio', 'http', 'sse']);
+const ModelIdSchema = z.string() as z.ZodType<ModelId>;
+const MCPServerIdSchema = z.string() as z.ZodType<MCPServerId>;
 
 /**
  * Configuration schemas using Zod for runtime validation
