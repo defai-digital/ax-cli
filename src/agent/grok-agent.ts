@@ -401,15 +401,14 @@ export class GrokAgent extends EventEmitter {
 
   /**
    * Load tools with error handling
+   * Returns tools array, logs error if loading fails
    */
-  private async *loadToolsSafely(): AsyncGenerator<GrokTool[] | null, GrokTool[], unknown> {
+  private async loadToolsSafely(): Promise<GrokTool[]> {
     try {
       return await getAllGrokTools();
     } catch (error: any) {
-      yield {
-        type: "content",
-        content: `\n⚠️ Error loading tools: ${error.message}\nContinuing with limited functionality...\n\n`
-      } as any;
+      // Log error but don't throw - continue with empty tools
+      console.warn(`⚠️ Error loading tools: ${error.message}`);
       return [];
     }
   }
@@ -431,7 +430,8 @@ export class GrokAgent extends EventEmitter {
       // Check for cancellation in the streaming loop
       if (this.isCancelled()) {
         yield* this.yieldCancellation();
-        return { accumulated: accumulatedMessage, content: accumulatedContent, yielded: toolCallsYielded };
+        // Return empty state after cancellation to avoid processing partial results
+        return { accumulated: {}, content: "", yielded: false };
       }
 
       if (!chunk.choices?.[0]) continue;
@@ -605,14 +605,14 @@ export class GrokAgent extends EventEmitter {
         }
 
         // Load tools safely
-        const toolsGen = this.loadToolsSafely();
-        let tools: GrokTool[] = [];
-        for await (const result of toolsGen) {
-          if (Array.isArray(result)) {
-            tools = result;
-          } else if (result !== null) {
-            yield result as StreamingChunk;
-          }
+        const tools = await this.loadToolsSafely();
+
+        // Yield warning if no tools available
+        if (tools.length === 0) {
+          yield {
+            type: "content",
+            content: "\n⚠️ No tools available, continuing with limited functionality...\n\n"
+          };
         }
 
         // Create chat stream

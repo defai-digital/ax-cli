@@ -137,19 +137,18 @@ export async function resolveAndValidatePath(
         };
       }
 
-      if (options.mustBeFile) {
+      // Perform stat call once if type checking is needed
+      if (options.mustBeFile || options.mustBeDirectory) {
         const stats = await fs.stat(resolved);
-        if (!stats.isFile()) {
+
+        if (options.mustBeFile && !stats.isFile()) {
           return {
             success: false,
             error: `Not a file: ${filePath}`
           };
         }
-      }
 
-      if (options.mustBeDirectory) {
-        const stats = await fs.stat(resolved);
-        if (!stats.isDirectory()) {
+        if (options.mustBeDirectory && !stats.isDirectory()) {
           return {
             success: false,
             error: `Not a directory: ${filePath}`
