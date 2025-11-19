@@ -10,7 +10,7 @@ import chalk from 'chalk';
  */
 const DEFAULT_CONFIG = {
   apiKey: '',
-  baseURL: 'https://api.x.ai/v1',
+  baseURL: 'https://api.z.ai/api/coding/paas/v4',
   model: 'glm-4.6',
   maxTokens: 8192,
   temperature: 0.7,
@@ -61,7 +61,7 @@ export function createSetupCommand(): Command {
 
         // Prompt for API key
         console.log(chalk.cyan('\n📝 Configuration Setup\n'));
-        console.log(chalk.dim('We\'ll set up your AX CLI with z.ai (https://x.ai) and GLM 4.6.\n'));
+        console.log(chalk.dim('We\'ll set up your AX CLI with z.ai (https://z.ai) and GLM 4.6.\n'));
 
         const response = await enquirer.prompt<{ apiKey: string }>({
           type: 'password',
@@ -87,7 +87,7 @@ export function createSetupCommand(): Command {
         console.log(chalk.green('\n✅ Configuration saved successfully!\n'));
         console.log(chalk.cyan('📄 Configuration details:\n'));
         console.log(chalk.dim('   Location:    ') + chalk.white(configPath));
-        console.log(chalk.dim('   Provider:    ') + chalk.white('z.ai (https://x.ai)'));
+        console.log(chalk.dim('   Provider:    ') + chalk.white('z.ai (https://z.ai)'));
         console.log(chalk.dim('   Base URL:    ') + chalk.white(config.baseURL));
         console.log(chalk.dim('   Model:       ') + chalk.white(config.model));
         console.log(chalk.dim('   Max Tokens:  ') + chalk.white(config.maxTokens.toString()));
