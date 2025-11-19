@@ -3,6 +3,7 @@ import * as path from "path";
 import { writeFile as writeFilePromise } from "fs/promises";
 import { ToolResult, EditorCommand } from "../types/index.js";
 import { ConfirmationService } from "../utils/confirmation-service.js";
+import { resolveAndValidatePath } from "../utils/path-validator.js";
 
 export class TextEditorTool {
   private editHistory: EditorCommand[] = [];
@@ -75,14 +76,17 @@ export class TextEditorTool {
     replaceAll: boolean = false
   ): Promise<ToolResult> {
     try {
-      const resolvedPath = path.resolve(filePath);
+      // Validate and resolve path
+      const pathResult = await resolveAndValidatePath(filePath, {
+        mustExist: true,
+        mustBeFile: true
+      });
 
-      if (!(await fs.pathExists(resolvedPath))) {
-        return {
-          success: false,
-          error: `File not found: ${filePath}`,
-        };
+      if (!pathResult.success) {
+        return { success: false, error: pathResult.error };
       }
+
+      const resolvedPath = pathResult.path;
 
       const content = await fs.readFile(resolvedPath, "utf-8");
 

@@ -79,3 +79,93 @@ export function safeRelative(from: string, to: string): string {
   const validTo = validatePath(to);
   return path.relative(validFrom, validTo);
 }
+
+/**
+ * Result type for path resolution with validation
+ */
+export interface PathResolutionResult {
+  success: true;
+  path: string;
+}
+
+export interface PathResolutionError {
+  success: false;
+  error: string;
+}
+
+export type PathResolution = PathResolutionResult | PathResolutionError;
+
+/**
+ * Resolve and validate a path with optional file existence checks
+ *
+ * @param filePath - The path to resolve
+ * @param options - Optional validation requirements
+ * @returns PathResolution with either the resolved path or an error
+ *
+ * @example
+ * ```typescript
+ * const result = await resolveAndValidatePath('/path/to/file', {
+ *   mustExist: true,
+ *   mustBeFile: true
+ * });
+ * if (!result.success) {
+ *   return { success: false, error: result.error };
+ * }
+ * const resolvedPath = result.path;
+ * ```
+ */
+export async function resolveAndValidatePath(
+  filePath: string,
+  options?: {
+    mustExist?: boolean;
+    mustBeFile?: boolean;
+    mustBeDirectory?: boolean;
+  }
+): Promise<PathResolution> {
+  try {
+    // Validate path safety first
+    const resolved = validatePath(filePath);
+
+    // If existence check requested, import fs-extra dynamically
+    if (options?.mustExist) {
+      const fs = await import('fs-extra');
+
+      if (!(await fs.pathExists(resolved))) {
+        return {
+          success: false,
+          error: `Path not found: ${filePath}`
+        };
+      }
+
+      if (options.mustBeFile) {
+        const stats = await fs.stat(resolved);
+        if (!stats.isFile()) {
+          return {
+            success: false,
+            error: `Not a file: ${filePath}`
+          };
+        }
+      }
+
+      if (options.mustBeDirectory) {
+        const stats = await fs.stat(resolved);
+        if (!stats.isDirectory()) {
+          return {
+            success: false,
+            error: `Not a directory: ${filePath}`
+          };
+        }
+      }
+    }
+
+    return {
+      success: true,
+      path: resolved
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: `Invalid path: ${error.message}`
+    };
+  }
+}

@@ -344,12 +344,11 @@ export class GrokAgent extends EventEmitter {
     return reduce(previous, item.choices[0].delta);
   }
 
-  async *processUserMessageStream(
-    message: string
-  ): AsyncGenerator<StreamingChunk, void, unknown> {
-    // Create new abort controller for this request
-    this.abortController = new AbortController();
-
+  /**
+   * Prepare user message and apply context management
+   * Returns the calculated input tokens
+   */
+  private prepareUserMessageForStreaming(message: string): number {
     // Add user message to conversation
     const userEntry: ChatEntry = {
       type: "user",
@@ -365,15 +364,13 @@ export class GrokAgent extends EventEmitter {
     }
 
     // Calculate input tokens
-    let inputTokens = this.tokenCounter.countMessageTokens(
-      this.messages as any
-    );
-    yield {
-      type: "token_count",
-      tokenCount: inputTokens,
-    };
+    return this.tokenCounter.countMessageTokens(this.messages as any);
+  }
 
-    // Check for context warnings
+  /**
+   * Yield context warnings if needed
+   */
+  private async *yieldContextWarnings(): AsyncGenerator<StreamingChunk, void, unknown> {
     const stats = this.contextManager.getStats(this.messages, this.tokenCounter);
     if (stats.shouldPrune || stats.isNearLimit) {
       const warning = this.contextManager.createWarningMessage(stats);
@@ -382,37 +379,243 @@ export class GrokAgent extends EventEmitter {
         content: `\n${warning}\n\n`,
       };
     }
+  }
 
-    const maxToolRounds = this.maxToolRounds; // Prevent infinite loops
+  /**
+   * Check if operation was cancelled
+   */
+  private isCancelled(): boolean {
+    return this.abortController?.signal.aborted ?? false;
+  }
+
+  /**
+   * Yield cancellation message
+   */
+  private async *yieldCancellation(): AsyncGenerator<StreamingChunk, void, unknown> {
+    yield {
+      type: "content",
+      content: "\n\n[Operation cancelled by user]",
+    };
+    yield { type: "done" };
+  }
+
+  /**
+   * Load tools with error handling
+   */
+  private async *loadToolsSafely(): AsyncGenerator<GrokTool[] | null, GrokTool[], unknown> {
+    try {
+      return await getAllGrokTools();
+    } catch (error: any) {
+      yield {
+        type: "content",
+        content: `\n⚠️ Error loading tools: ${error.message}\nContinuing with limited functionality...\n\n`
+      } as any;
+      return [];
+    }
+  }
+
+  /**
+   * Process streaming chunks and accumulate message
+   */
+  private async *processStreamingChunks(
+    stream: AsyncIterable<any>,
+    inputTokens: number,
+    lastTokenUpdate: { value: number },
+    totalOutputTokens: { value: number }
+  ): AsyncGenerator<StreamingChunk | { accumulated: any; content: string; yielded: boolean }, { accumulated: any; content: string; yielded: boolean }, unknown> {
+    let accumulatedMessage: any = {};
+    let accumulatedContent = "";
+    let toolCallsYielded = false;
+
+    for await (const chunk of stream) {
+      // Check for cancellation in the streaming loop
+      if (this.isCancelled()) {
+        yield* this.yieldCancellation();
+        return { accumulated: accumulatedMessage, content: accumulatedContent, yielded: toolCallsYielded };
+      }
+
+      if (!chunk.choices?.[0]) continue;
+
+      // Accumulate the message using reducer
+      accumulatedMessage = this.messageReducer(accumulatedMessage, chunk);
+
+      // Check for tool calls - yield when we have complete tool calls with function names
+      if (!toolCallsYielded && accumulatedMessage.tool_calls?.length > 0) {
+        const hasCompleteTool = accumulatedMessage.tool_calls.some(
+          (tc: any) => tc.function?.name
+        );
+        if (hasCompleteTool) {
+          yield {
+            type: "tool_calls",
+            toolCalls: accumulatedMessage.tool_calls,
+          };
+          toolCallsYielded = true;
+        }
+      }
+
+      // Stream reasoning content (GLM-4.6 thinking mode)
+      if (chunk.choices[0].delta?.reasoning_content) {
+        yield {
+          type: "reasoning",
+          reasoningContent: chunk.choices[0].delta.reasoning_content,
+        };
+      }
+
+      // Stream content as it comes
+      if (chunk.choices[0].delta?.content) {
+        accumulatedContent += chunk.choices[0].delta.content;
+
+        // Update token count in real-time
+        const currentOutputTokens =
+          this.tokenCounter.estimateStreamingTokens(accumulatedContent) +
+          (accumulatedMessage.tool_calls
+            ? this.tokenCounter.countTokens(JSON.stringify(accumulatedMessage.tool_calls))
+            : 0);
+        totalOutputTokens.value = currentOutputTokens;
+
+        yield {
+          type: "content",
+          content: chunk.choices[0].delta.content,
+        };
+
+        // Emit token count update (throttled to 250ms)
+        const now = Date.now();
+        if (now - lastTokenUpdate.value > 250) {
+          lastTokenUpdate.value = now;
+          yield {
+            type: "token_count",
+            tokenCount: inputTokens + totalOutputTokens.value,
+          };
+        }
+      }
+    }
+
+    return { accumulated: accumulatedMessage, content: accumulatedContent, yielded: toolCallsYielded };
+  }
+
+  /**
+   * Add assistant message to history and conversation
+   */
+  private addAssistantMessage(accumulatedMessage: any): void {
+    const assistantEntry: ChatEntry = {
+      type: "assistant",
+      content: accumulatedMessage.content || "Using tools to help you...",
+      timestamp: new Date(),
+      toolCalls: accumulatedMessage.tool_calls || undefined,
+    };
+    this.chatHistory.push(assistantEntry);
+
+    this.messages.push({
+      role: "assistant",
+      content: accumulatedMessage.content || "",
+      tool_calls: accumulatedMessage.tool_calls,
+    } as any);
+  }
+
+  /**
+   * Execute tool calls and yield results
+   */
+  private async *executeToolCalls(
+    toolCalls: GrokToolCall[],
+    toolCallsYielded: boolean,
+    inputTokens: { value: number },
+    totalOutputTokens: { value: number }
+  ): AsyncGenerator<StreamingChunk, void, unknown> {
+    // Only yield tool_calls if we haven't already yielded them during streaming
+    if (!toolCallsYielded) {
+      yield {
+        type: "tool_calls",
+        toolCalls,
+      };
+    }
+
+    // Execute tools
+    for (const toolCall of toolCalls) {
+      // Check for cancellation before executing each tool
+      if (this.isCancelled()) {
+        yield* this.yieldCancellation();
+        return;
+      }
+
+      const result = await this.executeTool(toolCall);
+
+      const toolResultEntry: ChatEntry = {
+        type: "tool_result",
+        content: result.success
+          ? result.output || "Success"
+          : result.error || "Error occurred",
+        timestamp: new Date(),
+        toolCall: toolCall,
+        toolResult: result,
+      };
+      this.chatHistory.push(toolResultEntry);
+
+      yield {
+        type: "tool_result",
+        toolCall,
+        toolResult: result,
+      };
+
+      // Add tool result with proper format (needed for AI context)
+      this.messages.push({
+        role: "tool",
+        content: result.success
+          ? result.output || "Success"
+          : result.error || "Error",
+        tool_call_id: toolCall.id,
+      });
+    }
+
+    // Update token count after processing all tool calls
+    inputTokens.value = this.tokenCounter.countMessageTokens(this.messages as any);
+    yield {
+      type: "token_count",
+      tokenCount: inputTokens.value + totalOutputTokens.value,
+    };
+  }
+
+  async *processUserMessageStream(
+    message: string
+  ): AsyncGenerator<StreamingChunk, void, unknown> {
+    // Create new abort controller for this request
+    this.abortController = new AbortController();
+
+    // Prepare user message and get input tokens
+    const inputTokensRef = { value: this.prepareUserMessageForStreaming(message) };
+    yield {
+      type: "token_count",
+      tokenCount: inputTokensRef.value,
+    };
+
+    // Yield context warnings if needed
+    yield* this.yieldContextWarnings();
+
+    const maxToolRounds = this.maxToolRounds;
     let toolRounds = 0;
-    let totalOutputTokens = 0;
-    let lastTokenUpdate = 0;
+    const totalOutputTokensRef = { value: 0 };
+    const lastTokenUpdateRef = { value: 0 };
 
     try {
       // Agent loop - continue until no more tool calls or max rounds reached
       while (toolRounds < maxToolRounds) {
         // Check if operation was cancelled
-        if (this.abortController?.signal.aborted) {
-          yield {
-            type: "content",
-            content: "\n\n[Operation cancelled by user]",
-          };
-          yield { type: "done" };
+        if (this.isCancelled()) {
+          yield* this.yieldCancellation();
           return;
         }
 
-        // Stream response and accumulate
-        let tools: GrokTool[];
-        try {
-          tools = await getAllGrokTools();
-        } catch (error: any) {
-          yield {
-            type: "content",
-            content: `\n⚠️ Error loading tools: ${error.message}\nContinuing with limited functionality...\n\n`
-          };
-          tools = []; // Continue with no tools
+        // Load tools safely
+        const toolsGen = this.loadToolsSafely();
+        let tools: GrokTool[] = [];
+        for await (const result of toolsGen) {
+          if (Array.isArray(result)) {
+            tools = result;
+          } else if (result !== null) {
+            yield result as StreamingChunk;
+          }
         }
 
+        // Create chat stream
         const stream = this.grokClient.chatStream(
           this.messages,
           tools,
@@ -422,183 +625,58 @@ export class GrokAgent extends EventEmitter {
               : { search_parameters: { mode: "off" } }
           }
         );
-        let accumulatedMessage: any = {};
-        let accumulatedContent = "";
-        let toolCallsYielded = false;
 
-        for await (const chunk of stream) {
-          // Check for cancellation in the streaming loop
-          if (this.abortController?.signal.aborted) {
-            yield {
-              type: "content",
-              content: "\n\n[Operation cancelled by user]",
-            };
-            yield { type: "done" };
-            return;
+        // Process streaming chunks
+        const chunkGen = this.processStreamingChunks(
+          stream,
+          inputTokensRef.value,
+          lastTokenUpdateRef,
+          totalOutputTokensRef
+        );
+
+        let streamResult: { accumulated: any; content: string; yielded: boolean } | undefined;
+        for await (const chunk of chunkGen) {
+          if ('accumulated' in chunk) {
+            streamResult = chunk;
+          } else {
+            yield chunk;
           }
-
-          if (!chunk.choices?.[0]) continue;
-
-          // Accumulate the message using reducer
-          accumulatedMessage = this.messageReducer(accumulatedMessage, chunk);
-
-          // Check for tool calls - yield when we have complete tool calls with function names
-          if (!toolCallsYielded && accumulatedMessage.tool_calls?.length > 0) {
-            // Check if we have at least one complete tool call with a function name
-            const hasCompleteTool = accumulatedMessage.tool_calls.some(
-              (tc: any) => tc.function?.name
-            );
-            if (hasCompleteTool) {
-              yield {
-                type: "tool_calls",
-                toolCalls: accumulatedMessage.tool_calls,
-              };
-              toolCallsYielded = true;
-            }
-          }
-
-          // Stream reasoning content (GLM-4.6 thinking mode)
-          if (chunk.choices[0].delta?.reasoning_content) {
-            yield {
-              type: "reasoning",
-              reasoningContent: chunk.choices[0].delta.reasoning_content,
-            };
-          }
-
-          // Stream content as it comes
-          if (chunk.choices[0].delta?.content) {
-            accumulatedContent += chunk.choices[0].delta.content;
-
-            // Update token count in real-time including accumulated content and any tool calls
-            const currentOutputTokens =
-              this.tokenCounter.estimateStreamingTokens(accumulatedContent) +
-              (accumulatedMessage.tool_calls
-                ? this.tokenCounter.countTokens(
-                    JSON.stringify(accumulatedMessage.tool_calls)
-                  )
-                : 0);
-            totalOutputTokens = currentOutputTokens;
-
-            yield {
-              type: "content",
-              content: chunk.choices[0].delta.content,
-            };
-
-            // Emit token count update
-            const now = Date.now();
-            if (now - lastTokenUpdate > 250) {
-              lastTokenUpdate = now;
-              yield {
-                type: "token_count",
-                tokenCount: inputTokens + totalOutputTokens,
-              };
-            }
         }
-      }
 
-        // Add assistant entry to history
-        const assistantEntry: ChatEntry = {
-          type: "assistant",
-          content: accumulatedMessage.content || "Using tools to help you...",
-          timestamp: new Date(),
-          toolCalls: accumulatedMessage.tool_calls || undefined,
-        };
-        this.chatHistory.push(assistantEntry);
+        if (!streamResult) continue;
 
-        // Add accumulated message to conversation
-        this.messages.push({
-          role: "assistant",
-          content: accumulatedMessage.content || "",
-          tool_calls: accumulatedMessage.tool_calls,
-        } as any);
+        // Add assistant message to history
+        this.addAssistantMessage(streamResult.accumulated);
 
         // Handle tool calls if present
-        if (accumulatedMessage.tool_calls?.length > 0) {
+        if (streamResult.accumulated.tool_calls?.length > 0) {
           toolRounds++;
-
-          // Only yield tool_calls if we haven't already yielded them during streaming
-          if (!toolCallsYielded) {
-            yield {
-              type: "tool_calls",
-              toolCalls: accumulatedMessage.tool_calls,
-            };
-          }
-
-          // Execute tools
-          for (const toolCall of accumulatedMessage.tool_calls) {
-            // Check for cancellation before executing each tool
-            if (this.abortController?.signal.aborted) {
-              yield {
-                type: "content",
-                content: "\n\n[Operation cancelled by user]",
-              };
-              yield { type: "done" };
-              return;
-            }
-
-            const result = await this.executeTool(toolCall);
-
-            const toolResultEntry: ChatEntry = {
-              type: "tool_result",
-              content: result.success
-                ? result.output || "Success"
-                : result.error || "Error occurred",
-              timestamp: new Date(),
-              toolCall: toolCall,
-              toolResult: result,
-            };
-            this.chatHistory.push(toolResultEntry);
-
-            yield {
-              type: "tool_result",
-              toolCall,
-              toolResult: result,
-            };
-
-            // Add tool result with proper format (needed for AI context)
-            this.messages.push({
-              role: "tool",
-              content: result.success
-                ? result.output || "Success"
-                : result.error || "Error",
-              tool_call_id: toolCall.id,
-            });
-          }
-
-          // Update token count after processing all tool calls to include tool results
-          inputTokens = this.tokenCounter.countMessageTokens(
-            this.messages as any
+          yield* this.executeToolCalls(
+            streamResult.accumulated.tool_calls,
+            streamResult.yielded,
+            inputTokensRef,
+            totalOutputTokensRef
           );
-          // Final token update after tools processed
-          yield {
-            type: "token_count",
-            tokenCount: inputTokens + totalOutputTokens,
-          };
-
-          // Continue the loop to get the next response (which might have more tool calls)
+          // Continue loop to get next response
         } else {
           // No tool calls, we're done
           break;
         }
       }
 
+      // Check if max rounds reached
       if (toolRounds >= maxToolRounds) {
         yield {
           type: "content",
-          content:
-            "\n\nMaximum tool execution rounds reached. Stopping to prevent infinite loops.",
+          content: "\n\nMaximum tool execution rounds reached. Stopping to prevent infinite loops.",
         };
       }
 
       yield { type: "done" };
     } catch (error: any) {
       // Check if this was a cancellation
-      if (this.abortController?.signal.aborted) {
-        yield {
-          type: "content",
-          content: "\n\n[Operation cancelled by user]",
-        };
-        yield { type: "done" };
+      if (this.isCancelled()) {
+        yield* this.yieldCancellation();
         return;
       }
 
