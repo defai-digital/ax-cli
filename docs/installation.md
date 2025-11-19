@@ -1021,14 +1021,14 @@ Key environment variables for AX CLI:
 ```bash
 # API Configuration
 YOUR_API_KEY="your_api_key"           # API key for provider
-GROK_BASE_URL="https://api.x.ai/v1"   # API endpoint
-GROK_MODEL="glm-4.6"                  # Default model
+AI_BASE_URL="https://api.x.ai/v1"   # API endpoint
+AI_MODEL="glm-4.6"                  # Default model
 
 # Token Management
-GROK_MAX_TOKENS="128000"               # Max tokens for responses
+AI_MAX_TOKENS="128000"               # Max tokens for responses
 
 # Temperature
-GROK_TEMPERATURE="0.7"                 # Sampling temperature
+AI_TEMPERATURE="0.7"                 # Sampling temperature
 
 # Debug
 DEBUG="1"                              # Enable debug logging

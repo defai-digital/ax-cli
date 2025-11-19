@@ -78,7 +78,7 @@ export class LLMClient {
   constructor(apiKey: string, model?: string, baseURL?: string) {
     this.client = new OpenAI({
       apiKey,
-      baseURL: baseURL || process.env.GROK_BASE_URL || "https://api.x.ai/v1",
+      baseURL: baseURL || process.env.AI_BASE_URL || "https://api.x.ai/v1",
       timeout: 360000,
     });
 
@@ -89,12 +89,12 @@ export class LLMClient {
     const modelConfig = GLM_MODELS[this.currentModel];
 
     // Set defaults from environment or model config
-    const envMax = Number(process.env.GROK_MAX_TOKENS);
+    const envMax = Number(process.env.AI_MAX_TOKENS);
     this.defaultMaxTokens = Number.isFinite(envMax) && envMax > 0
       ? Math.min(envMax, modelConfig.maxOutputTokens)
       : modelConfig.defaultMaxTokens;
 
-    const envTemp = Number(process.env.GROK_TEMPERATURE);
+    const envTemp = Number(process.env.AI_TEMPERATURE);
     this.defaultTemperature = Number.isFinite(envTemp) &&
       envTemp >= modelConfig.temperatureRange.min &&
       envTemp <= modelConfig.temperatureRange.max

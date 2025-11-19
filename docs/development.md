@@ -68,13 +68,13 @@ Create a `.env` file in the project root for local testing:
 
 ```bash
 # For testing with local Ollama models
-GROK_BASE_URL=http://localhost:11434/v1
-GROK_MODEL=glm4:9b
+AI_BASE_URL=http://localhost:11434/v1
+AI_MODEL=glm4:9b
 
 # OR for testing with cloud providers
 YOUR_API_KEY=your_api_key_here
-GROK_BASE_URL=https://api.x.ai/v1
-GROK_MODEL=grok-code-fast-1
+AI_BASE_URL=https://api.x.ai/v1
+AI_MODEL=grok-code-fast-1
 
 # Debug mode
 DEBUG=1

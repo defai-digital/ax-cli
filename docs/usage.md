@@ -576,8 +576,8 @@ echo "Done!"
 
 ```bash
 # Set defaults for your workflow
-export GROK_MODEL="grok-code-fast-1"
-export GROK_BASE_URL="http://localhost:11434/v1"
+export AI_MODEL="grok-code-fast-1"
+export AI_BASE_URL="http://localhost:11434/v1"
 
 # Then use without specifying each time
 ax-cli
@@ -1002,10 +1002,10 @@ ax-cli mcp add github --transport stdio --args "@modelcontextprotocol/server-git
 
 ```bash
 YOUR_API_KEY=your-key
-GROK_BASE_URL=https://api.x.ai/v1
-GROK_MODEL=glm-4.6
-GROK_MAX_TOKENS=8192
-GROK_TEMPERATURE=0.7
+AI_BASE_URL=https://api.x.ai/v1
+AI_MODEL=glm-4.6
+AI_MAX_TOKENS=8192
+AI_TEMPERATURE=0.7
 ```
 
 ---

@@ -115,10 +115,10 @@ AX CLI respects standard environment variables for configuration. These take pre
 | Variable | Purpose | Example | Required |
 |----------|---------|---------|----------|
 | `YOUR_API_KEY` | API key for cloud providers | `xai-your_key_here` | Conditional* |
-| `GROK_BASE_URL` | API endpoint URL | `https://api.x.ai/v1` | No |
-| `GROK_MODEL` | Default model to use | `grok-code-fast-1` | No |
-| `GROK_MAX_TOKENS` | Maximum output tokens | `8192` | No |
-| `GROK_TEMPERATURE` | Model temperature (0.0-2.0) | `0.7` | No |
+| `AI_BASE_URL` | API endpoint URL | `https://api.x.ai/v1` | No |
+| `AI_MODEL` | Default model to use | `grok-code-fast-1` | No |
+| `AI_MAX_TOKENS` | Maximum output tokens | `8192` | No |
+| `AI_TEMPERATURE` | Model temperature (0.0-2.0) | `0.7` | No |
 
 *Only required when using cloud providers. Not needed for local Ollama setup.
 
@@ -177,7 +177,7 @@ Different ways to specify the model, in order of priority:
 ax-cli --model grok-4-latest
 
 # 2. Environment variable
-export GROK_MODEL="grok-code-fast-1"
+export AI_MODEL="grok-code-fast-1"
 ax-cli  # Uses grok-code-fast-1
 
 # 3. Project settings (.ax/settings.json)
@@ -653,8 +653,8 @@ AX CLI supports ANY OpenAI-compatible API endpoint:
 **Option 2: Environment Variables**
 ```bash
 export YOUR_API_KEY="your_key"
-export GROK_BASE_URL="https://api.provider.com/v1"
-export GROK_MODEL="provider-model-name"
+export AI_BASE_URL="https://api.provider.com/v1"
+export AI_MODEL="provider-model-name"
 ```
 
 **Option 3: Command Line**
@@ -988,8 +988,8 @@ ax-cli
 # Create .env file
 cat > .env <<'EOF'
 YOUR_API_KEY=your_api_key
-GROK_BASE_URL=https://api.x.ai/v1
-GROK_MODEL=grok-code-fast-1
+AI_BASE_URL=https://api.x.ai/v1
+AI_MODEL=grok-code-fast-1
 EOF
 
 # Add to .gitignore
@@ -1059,7 +1059,7 @@ ax-cli --help  # Shows loaded configuration
 ```bash
 # Check priority:
 ax-cli --model grok-code-fast-1  # 1. CLI flag wins
-GROK_MODEL=other ax-cli          # 2. Then environment
+AI_MODEL=other ax-cli          # 2. Then environment
 # .ax/settings.json { "model": "..." }  # 3. Then project
 # ~/.ax/user-settings.json { "defaultModel": "..." }  # 4. Then user
 # Default: grok-code-fast-1  # 5. Finally default

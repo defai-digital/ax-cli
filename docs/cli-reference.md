@@ -33,8 +33,8 @@ ax-cli [options]
 | `-V` | `--version` | Output version number | `ax-cli -V` |
 | `-d` | `--directory <dir>` | Set working directory | `ax-cli -d /path/to/project` |
 | `-k` | `--api-key <key>` | API key (or YOUR_API_KEY env var) | `ax-cli -k your_api_key` |
-| `-u` | `--base-url <url>` | API base URL (or GROK_BASE_URL env var) | `ax-cli -u https://api.example.com/v1` |
-| `-m` | `--model <model>` | AI model to use (or GROK_MODEL env var) | `ax-cli -m glm-4.6` |
+| `-u` | `--base-url <url>` | API base URL (or AI_BASE_URL env var) | `ax-cli -u https://api.example.com/v1` |
+| `-m` | `--model <model>` | AI model to use (or AI_MODEL env var) | `ax-cli -m glm-4.6` |
 | `-p` | `--prompt <prompt>` | Single prompt (headless mode) | `ax-cli -p "list TypeScript files"` |
 | | `--max-tool-rounds <rounds>` | Max tool execution rounds (default: 400) | `ax-cli --max-tool-rounds 50` |
 | `-h` | `--help` | Display help | `ax-cli -h` |
@@ -699,7 +699,7 @@ System Defaults
 ax-cli -m glm-4.6 -k your_key
 
 # 2. Environment variable
-GROK_MODEL=grok-code-fast-1 ax-cli
+AI_MODEL=grok-code-fast-1 ax-cli
 
 # 3. Project settings (.ax-cli/settings.json)
 # { "model": "glm-4-air" }
@@ -716,10 +716,10 @@ GROK_MODEL=grok-code-fast-1 ax-cli
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `YOUR_API_KEY` | API key for authentication | `export YOUR_API_KEY=your_key` |
-| `GROK_BASE_URL` | API endpoint URL | `export GROK_BASE_URL=https://api.x.ai/v1` |
-| `GROK_MODEL` | Default AI model | `export GROK_MODEL=glm-4.6` |
-| `GROK_MAX_TOKENS` | Maximum response tokens | `export GROK_MAX_TOKENS=8192` |
-| `GROK_TEMPERATURE` | Response creativity (0-2) | `export GROK_TEMPERATURE=0.7` |
+| `AI_BASE_URL` | API endpoint URL | `export AI_BASE_URL=https://api.x.ai/v1` |
+| `AI_MODEL` | Default AI model | `export AI_MODEL=glm-4.6` |
+| `AI_MAX_TOKENS` | Maximum response tokens | `export AI_MAX_TOKENS=8192` |
+| `AI_TEMPERATURE` | Response creativity (0-2) | `export AI_TEMPERATURE=0.7` |
 
 ---
 

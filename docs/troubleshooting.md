@@ -475,7 +475,7 @@ curl -H "Authorization: Bearer $YOUR_API_KEY" \
 **4. Increase timeout value**
 ```bash
 # Via environment variable
-GROK_TIMEOUT=60000 ax-cli -p "test"
+AI_TIMEOUT=60000 ax-cli -p "test"
 
 # Or in settings
 {
@@ -566,7 +566,7 @@ Error: Quota exceeded
 ax-cli -p "test" --max-tool-rounds 10
 
 # Use environment variable
-export GROK_MAX_TOOL_ROUNDS=10
+export AI_MAX_TOOL_ROUNDS=10
 ```
 
 **3. Add delays between requests**
@@ -846,7 +846,7 @@ Slow response times
 ax-cli -p "test" --max-tool-rounds 10
 
 # Or set in environment
-export GROK_MAX_TOOL_ROUNDS=10
+export AI_MAX_TOOL_ROUNDS=10
 ```
 
 **2. Use faster model**
@@ -1322,7 +1322,7 @@ python -m json.tool ~/.ax/user-settings.json
 **Solutions:**
 ```bash
 # Increase timeout
-GROK_TIMEOUT=60000 ax-cli -p "test"
+AI_TIMEOUT=60000 ax-cli -p "test"
 
 # Or in config
 {
@@ -1438,7 +1438,7 @@ env | grep DEBUG
 
 # See specific var
 echo $YOUR_API_KEY
-echo $GROK_BASE_URL
+echo $AI_BASE_URL
 ```
 
 **Trace execution flow**

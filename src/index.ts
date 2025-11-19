@@ -103,7 +103,7 @@ async function saveCommandLineSettings(
 // Load model from user settings if not in environment
 function loadModel(): string | undefined {
   // First check environment variables
-  let model = process.env.GROK_MODEL;
+  let model = process.env.AI_MODEL;
 
   if (!model) {
     // Use the unified model loading from settings manager
@@ -341,11 +341,11 @@ program
   .option("-k, --api-key <key>", "Grok API key (or set YOUR_API_KEY env var)")
   .option(
     "-u, --base-url <url>",
-    "Grok API base URL (or set GROK_BASE_URL env var)"
+    "Grok API base URL (or set AI_BASE_URL env var)"
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., grok-code-fast-1, grok-4-latest) (or set GROK_MODEL env var)"
+    "AI model to use (e.g., grok-code-fast-1, grok-4-latest) (or set AI_MODEL env var)"
   )
   .option(
     "-p, --prompt <prompt>",
@@ -438,11 +438,11 @@ gitCommand
   .option("-k, --api-key <key>", "Grok API key (or set YOUR_API_KEY env var)")
   .option(
     "-u, --base-url <url>",
-    "Grok API base URL (or set GROK_BASE_URL env var)"
+    "Grok API base URL (or set AI_BASE_URL env var)"
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., grok-code-fast-1, grok-4-latest) (or set GROK_MODEL env var)"
+    "AI model to use (e.g., grok-code-fast-1, grok-4-latest) (or set AI_MODEL env var)"
   )
   .option(
     "--max-tool-rounds <rounds>",

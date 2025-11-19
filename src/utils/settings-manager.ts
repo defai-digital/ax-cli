@@ -478,7 +478,7 @@ export class SettingsManager {
    */
   public getBaseURL(): string {
     // First check environment variable
-    const envBaseURL = process.env.GROK_BASE_URL;
+    const envBaseURL = process.env.AI_BASE_URL;
     if (envBaseURL) {
       return envBaseURL;
     }

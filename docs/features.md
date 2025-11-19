@@ -137,7 +137,7 @@ The system respects this configuration hierarchy:
 ax-cli --model glm-4.6 --temperature 0.7
 
 # Environment variable
-export GROK_MODEL=glm-4.6
+export AI_MODEL=glm-4.6
 ax-cli
 
 # Project settings (.ax-cli/settings.json)
