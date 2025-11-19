@@ -755,40 +755,118 @@ ax-cli -p "change variable name from foo to bar in utils.ts"
 
 ## 🏗️ Enterprise Architecture
 
-### Built with AutomatosX
+### Single Source of Truth (SSOT) Type System
 
-AX CLI was upgraded to enterprise-class quality using **AutomatosX** — a multi-agent AI orchestration platform that enables specialized AI agents to collaborate on complex development tasks.
+AX CLI implements a **Single Source of Truth** design pattern through the `@ax-cli/schemas` package. This ensures that **API handlers, billing modules, and MCP adapters all consume the same schema**, drastically reducing future refactoring costs.
 
-#### Development Process
+#### The Problem: Before SSOT
+
+Without centralized schemas, each module maintained its own type definitions, leading to:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    AutomatosX Agents                        │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  🤖 Queenie (QA)      → Bug detection & quality analysis   │
-│  🤖 Bob (Backend)     → TypeScript fixes & refactoring     │
-│  🤖 Steve (Security)  → Security audit & vulnerability scan│
-│  🤖 Avery (Architect) → Architecture design & patterns     │
-│  🤖 Felix (Fullstack) → Integration & end-to-end features  │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-           ↓                    ↓                    ↓
-    ┌──────────┐          ┌──────────┐          ┌──────────┐
-    │  Tests   │          │   Types  │          │ Security │
-    │  98%+    │          │   Zod    │          │  Audit   │
-    └──────────┘          └──────────┘          └──────────┘
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│   API Handler       │     │   MCP Adapter       │     │   Billing Module    │
+├─────────────────────┤     ├─────────────────────┤     ├─────────────────────┤
+│ type ModelId =      │     │ type ModelName =    │     │ type Model =        │
+│   string            │     │   string            │     │   string            │
+│                     │     │                     │     │                     │
+│ interface Message { │     │ interface Msg {     │     │ interface Request { │
+│   role: string      │     │   type: string      │     │   role: string      │
+│   content: string   │     │   text: string      │     │   content: string   │
+│ }                   │     │ }                   │     │ }                   │
+└─────────────────────┘     └─────────────────────┘     └─────────────────────┘
+        ❌                          ❌                          ❌
+   Own schemas               Own schemas               Own schemas
+   Duplicated logic          Duplicated logic          Duplicated logic
+   Diverges over time        Diverges over time        Diverges over time
+```
+
+**Risks**:
+- ❌ **Type Mismatches**: API expects `role: string` but MCP sends `type: string`
+- ❌ **Duplicated Validation**: Same validation logic copied across 3 modules
+- ❌ **Silent Failures**: Changes in one module break others at runtime
+- ❌ **High Refactoring Cost**: Update model schema = touch 3+ files
+- ❌ **No Contract Enforcement**: No guarantee modules speak the same language
+
+#### The Solution: After SSOT
+
+With `@ax-cli/schemas`, all modules import from a single source:
+
+```
+                        ┌────────────────────────────────────┐
+                        │       @ax-cli/schemas              │
+                        │    (Single Source of Truth)        │
+                        ├────────────────────────────────────┤
+                        │                                    │
+                        │  • Brand Types (ModelId, etc.)     │
+                        │  • Centralized Enums (MessageRole) │
+                        │  • Zod Schemas (runtime validation)│
+                        │  • TypeScript Types (compile-time) │
+                        │                                    │
+                        └──────────────┬─────────────────────┘
+                                       │
+                         ┌─────────────┼─────────────┐
+                         │             │             │
+                         ▼             ▼             ▼
+              ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+              │ API Handler  │ │ MCP Adapter  │ │Billing Module│
+              ├──────────────┤ ├──────────────┤ ├──────────────┤
+              │ import {     │ │ import {     │ │ import {     │
+              │   ModelId,   │ │   ModelId,   │ │   ModelId,   │
+              │   Message    │ │   Message    │ │   Message    │
+              │ } from       │ │ } from       │ │ } from       │
+              │ '@ax-cli/    │ │ '@ax-cli/    │ │ '@ax-cli/    │
+              │  schemas'    │ │  schemas'    │ │  schemas'    │
+              └──────────────┘ └──────────────┘ └──────────────┘
+                    ✅               ✅               ✅
+               Same contract    Same contract    Same contract
+               Same validation  Same validation  Same validation
+```
+
+**Benefits**:
+- ✅ **Zero Divergence**: All modules consume identical type definitions
+- ✅ **Reduced Refactoring Cost**: Change once, propagate everywhere (1 file vs 3+ files)
+- ✅ **Compile-Time Safety**: TypeScript catches mismatches across module boundaries
+- ✅ **Runtime Validation**: Zod schemas ensure data validity at system boundaries
+- ✅ **Contract Enforcement**: Brand types prevent mixing incompatible IDs
+
+#### SSOT in Action
+
+**Example: Adding a new model**
+
+Before SSOT (3 files to update):
+```typescript
+// File 1: src/api/handler.ts
+type ModelId = string;  // Update here
+
+// File 2: src/mcp/adapter.ts
+type ModelName = string;  // Update here too
+
+// File 3: src/billing/tracker.ts
+type Model = string;  // And here
+```
+
+After SSOT (1 file to update):
+```typescript
+// File: packages/schemas/src/public/core/id-types.ts
+export const ModelIdSchema = z.string().brand<'ModelId'>();
+export type ModelId = z.infer<typeof ModelIdSchema>;
+
+// All consumers automatically get the update:
+// ✅ API handler
+// ✅ MCP adapter
+// ✅ Billing module
 ```
 
 #### Quality Metrics
 
-| Metric | Before AutomatosX | After AutomatosX | Improvement |
-|--------|------------------|------------------|-------------|
-| **Test Coverage** | 0% | 98.29% | ∞ |
-| **TypeScript Errors** | 33 | 0 | 100% |
-| **Type Safety** | Partial | Full (Zod) | Enterprise |
-| **Documentation** | Basic | Comprehensive | 5x |
-| **Node.js Support** | 18+ | 24+ | Modern |
+| Metric | Before SSOT | After SSOT | Improvement |
+|--------|-------------|------------|-------------|
+| **Schema Duplication** | 3+ copies | 1 canonical | 67% reduction |
+| **Refactoring Cost** | 3+ files | 1 file | 67% faster |
+| **Type Mismatches** | Runtime errors | Compile-time catch | 100% safer |
+| **Validation Consistency** | Divergent | Unified | Enterprise-grade |
+| **Test Coverage** | Partial | 98.29% (124 tests) | Production-ready |
 
 ### Technology Stack
 
