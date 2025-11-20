@@ -1,0 +1,188 @@
+{
+  "name": "ax-cli-vscode",
+  "displayName": "AX CLI",
+  "description": "AI-powered coding assistant with multi-provider flexibility",
+  "version": "0.1.0",
+  "publisher": "defai-digital",
+  "icon": "resources/icon.png",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Machine Learning",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "assistant",
+    "code-generation",
+    "refactoring",
+    "grok",
+    "glm",
+    "claude",
+    "gpt-4",
+    "ollama"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ax-cli.openChat",
+        "title": "AX: Open Chat",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "ax-cli.analyzeFile",
+        "title": "AX: Analyze Current File"
+      },
+      {
+        "command": "ax-cli.explainSelection",
+        "title": "AX: Explain Selection"
+      },
+      {
+        "command": "ax-cli.generateTests",
+        "title": "AX: Generate Tests"
+      },
+      {
+        "command": "ax-cli.refactorSelection",
+        "title": "AX: Refactor Selection"
+      },
+      {
+        "command": "ax-cli.documentCode",
+        "title": "AX: Document Code"
+      },
+      {
+        "command": "ax-cli.findBugs",
+        "title": "AX: Find Bugs"
+      },
+      {
+        "command": "ax-cli.reviewChanges",
+        "title": "AX: Review Git Changes"
+      },
+      {
+        "command": "ax-cli.selectModel",
+        "title": "AX: Select Model"
+      },
+      {
+        "command": "ax-cli.configure",
+        "title": "AX: Configure Settings"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ax-cli",
+          "title": "AX CLI",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "ax-cli": [
+        {
+          "type": "webview",
+          "id": "ax-cli.chatView",
+          "name": "Chat"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "ax-cli.openChat",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a"
+      },
+      {
+        "command": "ax-cli.explainSelection",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "editorHasSelection"
+      }
+    ],
+    "configuration": {
+      "title": "AX CLI",
+      "properties": {
+        "ax-cli.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for AI provider",
+          "order": 1
+        },
+        "ax-cli.baseURL": {
+          "type": "string",
+          "default": "https://api.x.ai/v1",
+          "description": "Base URL for AI API",
+          "order": 2
+        },
+        "ax-cli.model": {
+          "type": "string",
+          "default": "grok-code-fast-1",
+          "enum": [
+            "grok-code-fast-1",
+            "grok-4-latest",
+            "glm-4.6",
+            "claude-3-5-sonnet-20241022",
+            "gpt-4o",
+            "deepseek-chat"
+          ],
+          "description": "AI model to use",
+          "order": 3
+        },
+        "ax-cli.maxToolRounds": {
+          "type": "number",
+          "default": 400,
+          "description": "Maximum tool execution rounds",
+          "order": 4
+        },
+        "ax-cli.autoIncludeFile": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically include current file as context",
+          "order": 5
+        },
+        "ax-cli.autoIncludeDiagnostics": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically include error diagnostics",
+          "order": 6
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && node esbuild.js --production",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src --ext ts",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vscode/test-electron": "^2.3.9",
+    "esbuild": "^0.20.0",
+    "eslint": "^8.57.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.3.0",
+    "vitest": "^1.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/defai-digital/ax-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/defai-digital/ax-cli/issues"
+  },
+  "homepage": "https://github.com/defai-digital/ax-cli#readme",
+  "license": "MIT"
+}
