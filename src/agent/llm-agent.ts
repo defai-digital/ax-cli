@@ -638,7 +638,10 @@ export class LLMAgent extends EventEmitter {
       tracker.trackUsage(this.llmClient.getCurrentModel(), usageData);
     }
 
-    return { accumulated: accumulatedMessage, content: accumulatedContent, yielded: toolCallsYielded };
+    // CRITICAL: Yield the accumulated result so the main loop can access it!
+    const result = { accumulated: accumulatedMessage, content: accumulatedContent, yielded: toolCallsYielded };
+    yield result;
+    return result;
   }
 
   /**
@@ -749,6 +752,10 @@ export class LLMAgent extends EventEmitter {
     try {
       // Agent loop - continue until no more tool calls or max rounds reached
       while (toolRounds < maxToolRounds) {
+        if (process.env.DEBUG_LOOP_DETECTION === '1') {
+          console.error(`\n[LOOP DEBUG] Agent loop iteration, toolRounds: ${toolRounds}`);
+        }
+
         // Check if operation was cancelled
         if (this.isCancelled()) {
           yield* this.yieldCancellation();
@@ -794,10 +801,26 @@ export class LLMAgent extends EventEmitter {
           }
         }
 
-        if (!streamResult) continue;
+        if (process.env.DEBUG_LOOP_DETECTION === '1') {
+          console.error(`[LOOP DEBUG] After chunk processing, streamResult exists: ${!!streamResult}`);
+        }
+
+        if (!streamResult) {
+          if (process.env.DEBUG_LOOP_DETECTION === '1') {
+            console.error(`[LOOP DEBUG] No streamResult, continuing...`);
+          }
+          continue;
+        }
 
         // Add assistant message to history
         this.addAssistantMessage(streamResult.accumulated);
+
+        // Debug: Log what we received
+        if (process.env.DEBUG_LOOP_DETECTION === '1') {
+          console.error(`\n[LOOP DEBUG] Stream result received`);
+          console.error(`[LOOP DEBUG] Has tool_calls: ${!!streamResult.accumulated.tool_calls}`);
+          console.error(`[LOOP DEBUG] Tool calls length: ${streamResult.accumulated.tool_calls?.length || 0}`);
+        }
 
         // Handle tool calls if present
         if (streamResult.accumulated.tool_calls?.length > 0) {

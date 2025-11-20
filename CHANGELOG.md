@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.6] - 2025-11-20
+
+### Fixed
+- **CRITICAL: Infinite Loop Bug in Interactive Mode** - Fixed loop detection not working
+  - Root cause: `processStreamingChunks()` was returning instead of yielding accumulated result
+  - Loop detection code was never executed because main loop never received streamResult
+  - Added `yield result;` at line 643 before return statement
+  - Loop detection now properly catches repetitive tool calls on 2nd occurrence
+  - **Impact**: Prevents infinite loops where commands like `bash:date` execute 10+ times
+  - Modified: `src/agent/llm-agent.ts:641-644`
+
+### Added
+- **Comprehensive Debug Logging** - Added detailed execution flow tracing
+  - Agent loop iteration tracking shows toolRounds progress
+  - StreamResult existence checking reveals if chunks are processed correctly
+  - Tool call detection logging shows when loop checks are performed
+  - Helps diagnose execution flow issues in streaming mode
+  - All logging controlled by `DEBUG_LOOP_DETECTION=1` environment variable
+
+### Technical Details
+- **Bug**: Generator returned accumulated result instead of yielding it
+- **Symptom**: `streamResult` was always undefined in main agent loop
+- **Effect**: Loop detection check at line 810 never executed
+- **Fix**: Yield accumulated result before returning from generator
+- **Verification**: Tested with "what time is it?" - stops after 1st `date` execution
+
+### Testing
+- ✅ Interactive mode: Loop detection working correctly
+- ✅ Headless mode: Already working, continues to work
+- ✅ Debug logging: Comprehensive execution flow visibility
+- ✅ Map persistence: Confirmed across agent loop iterations
+
 ## [2.4.5] - 2025-11-20
 
 ### Known Issues
