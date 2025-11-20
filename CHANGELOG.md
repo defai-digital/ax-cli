@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.3] - 2025-01-19
+
+### Fixed
+- **CRITICAL: Unsafe JSON parsing in project-analyzer.ts**
+  - Replaced unsafe `JSON.parse(fs.readFileSync(...))` with cached `getPackageJson()`
+  - Eliminates crash risk on malformed package.json files
+  - Improves performance by reusing existing cache
+
+- **HIGH: Cross-platform path normalization**
+  - Added `normalizePath()` to tools directory detection in project-analyzer.ts
+  - Ensures consistent path format across Windows, macOS, and Linux
+  - Prevents Windows test failures from path separator mismatches
+  - Follows AutomatosX cross-platform patterns
+
+- **MEDIUM: Data integrity improvements**
+  - Implemented atomic file writes in `init.ts` using temp files + rename pattern
+  - Added atomic write pattern to `template-manager.ts` exportTemplate() function
+  - Prevents data corruption if write operations are interrupted
+  - Consistent with existing atomic write patterns throughout codebase
+
+- **LOW: Enhanced validation and type safety**
+  - Improved path-assertions.ts to validate null and empty string cases
+  - Fixed type consistency in path-utils.ts (always returns string, never falsy)
+  - Better error messages for different failure modes in tests
+  - Updated documentation to reflect behavior
+
+### Added
+- **Cross-platform path utilities** (`src/utils/path-utils.ts`)
+  - `normalizePath()` - Convert all separators to forward slashes
+  - `platformPath()` - Convert to platform-native separators
+  - `pathsEqual()` - Compare paths ignoring separator differences
+  - `pathContains()` - Cross-platform path segment checking
+  - `isWindows()` - Platform detection helper
+
+- **Test path assertion helpers** (`tests/helpers/path-assertions.ts`)
+  - `expectPathsToBeEqual()` - Cross-platform path comparison
+  - `expectPathToBeNormalized()` - Verify forward-slash format
+  - `expectPathToContain()` - Check path segments cross-platform
+  - `expectPathsNotToBeEqual()` - Negative assertions
+
+### Technical
+- Modified files: `src/utils/project-analyzer.ts`, `src/commands/init.ts`, `src/utils/template-manager.ts`, `src/utils/path-utils.ts`, `tests/helpers/path-assertions.ts`
+- All 352 tests passing ✅
+- Zero TypeScript compilation errors
+- Improved memory safety, data integrity, and cross-platform compatibility
+
+## [2.3.2] - 2025-01-19
+
 ### Fixed
 - **Loop Detection in Agent**: Fixed issue where agent would repeatedly call similar tools without making progress
   - Added intelligent loop detection that recognizes similar bash commands (e.g., multiple `find` variations)
