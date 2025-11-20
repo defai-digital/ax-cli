@@ -29,9 +29,6 @@ ax-cli init
 
 # Start interactive mode
 ax-cli
-
-# Run headless command
-ax-cli -p "list all TypeScript files"
 ```
 
 ## ✨ Features
@@ -91,16 +88,6 @@ AX CLI officially supports the following platforms:
 
 ```bash
 npm install -g @defai.digital/ax-cli
-```
-
-### Local Development
-
-```bash
-git clone https://github.com/defai-digital/ax-cli.git
-cd ax-cli
-npm install
-npm run build
-npm link
 ```
 
 [Installation Guide →](docs/installation.md)
