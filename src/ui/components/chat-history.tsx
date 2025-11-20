@@ -229,9 +229,11 @@ export function ChatHistory({
       )
     : entries;
 
+  // Show ALL entries - removed the .slice(-20) limitation
+  // Scrolling will be handled by the terminal's native scroll capability
   return (
     <Box flexDirection="column">
-      {filteredEntries.slice(-20).map((entry, index) => (
+      {filteredEntries.map((entry, index) => (
         <MemoizedChatEntry
           key={`${entry.timestamp.getTime()}-${index}`}
           entry={entry}

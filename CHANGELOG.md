@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.7] - 2025-11-20
+
+### Added
+- **Scrollable Chat History** - Full conversation history now accessible
+  - Removed 20-message limit that prevented viewing older messages
+  - All messages are now preserved and visible
+  - Use native terminal scrolling to review full conversation history
+  - Modified: `src/ui/components/chat-history.tsx:232-243`
+
+### Changed
+- **Chat History Display** - Shows all entries instead of last 20
+  - Previous behavior: `.slice(-20)` truncated to most recent 20 messages
+  - New behavior: All messages displayed, scrollable via terminal
+  - Better UX for long conversations and debugging sessions
+
+### Usage
+Users can now scroll through full chat history using:
+- Mouse wheel (scroll up/down)
+- Page Up / Page Down (jump by pages)
+- Shift + Page Up/Down (larger jumps)
+- Cmd/Ctrl + Home (jump to top)
+- Cmd/Ctrl + End (jump to bottom)
+
+### Impact
+- ✅ Review entire conversation history
+- ✅ Better debugging and error review
+- ✅ No message loss during long sessions
+- ✅ Consistent with Claude Code behavior
+
 ## [2.4.6] - 2025-11-20
 
 ### Fixed
