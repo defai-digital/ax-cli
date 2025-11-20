@@ -149,13 +149,13 @@ export class LLMAgent extends EventEmitter {
         // For search, include the normalized query
         const normalizedQuery = args.query.trim().toLowerCase().replace(/\s+/g, ' ');
         signature = `search:${normalizedQuery}`;
-      } else if (toolCall.function.name === 'read_file' && args.file_path) {
+      } else if (toolCall.function.name === 'view_file' && args.path) {
         // For file reads, include the path
-        signature = `read:${args.file_path}`;
-      } else if (toolCall.function.name === 'write_file' && args.file_path) {
+        signature = `view:${args.path}`;
+      } else if (toolCall.function.name === 'create_file' && args.path) {
         // For file writes, include the path
-        signature = `write:${args.file_path}`;
-      } else if (toolCall.function.name === 'text_editor' && args.path) {
+        signature = `create:${args.path}`;
+      } else if (toolCall.function.name === 'str_replace_editor' && args.path) {
         // For text editor, include the path
         signature = `edit:${args.path}`;
       }
