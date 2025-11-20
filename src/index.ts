@@ -264,13 +264,79 @@ Respond with ONLY the commit message, no additional text.`;
   }
 }
 
+// Build context from VSCode integration flags
+async function buildContextFromFlags(options: {
+  file?: string;
+  selection?: string;
+  lineRange?: string;
+  gitDiff?: boolean;
+}): Promise<string> {
+  const contextParts: string[] = [];
+
+  // Add file context
+  if (options.file) {
+    try {
+      const fs = await import("fs/promises");
+      const path = await import("path");
+      const filePath = path.resolve(options.file);
+      let fileContent = await fs.readFile(filePath, "utf-8");
+
+      // Apply line range if specified
+      if (options.lineRange) {
+        const match = options.lineRange.match(/^(\d+)-(\d+)$/);
+        if (match) {
+          const startLine = parseInt(match[1], 10);
+          const endLine = parseInt(match[2], 10);
+          const lines = fileContent.split("\n");
+          fileContent = lines.slice(startLine - 1, endLine).join("\n");
+          contextParts.push(`File: ${filePath} (lines ${startLine}-${endLine}):\n\`\`\`\n${fileContent}\n\`\`\``);
+        } else {
+          contextParts.push(`File: ${filePath}:\n\`\`\`\n${fileContent}\n\`\`\``);
+        }
+      } else {
+        contextParts.push(`File: ${filePath}:\n\`\`\`\n${fileContent}\n\`\`\``);
+      }
+    } catch (error: any) {
+      contextParts.push(`Error reading file ${options.file}: ${error.message}`);
+    }
+  }
+
+  // Add selection context
+  if (options.selection) {
+    contextParts.push(`Selected code:\n\`\`\`\n${options.selection}\n\`\`\``);
+  }
+
+  // Add git diff context
+  if (options.gitDiff) {
+    try {
+      const { execSync } = await import("child_process");
+      const gitDiff = execSync("git diff", { encoding: "utf-8" });
+      if (gitDiff.trim()) {
+        contextParts.push(`Git diff:\n\`\`\`diff\n${gitDiff}\n\`\`\``);
+      }
+    } catch (error: any) {
+      contextParts.push(`Error getting git diff: ${error.message}`);
+    }
+  }
+
+  return contextParts.join("\n\n");
+}
+
 // Headless mode processing function
 async function processPromptHeadless(
   prompt: string,
   apiKey: string,
   baseURL?: string,
   model?: string,
-  maxToolRounds?: number
+  maxToolRounds?: number,
+  options?: {
+    json?: boolean;
+    file?: string;
+    selection?: string;
+    lineRange?: string;
+    gitDiff?: boolean;
+    vscode?: boolean;
+  }
 ): Promise<void> {
   let agent: LLMAgent | null = null;
   try {
@@ -280,8 +346,17 @@ async function processPromptHeadless(
     const confirmationService = ConfirmationService.getInstance();
     confirmationService.setSessionFlag("allOperations", true);
 
+    // Build context from VSCode flags
+    let fullPrompt = prompt;
+    if (options && (options.file || options.selection || options.gitDiff)) {
+      const context = await buildContextFromFlags(options);
+      if (context) {
+        fullPrompt = `${context}\n\n${prompt}`;
+      }
+    }
+
     // Process the user message
-    const chatEntries = await agent.processUserMessage(prompt);
+    const chatEntries = await agent.processUserMessage(fullPrompt);
 
     // Convert chat entries to OpenAI compatible message objects
     const messages: ChatCompletionMessageParam[] = [];
@@ -328,18 +403,42 @@ async function processPromptHeadless(
       }
     }
 
-    // Output each message as a separate JSON object
-    for (const message of messages) {
-      console.log(JSON.stringify(message));
+    // Output based on format flag
+    if (options?.json) {
+      // JSON output mode for IDE integration
+      const response = {
+        messages: messages,
+        model: agent.getCurrentModel(),
+        timestamp: new Date().toISOString(),
+      };
+      console.log(JSON.stringify(response, null, options.vscode ? 2 : 0));
+    } else {
+      // Standard output (existing behavior)
+      for (const message of messages) {
+        console.log(JSON.stringify(message));
+      }
     }
   } catch (error: any) {
-    // Output error in OpenAI compatible format
-    console.log(
-      JSON.stringify({
-        role: "assistant",
-        content: `Error: ${error.message}`,
-      })
-    );
+    if (options?.json) {
+      // JSON error output for IDE integration
+      console.log(
+        JSON.stringify({
+          error: {
+            message: error.message,
+            type: error.constructor.name,
+          },
+          timestamp: new Date().toISOString(),
+        }, null, options.vscode ? 2 : 0)
+      );
+    } else {
+      // Standard error output
+      console.log(
+        JSON.stringify({
+          role: "assistant",
+          content: `Error: ${error.message}`,
+        })
+      );
+    }
     process.exit(1);
   } finally {
     // Clean up agent resources
@@ -375,6 +474,13 @@ program
     "maximum number of tool execution rounds (default: 400)",
     "400"
   )
+  // VSCode Integration Flags (Phase 1)
+  .option("--json", "output responses in JSON format (for IDE integration)")
+  .option("--file <path>", "include file context from specified path")
+  .option("--selection <text>", "include selected text as context")
+  .option("--line-range <range>", "include specific line range (e.g., 10-20)")
+  .option("--git-diff", "include git diff as context")
+  .option("--vscode", "optimize output for VSCode integration")
   .action(async (message, options) => {
     if (options.directory) {
       try {
@@ -438,7 +544,15 @@ program
           apiKey,
           baseURL,
           model,
-          maxToolRounds
+          maxToolRounds,
+          {
+            json: options.json,
+            file: options.file,
+            selection: options.selection,
+            lineRange: options.lineRange,
+            gitDiff: options.gitDiff,
+            vscode: options.vscode,
+          }
         );
         return;
       }

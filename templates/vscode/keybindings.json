@@ -1,0 +1,58 @@
+[
+  {
+    "key": "ctrl+shift+a",
+    "mac": "cmd+shift+a",
+    "command": "workbench.action.tasks.runTask",
+    "args": "AX: Interactive Chat",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+shift+e",
+    "mac": "cmd+shift+e",
+    "command": "workbench.action.tasks.runTask",
+    "args": "AX: Explain Selection",
+    "when": "editorHasSelection"
+  },
+  {
+    "key": "ctrl+shift+d",
+    "mac": "cmd+shift+d",
+    "command": "workbench.action.tasks.runTask",
+    "args": "AX: Document Selection",
+    "when": "editorHasSelection"
+  },
+  {
+    "key": "ctrl+shift+r",
+    "mac": "cmd+shift+r",
+    "command": "workbench.action.tasks.runTask",
+    "args": "AX: Refactor Selection",
+    "when": "editorHasSelection"
+  },
+  {
+    "key": "ctrl+shift+t",
+    "mac": "cmd+shift+t",
+    "command": "workbench.action.tasks.runTask",
+    "args": "AX: Generate Tests for File",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+shift+g",
+    "mac": "cmd+shift+g",
+    "command": "workbench.action.tasks.runTask",
+    "args": "AX: Review Git Changes",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+shift+b",
+    "mac": "cmd+shift+b",
+    "command": "workbench.action.tasks.runTask",
+    "args": "AX: Find Bugs in File",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+shift+p",
+    "mac": "cmd+shift+p",
+    "command": "workbench.action.tasks.runTask",
+    "args": "AX: Optimize Performance",
+    "when": "editorTextFocus"
+  }
+]

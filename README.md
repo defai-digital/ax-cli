@@ -156,6 +156,46 @@ ax-cli -p "write tests for utils/" --max-tool-rounds 50
 ax-cli -p "refactor" --model glm-4.6
 ```
 
+### 🔌 VSCode Integration (NEW!)
+
+AX CLI integrates seamlessly with Visual Studio Code via tasks and keyboard shortcuts:
+
+```bash
+# Analyze current file
+ax-cli --prompt "Analyze this file" --file src/index.ts --json --vscode
+
+# Explain selected code
+ax-cli --prompt "Explain this code" --selection "function foo() {...}" --json --vscode
+
+# Review git changes
+ax-cli --prompt "Review my changes" --git-diff --json --vscode
+
+# Analyze specific line range
+ax-cli --prompt "Optimize this section" --file app.ts --line-range 50-100 --json
+```
+
+**Quick Setup:**
+```bash
+# Copy VSCode templates to your project
+cd your-project
+mkdir -p .vscode
+cp node_modules/@defai.digital/ax-cli/templates/vscode/*.json .vscode/
+
+# Start using with Cmd+Shift+P → "Tasks: Run Task" → Select AX task
+```
+
+**Pre-configured Tasks:**
+- 🔍 Analyze Current File
+- 📝 Explain Selection
+- 🔄 Review Git Changes
+- 🧪 Generate Tests
+- 📚 Document Code
+- ♻️ Refactor Selection
+- 🐛 Find Bugs
+- ⚡ Optimize Performance
+
+[VSCode Integration Guide →](docs/vscode-integration-guide.md)
+
 ### Project Initialization
 
 ```bash
