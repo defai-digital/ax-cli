@@ -26,8 +26,7 @@ export function createErrorMessage(
   operation: string,
   error: unknown
 ): string {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  return `[${category}] ${operation} failed: ${errorMessage}`;
+  return `[${category}] ${operation} failed: ${extractErrorMessage(error)}`;
 }
 
 /**
@@ -55,6 +54,14 @@ export function createToolSuccess(output: string): ToolResult {
 }
 
 /**
+ * Extract error message from unknown error type
+ * Consolidates the common pattern: error instanceof Error ? error.message : String(error)
+ */
+export function extractErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
  * Safely parse JSON with error handling
  */
 export function safeJsonParse<T>(
@@ -66,7 +73,7 @@ export function safeJsonParse<T>(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Invalid JSON',
+      error: extractErrorMessage(error),
     };
   }
 }

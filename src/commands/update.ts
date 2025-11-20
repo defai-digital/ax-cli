@@ -4,6 +4,7 @@ import { promisify } from "util";
 import chalk from "chalk";
 import { createInterface } from "readline";
 import { parseJson } from "../utils/json-utils.js";
+import { equalsIgnoreCase } from "../utils/string-utils.js";
 
 const execAsync = promisify(exec);
 
@@ -172,7 +173,7 @@ async function promptConfirm(message: string): Promise<boolean> {
     rl.question(chalk.yellow(message), (answer) => {
       rl.close();
       resolve(
-        answer.toLowerCase() === "y" || answer.toLowerCase() === "yes"
+        equalsIgnoreCase(answer, "y") || equalsIgnoreCase(answer, "yes")
       );
     });
   });

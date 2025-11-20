@@ -7,6 +7,7 @@ import { LLMAgent } from "./agent/llm-agent.js";
 import ChatInterface from "./ui/components/chat-interface.js";
 import { getSettingsManager } from "./utils/settings-manager.js";
 import { ConfirmationService } from "./utils/confirmation-service.js";
+import { extractErrorMessage } from "./utils/error-handler.js";
 import { createMCPCommand } from "./commands/mcp.js";
 import { createInitCommand } from "./commands/init.js";
 import { createUpdateCommand } from "./commands/update.js";
@@ -254,8 +255,7 @@ Respond with ONLY the commit message, no additional text.`;
       process.exit(1);
     }
   } catch (error: any) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error("❌ Error during commit and push:", errorMsg);
+    console.error("❌ Error during commit and push:", extractErrorMessage(error));
     process.exit(1);
   } finally {
     // Clean up agent resources
@@ -289,8 +289,18 @@ async function buildContextFromFlags(options: {
           const startLine = parseInt(match[1], 10);
           const endLine = parseInt(match[2], 10);
           const lines = fileContent.split("\n");
-          fileContent = lines.slice(startLine - 1, endLine).join("\n");
-          contextParts.push(`File: ${filePath} (lines ${startLine}-${endLine}):\n\`\`\`\n${fileContent}\n\`\`\``);
+
+          // Validate line range
+          if (startLine < 1 || startLine > lines.length) {
+            contextParts.push(`Error: Invalid start line ${startLine}. File has ${lines.length} lines.`);
+          } else if (endLine < startLine) {
+            contextParts.push(`Error: Invalid line range ${startLine}-${endLine}. End line must be >= start line.`);
+          } else {
+            // Clamp endLine to file length
+            const validEndLine = Math.min(endLine, lines.length);
+            fileContent = lines.slice(startLine - 1, validEndLine).join("\n");
+            contextParts.push(`File: ${filePath} (lines ${startLine}-${validEndLine}):\n\`\`\`\n${fileContent}\n\`\`\``);
+          }
         } else {
           contextParts.push(`File: ${filePath}:\n\`\`\`\n${fileContent}\n\`\`\``);
         }
@@ -298,8 +308,7 @@ async function buildContextFromFlags(options: {
         contextParts.push(`File: ${filePath}:\n\`\`\`\n${fileContent}\n\`\`\``);
       }
     } catch (error: any) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      contextParts.push(`Error reading file ${options.file}: ${errorMsg}`);
+      contextParts.push(`Error reading file ${options.file}: ${extractErrorMessage(error)}`);
     }
   }
 
@@ -317,8 +326,7 @@ async function buildContextFromFlags(options: {
         contextParts.push(`Git diff:\n\`\`\`diff\n${gitDiff}\n\`\`\``);
       }
     } catch (error: any) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      contextParts.push(`Error getting git diff: ${errorMsg}`);
+      contextParts.push(`Error getting git diff: ${extractErrorMessage(error)}`);
     }
   }
 
@@ -526,7 +534,8 @@ program
       const apiKey = options.apiKey || loadApiKey();
       const baseURL = options.baseUrl || loadBaseURL();
       const model = options.model || loadModel();
-      const maxToolRounds = options.maxToolRounds ? parseInt(options.maxToolRounds.toString(), 10) : 400;
+      const parsedMaxToolRounds = options.maxToolRounds ? parseInt(options.maxToolRounds.toString(), 10) : 400;
+      const maxToolRounds = Number.isFinite(parsedMaxToolRounds) && parsedMaxToolRounds > 0 ? parsedMaxToolRounds : 400;
 
       if (!apiKey) {
         console.error(
@@ -627,7 +636,8 @@ gitCommand
       const apiKey = options.apiKey || loadApiKey();
       const baseURL = options.baseUrl || loadBaseURL();
       const model = options.model || loadModel();
-      const maxToolRounds = options.maxToolRounds ? parseInt(options.maxToolRounds.toString(), 10) : 400;
+      const parsedMaxToolRounds = options.maxToolRounds ? parseInt(options.maxToolRounds.toString(), 10) : 400;
+      const maxToolRounds = Number.isFinite(parsedMaxToolRounds) && parsedMaxToolRounds > 0 ? parsedMaxToolRounds : 400;
 
       if (!apiKey) {
         console.error(

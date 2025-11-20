@@ -5,6 +5,20 @@ import { ToolResult, EditorCommand } from "../types/index.js";
 import { ConfirmationService } from "../utils/confirmation-service.js";
 import { resolveAndValidatePath } from "../utils/path-validator.js";
 
+/**
+ * Check if file exists and return appropriate error if not
+ */
+async function checkFileExists(filePath: string): Promise<ToolResult | null> {
+  const resolvedPath = path.resolve(filePath);
+  if (!(await fs.pathExists(resolvedPath))) {
+    return {
+      success: false,
+      error: `File not found: ${filePath}`,
+    };
+  }
+  return null;
+}
+
 export class TextEditorTool {
   private editHistory: EditorCommand[] = [];
   private confirmationService = ConfirmationService.getInstance();
@@ -244,14 +258,12 @@ export class TextEditorTool {
     newContent: string
   ): Promise<ToolResult> {
     try {
-      const resolvedPath = path.resolve(filePath);
-
-      if (!(await fs.pathExists(resolvedPath))) {
-        return {
-          success: false,
-          error: `File not found: ${filePath}`,
-        };
+      const fileExistsError = await checkFileExists(filePath);
+      if (fileExistsError) {
+        return fileExistsError;
       }
+
+      const resolvedPath = path.resolve(filePath);
 
       const fileContent = await fs.readFile(resolvedPath, "utf-8");
       const lines = fileContent.split("\n");
@@ -331,14 +343,12 @@ export class TextEditorTool {
     content: string
   ): Promise<ToolResult> {
     try {
-      const resolvedPath = path.resolve(filePath);
-
-      if (!(await fs.pathExists(resolvedPath))) {
-        return {
-          success: false,
-          error: `File not found: ${filePath}`,
-        };
+      const fileExistsError = await checkFileExists(filePath);
+      if (fileExistsError) {
+        return fileExistsError;
       }
+
+      const resolvedPath = path.resolve(filePath);
 
       const fileContent = await fs.readFile(resolvedPath, "utf-8");
       const lines = fileContent.split("\n");

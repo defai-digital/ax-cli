@@ -24,7 +24,7 @@ export function createUsageCommand(): Command {
       try {
         const tracker = getUsageTracker();
         const manager = getSettingsManager();
-        const baseURL = manager.getBaseURL();
+        const baseURL = manager.getBaseURL() || 'unknown';
         const provider = detectProvider(baseURL);
 
         const stats = tracker.getSessionStats();

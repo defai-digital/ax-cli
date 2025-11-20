@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { Box, Text } from "ink";
+import { startsWithIgnoreCase } from "../../utils/string-utils.js";
 
 interface CommandSuggestion {
   command: string;
@@ -19,9 +20,8 @@ export function filterCommandSuggestions<T extends { command: string }>(
   suggestions: T[],
   input: string
 ): T[] {
-  const lowerInput = input.toLowerCase();
   return suggestions
-    .filter((s) => s.command.toLowerCase().startsWith(lowerInput))
+    .filter((s) => startsWithIgnoreCase(s.command, input))
     .slice(0, MAX_SUGGESTIONS);
 }
 

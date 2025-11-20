@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat";
 import { safeValidateGrokResponse } from "../schemas/api-schemas.js";
-import { ErrorCategory, createErrorMessage } from "../utils/error-handler.js";
+import { ErrorCategory, createErrorMessage, extractErrorMessage } from "../utils/error-handler.js";
 import { GLM_MODELS, DEFAULT_MODEL, type SupportedModel } from "../constants.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
 import type {
@@ -171,6 +171,46 @@ export class LLMClient {
     }
   }
 
+  /**
+   * Build request payload for chat completions
+   * Consolidates duplicate payload building logic
+   */
+  private buildRequestPayload(
+    model: SupportedModel,
+    messages: LLMMessage[],
+    tools: LLMTool[] | undefined,
+    temperature: number,
+    maxTokens: number,
+    thinking: ThinkingConfig | undefined,
+    searchOptions: SearchOptions | undefined,
+    stream: boolean = false
+  ): any {
+    const payload: any = {
+      model,
+      messages,
+      tools: tools || [],
+      tool_choice: tools && tools.length > 0 ? "auto" : undefined,
+      temperature,
+      max_tokens: maxTokens,
+    };
+
+    if (stream) {
+      payload.stream = true;
+    }
+
+    // Add GLM-4.6 thinking parameter if specified
+    if (thinking) {
+      payload.thinking = thinking;
+    }
+
+    // Add search parameters if specified
+    if (searchOptions?.search_parameters) {
+      payload.search_parameters = searchOptions.search_parameters;
+    }
+
+    return payload;
+  }
+
   setModel(model: string): void {
     this.currentModel = this.validateModel(model);
   }
@@ -219,24 +259,17 @@ export class LLMClient {
       this.validateMaxTokens(maxTokens, model);
       this.validateThinking(thinking, model);
 
-      const requestPayload: any = {
+      // Build request payload using consolidated helper
+      const requestPayload = this.buildRequestPayload(
         model,
         messages,
-        tools: tools || [],
-        tool_choice: tools && tools.length > 0 ? "auto" : undefined,
+        tools,
         temperature,
-        max_tokens: maxTokens,
-      };
-
-      // Add GLM-4.6 thinking parameter if specified
-      if (thinking) {
-        requestPayload.thinking = thinking;
-      }
-
-      // Add search parameters if specified
-      if (searchOptions?.search_parameters) {
-        requestPayload.search_parameters = searchOptions.search_parameters;
-      }
+        maxTokens,
+        thinking,
+        searchOptions,
+        false // not streaming
+      );
 
       const response =
         await this.client.chat.completions.create(requestPayload);
@@ -265,8 +298,7 @@ export class LLMClient {
     } catch (error: any) {
       // Enhance error message with context
       const modelInfo = options?.model || this.currentModel;
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Grok API error (model: ${modelInfo}): ${errorMsg}`);
+      throw new Error(`Grok API error (model: ${modelInfo}): ${extractErrorMessage(error)}`);
     }
   }
 
@@ -314,25 +346,17 @@ export class LLMClient {
       this.validateMaxTokens(maxTokens, model);
       this.validateThinking(thinking, model);
 
-      const requestPayload: any = {
+      // Build request payload using consolidated helper
+      const requestPayload = this.buildRequestPayload(
         model,
         messages,
-        tools: tools || [],
-        tool_choice: tools && tools.length > 0 ? "auto" : undefined,
+        tools,
         temperature,
-        max_tokens: maxTokens,
-        stream: true,
-      };
-
-      // Add GLM-4.6 thinking parameter if specified
-      if (thinking) {
-        requestPayload.thinking = thinking;
-      }
-
-      // Add search parameters if specified
-      if (searchOptions?.search_parameters) {
-        requestPayload.search_parameters = searchOptions.search_parameters;
-      }
+        maxTokens,
+        thinking,
+        searchOptions,
+        true // streaming
+      );
 
       const stream = (await this.client.chat.completions.create(
         requestPayload

@@ -7,6 +7,44 @@ interface TodoItem {
   priority: 'high' | 'medium' | 'low';
 }
 
+const VALID_STATUSES = ['pending', 'in_progress', 'completed'] as const;
+const VALID_PRIORITIES = ['high', 'medium', 'low'] as const;
+
+// ANSI color codes for terminal output
+const ANSI = {
+  GREEN: '\x1b[32m',
+  CYAN: '\x1b[36m',
+  WHITE: '\x1b[37m',
+  STRIKETHROUGH: '\x1b[9m',
+  RESET: '\x1b[0m',
+} as const;
+
+/**
+ * Validate todo status value
+ */
+function validateStatus(status: string): { valid: boolean; error?: string } {
+  if (!VALID_STATUSES.includes(status as any)) {
+    return {
+      valid: false,
+      error: `Invalid status: ${status}. Must be pending, in_progress, or completed`
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * Validate todo priority value
+ */
+function validatePriority(priority: string): { valid: boolean; error?: string } {
+  if (!VALID_PRIORITIES.includes(priority as any)) {
+    return {
+      valid: false,
+      error: `Invalid priority: ${priority}. Must be high, medium, or low`
+    };
+  }
+  return { valid: true };
+}
+
 export class TodoTool {
   private todos: TodoItem[] = [];
 
@@ -31,26 +69,25 @@ export class TodoTool {
     const getStatusColor = (status: string): string => {
       switch (status) {
         case 'completed':
-          return '\x1b[32m'; // Green
+          return ANSI.GREEN;
         case 'in_progress':
-          return '\x1b[36m'; // Cyan
+          return ANSI.CYAN;
         case 'pending':
-          return '\x1b[37m'; // White/default
+          return ANSI.WHITE;
         default:
-          return '\x1b[0m'; // Reset
+          return ANSI.RESET;
       }
     };
 
-    const reset = '\x1b[0m';
     let output = '';
 
     this.todos.forEach((todo, index) => {
       const checkbox = getCheckbox(todo.status);
       const statusColor = getStatusColor(todo.status);
-      const strikethrough = todo.status === 'completed' ? '\x1b[9m' : '';
+      const strikethrough = todo.status === 'completed' ? ANSI.STRIKETHROUGH : '';
       const indent = index === 0 ? '' : '  ';
-      
-      output += `${indent}${statusColor}${strikethrough}${checkbox} ${todo.content}${reset}\n`;
+
+      output += `${indent}${statusColor}${strikethrough}${checkbox} ${todo.content}${ANSI.RESET}\n`;
     });
 
     return output;
@@ -75,17 +112,19 @@ export class TodoTool {
           };
         }
 
-        if (!['pending', 'in_progress', 'completed'].includes(todo.status)) {
+        const statusValidation = validateStatus(todo.status);
+        if (!statusValidation.valid) {
           return {
             success: false,
-            error: `Invalid status: ${todo.status}. Must be pending, in_progress, or completed`
+            error: statusValidation.error!
           };
         }
 
-        if (!['high', 'medium', 'low'].includes(todo.priority)) {
+        const priorityValidation = validatePriority(todo.priority);
+        if (!priorityValidation.valid) {
           return {
             success: false,
-            error: `Invalid priority: ${todo.priority}. Must be high, medium, or low`
+            error: priorityValidation.error!
           };
         }
       }
@@ -128,18 +167,24 @@ export class TodoTool {
 
         const todo = this.todos[todoIndex];
 
-        if (update.status && !['pending', 'in_progress', 'completed'].includes(update.status)) {
-          return {
-            success: false,
-            error: `Invalid status: ${update.status}. Must be pending, in_progress, or completed`
-          };
+        if (update.status) {
+          const statusValidation = validateStatus(update.status);
+          if (!statusValidation.valid) {
+            return {
+              success: false,
+              error: statusValidation.error!
+            };
+          }
         }
 
-        if (update.priority && !['high', 'medium', 'low'].includes(update.priority)) {
-          return {
-            success: false,
-            error: `Invalid priority: ${update.priority}. Must be high, medium, or low`
-          };
+        if (update.priority) {
+          const priorityValidation = validatePriority(update.priority);
+          if (!priorityValidation.valid) {
+            return {
+              success: false,
+              error: priorityValidation.error!
+            };
+          }
         }
 
         if (update.status) {

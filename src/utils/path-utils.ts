@@ -9,6 +9,7 @@
 
 import path from 'node:path';
 import os from 'node:os';
+import { equalsIgnoreCase, containsIgnoreCase } from './string-utils.js';
 
 /**
  * Normalize path separators to forward slashes (for display and logging)
@@ -93,7 +94,7 @@ export function pathsEqual(path1: string, path2: string): boolean {
 
   // Windows is case-insensitive
   if (isWindows()) {
-    return normalized1.toLowerCase() === normalized2.toLowerCase();
+    return equalsIgnoreCase(normalized1, normalized2);
   }
 
   return normalized1 === normalized2;
@@ -123,7 +124,7 @@ export function pathContains(fullPath: string, segment: string): boolean {
 
   // Windows is case-insensitive
   if (isWindows()) {
-    return normalizedFull.toLowerCase().includes(normalizedSegment.toLowerCase());
+    return containsIgnoreCase(normalizedFull, normalizedSegment);
   }
 
   return normalizedFull.includes(normalizedSegment);

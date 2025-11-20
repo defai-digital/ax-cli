@@ -5,6 +5,7 @@ import { MCPServerConfig } from '../mcp/client.js';
 import { MCPServerIdSchema } from '@ax-cli/schemas';
 import chalk from 'chalk';
 import { ConsoleMessenger } from '../utils/console-messenger.js';
+import { extractErrorMessage } from '../utils/error-handler.js';
 
 export function createMCPCommand(): Command {
   const mcpCommand = new Command('mcp');
@@ -103,8 +104,7 @@ export function createMCPCommand(): Command {
         ConsoleMessenger.plain('mcp_commands.tools_available', { count: tools.length });
 
       } catch (error: any) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        ConsoleMessenger.error('mcp_commands.error_adding_server', { error: errorMsg });
+        ConsoleMessenger.error('mcp_commands.error_adding_server', { error: extractErrorMessage(error) });
         process.exit(1);
       }
     });
@@ -156,8 +156,7 @@ export function createMCPCommand(): Command {
         ConsoleMessenger.plain('mcp_commands.tools_available', { count: tools.length });
 
       } catch (error: any) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        ConsoleMessenger.error('mcp_commands.error_adding_server', { error: errorMsg });
+        ConsoleMessenger.error('mcp_commands.error_adding_server', { error: extractErrorMessage(error) });
         process.exit(1);
       }
     });

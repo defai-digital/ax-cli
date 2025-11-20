@@ -20,6 +20,7 @@ import { getSettingsManager } from "../utils/settings-manager.js";
 import { ContextManager } from "./context-manager.js";
 import { buildSystemPrompt } from "../utils/prompt-builder.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
+import { extractErrorMessage } from "../utils/error-handler.js";
 
 export interface ChatEntry {
   type: "user" | "assistant" | "tool_result" | "tool_call";
@@ -110,13 +111,13 @@ export class LLMAgent extends EventEmitter {
           this.emit('system', 'MCP servers initialized successfully');
         }
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
+        const errorMsg = extractErrorMessage(error);
         console.warn("MCP initialization failed:", errorMsg);
         this.emit('system', `MCP initialization failed: ${errorMsg}`);
       }
     }).catch((error) => {
       // Catch any unhandled promise rejections
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorMsg = extractErrorMessage(error);
       console.warn("Unexpected error during MCP initialization:", errorMsg);
       this.emit('system', `Unexpected MCP error: ${errorMsg}`);
     });
@@ -379,7 +380,7 @@ export class LLMAgent extends EventEmitter {
 
       return newEntries;
     } catch (error: any) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorMsg = extractErrorMessage(error);
       const errorEntry: ChatEntry = {
         type: "assistant",
         content: `Sorry, I encountered an error: ${errorMsg}`,
@@ -390,40 +391,46 @@ export class LLMAgent extends EventEmitter {
     }
   }
 
-  private messageReducer(previous: any, item: any): any {
-    const reduce = (acc: any, delta: any) => {
-      acc = { ...acc };
-      for (const [key, value] of Object.entries(delta)) {
-        if (acc[key] === undefined || acc[key] === null) {
-          acc[key] = value;
-          // Clean up index properties from tool calls
-          if (Array.isArray(acc[key])) {
-            for (const arr of acc[key]) {
-              delete arr.index;
-            }
+  /**
+   * Recursively merge streaming delta into accumulated message
+   */
+  private reduceStreamDelta(acc: any, delta: any): any {
+    acc = { ...acc };
+    for (const [key, value] of Object.entries(delta)) {
+      if (acc[key] === undefined || acc[key] === null) {
+        acc[key] = value;
+        // Clean up index properties from tool calls
+        if (Array.isArray(acc[key])) {
+          for (const arr of acc[key]) {
+            delete arr.index;
           }
-        } else if (typeof acc[key] === "string" && typeof value === "string") {
-          (acc[key] as string) += value;
-        } else if (Array.isArray(acc[key]) && Array.isArray(value)) {
-          const accArray = acc[key] as any[];
-          for (let i = 0; i < value.length; i++) {
-            // Validate that value[i] exists before processing
-            if (value[i] === undefined || value[i] === null) continue;
-            if (!accArray[i]) accArray[i] = {};
-            accArray[i] = reduce(accArray[i], value[i]);
-          }
-        } else if (typeof acc[key] === "object" && typeof value === "object") {
-          acc[key] = reduce(acc[key], value);
         }
+      } else if (typeof acc[key] === "string" && typeof value === "string") {
+        (acc[key] as string) += value;
+      } else if (Array.isArray(acc[key]) && Array.isArray(value)) {
+        const accArray = acc[key] as any[];
+        for (let i = 0; i < value.length; i++) {
+          // Validate that value[i] exists before processing
+          if (value[i] === undefined || value[i] === null) continue;
+          if (!accArray[i]) accArray[i] = {};
+          accArray[i] = this.reduceStreamDelta(accArray[i], value[i]);
+        }
+      } else if (typeof acc[key] === "object" && typeof value === "object") {
+        acc[key] = this.reduceStreamDelta(acc[key], value);
       }
-      return acc;
-    };
+    }
+    return acc;
+  }
 
+  /**
+   * Accumulate streaming message chunks
+   */
+  private messageReducer(previous: any, item: any): any {
     // Safety check: ensure item has valid structure
     if (!item?.choices || item.choices.length === 0 || !item.choices[0]?.delta) {
       return previous;
     }
-    return reduce(previous, item.choices[0].delta);
+    return this.reduceStreamDelta(previous, item.choices[0].delta);
   }
 
   /**
@@ -490,7 +497,7 @@ export class LLMAgent extends EventEmitter {
       return await getAllGrokTools();
     } catch (error: any) {
       // Log error but don't throw - continue with empty tools
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorMsg = extractErrorMessage(error);
       console.warn(`⚠️ Error loading tools: ${errorMsg}`);
       return [];
     }
@@ -792,7 +799,7 @@ export class LLMAgent extends EventEmitter {
         return;
       }
 
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorMsg = extractErrorMessage(error);
       const errorEntry: ChatEntry = {
         type: "assistant",
         content: `Sorry, I encountered an error: ${errorMsg}`,
@@ -909,7 +916,7 @@ export class LLMAgent extends EventEmitter {
           };
       }
     } catch (error: any) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorMsg = extractErrorMessage(error);
       return {
         success: false,
         error: `Tool execution error: ${errorMsg}`,
@@ -941,23 +948,26 @@ export class LLMAgent extends EventEmitter {
       }
 
       // Extract content from result
-      const output = result.content
-        .map((item) => {
-          if (item.type === "text") {
-            return item.text;
-          } else if (item.type === "resource") {
-            return `Resource: ${item.resource?.uri || "Unknown"}`;
-          }
-          return String(item);
-        })
-        .join("\n");
+      // Ensure result.content exists and is an array before mapping
+      const output = result.content && Array.isArray(result.content)
+        ? result.content
+          .map((item) => {
+            if (item.type === "text") {
+              return item.text;
+            } else if (item.type === "resource") {
+              return `Resource: ${item.resource?.uri || "Unknown"}`;
+            }
+            return String(item);
+          })
+          .join("\n")
+        : "";
 
       return {
         success: true,
         output: output || "Success",
       };
     } catch (error: any) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorMsg = extractErrorMessage(error);
       return {
         success: false,
         error: `MCP tool execution error: ${errorMsg}`,
