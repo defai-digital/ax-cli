@@ -4,6 +4,7 @@ import { dirname, join } from 'path';
 import { homedir } from 'os';
 import enquirer from 'enquirer';
 import chalk from 'chalk';
+import { validateProviderSetup } from '../utils/setup-validator.js';
 
 /**
  * Provider configurations
@@ -75,6 +76,7 @@ export function createSetupCommand(): Command {
   setupCommand
     .description('Initialize AX CLI configuration with AI provider selection')
     .option('--force', 'Overwrite existing configuration')
+    .option('--no-validate', 'Skip validation of API endpoint and credentials')
     .action(async (options) => {
       try {
         console.log(chalk.cyan('\n🚀 AX CLI Setup\n'));
@@ -143,6 +145,34 @@ export function createSetupCommand(): Command {
           apiKey = apiKeyResponse.apiKey.trim();
         } else {
           console.log(chalk.green(`\n✓ ${selectedProvider.displayName} doesn't require an API key`));
+        }
+
+        // Validate configuration before saving
+        const validationResult = await validateProviderSetup(
+          {
+            baseURL: selectedProvider.baseURL,
+            apiKey: apiKey,
+            model: selectedProvider.defaultModel,
+            providerName: selectedProvider.name,
+          },
+          !options.validate // Skip if --no-validate flag is used
+        );
+
+        // If validation failed, ask user if they want to save anyway
+        if (!validationResult.success && options.validate !== false) {
+          console.log(chalk.yellow('\n⚠️  Validation failed, but you can still save the configuration.\n'));
+
+          const proceedAnyway = await enquirer.prompt<{ proceed: boolean }>({
+            type: 'confirm',
+            name: 'proceed',
+            message: 'Save configuration anyway?',
+            initial: false
+          });
+
+          if (!proceedAnyway.proceed) {
+            console.log(chalk.blue('\n✨ Setup cancelled. Please check your settings and try again.\n'));
+            return;
+          }
         }
 
         // Create configuration object with comments

@@ -1,7 +1,8 @@
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat.js";
 import { safeValidateGrokResponse } from "../schemas/api-schemas.js";
-import { ErrorCategory, createErrorMessage, extractErrorMessage } from "../utils/error-handler.js";
+import { ErrorCategory, createErrorMessage } from "../utils/error-handler.js";
+import { extractAndTranslateError } from "../utils/error-translator.js";
 import { GLM_MODELS, type SupportedModel } from "../constants.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
 import type {
@@ -321,9 +322,9 @@ export class LLMClient {
 
       return llmResponse;
     } catch (error: any) {
-      // Enhance error message with context
+      // Enhance error message with context and translate if needed
       const modelInfo = options?.model || this.currentModel;
-      throw new Error(`LLM API error (model: ${modelInfo}): ${extractErrorMessage(error)}`);
+      throw new Error(`LLM API error (model: ${modelInfo}): ${extractAndTranslateError(error)}`);
     }
   }
 
@@ -392,7 +393,7 @@ export class LLMClient {
       }
     } catch (error: any) {
       const modelInfo = options?.model || this.currentModel;
-      throw new Error(`LLM API streaming error (model: ${modelInfo}): ${extractErrorMessage(error)}`);
+      throw new Error(`LLM API streaming error (model: ${modelInfo}): ${extractAndTranslateError(error)}`);
     }
   }
 
