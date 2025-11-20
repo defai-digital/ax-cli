@@ -2,13 +2,13 @@ export interface ToolResult {
   success: boolean;
   output?: string;
   error?: string;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 export interface Tool {
   name: string;
   description: string;
-  execute: (...args: any[]) => Promise<ToolResult>;
+  execute: (...args: unknown[]) => Promise<ToolResult>;
 }
 
 export interface EditorCommand {

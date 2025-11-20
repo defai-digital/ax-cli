@@ -1,3 +1,4 @@
+import type { ChatCompletionMessageParam } from 'openai/resources/chat.js';
 import { get_encoding, encoding_for_model, Tiktoken } from 'tiktoken';
 import { TOKEN_CONFIG } from '../constants.js';
 import { LRUCache } from './cache.js';
@@ -42,15 +43,23 @@ export class TokenCounter {
   /**
    * Count tokens in messages array (for chat completions)
    */
-  countMessageTokens(messages: Array<{ role: string; content: string | null; [key: string]: any }>): number {
+  countMessageTokens(messages: ChatCompletionMessageParam[]): number {
     let totalTokens = 0;
 
     for (const message of messages) {
       // Every message follows <|start|>{role/name}\n{content}<|end|>\n
       totalTokens += TOKEN_CONFIG.TOKENS_PER_MESSAGE;
 
-      if (message.content && typeof message.content === 'string') {
-        totalTokens += this.countTokens(message.content);
+      if (message.content) {
+        if (typeof message.content === 'string') {
+          totalTokens += this.countTokens(message.content);
+        } else if (Array.isArray(message.content)) {
+          for (const part of message.content) {
+            if (part.type === 'text' && part.text) {
+              totalTokens += this.countTokens(part.text);
+            }
+          }
+        }
       }
 
       if (message.role) {
@@ -58,7 +67,7 @@ export class TokenCounter {
       }
 
       // Add extra tokens for tool calls if present
-      if (message.tool_calls && Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
+      if ((message.role === 'assistant' || message.role === 'tool') && 'tool_calls' in message && Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
         totalTokens += this.countTokens(JSON.stringify(message.tool_calls));
       }
     }

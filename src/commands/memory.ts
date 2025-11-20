@@ -276,9 +276,18 @@ export function createMemoryCommand(): Command {
 
         // Show project info if available
         if (fs.existsSync(indexPath)) {
-          const result = parseJsonFile(indexPath);
+          const result = parseJsonFile<ProjectIndex>(indexPath);
+          interface ProjectIndex {
+            projectName?: string;
+            projectType?: string;
+            primaryLanguage?: string;
+            templateId?: string;
+            lastAnalyzed?: string;
+            templateAppliedAt?: string;
+          }
+
           if (result.success) {
-            const indexData = result.data as any;
+            const indexData = result.data;
             await prompts.note(
               `Name: ${indexData.projectName || 'Unknown'}\n` +
               `Type: ${indexData.projectType || 'Unknown'}\n` +

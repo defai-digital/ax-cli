@@ -1,5 +1,4 @@
 import { LLMClient, LLMMessage, LLMToolCall, LLMTool } from "../llm/client.js";
-import type { GLM46StreamChunk } from "../llm/types.js";
 import {
   getAllGrokTools,
   getMCPManager,
@@ -183,21 +182,20 @@ export class LLMAgent extends EventEmitter {
         console.error(`[LOOP DETECTION] Map size: ${this.recentToolCalls.size}`);
       }
 
-      // Increment the count first
-      const newCount = count + 1;
-      this.recentToolCalls.set(signature, newCount);
-
       // Check if we've exceeded the configured threshold
-      // newCount > threshold means we've seen it threshold+1 times
-      if (newCount > AGENT_CONFIG.LOOP_DETECTION_THRESHOLD) {
+      // count >= threshold means we've seen it threshold+1 times
+      if (count >= AGENT_CONFIG.LOOP_DETECTION_THRESHOLD) {
         if (process.env.DEBUG_LOOP_DETECTION === '1') {
-          console.error(`[LOOP DETECTION] ⚠️ LOOP DETECTED! Signature: ${signature} (count: ${newCount}, threshold: ${AGENT_CONFIG.LOOP_DETECTION_THRESHOLD})`);
+          console.error(`[LOOP DETECTION] ⚠️ LOOP DETECTED! Signature: ${signature} (count: ${count}, threshold: ${AGENT_CONFIG.LOOP_DETECTION_THRESHOLD})`);
         }
         return true;
       }
 
+      // Increment the count
+      this.recentToolCalls.set(signature, count + 1);
+
       if (process.env.DEBUG_LOOP_DETECTION === '1') {
-        console.error(`[LOOP DETECTION] ✅ Allowed, count now: ${newCount}`);
+        console.error(`[LOOP DETECTION] ✅ Allowed, count now: ${count + 1}`);
         console.error(`[LOOP DETECTION] Current map:`, Array.from(this.recentToolCalls.entries()));
       }
 
@@ -345,7 +343,7 @@ export class LLMAgent extends EventEmitter {
             role: "assistant",
             content: assistantMessage.content || "",
             tool_calls: assistantMessage.tool_calls,
-          } as LLMMessage);
+          } as any);
 
           // Create initial tool call entries to show tools are being executed
           assistantMessage.tool_calls.forEach((toolCall) => {
@@ -442,7 +440,7 @@ export class LLMAgent extends EventEmitter {
       }
 
       return newEntries;
-    } catch (error: unknown) {
+    } catch (error: any) {
       const errorMsg = extractErrorMessage(error);
       const errorEntry: ChatEntry = {
         type: "assistant",
@@ -482,7 +480,7 @@ export class LLMAgent extends EventEmitter {
         acc[key] += value;
       } else if (Array.isArray(acc[key]) && Array.isArray(value)) {
         // Array merging (for tool calls)
-        const accArray = acc[key] as unknown[];
+        const accArray = acc[key] as any[];
         for (let i = 0; i < value.length; i++) {
           if (value[i] === undefined || value[i] === null) continue;
           if (!accArray[i]) {
@@ -505,7 +503,7 @@ export class LLMAgent extends EventEmitter {
   /**
    * Accumulate streaming message chunks
    */
-  private messageReducer(previous: any, item: GLM46StreamChunk): any {
+  private messageReducer(previous: any, item: any): any {
     // Safety check: ensure item has valid structure
     if (!item?.choices || item.choices.length === 0 || !item.choices[0]?.delta) {
       return previous;
@@ -533,7 +531,7 @@ export class LLMAgent extends EventEmitter {
     }
 
     // Calculate input tokens
-    return this.tokenCounter.countMessageTokens(this.messages);
+    return this.tokenCounter.countMessageTokens(this.messages as any);
   }
 
   /**
@@ -575,7 +573,7 @@ export class LLMAgent extends EventEmitter {
   private async loadToolsSafely(): Promise<LLMTool[]> {
     try {
       return await getAllGrokTools();
-    } catch (error: unknown) {
+    } catch (error: any) {
       // Log error but don't throw - continue with empty tools
       const errorMsg = extractErrorMessage(error);
       console.warn(`⚠️ Error loading tools: ${errorMsg}`);
@@ -587,7 +585,7 @@ export class LLMAgent extends EventEmitter {
    * Process streaming chunks and accumulate message
    */
   private async *processStreamingChunks(
-    stream: AsyncIterable<GLM46StreamChunk>,
+    stream: AsyncIterable<any>,
     inputTokens: number,
     lastTokenUpdate: { value: number },
     totalOutputTokens: { value: number }
@@ -595,7 +593,7 @@ export class LLMAgent extends EventEmitter {
     let accumulatedMessage: any = {};
     let accumulatedContent = "";
     let toolCallsYielded = false;
-    let usageData: any | null = null;
+    let usageData: any = null;
 
     for await (const chunk of stream) {
       // Check for cancellation in the streaming loop
@@ -618,7 +616,7 @@ export class LLMAgent extends EventEmitter {
       // Check for tool calls - yield when we have complete tool calls with function names
       if (!toolCallsYielded && accumulatedMessage.tool_calls?.length > 0) {
         const hasCompleteTool = accumulatedMessage.tool_calls.some(
-          (tc: Record<string, unknown>) => (tc.function as Record<string, unknown>)?.name
+          (tc: any) => tc.function?.name
         );
         if (hasCompleteTool) {
           yield {
@@ -694,17 +692,17 @@ export class LLMAgent extends EventEmitter {
   private addAssistantMessage(accumulatedMessage: any): void {
     const assistantEntry: ChatEntry = {
       type: "assistant",
-      content: (accumulatedMessage.content as string) || "Using tools to help you...",
+      content: accumulatedMessage.content || "Using tools to help you...",
       timestamp: new Date(),
-      toolCalls: accumulatedMessage.tool_calls as LLMToolCall[] || undefined,
+      toolCalls: accumulatedMessage.tool_calls || undefined,
     };
     this.chatHistory.push(assistantEntry);
 
     this.messages.push({
       role: "assistant",
-      content: (accumulatedMessage.content as string) || "",
-      tool_calls: accumulatedMessage.tool_calls as LLMToolCall[],
-    } as LLMMessage);
+      content: accumulatedMessage.content || "",
+      tool_calls: accumulatedMessage.tool_calls,
+    } as any);
   }
 
   /**
@@ -762,7 +760,7 @@ export class LLMAgent extends EventEmitter {
     }
 
     // Update token count after processing all tool calls
-    inputTokens.value = this.tokenCounter.countMessageTokens(this.messages);
+    inputTokens.value = this.tokenCounter.countMessageTokens(this.messages as any);
     yield {
       type: "token_count",
       tokenCount: inputTokens.value + totalOutputTokens.value,
@@ -875,7 +873,7 @@ export class LLMAgent extends EventEmitter {
             console.error(`\n[LOOP CHECK STREAM] Checking ${streamResult.accumulated.tool_calls.length} tool calls...`);
           }
 
-          const hasRepetitiveCall = (streamResult.accumulated.tool_calls as LLMToolCall[]).some(
+          const hasRepetitiveCall = streamResult.accumulated.tool_calls.some(
             (tc: LLMToolCall) => this.isRepetitiveToolCall(tc)
           );
 
@@ -895,7 +893,7 @@ export class LLMAgent extends EventEmitter {
           }
 
           yield* this.executeToolCalls(
-            streamResult.accumulated.tool_calls as LLMToolCall[],
+            streamResult.accumulated.tool_calls,
             streamResult.yielded,
             inputTokensRef,
             totalOutputTokensRef
@@ -916,7 +914,7 @@ export class LLMAgent extends EventEmitter {
       }
 
       yield { type: "done" };
-    } catch (error: unknown) {
+    } catch (error: any) {
       // Check if this was a cancellation
       if (this.isCancelled()) {
         yield* this.yieldCancellation();
@@ -950,7 +948,7 @@ export class LLMAgent extends EventEmitter {
   private parseToolArguments(
     toolCall: LLMToolCall,
     toolType: string = 'Tool'
-  ): { success: true; args: Record<string, unknown> } | { success: false; error: string } {
+  ): { success: true; args: any } | { success: false; error: string } {
     if (!toolCall.function.arguments || toolCall.function.arguments.trim() === '') {
       return {
         success: false,
@@ -985,38 +983,38 @@ export class LLMAgent extends EventEmitter {
         return { success: false, error: parseResult.error };
       }
 
-      const args = parseResult.args as any;
+      const args = parseResult.args;
 
       switch (toolCall.function.name) {
         case "view_file":
           const range: [number, number] | undefined =
             args.start_line && args.end_line
-              ? [args.start_line as number, args.end_line as number]
+              ? [args.start_line, args.end_line]
               : undefined;
-          return await this.textEditor.view(args.path as string, range);
+          return await this.textEditor.view(args.path, range);
 
         case "create_file":
-          return await this.textEditor.create(args.path as string, args.content as string);
+          return await this.textEditor.create(args.path, args.content);
 
         case "str_replace_editor":
           return await this.textEditor.strReplace(
-            args.path as string,
-            args.old_str as string,
-            args.new_str as string,
-            args.replace_all as boolean
+            args.path,
+            args.old_str,
+            args.new_str,
+            args.replace_all
           );
 
         case "bash":
-          return await this.bash.execute(args.command as string);
+          return await this.bash.execute(args.command);
 
         case "create_todo_list":
-          return await this.todoTool.createTodoList(args.todos as any[]);
+          return await this.todoTool.createTodoList(args.todos);
 
         case "update_todo_list":
-          return await this.todoTool.updateTodoList(args.updates as any[]);
+          return await this.todoTool.updateTodoList(args.updates);
 
         case "search":
-          return await this.search.search(args.query as string, {
+          return await this.search.search(args.query, {
             searchType: args.search_type,
             includePattern: args.include_pattern,
             excludePattern: args.exclude_pattern,
@@ -1039,7 +1037,7 @@ export class LLMAgent extends EventEmitter {
             error: `Unknown tool: ${toolCall.function.name}`,
           };
       }
-    } catch (error: unknown) {
+    } catch (error: any) {
       const errorMsg = extractErrorMessage(error);
       return {
         success: false,
@@ -1055,7 +1053,7 @@ export class LLMAgent extends EventEmitter {
         return { success: false, error: parseResult.error };
       }
 
-      const args = parseResult.args as any;
+      const args = parseResult.args;
       const mcpManager = getMCPManager();
 
       const result = await mcpManager.callTool(toolCall.function.name, args);
@@ -1095,7 +1093,7 @@ export class LLMAgent extends EventEmitter {
         success: true,
         output: output || "Success",
       };
-    } catch (error: unknown) {
+    } catch (error: any) {
       const errorMsg = extractErrorMessage(error);
       return {
         success: false,
@@ -1139,7 +1137,7 @@ export class LLMAgent extends EventEmitter {
    */
   getContextPercentage(): number {
     const stats = this.contextManager.getStats(this.messages, this.tokenCounter);
-    return Math.round(stats.percentage * 100) / 100;
+    return Math.round(stats.percentage);
   }
 
   /**

@@ -477,7 +477,7 @@ function ChatInterfaceWithAgent({
                 <Text color="cyan">auto-prune</Text>
               ) : (
                 <Text color={contextPercentage > 75 ? "red" : contextPercentage > 50 ? "yellow" : "green"}>
-                  {contextPercentage}%
+                  {contextPercentage.toFixed(1)}%
                 </Text>
               )}
             </Box>

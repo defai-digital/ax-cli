@@ -4,6 +4,7 @@ import { writeFile as writeFilePromise } from "fs/promises";
 import { ToolResult, EditorCommand } from "../types/index.js";
 import { ConfirmationService } from "../utils/confirmation-service.js";
 import { resolveAndValidatePath } from "../utils/path-validator.js";
+import { getMessageOptimizer } from "../utils/message-optimizer.js";
 
 /**
  * Check if file exists and return appropriate error if not
@@ -80,17 +81,20 @@ export class TextEditorTool {
           };
         }
 
-        const totalLines = lines.length;
-        const displayLines = totalLines > 10 ? lines.slice(0, 10) : lines;
-        const numberedLines = displayLines
+        // Format all lines with line numbers
+        const allNumberedLines = lines
           .map((line, idx) => `${idx + 1}: ${line}`)
           .join("\n");
-        const additionalLinesMessage =
-          totalLines > 10 ? `\n... +${totalLines - 10} lines` : "";
+
+        const fullOutput = `Contents of ${filePath}:\n${allNumberedLines}`;
+
+        // Apply message optimization for large files
+        const optimizer = getMessageOptimizer();
+        const optimized = optimizer.optimizeToolOutput(fullOutput, 'read_file');
 
         return {
           success: true,
-          output: `Contents of ${filePath}:\n${numberedLines}${additionalLinesMessage}`,
+          output: optimized.content,
         };
       } else {
         return {

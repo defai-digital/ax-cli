@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { ChatCompletionMessageParam } from "openai/resources/chat";
+import type { ChatCompletionMessageParam } from "openai/resources/chat.js";
 import { safeValidateGrokResponse } from "../schemas/api-schemas.js";
 import { ErrorCategory, createErrorMessage, extractErrorMessage } from "../utils/error-handler.js";
 import { GLM_MODELS, DEFAULT_MODEL, type SupportedModel } from "../constants.js";

@@ -167,6 +167,15 @@ export interface GLM46StreamChunk {
     };
     finish_reason?: string | null;
   }>;
+  /**
+   * Token usage statistics (usually in the final chunk)
+   */
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    reasoning_tokens?: number;
+  };
 }
 
 /**

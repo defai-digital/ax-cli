@@ -76,7 +76,7 @@ export class ContextManager {
     }
 
     // Count tokens and cache result
-    const count = tokenCounter.countMessageTokens(messages as any);
+    const count = tokenCounter.countMessageTokens(messages);
     this.tokenCache.set(cacheKey, { count, timestamp: now });
 
     return count;
@@ -90,13 +90,15 @@ export class ContextManager {
   private createMessageCacheKey(messages: LLMMessage[]): string {
     // Use message count + roles + content lengths + content sample as a fast hash
     return messages.map(m => {
-      const contentLen = typeof m.content === 'string' ? m.content.length : 0;
-      const toolCallsLen = (m as any).tool_calls?.length || 0;
+      const contentLen = typeof m.content === 'string' ? m.content.length : Array.isArray(m.content) ? m.content.reduce((sum, part) => sum + (part.type === 'text' ? part.text.length : 0), 0) : 0;
+      const toolCallsLen = (m.role === 'assistant' || m.role === 'tool') && 'tool_calls' in m ? m.tool_calls?.length || 0 : 0;
       // Include first 50 chars of content to prevent hash collisions
       // Increased from 20 to 50 to reduce false cache hits
       const contentSample = typeof m.content === 'string'
         ? m.content.substring(0, 50).replace(/[|:]/g, '') // Remove delimiters
-        : '';
+        : Array.isArray(m.content)
+          ? m.content.filter(part => part.type === 'text').map(part => part.text).join('').substring(0, 50).replace(/[|:]/g, '')
+          : '';
       return `${m.role}:${contentLen}:${toolCallsLen}:${contentSample}`;
     }).join('|');
   }
@@ -149,7 +151,7 @@ export class ContextManager {
     return {
       currentTokens,
       contextWindow: this.contextWindow,
-      percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
+      percentage: percentage, // Keep full precision
       available,
       shouldPrune: currentTokens > (this.contextWindow * this.pruneThreshold),
       isNearLimit: currentTokens > (this.contextWindow * this.hardLimit),
@@ -214,7 +216,7 @@ export class ContextManager {
     }
 
     // Step 5: Check if still over threshold
-    let currentTokens = tokenCounter.countMessageTokens(prunedMessages as any);
+    let currentTokens = tokenCounter.countMessageTokens(prunedMessages);
 
     // If still over threshold, apply sliding window
     if (currentTokens > this.contextWindow * this.pruneThreshold) {
@@ -259,7 +261,7 @@ export class ContextManager {
       const message = messages[i];
 
       // Start of round: assistant with tool_calls
-      if (message.role === 'assistant' && message.tool_calls && message.tool_calls.length > 0) {
+      if (message.role === 'assistant' && 'tool_calls' in message && message.tool_calls && message.tool_calls.length > 0) {
         if (currentRound.length > 0) {
           rounds.push(currentRound);
         }
@@ -271,7 +273,7 @@ export class ContextManager {
         currentRound.push(i);
       }
       // End of round: assistant response without tool_calls
-      else if (inRound && message.role === 'assistant' && (!message.tool_calls || message.tool_calls.length === 0)) {
+      else if (inRound && message.role === 'assistant' && (!('tool_calls' in message) || !message.tool_calls || message.tool_calls.length === 0)) {
         currentRound.push(i);
         rounds.push(currentRound);
         currentRound = [];
@@ -317,7 +319,7 @@ export class ContextManager {
     }
 
     // Calculate how many recent messages we can keep
-    const firstTokens = tokenCounter.countMessageTokens(firstMessages as any);
+    const firstTokens = tokenCounter.countMessageTokens(firstMessages);
     const availableTokens = Math.max(0,
       (this.contextWindow * this.pruneThreshold) - firstTokens - this.reservedTokens
     );
@@ -333,7 +335,7 @@ export class ContextManager {
 
     for (let i = workingMessages.length - 1; i > firstMessageEnd; i--) {
       const msg = workingMessages[i];
-      const msgTokens = tokenCounter.countMessageTokens([msg] as any);
+      const msgTokens = tokenCounter.countMessageTokens([msg]);
 
       if (recentTokens + msgTokens <= availableTokens) {
         recentMessages.unshift(msg);

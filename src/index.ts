@@ -15,8 +15,9 @@ import { createSetupCommand } from "./commands/setup.js";
 import { createUsageCommand } from "./commands/usage.js";
 import { createTemplatesCommand } from "./commands/templates.js";
 import { createMemoryCommand } from "./commands/memory.js";
+import { createCacheCommand } from "./commands/cache.js";
 import { getVersion } from "./utils/version.js";
-import type { ChatCompletionMessageParam } from "openai/resources/chat";
+import type { ChatCompletionMessageParam } from "openai/resources/chat.js";
 
 // Load environment variables
 dotenv.config();
@@ -690,5 +691,8 @@ program.addCommand(createSetupCommand());
 
 // Usage command
 program.addCommand(createUsageCommand());
+
+// Cache command
+program.addCommand(createCacheCommand());
 
 program.parse();

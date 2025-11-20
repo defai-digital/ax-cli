@@ -103,7 +103,7 @@ export function createMCPCommand(): Command {
         const tools = manager.getTools().filter(t => t.serverName === name);
         ConsoleMessenger.plain('mcp_commands.tools_available', { count: tools.length });
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         ConsoleMessenger.error('mcp_commands.error_adding_server', { error: extractErrorMessage(error) });
         process.exit(1);
       }
@@ -155,7 +155,7 @@ export function createMCPCommand(): Command {
         const tools = manager.getTools().filter(t => t.serverName === name);
         ConsoleMessenger.plain('mcp_commands.tools_available', { count: tools.length });
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         ConsoleMessenger.error('mcp_commands.error_adding_server', { error: extractErrorMessage(error) });
         process.exit(1);
       }
@@ -166,13 +166,14 @@ export function createMCPCommand(): Command {
     .command('remove <name>')
     .description('Remove an MCP server')
     .action(async (name: string) => {
+        const validatedName = MCPServerIdSchema.parse(name);
       try {
         const manager = getMCPManager();
-        await manager.removeServer(name);
-        removeMCPServer(name);
-        ConsoleMessenger.plain('mcp_commands.server_removed', { name });
-      } catch (error: any) {
-        ConsoleMessenger.error('mcp_commands.error_removing_server', { error: error.message });
+        await manager.removeServer(validatedName);
+        removeMCPServer(validatedName);
+        ConsoleMessenger.plain('mcp_commands.server_removed', { name: validatedName });
+      } catch (error: unknown) {
+        ConsoleMessenger.error('mcp_commands.error_removing_server', { error: extractErrorMessage(error) });
         process.exit(1);
       }
     });
@@ -265,8 +266,8 @@ export function createMCPCommand(): Command {
           });
         }
 
-      } catch (error: any) {
-        console.error(chalk.red(`✗ Failed to connect to ${name}: ${error.message}`));
+      } catch (error: unknown) {
+        console.error(chalk.red(`✗ Failed to connect to ${name}: ${extractErrorMessage(error)}`));
         process.exit(1);
       }
     });

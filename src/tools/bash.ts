@@ -2,6 +2,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { ToolResult } from '../types/index.js';
 import { ConfirmationService } from '../utils/confirmation-service.js';
+import { getMessageOptimizer } from '../utils/message-optimizer.js';
 
 const execAsync = promisify(exec);
 
@@ -79,16 +80,31 @@ export class BashTool {
         killSignal: 'SIGTERM'
       });
 
-      const output = stdout + (stderr ? `\nSTDERR: ${stderr}` : '');
-      
+      const rawOutput = stdout + (stderr ? `\nSTDERR: ${stderr}` : '');
+      const trimmedOutput = rawOutput.trim() || 'Command executed successfully (no output)';
+
+      // Optimize output to reduce verbosity
+      const optimizer = getMessageOptimizer();
+      const optimized = optimizer.optimizeToolOutput(trimmedOutput, 'bash');
+
       return {
         success: true,
-        output: output.trim() || 'Command executed successfully (no output)'
+        output: optimized.content
       };
     } catch (error: any) {
+      // Extract command output from error if available
+      let errorMessage = error.message;
+      if (error.stdout || error.stderr) {
+        errorMessage = (error.stdout || '') + (error.stderr ? `\nSTDERR: ${error.stderr}` : '');
+      }
+
+      // Optimize error output to reduce verbosity
+      const optimizer = getMessageOptimizer();
+      const optimized = optimizer.optimizeToolOutput(errorMessage, 'bash');
+
       return {
         success: false,
-        error: `Command failed: ${error.message}`
+        error: `Command failed:\n${optimized.content}`
       };
     }
   }
