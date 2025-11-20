@@ -280,7 +280,7 @@ export class LLMClient {
         console.warn(
           createErrorMessage(
             ErrorCategory.VALIDATION,
-            'Grok API response validation',
+            'LLM API response validation',
             validationResult.error || 'Invalid response structure'
           )
         );
@@ -298,7 +298,7 @@ export class LLMClient {
     } catch (error: any) {
       // Enhance error message with context
       const modelInfo = options?.model || this.currentModel;
-      throw new Error(`Grok API error (model: ${modelInfo}): ${extractErrorMessage(error)}`);
+      throw new Error(`LLM API error (model: ${modelInfo}): ${extractErrorMessage(error)}`);
     }
   }
 
@@ -367,7 +367,7 @@ export class LLMClient {
       }
     } catch (error: any) {
       const modelInfo = options?.model || this.currentModel;
-      throw new Error(`Grok API streaming error (model: ${modelInfo}): ${error.message}`);
+      throw new Error(`LLM API streaming error (model: ${modelInfo}): ${error.message}`);
     }
   }
 

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.1] - 2025-01-20
+
+### Fixed
+- **Branding Cleanup**: Removed hardcoded "Grok API" references throughout codebase
+  - Updated error messages in `src/llm/client.ts` to use generic "LLM API" terminology
+  - Changed CLI help text in `src/index.ts` from "Grok API" to "AI API"
+  - Ensures consistent multi-provider messaging (GLM, OpenAI, Anthropic, Ollama, etc.)
+  - Fixes confusion where users saw "Grok" errors even when using GLM or other providers
+
+### Added
+- **Version Display in Interactive Mode**: AX CLI version now appears at bottom of interactive interface
+  - Displays next to model name (e.g., "≋ glm-4.6 v2.4.1")
+  - Dynamically reads from package.json
+  - Helps users quickly identify which version they're running
+
+### Technical
+- Modified files: `src/llm/client.ts`, `src/index.ts`, `src/ui/components/chat-interface.tsx`
+- All builds and type checks passing ✅
+- Improved user experience with accurate provider-agnostic messaging
+
 ## [2.3.3] - 2025-01-19
 
 ### Fixed

@@ -473,10 +473,10 @@ program
   .version(getVersion(), "-v, --version", "output the current version")
   .argument("[message...]", "Initial message to send to AI")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
-  .option("-k, --api-key <key>", "Grok API key (or set YOUR_API_KEY env var)")
+  .option("-k, --api-key <key>", "AI API key (or set YOUR_API_KEY env var)")
   .option(
     "-u, --base-url <url>",
-    "Grok API base URL (or set AI_BASE_URL env var)"
+    "AI API base URL (or set AI_BASE_URL env var)"
   )
   .option(
     "-m, --model <model>",
@@ -610,10 +610,10 @@ gitCommand
   .command("commit-and-push")
   .description("Generate AI commit message and push to remote")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
-  .option("-k, --api-key <key>", "Grok API key (or set YOUR_API_KEY env var)")
+  .option("-k, --api-key <key>", "AI API key (or set YOUR_API_KEY env var)")
   .option(
     "-u, --base-url <url>",
-    "Grok API base URL (or set AI_BASE_URL env var)"
+    "AI API base URL (or set AI_BASE_URL env var)"
   )
   .option(
     "-m, --model <model>",

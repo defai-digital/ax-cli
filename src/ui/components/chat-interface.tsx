@@ -15,6 +15,7 @@ import {
 } from "../../utils/confirmation-service.js";
 import ApiKeyInput from "./api-key-input.js";
 import cfonts from "cfonts";
+import { getVersion } from "../../utils/version.js";
 
 interface ChatInterfaceProps {
   agent?: LLMAgent;
@@ -408,6 +409,7 @@ function ChatInterfaceWithAgent({
             </Box>
             <Box marginRight={2}>
               <Text color="yellow">≋ {agent.getCurrentModel()}</Text>
+              <Text color="gray" dimColor> v{getVersion()}</Text>
             </Box>
             <MCPStatus />
           </Box>
