@@ -151,8 +151,29 @@ export class ProgressTracker {
    */
   stop(): void {
     if (this.spinner) {
-      this.spinner.stop();
-      this.spinner = null;
+      try {
+        this.spinner.stop();
+      } catch (error) {
+        // Ignore errors during cleanup
+      } finally {
+        this.spinner = null;
+        this.currentStep = undefined;
+      }
     }
+  }
+
+  /**
+   * Cleanup and destroy tracker
+   */
+  destroy(): void {
+    this.stop();
+    // Clear any pending timeouts
+    for (const step of this.steps.values()) {
+      if (step.status === 'in_progress') {
+        step.status = 'failed';
+        step.details = 'Tracker destroyed before completion';
+      }
+    }
+    this.steps.clear();
   }
 }

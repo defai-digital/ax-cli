@@ -63,7 +63,22 @@ export class OnboardingManager {
       version: this.getVersion(),
     };
 
-    fs.writeFileSync(markerPath, JSON.stringify(state, null, 2), 'utf-8');
+    // Atomic write using temp file
+    const tmpPath = `${markerPath}.tmp`;
+    try {
+      fs.writeFileSync(tmpPath, JSON.stringify(state, null, 2), 'utf-8');
+      fs.renameSync(tmpPath, markerPath); // Atomic on POSIX systems
+    } catch (error) {
+      // Cleanup temp file on error
+      if (fs.existsSync(tmpPath)) {
+        try {
+          fs.unlinkSync(tmpPath);
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+      throw error;
+    }
   }
 
   /**

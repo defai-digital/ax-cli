@@ -7,8 +7,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { fileURLToPath } from 'url';
-import { safeValidateProjectTemplate, type ProjectTemplate } from '../schemas/index.js';
+import { safeValidateProjectTemplate, type ProjectTemplate, ProjectTemplateSchema } from '../schemas/index.js';
 import type { TemplateListItem, TemplateCreateOptions } from '../types/template.js';
+import { parseJsonFile } from './json-utils.js';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -112,11 +113,9 @@ export class TemplateManager {
    */
   private static loadTemplate(filePath: string): ProjectTemplate | null {
     try {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const data = JSON.parse(content);
-      const result = safeValidateProjectTemplate(data);
+      const result = parseJsonFile<ProjectTemplate>(filePath, ProjectTemplateSchema);
 
-      if (result.success && result.data) {
+      if (result.success) {
         return result.data;
       }
 
@@ -149,7 +148,23 @@ export class TemplateManager {
         return false;
       }
 
-      fs.writeFileSync(templatePath, JSON.stringify(template, null, 2), 'utf-8');
+      // Atomic write using temporary file
+      const tmpPath = `${templatePath}.tmp`;
+      try {
+        fs.writeFileSync(tmpPath, JSON.stringify(template, null, 2), 'utf-8');
+        fs.renameSync(tmpPath, templatePath); // Atomic operation on POSIX systems
+      } catch (writeError) {
+        // Cleanup temp file on error
+        if (fs.existsSync(tmpPath)) {
+          try {
+            fs.unlinkSync(tmpPath);
+          } catch {
+            // Ignore cleanup errors
+          }
+        }
+        throw writeError;
+      }
+
       return true;
     } catch (error) {
       console.error('Failed to save template:', error);
@@ -161,12 +176,25 @@ export class TemplateManager {
    * Generate a unique template ID
    */
   private static generateUniqueId(name: string): string {
-    let baseId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const MAX_ATTEMPTS = 1000;
+    let baseId = name.toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .substring(0, 50); // Limit base ID length
+
+    if (!baseId) {
+      baseId = 'template'; // Fallback for empty names
+    }
+
     let id = baseId;
     let counter = 1;
 
-    // Check for collisions and append counter if needed
     while (this.getTemplate(id)) {
+      if (counter >= MAX_ATTEMPTS) {
+        // Use timestamp to ensure uniqueness
+        id = `${baseId}-${Date.now()}`;
+        break;
+      }
       id = `${baseId}-${counter++}`;
     }
 
@@ -189,20 +217,36 @@ export class TemplateManager {
       instructions = fs.readFileSync(customMdPath, 'utf-8');
     }
 
+    // Validate instructions are non-empty
+    if (!instructions || instructions.trim().length === 0) {
+      throw new Error(
+        'Cannot create template: CUSTOM.md is empty. ' +
+        'Run "ax-cli init" first to generate custom instructions.'
+      );
+    }
+
+    // Validate minimum length
+    if (instructions.trim().length < 100) {
+      throw new Error(
+        'Cannot create template: CUSTOM.md is too short (< 100 characters). ' +
+        'Ensure the file contains meaningful instructions.'
+      );
+    }
+
     // Load existing metadata if available
     let metadata = {};
     if (fs.existsSync(indexPath)) {
-      try {
-        const indexData = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+      const result = parseJsonFile(indexPath);
+      if (result.success) {
+        const indexData = result.data as any;
         metadata = {
           conventions: indexData.conventions,
           scripts: indexData.scripts,
           directories: indexData.directories,
           keyFiles: indexData.keyFiles,
         };
-      } catch (error) {
-        // Use empty metadata if index.json is invalid
       }
+      // Use empty metadata if index.json is invalid
     }
 
     const template: ProjectTemplate = {
@@ -276,15 +320,57 @@ export class TemplateManager {
       // Validate path to prevent directory traversal attacks
       const resolvedPath = path.resolve(filePath);
 
-      // Check if path is absolute and within allowed directories
+      // Check if path is absolute
       if (!path.isAbsolute(resolvedPath)) {
         console.error('Invalid file path - must be absolute');
+        return false;
+      }
+
+      // Ensure path is within safe directories (home or cwd)
+      const userHome = os.homedir();
+      const cwd = process.cwd();
+      const isInHome = resolvedPath.startsWith(userHome);
+      const isInCwd = resolvedPath.startsWith(cwd);
+
+      if (!isInHome && !isInCwd) {
+        console.error('Template must be in home directory or current directory');
+        return false;
+      }
+
+      // Prevent access to sensitive files
+      const sensitivePatterns = [
+        /\.ssh/i,
+        /\.gnupg/i,
+        /password/i,
+        /secret/i,
+        /\.env/i,
+        /id_rsa/i,
+        /\.pem$/i,
+        /\.key$/i,
+      ];
+
+      const basename = path.basename(resolvedPath);
+      if (sensitivePatterns.some(pattern => pattern.test(basename))) {
+        console.error('Cannot import sensitive files');
+        return false;
+      }
+
+      // Ensure file has .json extension
+      if (path.extname(resolvedPath) !== '.json') {
+        console.error('Template file must have .json extension');
         return false;
       }
 
       // Ensure file exists and is readable
       if (!fs.existsSync(resolvedPath)) {
         console.error(`File not found: ${resolvedPath}`);
+        return false;
+      }
+
+      // Ensure it's a file, not a directory
+      const stats = fs.statSync(resolvedPath);
+      if (!stats.isFile()) {
+        console.error('Path must be a file, not a directory');
         return false;
       }
 
@@ -316,12 +402,14 @@ export class TemplateManager {
         fs.mkdirSync(axCliDir, { recursive: true });
       }
 
-      // Write CUSTOM.md
+      // Write CUSTOM.md using atomic operation
       const customMdPath = path.join(axCliDir, 'CUSTOM.md');
-      fs.writeFileSync(customMdPath, template.instructions, 'utf-8');
+      const tmpCustomPath = `${customMdPath}.tmp`;
 
       // Write index.json with template metadata
       const indexPath = path.join(axCliDir, 'index.json');
+      const tmpIndexPath = `${indexPath}.tmp`;
+
       const indexData = {
         projectName: template.name,
         version: template.version,
@@ -330,7 +418,25 @@ export class TemplateManager {
         templateId: template.id,
         templateAppliedAt: new Date().toISOString(),
       };
-      fs.writeFileSync(indexPath, JSON.stringify(indexData, null, 2), 'utf-8');
+
+      try {
+        // Write to temp files first
+        fs.writeFileSync(tmpCustomPath, template.instructions, 'utf-8');
+        fs.writeFileSync(tmpIndexPath, JSON.stringify(indexData, null, 2), 'utf-8');
+
+        // Atomic rename
+        fs.renameSync(tmpCustomPath, customMdPath);
+        fs.renameSync(tmpIndexPath, indexPath);
+      } catch (writeError) {
+        // Cleanup temp files on error
+        try {
+          if (fs.existsSync(tmpCustomPath)) fs.unlinkSync(tmpCustomPath);
+          if (fs.existsSync(tmpIndexPath)) fs.unlinkSync(tmpIndexPath);
+        } catch {
+          // Ignore cleanup errors
+        }
+        throw writeError;
+      }
 
       return true;
     } catch (error) {
