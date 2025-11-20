@@ -524,6 +524,18 @@ Examples:
 
     if (trimmedInput.startsWith("/models ")) {
       const modelArg = trimmedInput.split(" ")[1];
+
+      if (!modelArg) {
+        const errorEntry: ChatEntry = {
+          type: "assistant",
+          content: `Usage: /models <model-name>\n\nAvailable models: ${availableModels.map((m) => m.model).join(", ")}`,
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, errorEntry]);
+        clearInput();
+        return true;
+      }
+
       const modelNames = availableModels.map((m) => m.model);
 
       if (modelNames.includes(modelArg)) {
