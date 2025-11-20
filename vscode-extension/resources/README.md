@@ -2,24 +2,16 @@
 
 ## Icons
 
-- `icon.svg` - SVG icon for the extension (128x128)
-- `icon.png` - PNG icon for VSCode marketplace (128x128)
+- `icon.png` - PNG icon for VSCode marketplace (128x128) - Official AX logo
+- `icon.svg` - SVG icon for activity bar (128x128) - Matches logo design
 
-## Generating PNG from SVG
+## Logo
 
-To generate the PNG icon from SVG, you can use:
+The official AX logo (`icon.png`) is sourced from `.github/assets/axlogo.png` and features:
+- Cyan to blue gradient hexagon
+- Gear/cog symbol representing automation
+- Professional, modern design
 
-```bash
-# Using ImageMagick
-convert -density 300 -background none icon.svg -resize 128x128 icon.png
+## Activity Bar Icon
 
-# Or using Inkscape
-inkscape icon.svg --export-png=icon.png --export-width=128 --export-height=128
-
-# Or using rsvg-convert
-rsvg-convert -w 128 -h 128 icon.svg > icon.png
-
-# Or online: https://cloudconvert.com/svg-to-png
-```
-
-For now, the SVG will work for development. A proper PNG can be generated later for marketplace submission.
+The `icon.svg` is designed to match the logo aesthetics for use in the VSCode activity bar sidebar. VSCode requires SVG format for activity bar icons.
