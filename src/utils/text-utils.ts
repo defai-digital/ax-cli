@@ -224,8 +224,10 @@ export function deleteCharAfter(text: string, position: number): { text: string;
  */
 export function insertText(text: string, position: number, insert: string): { text: string; position: number } {
   const newText = text.slice(0, position) + insert + text.slice(position);
+  // Use grapheme-aware length for correct cursor position with emoji/Unicode
+  const insertGraphemes = [...insert].length;
   return {
     text: newText,
-    position: position + insert.length,
+    position: position + insertGraphemes,
   };
 }

@@ -134,25 +134,52 @@ export class LRUCache<K, V> {
 
 /**
  * Create a memoized version of an async function with caching
+ * Prevents cache stampede by tracking pending promises
  */
 export function memoizeAsync<TArgs extends any[], TReturn>(
   fn: (...args: TArgs) => Promise<TReturn>,
   options: CacheOptions & { keyFn?: (...args: TArgs) => string } = {}
 ): (...args: TArgs) => Promise<TReturn> {
   const cache = new LRUCache<string, TReturn>(options);
-  const keyFn = options.keyFn || ((...args) => JSON.stringify(args));
+  const pending = new Map<string, Promise<TReturn>>();
+  const keyFn = options.keyFn || ((...args) => {
+    try {
+      return JSON.stringify(args);
+    } catch {
+      // Fallback for circular references or non-serializable values
+      return args.map((arg, i) => `${i}:${String(arg)}`).join('|');
+    }
+  });
 
   return async (...args: TArgs): Promise<TReturn> => {
     const key = keyFn(...args);
-    const cached = cache.get(key);
 
+    // Check cache first
+    const cached = cache.get(key);
     if (cached !== undefined) {
       return cached;
     }
 
-    const result = await fn(...args);
-    cache.set(key, result);
-    return result;
+    // Check if already pending to prevent cache stampede
+    const existingPromise = pending.get(key);
+    if (existingPromise) {
+      return existingPromise;
+    }
+
+    // Create new promise and track it
+    const promise = fn(...args)
+      .then((result) => {
+        cache.set(key, result);
+        pending.delete(key);
+        return result;
+      })
+      .catch((error) => {
+        pending.delete(key);
+        throw error;
+      });
+
+    pending.set(key, promise);
+    return promise;
   };
 }
 
@@ -164,7 +191,14 @@ export function memoize<TArgs extends any[], TReturn>(
   options: CacheOptions & { keyFn?: (...args: TArgs) => string } = {}
 ): (...args: TArgs) => TReturn {
   const cache = new LRUCache<string, TReturn>(options);
-  const keyFn = options.keyFn || ((...args) => JSON.stringify(args));
+  const keyFn = options.keyFn || ((...args) => {
+    try {
+      return JSON.stringify(args);
+    } catch {
+      // Fallback for circular references or non-serializable values
+      return args.map((arg, i) => `${i}:${String(arg)}`).join('|');
+    }
+  });
 
   return (...args: TArgs): TReturn => {
     const key = keyFn(...args);
