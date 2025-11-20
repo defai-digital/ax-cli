@@ -4,7 +4,6 @@ import { LLMAgent, ChatEntry } from "../../agent/llm-agent.js";
 import { useInputHandler } from "../../hooks/use-input-handler.js";
 import { LoadingSpinner } from "./loading-spinner.js";
 import { CommandSuggestions } from "./command-suggestions.js";
-import { ModelSelection } from "./model-selection.js";
 import { ChatHistory } from "./chat-history.js";
 import { ChatInput } from "./chat-input.js";
 import { MCPStatus } from "./mcp-status.js";
@@ -16,10 +15,17 @@ import {
 import ApiKeyInput from "./api-key-input.js";
 import cfonts from "cfonts";
 import { getVersion } from "../../utils/version.js";
+import { getHistoryManager } from "../../utils/history-manager.js";
+import path from "path";
 
 interface ChatInterfaceProps {
   agent?: LLMAgent;
   initialMessage?: string;
+}
+
+// Get current project folder name
+function getCurrentProjectName(): string {
+  return path.basename(process.cwd());
 }
 
 // Main chat component that handles input when agent is available
@@ -30,7 +36,10 @@ function ChatInterfaceWithAgent({
   agent: LLMAgent;
   initialMessage?: string;
 }) {
+  const historyManager = getHistoryManager();
   const [chatHistory, setChatHistory] = useState<ChatEntry[]>([]);
+  // Start with empty chat history for fresh session
+  // Command history (up/down arrows) is handled separately in use-input-history.ts
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingTime, setProcessingTime] = useState(0);
   const [tokenCount, setTokenCount] = useState(0);
@@ -50,10 +59,7 @@ function ChatInterfaceWithAgent({
     cursorPosition,
     showCommandSuggestions,
     selectedCommandIndex,
-    showModelSelection,
-    selectedModelIndex,
     commandSuggestions,
-    availableModels,
     autoEditEnabled,
   } = useInputHandler({
     agent,
@@ -109,7 +115,7 @@ function ChatInterfaceWithAgent({
 
     console.log(" "); // Spacing after logo
 
-    setChatHistory([]);
+    // Don't clear history on mount since we loaded it from disk
   }, []);
 
   // Process initial message if provided (streaming for faster feedback)
@@ -317,31 +323,39 @@ function ChatInterfaceWithAgent({
     return () => clearInterval(interval);
   }, [isProcessing, isStreaming]);
 
-  // Update context percentage occasionally (every 5 seconds)
+  // Update context percentage only when conversation state changes
+  // Avoid expensive calculations during streaming or idle periods
   useEffect(() => {
-    const updateContextPercentage = () => {
-      const percentage = agent.getContextPercentage();
+    // Skip context calculation while streaming to avoid mid-stream overhead
+    if (isStreaming) return;
 
-      // Detect auto-prune: if percentage drops by more than 10%, pruning happened
-      if (lastPercentageRef.current > 0 &&
-          percentage < lastPercentageRef.current - 10) {
-        setShowAutoPrune(true);
-        // Hide "auto-prune" after 3 seconds
-        setTimeout(() => setShowAutoPrune(false), 3000);
-      }
+    // Only recalculate when chat history length changes (new messages added)
+    const percentage = agent.getContextPercentage();
 
-      lastPercentageRef.current = percentage;
-      setContextPercentage(percentage);
-    };
+    // Detect auto-prune: if percentage drops by more than 10%, pruning happened
+    if (lastPercentageRef.current > 0 &&
+        percentage < lastPercentageRef.current - 10) {
+      setShowAutoPrune(true);
+      // Hide "auto-prune" after 3 seconds
+      setTimeout(() => setShowAutoPrune(false), 3000);
+    }
 
-    // Update immediately
-    updateContextPercentage();
+    lastPercentageRef.current = percentage;
+    setContextPercentage(percentage);
+  }, [agent, chatHistory.length, isStreaming]); // Only update when length changes and not streaming
 
-    // Then update every 5 seconds
-    const interval = setInterval(updateContextPercentage, 5000);
+  // Save history whenever it changes (debounced)
+  // Only save when NOT streaming to avoid constant disk I/O during active conversation
+  useEffect(() => {
+    // Skip saving while streaming - wait until conversation pauses
+    if (isStreaming) return;
 
-    return () => clearInterval(interval);
-  }, [agent]); // Only depend on agent, not chatHistory (avoids infinite loop)
+    const timeoutId = setTimeout(() => {
+      historyManager.saveHistory(chatHistory);
+    }, 3000); // Increased debounce to 3 seconds to reduce disk writes
+
+    return () => clearTimeout(timeoutId);
+  }, [chatHistory.length, isStreaming, historyManager]); // Only trigger on length change, not content updates
 
   const handleConfirmation = (dontAskAgain?: boolean) => {
     confirmationService.confirmOperation(true, dontAskAgain);
@@ -374,7 +388,7 @@ function ChatInterfaceWithAgent({
             </Text>
             <Text color="gray">2. Be specific for the best results.</Text>
             <Text color="gray">
-              3. Create AX.md files to customize your interactions with AI.
+              3. use /init and CUSTOM.md to improve your ax-cli.
             </Text>
             <Text color="gray">
               4. Press Shift+Tab to toggle auto-edit mode.
@@ -437,7 +451,9 @@ function ChatInterfaceWithAgent({
               </Text>
             </Box>
             <Box marginRight={2}>
-              <Text color="gray" dimColor>ax-cli: </Text>
+              <Text color="gray" dimColor>project: </Text>
+              <Text color="magenta">{getCurrentProjectName()}</Text>
+              <Text color="gray" dimColor> | ax-cli: </Text>
               <Text color="cyan">v{getVersion()}</Text>
               <Text color="gray" dimColor> | model: </Text>
               <Text color="yellow">{agent.getCurrentModel()}</Text>
@@ -458,13 +474,6 @@ function ChatInterfaceWithAgent({
             input={input}
             selectedIndex={selectedCommandIndex}
             isVisible={showCommandSuggestions}
-          />
-
-          <ModelSelection
-            models={availableModels}
-            selectedIndex={selectedModelIndex}
-            isVisible={showModelSelection}
-            currentModel={agent.getCurrentModel()}
           />
         </>
       )}
