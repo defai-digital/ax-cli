@@ -341,7 +341,7 @@ function ChatInterfaceWithAgent({
     const interval = setInterval(updateContextPercentage, 5000);
 
     return () => clearInterval(interval);
-  }, [agent, chatHistory]); // Re-run when chat history changes
+  }, [agent]); // Only depend on agent, not chatHistory (avoids infinite loop)
 
   const handleConfirmation = (dontAskAgain?: boolean) => {
     confirmationService.confirmOperation(true, dontAskAgain);

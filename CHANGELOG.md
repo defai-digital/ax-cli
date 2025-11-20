@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.9] - 2025-11-20
+
+### Fixed
+- **CRITICAL: Infinite Loop in Context Indicator** - Fixed React infinite re-render
+  - Removed `chatHistory` from useEffect dependency array
+  - Dependency on `chatHistory` caused infinite loop: setState → re-render → useEffect → setState
+  - Now only depends on `agent`, updates every 5 seconds via interval
+  - Fixes "Maximum update depth exceeded" error
+  - Modified: `src/ui/components/chat-interface.tsx:344`
+
 ## [2.4.8] - 2025-11-20
 
 ### Added
