@@ -4,6 +4,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/vscode-extension/**', // VSCode extension has its own test setup
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'json-summary'],
@@ -14,6 +19,7 @@ export default defineConfig({
         '**/*.config.*',
         '**/mockData',
         'tests/',
+        'vscode-extension/', // Exclude from coverage
       ],
     },
   },

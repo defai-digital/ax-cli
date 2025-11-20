@@ -254,7 +254,8 @@ Respond with ONLY the commit message, no additional text.`;
       process.exit(1);
     }
   } catch (error: any) {
-    console.error("❌ Error during commit and push:", error.message);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error("❌ Error during commit and push:", errorMsg);
     process.exit(1);
   } finally {
     // Clean up agent resources
@@ -297,7 +298,8 @@ async function buildContextFromFlags(options: {
         contextParts.push(`File: ${filePath}:\n\`\`\`\n${fileContent}\n\`\`\``);
       }
     } catch (error: any) {
-      contextParts.push(`Error reading file ${options.file}: ${error.message}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      contextParts.push(`Error reading file ${options.file}: ${errorMsg}`);
     }
   }
 
@@ -315,7 +317,8 @@ async function buildContextFromFlags(options: {
         contextParts.push(`Git diff:\n\`\`\`diff\n${gitDiff}\n\`\`\``);
       }
     } catch (error: any) {
-      contextParts.push(`Error getting git diff: ${error.message}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      contextParts.push(`Error getting git diff: ${errorMsg}`);
     }
   }
 

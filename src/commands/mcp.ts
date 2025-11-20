@@ -103,7 +103,8 @@ export function createMCPCommand(): Command {
         ConsoleMessenger.plain('mcp_commands.tools_available', { count: tools.length });
 
       } catch (error: any) {
-        ConsoleMessenger.error('mcp_commands.error_adding_server', { error: error.message });
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        ConsoleMessenger.error('mcp_commands.error_adding_server', { error: errorMsg });
         process.exit(1);
       }
     });
@@ -155,7 +156,8 @@ export function createMCPCommand(): Command {
         ConsoleMessenger.plain('mcp_commands.tools_available', { count: tools.length });
 
       } catch (error: any) {
-        ConsoleMessenger.error('mcp_commands.error_adding_server', { error: error.message });
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        ConsoleMessenger.error('mcp_commands.error_adding_server', { error: errorMsg });
         process.exit(1);
       }
     });

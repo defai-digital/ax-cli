@@ -102,13 +102,18 @@ export class LLMAgent extends EventEmitter {
         const config = loadMCPConfig();
         if (config.servers.length > 0) {
           await initializeMCPServers();
+          this.emit('system', 'MCP servers initialized successfully');
         }
       } catch (error) {
-        console.warn("MCP initialization failed:", error);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.warn("MCP initialization failed:", errorMsg);
+        this.emit('system', `MCP initialization failed: ${errorMsg}`);
       }
     }).catch((error) => {
       // Catch any unhandled promise rejections
-      console.warn("Unexpected error during MCP initialization:", error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.warn("Unexpected error during MCP initialization:", errorMsg);
+      this.emit('system', `Unexpected MCP error: ${errorMsg}`);
     });
   }
 
@@ -129,7 +134,8 @@ export class LLMAgent extends EventEmitter {
       let baseSignature = toolCall.function.name;
       if (toolCall.function.name === 'bash' && args.command) {
         // Extract base command (e.g., "find", "ls", "grep") from full command
-        const baseCommand = args.command.trim().split(/\s+/)[0];
+        const commandParts = args.command.trim().split(/\s+/);
+        const baseCommand = commandParts.length > 0 ? commandParts[0] : 'unknown';
         baseSignature = `bash:${baseCommand}`;
       }
 
@@ -368,9 +374,10 @@ export class LLMAgent extends EventEmitter {
 
       return newEntries;
     } catch (error: any) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       const errorEntry: ChatEntry = {
         type: "assistant",
-        content: `Sorry, I encountered an error: ${error.message}`,
+        content: `Sorry, I encountered an error: ${errorMsg}`,
         timestamp: new Date(),
       };
       this.chatHistory.push(errorEntry);
@@ -478,7 +485,8 @@ export class LLMAgent extends EventEmitter {
       return await getAllGrokTools();
     } catch (error: any) {
       // Log error but don't throw - continue with empty tools
-      console.warn(`⚠️ Error loading tools: ${error.message}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.warn(`⚠️ Error loading tools: ${errorMsg}`);
       return [];
     }
   }
@@ -779,9 +787,10 @@ export class LLMAgent extends EventEmitter {
         return;
       }
 
+      const errorMsg = error instanceof Error ? error.message : String(error);
       const errorEntry: ChatEntry = {
         type: "assistant",
-        content: `Sorry, I encountered an error: ${error.message}`,
+        content: `Sorry, I encountered an error: ${errorMsg}`,
         timestamp: new Date(),
       };
       this.chatHistory.push(errorEntry);
@@ -895,9 +904,10 @@ export class LLMAgent extends EventEmitter {
           };
       }
     } catch (error: any) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       return {
         success: false,
-        error: `Tool execution error: ${error.message}`,
+        error: `Tool execution error: ${errorMsg}`,
       };
     }
   }
@@ -942,9 +952,10 @@ export class LLMAgent extends EventEmitter {
         output: output || "Success",
       };
     } catch (error: any) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       return {
         success: false,
-        error: `MCP tool execution error: ${error.message}`,
+        error: `MCP tool execution error: ${errorMsg}`,
       };
     }
   }

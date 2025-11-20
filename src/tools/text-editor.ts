@@ -441,8 +441,8 @@ export class TextEditorTool {
 
   private findFuzzyMatch(content: string, searchStr: string): string | null {
     const functionMatch = searchStr.match(/function\s+(\w+)/);
-    if (!functionMatch) return null;
-    
+    if (!functionMatch || !functionMatch[1]) return null;
+
     const functionName = functionMatch[1];
     const contentLines = content.split('\n');
     

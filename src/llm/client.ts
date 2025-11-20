@@ -256,7 +256,8 @@ export class LLMClient {
     } catch (error: any) {
       // Enhance error message with context
       const modelInfo = options?.model || this.currentModel;
-      throw new Error(`Grok API error (model: ${modelInfo}): ${error.message}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Grok API error (model: ${modelInfo}): ${errorMsg}`);
     }
   }
 
