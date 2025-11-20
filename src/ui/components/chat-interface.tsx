@@ -50,7 +50,8 @@ function ChatInterfaceWithAgent({
     useState<ConfirmationOptions | null>(null);
   const scrollRef = useRef<any>();
   const processingStartTime = useRef<number>(0);
-  const lastPercentageRef = useRef<number>(0);
+  const lastPercentageRef = useRef<number>(0); // Store last percentage value
+  const lastPercentageUpdateTime = useRef<number>(0); // Store last update timestamp
 
   const confirmationService = ConfirmationService.getInstance();
 
@@ -324,25 +325,38 @@ function ChatInterfaceWithAgent({
   }, [isProcessing, isStreaming]);
 
   // Update context percentage only when conversation state changes
-  // Avoid expensive calculations during streaming or idle periods
+  // Optimized context percentage calculation with throttling
+  // Best practice: Calculate only when needed, throttle updates, use setImmediate for non-blocking
   useEffect(() => {
-    // Skip context calculation while streaming to avoid mid-stream overhead
+    // Skip during streaming - avoid mid-stream overhead
     if (isStreaming) return;
 
-    // Only recalculate when chat history length changes (new messages added)
-    const percentage = agent.getContextPercentage();
-
-    // Detect auto-prune: if percentage drops by more than 10%, pruning happened
-    if (lastPercentageRef.current > 0 &&
-        percentage < lastPercentageRef.current - 10) {
-      setShowAutoPrune(true);
-      // Hide "auto-prune" after 3 seconds
-      setTimeout(() => setShowAutoPrune(false), 3000);
+    // Throttle: Only update every 500ms to prevent excessive recalculations
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastPercentageUpdateTime.current;
+    if (timeSinceLastUpdate < 500) {
+      return; // Skip if updated less than 500ms ago
     }
 
-    lastPercentageRef.current = percentage;
-    setContextPercentage(percentage);
-  }, [agent, chatHistory.length, isStreaming]); // Only update when length changes and not streaming
+    // Use setImmediate for non-blocking, async UI updates (Node.js equivalent of RAF)
+    const immediateId = setImmediate(() => {
+      const percentage = agent.getContextPercentage();
+
+      // Detect auto-prune: if percentage drops by more than 10%, pruning happened
+      if (lastPercentageRef.current > 0 &&
+          percentage < lastPercentageRef.current - 10) {
+        setShowAutoPrune(true);
+        // Hide "auto-prune" after 3 seconds
+        setTimeout(() => setShowAutoPrune(false), 3000);
+      }
+
+      lastPercentageRef.current = percentage; // Store percentage value
+      lastPercentageUpdateTime.current = now; // Store timestamp
+      setContextPercentage(percentage);
+    });
+
+    return () => clearImmediate(immediateId);
+  }, [agent, chatHistory.length, isStreaming]); // Only when length changes and not streaming
 
   // Save history whenever it changes (debounced)
   // Only save when NOT streaming to avoid constant disk I/O during active conversation

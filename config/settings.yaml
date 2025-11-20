@@ -31,9 +31,9 @@ agent:
   # Option 1: enable_loop_detection: false (complete disable)
   # Option 2: loop_detection_threshold: 0 (disable via threshold)
   #
-  # DEFAULT: Disabled - Most users don't need this
-  enable_loop_detection: false  # Set to true to enable loop detection
-  loop_detection_threshold: 8   # Number of repetitions before flagging as loop
+  # DEFAULT: Enabled - Prevents infinite loops
+  enable_loop_detection: true  # Set to true to enable loop detection
+  loop_detection_threshold: 1   # Number of repetitions before flagging as loop
 
 file:
   max_file_size: 1048576  # 1MB in bytes
