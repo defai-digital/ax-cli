@@ -6,9 +6,9 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9%2B-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-[![macOS](https://img.shields.io/badge/macOS-26-000000?style=flat-square&logo=apple)](https://www.apple.com/macos/)
-[![Windows](https://img.shields.io/badge/Windows-11-0078D6?style=flat-square&logo=windows)](https://www.microsoft.com/windows/)
-[![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-E95420?style=flat-square&logo=ubuntu)](https://ubuntu.com/)
+[![macOS](https://img.shields.io/badge/macOS-26-blue?style=flat-square&logo=apple)](https://www.apple.com/macos/)
+[![Windows](https://img.shields.io/badge/Windows-11-blue?style=flat-square&logo=windows)](https://www.microsoft.com/windows/)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-blue?style=flat-square&logo=ubuntu)](https://ubuntu.com/)
 
 ![AX CLI Logo](.github/assets/ax-cli.png)
 
