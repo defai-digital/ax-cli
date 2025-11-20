@@ -135,7 +135,8 @@ export class TextEditorTool {
         }
       }
 
-      const occurrences = (content.match(new RegExp(actualOldStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+      // Count occurrences using simple string splitting (more reliable than regex for multi-line strings)
+      const occurrences = content.split(actualOldStr).length - 1;
 
       // Generate new content and diff for confirmation
       const newContent = replaceAll

@@ -42,6 +42,7 @@ export function loadYamlConfig<T = any>(filename: string, schema?: z.ZodSchema<T
 
     // Validate with schema if provided
     if (schema) {
+      // Schema validation will catch undefined/null values
       const result = schema.safeParse(config);
       if (!result.success) {
         throw new Error(`Validation failed for ${filename}: ${result.error.message}`);
@@ -50,7 +51,7 @@ export function loadYamlConfig<T = any>(filename: string, schema?: z.ZodSchema<T
       return result.data;
     }
 
-    // Cache the result
+    // Cache the result (may be undefined for empty files)
     configCache.set(filename, config);
     return config as T;
   } catch (error) {
