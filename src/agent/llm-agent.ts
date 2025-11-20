@@ -145,6 +145,10 @@ export class LLMAgent extends EventEmitter {
         const normalizedCommand = args.command.trim().replace(/\s+/g, ' ');
         // Use full command for exact matching (catches true duplicates)
         signature = `bash:${normalizedCommand}`;
+      } else if (toolCall.function.name === 'search' && args.query) {
+        // For search, include the normalized query
+        const normalizedQuery = args.query.trim().toLowerCase().replace(/\s+/g, ' ');
+        signature = `search:${normalizedQuery}`;
       } else if (toolCall.function.name === 'read_file' && args.file_path) {
         // For file reads, include the path
         signature = `read:${args.file_path}`;
