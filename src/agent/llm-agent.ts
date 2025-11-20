@@ -181,6 +181,7 @@ export class LLMAgent extends EventEmitter {
 
       if (process.env.DEBUG_LOOP_DETECTION === '1') {
         console.error(`[LOOP DETECTION] ✅ Allowed, count now: ${count + 1}`);
+        console.error(`[LOOP DETECTION] Current map:`, Array.from(this.recentToolCalls.entries()));
       }
 
       // Clean up old entries (keep only last N unique calls)
@@ -206,6 +207,9 @@ export class LLMAgent extends EventEmitter {
    * Reset the tool call tracking (called at start of new user message)
    */
   private resetToolCallTracking(): void {
+    if (process.env.DEBUG_LOOP_DETECTION === '1') {
+      console.error(`[LOOP TRACKING] 🔄 Resetting tool call tracking (map had ${this.recentToolCalls.size} entries)`);
+    }
     this.recentToolCalls.clear();
   }
 

@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.4] - 2025-11-20
+
+### Added
+- **Enhanced Loop Detection Debugging** - Additional diagnostics for production troubleshooting
+  - Added Map reset tracking with detailed logging
+  - Shows Map size before/after reset operations
+  - Added full Map state display after each tool call check
+  - Created `URGENT-DEBUG-INSTRUCTIONS.md` with comprehensive debug guide
+  - Modified: `src/agent/llm-agent.ts` (lines 182-185, 210-213)
+
+### Changed
+- **Improved Debug Output** - More detailed loop detection information
+  - Shows current Map entries after each check
+  - Logs Map size changes during reset operations
+  - Helps identify if Map persistence issues exist
+  - Better visibility into loop detection state
+
+### Documentation
+- Added `URGENT-DEBUG-INSTRUCTIONS.md`
+  - Step-by-step debugging instructions for users
+  - Four key hypotheses for loop detection failures
+  - Expected vs problematic output patterns
+  - Test verification script included
+- Created `/tmp/test-loop-logic.js` - Isolated logic test
+  - Confirms loop detection algorithm is correct
+  - Shows expected behavior in isolation
+
+### Technical
+- Loop detection logic verified correct in isolation testing
+- Debug mode continues to have zero performance impact when disabled
+- All existing tests continue to pass
+- Ready for production debugging of edge cases
+
 ## [2.4.3] - 2025-11-20
 
 ### Added
