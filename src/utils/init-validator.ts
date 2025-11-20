@@ -76,7 +76,21 @@ export class InitValidator {
       result.suggestions.push('Run: npm init (if this is a Node.js project)');
     } else {
       try {
-        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+        const content = fs.readFileSync(packageJsonPath, 'utf-8');
+
+        // Check for empty file
+        if (!content || content.trim() === '') {
+          result.errors.push('package.json is empty');
+          return;
+        }
+
+        const packageJson = JSON.parse(content);
+
+        // Check if package.json is actually an object
+        if (typeof packageJson !== 'object' || packageJson === null) {
+          result.errors.push('package.json is not a valid JSON object');
+          return;
+        }
 
         // Check for common issues
         if (!packageJson.name) {
@@ -92,7 +106,7 @@ export class InitValidator {
           result.suggestions.push('Consider adding "type": "module" for ESM support');
         }
       } catch (error) {
-        result.errors.push('Invalid package.json - JSON parse error');
+        result.errors.push(`Invalid package.json - ${error instanceof Error ? error.message : 'JSON parse error'}`);
       }
     }
   }

@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { fileURLToPath } from 'url';
 
 export interface OnboardingState {
   isFirstRun: boolean;
@@ -114,7 +115,11 @@ export class OnboardingManager {
    */
   private static getVersion(): string {
     try {
-      const packageJsonPath = path.join(process.cwd(), 'package.json');
+      // Use import.meta.url to find the actual CLI installation path
+      const currentModulePath = fileURLToPath(import.meta.url);
+      const cliRootPath = path.join(path.dirname(currentModulePath), '../..');
+      const packageJsonPath = path.join(cliRootPath, 'package.json');
+
       if (fs.existsSync(packageJsonPath)) {
         const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
         return pkg.version || '0.0.0';

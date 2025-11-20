@@ -40,8 +40,10 @@ export class ProgressTracker {
     step.startTime = Date.now();
     this.currentStep = id;
 
+    // Properly clean up previous spinner to prevent memory leak
     if (this.spinner) {
       this.spinner.stop();
+      this.spinner = null;
     }
 
     this.spinner = prompts.spinner();
@@ -66,6 +68,10 @@ export class ProgressTracker {
       const durationStr = this.formatDuration(duration);
       this.spinner.stop(`✅ ${step.name} ${durationStr}`);
       this.spinner = null;
+    }
+
+    // Always clear current step, not just when spinner exists
+    if (this.currentStep === id) {
       this.currentStep = undefined;
     }
   }

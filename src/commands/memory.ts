@@ -82,19 +82,29 @@ export function createMemoryCommand(): Command {
 
         console.log(`📝 Opening ${customMdPath} in ${editor}...`);
 
-        // Open editor
+        // Open editor with comprehensive error handling
         try {
+          let editorPromise: Promise<{stdout: string; stderr: string}>;
+
           if (editor === 'code') {
-            await execAsync(`code --wait "${customMdPath}"`);
+            editorPromise = execAsync(`code --wait "${customMdPath}"`).catch(err => {
+              throw new Error(`VS Code failed: ${err.message}. Ensure VS Code is installed and 'code' command is available.`);
+            });
           } else if (editor === 'subl') {
-            await execAsync(`subl --wait "${customMdPath}"`);
+            editorPromise = execAsync(`subl --wait "${customMdPath}"`).catch(err => {
+              throw new Error(`Sublime Text failed: ${err.message}. Ensure Sublime is installed.`);
+            });
           } else {
-            await execAsync(`${editor} "${customMdPath}"`);
+            editorPromise = execAsync(`${editor} "${customMdPath}"`).catch(err => {
+              throw new Error(`Editor '${editor}' failed: ${err.message}`);
+            });
           }
 
+          await editorPromise;
           console.log('✅ Custom instructions updated\n');
         } catch (error) {
           console.error(`❌ Failed to open editor '${editor}'`);
+          console.error(`   Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
           console.error(`   Try: EDITOR=vim ax-cli memory edit`);
           process.exit(1);
         }

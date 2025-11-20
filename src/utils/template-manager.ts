@@ -158,6 +158,22 @@ export class TemplateManager {
   }
 
   /**
+   * Generate a unique template ID
+   */
+  private static generateUniqueId(name: string): string {
+    let baseId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    let id = baseId;
+    let counter = 1;
+
+    // Check for collisions and append counter if needed
+    while (this.getTemplate(id)) {
+      id = `${baseId}-${counter++}`;
+    }
+
+    return id;
+  }
+
+  /**
    * Create a new template from current project
    */
   static createFromProject(
@@ -190,7 +206,7 @@ export class TemplateManager {
     }
 
     const template: ProjectTemplate = {
-      id: options.name.toLowerCase().replace(/\s+/g, '-'),
+      id: this.generateUniqueId(options.name),
       name: options.name,
       description: options.description,
       version: '1.0.0',
@@ -257,7 +273,22 @@ export class TemplateManager {
    */
   static importTemplate(filePath: string): boolean {
     try {
-      const template = this.loadTemplate(filePath);
+      // Validate path to prevent directory traversal attacks
+      const resolvedPath = path.resolve(filePath);
+
+      // Check if path is absolute and within allowed directories
+      if (!path.isAbsolute(resolvedPath)) {
+        console.error('Invalid file path - must be absolute');
+        return false;
+      }
+
+      // Ensure file exists and is readable
+      if (!fs.existsSync(resolvedPath)) {
+        console.error(`File not found: ${resolvedPath}`);
+        return false;
+      }
+
+      const template = this.loadTemplate(resolvedPath);
 
       if (!template) {
         console.error('Invalid template file');
