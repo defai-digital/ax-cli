@@ -50,7 +50,7 @@ export class ConfirmationTool {
     } catch (error: any) {
       return {
         success: false,
-        error: `Confirmation error: ${error.message}`
+        error: `Confirmation error: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }
@@ -71,7 +71,7 @@ export class ConfirmationTool {
     } catch (error: any) {
       return {
         success: false,
-        error: `Error checking session acceptance: ${error.message}`
+        error: `Error checking session acceptance: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }

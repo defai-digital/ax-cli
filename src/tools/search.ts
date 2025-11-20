@@ -118,7 +118,7 @@ export class SearchTool {
     } catch (error: any) {
       return {
         success: false,
-        error: `Search error: ${error.message}`,
+        error: `Search error: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }

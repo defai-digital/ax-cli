@@ -242,13 +242,13 @@ export function createSetupCommand(): Command {
         console.log(chalk.dim('   • Documentation:         ') + chalk.white('https://github.com/defai-digital/ax-cli\n'));
 
       } catch (error: any) {
-        if (error.message === 'canceled' || error.name === 'canceled') {
+        if (error?.message === 'canceled' || error?.name === 'canceled') {
           console.log(chalk.yellow('\n⚠️  Setup cancelled by user.\n'));
           process.exit(0);
         }
 
         console.error(chalk.red('\n❌ Setup failed:\n'));
-        console.error(chalk.dim('   ') + error.message + '\n');
+        console.error(chalk.dim('   ') + (error instanceof Error ? error.message : String(error)) + '\n');
         process.exit(1);
       }
     });

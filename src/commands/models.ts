@@ -150,7 +150,7 @@ export function createModelsCommand(): Command {
         console.log();
 
       } catch (error: any) {
-        console.error(chalk.red("Error listing models:"), error.message);
+        console.error(chalk.red("Error listing models:"), error instanceof Error ? error.message : String(error));
         process.exit(1);
       }
     });
@@ -181,7 +181,7 @@ export function createModelsCommand(): Command {
         console.log();
 
       } catch (error: any) {
-        console.error(chalk.red("Error fetching model info:"), error.message);
+        console.error(chalk.red("Error fetching model info:"), error instanceof Error ? error.message : String(error));
         process.exit(1);
       }
     });

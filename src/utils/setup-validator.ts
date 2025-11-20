@@ -123,7 +123,7 @@ export async function validateProviderSetup(
     return result;
 
   } catch (error: any) {
-    result.error = error.message || 'Unknown validation error';
+    result.error = error instanceof Error ? error.message : 'Unknown validation error';
     console.log(chalk.red('\n✗ Validation failed'));
     console.log(chalk.yellow(`  ${result.error}\n`));
     return result;
@@ -169,14 +169,14 @@ async function testEndpoint(baseURL: string): Promise<{ success: boolean; error?
     };
 
   } catch (error: any) {
-    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+    if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
       return {
         success: false,
         error: 'Connection timeout - check your internet connection or firewall settings',
       };
     }
 
-    if (error.code === 'ECONNREFUSED') {
+    if (error?.code === 'ECONNREFUSED') {
       return {
         success: false,
         error: 'Connection refused - server may be down or URL incorrect',
@@ -185,7 +185,7 @@ async function testEndpoint(baseURL: string): Promise<{ success: boolean; error?
 
     return {
       success: false,
-      error: error.message || 'Network error',
+      error: error instanceof Error ? error.message : 'Network error',
     };
   }
 }
@@ -215,14 +215,14 @@ async function testAuthentication(
 
   } catch (error: any) {
     // Extract error message
-    let errorMessage = error.message || 'Authentication failed';
+    let errorMessage = error instanceof Error ? error.message : 'Authentication failed';
 
     // Handle OpenAI-style error responses
-    if (error.status === 401) {
+    if (error?.status === 401) {
       errorMessage = 'Invalid or expired API key';
-    } else if (error.status === 403) {
+    } else if (error?.status === 403) {
       errorMessage = 'API key does not have required permissions';
-    } else if (error.error?.message) {
+    } else if (error?.error?.message) {
       errorMessage = error.error.message;
     }
 
@@ -264,11 +264,11 @@ async function testModel(
     return { success: true };
 
   } catch (error: any) {
-    let errorMessage = error.message || 'Model not accessible';
+    let errorMessage = error instanceof Error ? error.message : 'Model not accessible';
     let availableModels: string[] | undefined;
 
     // Model not found
-    if (error.status === 404 || errorMessage.toLowerCase().includes('model') && errorMessage.toLowerCase().includes('not found')) {
+    if (error?.status === 404 || errorMessage.toLowerCase().includes('model') && errorMessage.toLowerCase().includes('not found')) {
       errorMessage = `Model "${model}" not found`;
 
       // For Ollama, try to get list of installed models
