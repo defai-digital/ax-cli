@@ -159,14 +159,29 @@ export class LLMAgent extends EventEmitter {
       // Track by detailed signature
       const count = this.recentToolCalls.get(signature) || 0;
 
+      // Debug logging (remove after fixing)
+      if (process.env.DEBUG_LOOP_DETECTION === '1') {
+        console.error(`[LOOP DETECTION] Tool: ${toolCall.function.name}`);
+        console.error(`[LOOP DETECTION] Signature: ${signature}`);
+        console.error(`[LOOP DETECTION] Count: ${count}`);
+        console.error(`[LOOP DETECTION] Map size: ${this.recentToolCalls.size}`);
+      }
+
       // If we've seen this EXACT tool call even once before, it's definitely looping
       // This catches exact duplicates (same command, same file, etc.) on 2nd occurrence
       if (count >= 1) {
+        if (process.env.DEBUG_LOOP_DETECTION === '1') {
+          console.error(`[LOOP DETECTION] ⚠️ LOOP DETECTED! Signature: ${signature}`);
+        }
         return true;
       }
 
       // Increment the count
       this.recentToolCalls.set(signature, count + 1);
+
+      if (process.env.DEBUG_LOOP_DETECTION === '1') {
+        console.error(`[LOOP DETECTION] ✅ Allowed, count now: ${count + 1}`);
+      }
 
       // Clean up old entries (keep only last N unique calls)
       if (this.recentToolCalls.size > AGENT_CONFIG.MAX_RECENT_TOOL_CALLS) {
@@ -178,8 +193,11 @@ export class LLMAgent extends EventEmitter {
       }
 
       return false;
-    } catch {
+    } catch (error) {
       // If we can't parse, assume it's not repetitive
+      if (process.env.DEBUG_LOOP_DETECTION === '1') {
+        console.error(`[LOOP DETECTION] ❌ Parse error:`, error);
+      }
       return false;
     }
   }
@@ -264,11 +282,22 @@ export class LLMAgent extends EventEmitter {
           toolRounds++;
 
           // Check for repetitive tool calls (loop detection)
+          if (process.env.DEBUG_LOOP_DETECTION === '1') {
+            console.error(`\n[LOOP CHECK] Checking ${assistantMessage.tool_calls.length} tool calls...`);
+          }
+
           const hasRepetitiveCall = assistantMessage.tool_calls.some(
             (tc: LLMToolCall) => this.isRepetitiveToolCall(tc)
           );
 
+          if (process.env.DEBUG_LOOP_DETECTION === '1') {
+            console.error(`[LOOP CHECK] hasRepetitiveCall: ${hasRepetitiveCall}\n`);
+          }
+
           if (hasRepetitiveCall) {
+            if (process.env.DEBUG_LOOP_DETECTION === '1') {
+              console.error(`[LOOP CHECK] 🛑 Breaking loop!`);
+            }
             const warningEntry: ChatEntry = {
               type: "assistant",
               content:
@@ -771,11 +800,22 @@ export class LLMAgent extends EventEmitter {
           toolRounds++;
 
           // Check for repetitive tool calls (loop detection)
+          if (process.env.DEBUG_LOOP_DETECTION === '1') {
+            console.error(`\n[LOOP CHECK STREAM] Checking ${streamResult.accumulated.tool_calls.length} tool calls...`);
+          }
+
           const hasRepetitiveCall = streamResult.accumulated.tool_calls.some(
             (tc: LLMToolCall) => this.isRepetitiveToolCall(tc)
           );
 
+          if (process.env.DEBUG_LOOP_DETECTION === '1') {
+            console.error(`[LOOP CHECK STREAM] hasRepetitiveCall: ${hasRepetitiveCall}\n`);
+          }
+
           if (hasRepetitiveCall) {
+            if (process.env.DEBUG_LOOP_DETECTION === '1') {
+              console.error(`[LOOP CHECK STREAM] 🛑 Breaking loop!`);
+            }
             yield {
               type: "content",
               content: "\n\n⚠️ Detected repetitive tool calls. Stopping to prevent infinite loop.\n\nI apologize, but I seem to be stuck in a loop trying to answer your question. Let me provide what I can without further tool use.",

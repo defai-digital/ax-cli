@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.3] - 2025-11-20
+
+### Added
+- **Debug Logging for Loop Detection** - Added comprehensive debugging tools
+  - Added `DEBUG_LOOP_DETECTION=1` environment variable for troubleshooting
+  - Detailed logging shows tool signatures, counts, and detection triggers
+  - Helps diagnose loop detection behavior in production
+  - Logs every tool call check with signature and count information
+  - Modified: `src/agent/llm-agent.ts` (lines 162-199, 285-295, 803-817)
+
+### Changed
+- **Verified Loop Detection Implementation** - Confirmed fix is working correctly
+  - Ran comprehensive tests with debug logging enabled
+  - Verified signature generation uses full command (not just base command)
+  - Confirmed detection triggers on 2nd occurrence (count >= 1)
+  - Test results show loop detection is active and functioning
+  - Created detailed debug guide in `automatosx/REPORT/analysis/`
+
+### Documentation
+- Added `automatosx/REPORT/analysis/2025-11-20-loop-debug-guide.md`
+  - Complete guide for debugging loop detection issues
+  - Instructions for enabling debug mode
+  - Expected output patterns
+  - Troubleshooting steps
+- Added `automatosx/REPORT/analysis/2025-11-20-loop-test-results.md`
+  - Test execution results showing loop detection working
+  - Debug output analysis
+  - Verification of fix implementation
+
+### Technical
+- All 370 tests passing ✅
+- Loop detection verified working in headless mode
+- Debug logging can be enabled without code changes
+- Zero performance impact when debug mode is off
+
 ## [2.4.2] - 2025-11-20
 
 ### Fixed
