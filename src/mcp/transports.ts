@@ -164,8 +164,9 @@ class HttpClientTransport extends EventEmitter implements Transport {
     try {
       const response = await this.client.post('/rpc', message);
       return response.data;
-    } catch (error) {
-      throw new Error(`HTTP transport error: ${error}`);
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || error?.message || String(error);
+      throw new Error(`HTTP transport error: ${errorMessage}`);
     }
   }
 }
@@ -192,8 +193,9 @@ class SSEClientTransport extends EventEmitter implements Transport {
         headers: { 'Content-Type': 'application/json' }
       });
       return response.data;
-    } catch (error) {
-      throw new Error(`SSE transport error: ${error}`);
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || error?.message || String(error);
+      throw new Error(`SSE transport error: ${errorMessage}`);
     }
   }
 }

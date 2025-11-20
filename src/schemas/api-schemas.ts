@@ -54,6 +54,7 @@ export const LLMResponseSchema: z.ZodType<any> = z.object({
       prompt_tokens: z.number(),
       completion_tokens: z.number(),
       total_tokens: z.number(),
+      reasoning_tokens: z.number().optional(), // GLM-4.6 thinking mode support
     })
     .optional(),
 });
