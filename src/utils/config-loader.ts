@@ -100,6 +100,7 @@ export interface SettingsYaml {
     max_tool_rounds: number;
     default_timeout: number;
     default_max_tokens: number;
+    max_recent_tool_calls: number;
   };
   file: {
     max_file_size: number;
@@ -124,6 +125,7 @@ export interface SettingsYaml {
     default_model: string;
     default_encoding: string;
     cache_max_size: number;
+    chars_per_token_estimate: number;
   };
   cache: {
     default_max_size: number;

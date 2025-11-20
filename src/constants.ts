@@ -15,6 +15,7 @@ export const AGENT_CONFIG = {
   MAX_TOOL_ROUNDS: settingsYaml.agent.max_tool_rounds,
   DEFAULT_TIMEOUT: settingsYaml.agent.default_timeout,
   DEFAULT_MAX_TOKENS: settingsYaml.agent.default_max_tokens,
+  MAX_RECENT_TOOL_CALLS: settingsYaml.agent.max_recent_tool_calls,
 } as const;
 
 // Convert YAML model config to runtime format
@@ -79,6 +80,7 @@ export const TOKEN_CONFIG = {
   DEFAULT_MODEL: settingsYaml.token.default_model,
   DEFAULT_ENCODING: settingsYaml.token.default_encoding,
   CACHE_MAX_SIZE: settingsYaml.token.cache_max_size,
+  CHARS_PER_TOKEN_ESTIMATE: settingsYaml.token.chars_per_token_estimate,
 } as const;
 
 // Cache Configuration

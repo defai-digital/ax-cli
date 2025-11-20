@@ -9,6 +9,7 @@ import * as prompts from '@clack/prompts';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { parseJsonFile } from '../utils/json-utils.js';
+import { TOKEN_CONFIG } from '../constants.js';
 
 const execAsync = promisify(exec);
 
@@ -260,7 +261,7 @@ export function createMemoryCommand(): Command {
         const sections = (content.match(/^## /gm) || []).length;
 
         // Estimate tokens (rough approximation: ~4 chars per token)
-        const estimatedTokens = Math.ceil(chars / 4);
+        const estimatedTokens = Math.ceil(chars / TOKEN_CONFIG.CHARS_PER_TOKEN_ESTIMATE);
 
         prompts.intro('Custom Instructions Statistics');
 

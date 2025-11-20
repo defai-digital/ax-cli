@@ -5,6 +5,7 @@ agent:
   max_tool_rounds: 400
   default_timeout: 360000  # 6 minutes in milliseconds
   default_max_tokens: 8192
+  max_recent_tool_calls: 20  # Keep only last 20 unique tool calls
 
 file:
   max_file_size: 1048576  # 1MB in bytes
@@ -29,6 +30,7 @@ token:
   default_model: gpt-4
   default_encoding: cl100k_base
   cache_max_size: 1000
+  chars_per_token_estimate: 4  # Rough approximation for token estimation
 
 cache:
   default_max_size: 1000

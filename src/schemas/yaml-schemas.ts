@@ -42,6 +42,7 @@ export const SettingsYamlSchema = z.object({
     max_tool_rounds: z.number().positive().int(),
     default_timeout: z.number().positive().int(),
     default_max_tokens: z.number().positive().int(),
+    max_recent_tool_calls: z.number().positive().int(),
   }),
   file: z.object({
     max_file_size: z.number().positive().int(),
@@ -66,6 +67,7 @@ export const SettingsYamlSchema = z.object({
     default_model: z.string().min(1),
     default_encoding: z.string().min(1),
     cache_max_size: z.number().positive().int(),
+    chars_per_token_estimate: z.number().positive().int(),
   }),
   cache: z.object({
     default_max_size: z.number().positive().int(),

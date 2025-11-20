@@ -13,6 +13,7 @@ import {
 } from "../tools/index.js";
 import { ToolResult } from "../types/index.js";
 import { EventEmitter } from "events";
+import { AGENT_CONFIG } from "../constants.js";
 import { createTokenCounter, TokenCounter } from "../utils/token-counter.js";
 import { loadCustomInstructions } from "../utils/custom-instructions.js";
 import { getSettingsManager } from "../utils/settings-manager.js";
@@ -142,8 +143,8 @@ export class LLMAgent extends EventEmitter {
         return true;
       }
 
-      // Clean up old entries (keep only last 20 unique calls)
-      if (this.recentToolCalls.size > 20) {
+      // Clean up old entries (keep only last N unique calls)
+      if (this.recentToolCalls.size > AGENT_CONFIG.MAX_RECENT_TOOL_CALLS) {
         const firstKey = this.recentToolCalls.keys().next().value;
         // Map.keys().next().value is guaranteed to exist when size > 0, but TypeScript doesn't know this
         if (firstKey) {

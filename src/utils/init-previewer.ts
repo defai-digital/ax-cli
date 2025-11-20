@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as prompts from '@clack/prompts';
 import type { ProjectInfo } from '../types/project-analysis.js';
+import { TOKEN_CONFIG } from '../constants.js';
 
 export interface PreviewOptions {
   showDiff?: boolean;
@@ -111,7 +112,7 @@ export class InitPreviewer {
       const lines = preview.newContent.split('\n').length;
       const chars = preview.newContent.length;
       // Rough approximation: actual tokens vary by content (English ~4 chars/token, code ~3)
-      const tokens = Math.ceil(chars / 4);
+      const tokens = Math.ceil(chars / TOKEN_CONFIG.CHARS_PER_TOKEN_ESTIMATE);
 
       let summary = `Lines: ${lines}\nCharacters: ${chars}\nEstimated Tokens: ~${tokens}`;
 

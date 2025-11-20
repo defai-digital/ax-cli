@@ -5,7 +5,7 @@ import { ConfirmationService } from "../utils/confirmation-service.js";
 import { useEnhancedInput, Key } from "./use-enhanced-input.js";
 
 import { filterCommandSuggestions } from "../ui/components/command-suggestions.js";
-import { loadModelConfig, updateCurrentModel } from "../utils/model-config.js";
+import { getSettingsManager } from "../utils/settings-manager.js";
 import { ProjectAnalyzer } from "../utils/project-analyzer.js";
 import { InstructionGenerator } from "../utils/instruction-generator.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
@@ -164,7 +164,8 @@ export function useInputHandler({
       if (key.tab || key.return) {
         const selectedModel = availableModels[selectedModelIndex];
         agent.setModel(selectedModel.model);
-        updateCurrentModel(selectedModel.model);
+        const settingsManager = getSettingsManager();
+        settingsManager.setCurrentModel(selectedModel.model);
         const confirmEntry: ChatEntry = {
           type: "assistant",
           content: `✓ Switched to model: ${selectedModel.model}`,
@@ -242,7 +243,9 @@ export function useInputHandler({
 
   // Load models from configuration with fallback to defaults
   const availableModels: ModelOption[] = useMemo(() => {
-    return loadModelConfig(); // Return directly, interface already matches
+    const settingsManager = getSettingsManager();
+    const models = settingsManager.getAvailableModels();
+    return models.map(m => ({ model: m }));
   }, []);
 
   const handleDirectCommand = async (input: string): Promise<boolean> => {
@@ -525,7 +528,8 @@ Examples:
 
       if (modelNames.includes(modelArg)) {
         agent.setModel(modelArg);
-        updateCurrentModel(modelArg); // Update project current model
+        const settingsManager = getSettingsManager();
+        settingsManager.setCurrentModel(modelArg);
         const confirmEntry: ChatEntry = {
           type: "assistant",
           content: `✓ Switched to model: ${modelArg}`,
