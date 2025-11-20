@@ -4,7 +4,9 @@
 
 import * as prompts from '@clack/prompts';
 import { OnboardingManager } from '../../utils/onboarding-manager.js';
+import { TemplateManager } from '../../utils/template-manager.js';
 import type { ProjectInfo } from '../../types/project-analysis.js';
+import type { ProjectTemplate } from '../../schemas/index.js';
 
 export interface WizardOptions {
   nonInteractive?: boolean;
@@ -31,6 +33,7 @@ export interface WizardResult {
   preferences: UserPreferences;
   generateInstructions: boolean;
   skipWelcome: boolean;
+  selectedTemplate?: ProjectTemplate;
 }
 
 export class InitWizard {
@@ -59,13 +62,15 @@ export class InitWizard {
     // Run wizard steps
     const apiConfig = await this.stepAPIConfiguration();
     const preferences = await this.stepPreferences();
-    const generateInstructions = await this.stepInstructionGeneration();
+    const selectedTemplate = await this.stepTemplateSelection();
+    const generateInstructions = await this.stepInstructionGeneration(selectedTemplate);
 
     return {
       apiConfig,
       preferences,
       generateInstructions,
       skipWelcome: !this.isFirstRun,
+      selectedTemplate,
     };
   }
 
@@ -258,9 +263,72 @@ export class InitWizard {
   }
 
   /**
-   * Step 3: Instruction Generation Confirmation
+   * Step 3: Template Selection
    */
-  private async stepInstructionGeneration(): Promise<boolean> {
+  private async stepTemplateSelection(): Promise<ProjectTemplate | undefined> {
+    // If template is specified in options, use it
+    if (this.options.template) {
+      const template = TemplateManager.getTemplate(this.options.template);
+      if (template) {
+        return template;
+      }
+      console.warn(`⚠️  Template '${this.options.template}' not found, continuing without template`);
+    }
+
+    // Ask if user wants to use a template
+    const useTemplate = await prompts.confirm({
+      message: 'Use a project template?',
+      initialValue: false,
+    });
+
+    if (prompts.isCancel(useTemplate)) {
+      prompts.cancel('Operation cancelled.');
+      process.exit(0);
+    }
+
+    if (!useTemplate) {
+      return undefined;
+    }
+
+    // List available templates
+    const templates = TemplateManager.listTemplates();
+
+    if (templates.length === 0) {
+      await prompts.note(
+        'No templates available. You can create templates with:\n' +
+        '  ax-cli templates save <name>',
+        'No Templates'
+      );
+      return undefined;
+    }
+
+    // Select template
+    const templateId = await prompts.select({
+      message: 'Select a template:',
+      options: templates.map(t => ({
+        value: t.id,
+        label: t.name,
+        hint: t.description,
+      })),
+    });
+
+    if (prompts.isCancel(templateId)) {
+      prompts.cancel('Operation cancelled.');
+      process.exit(0);
+    }
+
+    return TemplateManager.getTemplate(templateId as string) || undefined;
+  }
+
+  /**
+   * Step 4: Instruction Generation Confirmation
+   */
+  private async stepInstructionGeneration(selectedTemplate?: ProjectTemplate): Promise<boolean> {
+    // If using a template, skip this step (template has instructions)
+    if (selectedTemplate) {
+      return false; // Don't generate, use template instructions
+    }
+
     const result = await prompts.confirm({
       message: 'Generate custom instructions (CUSTOM.md)?',
       initialValue: true,
@@ -310,14 +378,21 @@ export class InitWizard {
    * Get default values for non-interactive mode
    */
   private getDefaults(): WizardResult {
+    // Check if template was specified
+    let selectedTemplate: ProjectTemplate | undefined;
+    if (this.options.template) {
+      selectedTemplate = TemplateManager.getTemplate(this.options.template) || undefined;
+    }
+
     return {
       preferences: {
         verbose: false,
         autoConfirm: true,
         editor: undefined,
       },
-      generateInstructions: true,
+      generateInstructions: !selectedTemplate, // Don't generate if using template
       skipWelcome: true,
+      selectedTemplate,
     };
   }
 }

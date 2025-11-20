@@ -85,6 +85,12 @@ system_prompt:
            - Configuration files (package.json, tsconfig.json)
            - Then specific modules as needed
 
+        4. CRITICAL - Complete the task:
+           - Gather information ONCE, then act on it
+           - Don't repeat the same exploration tools
+           - After getting tool results, USE them to complete the user's request
+           - Example: If asked for line count and you found files, COUNT them - don't search again
+
     file_operations:
       title: "FILE OPERATION SAFETY"
       steps:

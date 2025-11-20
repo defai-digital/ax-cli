@@ -12,6 +12,8 @@ import { createInitCommand } from "./commands/init.js";
 import { createUpdateCommand } from "./commands/update.js";
 import { createSetupCommand } from "./commands/setup.js";
 import { createUsageCommand } from "./commands/usage.js";
+import { createTemplatesCommand } from "./commands/templates.js";
+import { createMemoryCommand } from "./commands/memory.js";
 import { getVersion } from "./utils/version.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat";
 
@@ -534,6 +536,12 @@ program.addCommand(createMCPCommand());
 
 // Init command
 program.addCommand(createInitCommand());
+
+// Templates command
+program.addCommand(createTemplatesCommand());
+
+// Memory command
+program.addCommand(createMemoryCommand());
 
 // Update command
 program.addCommand(createUpdateCommand());

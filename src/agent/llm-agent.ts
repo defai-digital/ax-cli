@@ -122,15 +122,22 @@ export class LLMAgent extends EventEmitter {
    */
   private isRepetitiveToolCall(toolCall: LLMToolCall): boolean {
     try {
-      // Create a signature for this tool call (tool name + normalized args)
       const args = JSON.parse(toolCall.function.arguments || '{}');
-      const signature = `${toolCall.function.name}:${JSON.stringify(args)}`;
 
-      // Check if we've seen this exact call recently
-      const count = this.recentToolCalls.get(signature) || 0;
-      this.recentToolCalls.set(signature, count + 1);
+      // For bash commands, extract the base command (first word) for similarity checking
+      let baseSignature = toolCall.function.name;
+      if (toolCall.function.name === 'bash' && args.command) {
+        // Extract base command (e.g., "find", "ls", "grep") from full command
+        const baseCommand = args.command.trim().split(/\s+/)[0];
+        baseSignature = `bash:${baseCommand}`;
+      }
 
-      // If we've seen this exact call 2+ times in recent history, it's likely looping
+      // Track by base signature (tool name or bash:command)
+      const count = this.recentToolCalls.get(baseSignature) || 0;
+      this.recentToolCalls.set(baseSignature, count + 1);
+
+      // If we've seen this tool/command type 2+ times in recent history, it's likely looping
+      // This catches both exact duplicates and similar commands (e.g., multiple "find" variations)
       if (count >= 2) {
         return true;
       }

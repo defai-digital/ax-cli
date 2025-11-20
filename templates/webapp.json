@@ -1,0 +1,43 @@
+{
+  "id": "webapp",
+  "name": "Web Application",
+  "description": "Modern web application with React and TypeScript",
+  "version": "1.0.0",
+  "projectType": "web",
+  "tags": ["web", "react", "typescript", "vite"],
+  "instructions": "# Web Application - Quick Reference\n\n**Type:** web | **Lang:** TypeScript\n**Stack:** React, Vite, TypeScript\n\n---\n\n## 🎯 Critical Rules\n\n1. **React Hooks:** Follow Rules of Hooks (no conditional hooks)\n2. **Validation:** Use zod for form inputs and API responses\n3. **Types:** Explicit types for props and state\n4. **Components:** Functional components with TypeScript\n5. **State:** Use proper state management (Context/Zustand/Redux)\n\n---\n\n## 📋 Project Overview\n\n**Entry:** `src/main.tsx` | **PM:** npm | **Module:** ESM\n\n**Directories:**\n- `src/` - Source code\n- `src/components/` - React components\n- `src/pages/` - Page components\n- `src/hooks/` - Custom hooks\n- `src/utils/` - Utility functions\n- `src/api/` - API client code\n- `public/` - Static assets\n\n---\n\n## 🔧 Code Patterns\n\n### Component Structure\n\n✅ **DO:**\n```typescript\nimport { useState } from 'react';\nimport { z } from 'zod';\n\ninterface UserCardProps {\n  user: User;\n  onUpdate: (user: User) => void;\n}\n\nexport function UserCard({ user, onUpdate }: UserCardProps) {\n  const [editing, setEditing] = useState(false);\n  \n  const handleSubmit = (data: unknown) => {\n    const result = UserSchema.safeParse(data);\n    if (result.success) {\n      onUpdate(result.data);\n    }\n  };\n  \n  return (\n    <div className=\"user-card\">\n      {/* Component JSX */}\n    </div>\n  );\n}\n```\n\n❌ **DON'T:**\n```typescript\n// Don't use any types\nfunction UserCard({ user }: any) { }  // ❌\n\n// Don't skip prop types\nfunction UserCard({ user, onUpdate }) { }  // ❌\n\n// Don't use conditional hooks\nfunction UserCard({ user }: Props) {\n  if (user.active) {\n    useState(true);  // ❌ Conditional hook\n  }\n}\n```\n\n### Custom Hooks\n\n✅ **DO:**\n```typescript\nimport { useState, useEffect } from 'react';\n\nexport function useApi<T>(url: string): {\n  data: T | null;\n  loading: boolean;\n  error: Error | null;\n} {\n  const [data, setData] = useState<T | null>(null);\n  const [loading, setLoading] = useState(true);\n  const [error, setError] = useState<Error | null>(null);\n  \n  useEffect(() => {\n    fetch(url)\n      .then(res => res.json())\n      .then(setData)\n      .catch(setError)\n      .finally(() => setLoading(false));\n  }, [url]);\n  \n  return { data, loading, error };\n}\n```\n\n### Form Validation\n\n✅ **DO:**\n```typescript\nimport { z } from 'zod';\nimport { useForm } from 'react-hook-form';\nimport { zodResolver } from '@hookform/resolvers/zod';\n\nconst FormSchema = z.object({\n  email: z.string().email(),\n  password: z.string().min(8),\n});\n\ntype FormData = z.infer<typeof FormSchema>;\n\nexport function LoginForm() {\n  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({\n    resolver: zodResolver(FormSchema),\n  });\n  \n  const onSubmit = (data: FormData) => {\n    // Data is validated\n  };\n  \n  return (\n    <form onSubmit={handleSubmit(onSubmit)}>\n      <input {...register('email')} />\n      {errors.email && <span>{errors.email.message}</span>}\n    </form>\n  );\n}\n```\n\n---\n\n## 🔄 Workflow\n\n**Before:**\n- Read existing components\n- Check component hierarchy\n- Review state management\n\n**Changes:**\n- Edit existing files (never recreate)\n- Keep components focused\n- Update tests when changing behavior\n\n**After:**\n1. Test: `npm test`\n2. Build: `npm run build`\n3. Dev: `npm run dev`\n4. Type check: `npm run typecheck`\n\n---\n\n## 🐛 Troubleshooting\n\n### Hooks dependency warnings\n**Solution:** Add all dependencies to useEffect\n```typescript\n// ✅ Correct\nuseEffect(() => {\n  fetchData(userId);\n}, [userId]);  // Include userId\n\n// ❌ Wrong\nuseEffect(() => {\n  fetchData(userId);\n}, []);  // Missing userId\n```\n\n### Type errors with props\n**Solution:** Define explicit interface\n```typescript\ninterface Props {\n  user: User;\n  onUpdate: (user: User) => void;\n}\n\nfunction MyComponent({ user, onUpdate }: Props) { }\n```\n\n### State not updating\n**Solution:** Use functional setState for updates based on previous state\n```typescript\n// ✅ Correct\nsetCount(prev => prev + 1);\n\n// ❌ Wrong (can miss updates)\nsetCount(count + 1);\n```",
+  "metadata": {
+    "conventions": {
+      "moduleSystem": "esm",
+      "componentStyle": "functional",
+      "stateManagement": "react-hooks",
+      "validation": "zod",
+      "styling": "css-modules"
+    },
+    "scripts": {
+      "build": "vite build",
+      "test": "vitest run",
+      "dev": "vite",
+      "typecheck": "tsc --noEmit"
+    },
+    "directories": {
+      "source": "src",
+      "components": "src/components",
+      "pages": "src/pages",
+      "hooks": "src/hooks",
+      "utils": "src/utils",
+      "api": "src/api",
+      "public": "public"
+    },
+    "keyFiles": [
+      "package.json",
+      "tsconfig.json",
+      "vite.config.ts",
+      "src/main.tsx",
+      "index.html"
+    ]
+  },
+  "createdAt": "2025-11-19T00:00:00.000Z",
+  "isBuiltIn": true,
+  "author": "AX CLI Team"
+}

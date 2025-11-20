@@ -1,0 +1,39 @@
+{
+  "id": "api",
+  "name": "REST API",
+  "description": "RESTful API with Express and TypeScript",
+  "version": "1.0.0",
+  "projectType": "api",
+  "tags": ["api", "rest", "express", "typescript"],
+  "instructions": "# REST API - Quick Reference\n\n**Type:** api | **Lang:** TypeScript\n**Stack:** Express, Node.js, TypeScript\n\n---\n\n## 🎯 Critical Rules\n\n1. **ESM Imports:** Always use `.js` extension: `import { x } from './y.js'`\n2. **Validation:** Use zod for all request body/query validation\n3. **Types:** Explicit return types required on all functions\n4. **Error Handling:** Use middleware for centralized error handling\n5. **Async/Await:** Use async handlers with proper error catching\n\n---\n\n## 📋 Project Overview\n\n**Entry:** `dist/server.js` | **PM:** npm | **Module:** ESM\n\n**Directories:**\n- `src/` - Source code\n- `src/routes/` - API routes\n- `src/controllers/` - Route controllers\n- `src/middleware/` - Express middleware\n- `src/models/` - Data models\n- `tests/` - Test files\n\n---\n\n## 🔧 Code Patterns\n\n### Route Definitions\n\n✅ **DO:**\n```typescript\nimport { Router } from 'express';\nimport { z } from 'zod';\n\nconst router = Router();\n\nconst CreateSchema = z.object({\n  name: z.string().min(1),\n  email: z.string().email(),\n});\n\nrouter.post('/users', async (req, res, next) => {\n  try {\n    const result = CreateSchema.safeParse(req.body);\n    if (!result.success) {\n      return res.status(400).json({ error: result.error });\n    }\n    const user = await createUser(result.data);\n    res.status(201).json(user);\n  } catch (error) {\n    next(error);\n  }\n});\n```\n\n❌ **DON'T:**\n```typescript\n// Don't skip validation\nrouter.post('/users', (req, res) => {\n  const user = createUser(req.body);  // ❌ No validation\n});\n\n// Don't forget error handling\nrouter.get('/users', async (req, res) => {\n  const users = await getUsers();  // ❌ No try/catch\n  res.json(users);\n});\n```\n\n### Middleware\n\n✅ **DO:**\n```typescript\nimport type { Request, Response, NextFunction } from 'express';\n\nexport function validateAuth(\n  req: Request,\n  res: Response,\n  next: NextFunction\n): void {\n  const token = req.headers.authorization;\n  if (!token) {\n    res.status(401).json({ error: 'Unauthorized' });\n    return;\n  }\n  next();\n}\n```\n\n---\n\n## 🔄 Workflow\n\n**Before:**\n- Read existing route files\n- Check API documentation\n- Review tests for expected behavior\n\n**Changes:**\n- Edit existing files (never recreate)\n- Keep changes focused\n- Update tests when changing endpoints\n\n**After:**\n1. Test: `npm test`\n2. Build: `npm run build`\n3. Start: `npm start`\n4. Verify: `curl http://localhost:3000/health`\n\n---\n\n## 🐛 Troubleshooting\n\n### Validation errors not showing\n**Solution:** Use `.safeParse()` and return errors properly\n```typescript\nconst result = schema.safeParse(req.body);\nif (!result.success) {\n  return res.status(400).json({ error: result.error });\n}\n```\n\n### Unhandled promise rejections\n**Solution:** Always use try/catch with async handlers\n```typescript\nrouter.get('/data', async (req, res, next) => {\n  try {\n    const data = await getData();\n    res.json(data);\n  } catch (error) {\n    next(error);  // Pass to error middleware\n  }\n});\n```",
+  "metadata": {
+    "conventions": {
+      "moduleSystem": "esm",
+      "importExtension": ".js",
+      "testFramework": "vitest",
+      "validation": "zod"
+    },
+    "scripts": {
+      "build": "tsc",
+      "test": "vitest run",
+      "dev": "tsx src/server.ts",
+      "start": "node dist/server.js"
+    },
+    "directories": {
+      "source": "src",
+      "routes": "src/routes",
+      "controllers": "src/controllers",
+      "middleware": "src/middleware",
+      "models": "src/models",
+      "tests": "tests"
+    },
+    "keyFiles": [
+      "package.json",
+      "tsconfig.json",
+      "src/server.ts"
+    ]
+  },
+  "createdAt": "2025-11-19T00:00:00.000Z",
+  "isBuiltIn": true,
+  "author": "AX CLI Team"
+}

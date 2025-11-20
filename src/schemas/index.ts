@@ -164,3 +164,41 @@ export function safeValidateProjectSettings(data: unknown): {
   }
   return { success: false, error: result.error };
 }
+
+// Template schema
+export const ProjectTemplateSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string(),
+  version: z.string(),
+  projectType: z.string(),
+  tags: z.array(z.string()),
+  instructions: z.string(),
+  metadata: z.object({
+    conventions: z.record(z.string(), z.string()).optional(),
+    scripts: z.record(z.string(), z.string()).optional(),
+    directories: z.record(z.string(), z.string()).optional(),
+    keyFiles: z.array(z.string()).optional(),
+  }),
+  createdAt: z.string(),
+  isBuiltIn: z.boolean(),
+  author: z.string().optional(),
+});
+
+export type ProjectTemplate = z.infer<typeof ProjectTemplateSchema>;
+
+export function validateProjectTemplate(data: unknown): ProjectTemplate {
+  return ProjectTemplateSchema.parse(data);
+}
+
+export function safeValidateProjectTemplate(data: unknown): {
+  success: boolean;
+  data?: ProjectTemplate;
+  error?: z.ZodError;
+} {
+  const result = ProjectTemplateSchema.safeParse(data);
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+  return { success: false, error: result.error };
+}
