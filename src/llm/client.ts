@@ -367,7 +367,7 @@ export class LLMClient {
       }
     } catch (error: any) {
       const modelInfo = options?.model || this.currentModel;
-      throw new Error(`LLM API streaming error (model: ${modelInfo}): ${error.message}`);
+      throw new Error(`LLM API streaming error (model: ${modelInfo}): ${extractErrorMessage(error)}`);
     }
   }
 

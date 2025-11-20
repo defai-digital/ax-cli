@@ -92,9 +92,10 @@ export class ContextManager {
     return messages.map(m => {
       const contentLen = typeof m.content === 'string' ? m.content.length : 0;
       const toolCallsLen = (m as any).tool_calls?.length || 0;
-      // Include first 20 chars of content to prevent hash collisions
+      // Include first 50 chars of content to prevent hash collisions
+      // Increased from 20 to 50 to reduce false cache hits
       const contentSample = typeof m.content === 'string'
-        ? m.content.substring(0, 20).replace(/[|:]/g, '') // Remove delimiters
+        ? m.content.substring(0, 50).replace(/[|:]/g, '') // Remove delimiters
         : '';
       return `${m.role}:${contentLen}:${toolCallsLen}:${contentSample}`;
     }).join('|');
@@ -334,7 +335,7 @@ export class ContextManager {
       const msg = workingMessages[i];
       const msgTokens = tokenCounter.countMessageTokens([msg] as any);
 
-      if (recentTokens + msgTokens < availableTokens) {
+      if (recentTokens + msgTokens <= availableTokens) {
         recentMessages.unshift(msg);
         recentTokens += msgTokens;
       } else {

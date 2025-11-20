@@ -455,6 +455,7 @@ function ChatInterfaceWithAgent({
               <Text color="magenta">{getCurrentProjectName()}</Text>
               <Text color="gray" dimColor> | ax-cli: </Text>
               <Text color="cyan">v{getVersion()}</Text>
+              <Text color="gray" dimColor> by DEFAI</Text>
               <Text color="gray" dimColor> | model: </Text>
               <Text color="yellow">{agent.getCurrentModel()}</Text>
               <Text color="gray" dimColor> | context: </Text>

@@ -178,7 +178,10 @@ export class ConfirmationService extends EventEmitter {
     for (const cmd of commands) {
       try {
         await execAsync(`which ${cmd}`);
-        await execAsync(`${cmd} "${filename}"`);
+        // Properly escape filename to prevent command injection
+        // Replace single quotes with '\'' and wrap in single quotes
+        const escapedFilename = `'${filename.replace(/'/g, "'\\''")}'`;
+        await execAsync(`${cmd} ${escapedFilename}`);
         return;
       } catch {
         // Continue to next command

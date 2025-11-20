@@ -130,17 +130,27 @@ export class MCPManager extends EventEmitter {
       }
     }
 
-    // Disconnect client
+    // Disconnect client with error handling
     const client = this.clients.get(serverName);
     if (client) {
-      await client.close();
+      try {
+        await client.close();
+      } catch (error) {
+        // Log error but continue cleanup
+        console.warn(`Error closing MCP client ${serverName}:`, error);
+      }
       this.clients.delete(serverName);
     }
 
-    // Close transport
+    // Close transport with error handling
     const transport = this.transports.get(serverName);
     if (transport) {
-      await transport.disconnect();
+      try {
+        await transport.disconnect();
+      } catch (error) {
+        // Log error but continue cleanup
+        console.warn(`Error disconnecting MCP transport ${serverName}:`, error);
+      }
       this.transports.delete(serverName);
     }
 
@@ -183,7 +193,17 @@ export class MCPManager extends EventEmitter {
 
   async shutdown(): Promise<void> {
     const serverNames = Array.from(this.clients.keys());
-    await Promise.all(serverNames.map(name => this.removeServer(name)));
+    // Use Promise.allSettled to ensure all servers are attempted even if some fail
+    const results = await Promise.allSettled(
+      serverNames.map(name => this.removeServer(name))
+    );
+
+    // Log any failures but don't throw
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.warn(`Failed to remove server ${serverNames[index]}:`, result.reason);
+      }
+    });
   }
 
   getTransportType(serverName: string): TransportType | undefined {

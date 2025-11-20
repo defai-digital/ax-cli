@@ -11,16 +11,26 @@ import { z } from 'zod';
  */
 export const PathSchema = z.string().min(1).refine(
   (filePath) => {
-    // Prevent path traversal attempts
-    const normalized = path.normalize(filePath);
+    // Resolve to absolute path and check if it's within the current working directory
+    const resolved = path.resolve(filePath);
+    const cwd = process.cwd();
 
-    // Check for suspicious patterns
-    return (
-      !normalized.includes('..') &&
-      !normalized.startsWith('/etc') &&
-      !normalized.startsWith('/sys') &&
-      !normalized.startsWith('/proc')
-    );
+    // Ensure path is within current working directory
+    const isWithinCwd = resolved === cwd || resolved.startsWith(cwd + path.sep);
+    if (!isWithinCwd) {
+      return false;
+    }
+
+    // Additional check: block access to sensitive system directories
+    // This is a defense-in-depth measure
+    const dangerousPaths = ['/etc', '/sys', '/proc', '/dev', '/root', '/boot'];
+    for (const dangerous of dangerousPaths) {
+      if (resolved.startsWith(dangerous + path.sep) || resolved === dangerous) {
+        return false;
+      }
+    }
+
+    return true;
   },
   {
     message: 'Invalid or potentially dangerous file path',
@@ -48,7 +58,10 @@ export function isPathWithin(filePath: string, baseDir: string): boolean {
   const resolvedPath = path.resolve(filePath);
   const resolvedBase = path.resolve(baseDir);
 
-  return resolvedPath.startsWith(resolvedBase);
+  // Exact match or starts with base + path separator
+  // This prevents false positives like /home/user/projects matching /home/user/project
+  return resolvedPath === resolvedBase ||
+         resolvedPath.startsWith(resolvedBase + path.sep);
 }
 
 /**

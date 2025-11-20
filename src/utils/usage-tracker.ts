@@ -95,9 +95,15 @@ export class UsageTracker {
    * Get current session statistics
    */
   getSessionStats(): SessionStats {
+    // Deep copy to prevent external mutation of stats
+    const modelsCopy = new Map<string, UsageStats>();
+    for (const [model, stats] of this.sessionStats.byModel.entries()) {
+      modelsCopy.set(model, { ...stats });
+    }
+
     return {
       ...this.sessionStats,
-      byModel: new Map(this.sessionStats.byModel)
+      byModel: modelsCopy
     };
   }
 

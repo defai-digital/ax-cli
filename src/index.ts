@@ -213,12 +213,18 @@ Respond with ONLY the commit message, no additional text.`;
       process.exit(1);
     }
 
-    // Clean the commit message
+    // Clean the commit message (remove leading/trailing quotes)
     const cleanCommitMessage = commitMessage.replace(/^["']|["']$/g, "");
-    console.log(`✅ Generated commit message: "${cleanCommitMessage}"`);
 
-    // Execute the commit
-    const commitCommand = `git commit -m "${cleanCommitMessage}"`;
+    // Remove newlines to ensure single-line commit message
+    const singleLineMessage = cleanCommitMessage.replace(/\n/g, " ").trim();
+
+    console.log(`✅ Generated commit message: "${singleLineMessage}"`);
+
+    // Execute the commit with proper shell escaping to prevent injection
+    // Use single quotes and escape any single quotes in the message
+    const escapedMessage = `'${singleLineMessage.replace(/'/g, "'\\''")}'`;
+    const commitCommand = `git commit -m ${escapedMessage}`;
     const commitResult = await agent.executeBashCommand(commitCommand);
 
     if (commitResult.success) {

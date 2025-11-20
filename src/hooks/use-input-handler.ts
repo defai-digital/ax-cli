@@ -9,7 +9,7 @@ import { getSettingsManager } from "../utils/settings-manager.js";
 import { ProjectAnalyzer } from "../utils/project-analyzer.js";
 import { InstructionGenerator } from "../utils/instruction-generator.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
-import { getVersion } from "../utils/version.js";
+import { getHistoryManager } from "../utils/history-manager.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -50,8 +50,6 @@ export function useInputHandler({
 }: UseInputHandlerProps) {
   const [showCommandSuggestions, setShowCommandSuggestions] = useState(false);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
-  const [showModelSelection, setShowModelSelection] = useState(false);
-  const [selectedModelIndex, setSelectedModelIndex] = useState(0);
   const [autoEditEnabled, setAutoEditEnabled] = useState(() => {
     const confirmationService = ConfirmationService.getInstance();
     const sessionFlags = confirmationService.getSessionFlags();
@@ -85,11 +83,6 @@ export function useInputHandler({
       if (showCommandSuggestions) {
         setShowCommandSuggestions(false);
         setSelectedCommandIndex(0);
-        return true;
-      }
-      if (showModelSelection) {
-        setShowModelSelection(false);
-        setSelectedModelIndex(0);
         return true;
       }
       if (isProcessing || isStreaming) {
@@ -149,35 +142,6 @@ export function useInputHandler({
       }
     }
 
-    // Handle model selection navigation
-    if (showModelSelection) {
-      if (key.upArrow) {
-        setSelectedModelIndex((prev) =>
-          prev === 0 ? availableModels.length - 1 : prev - 1
-        );
-        return true;
-      }
-      if (key.downArrow) {
-        setSelectedModelIndex((prev) => (prev + 1) % availableModels.length);
-        return true;
-      }
-      if (key.tab || key.return) {
-        const selectedModel = availableModels[selectedModelIndex];
-        agent.setModel(selectedModel.model);
-        const settingsManager = getSettingsManager();
-        settingsManager.setCurrentModel(selectedModel.model);
-        const confirmEntry: ChatEntry = {
-          type: "assistant",
-          content: `✓ Switched to model: ${selectedModel.model}`,
-          timestamp: new Date(),
-        };
-        setChatHistory((prev) => [...prev, confirmEntry]);
-        setShowModelSelection(false);
-        setSelectedModelIndex(0);
-        return true;
-      }
-    }
-
     return false; // Let default handling proceed
   };
 
@@ -234,9 +198,7 @@ export function useInputHandler({
     { command: "/help", description: "Show help information" },
     { command: "/clear", description: "Clear chat history" },
     { command: "/init", description: "Initialize project with smart analysis" },
-    { command: "/models", description: "Switch AI Model" },
     { command: "/usage", description: "Show API usage statistics" },
-    { command: "/version", description: "Show AX CLI version" },
     { command: "/commit-and-push", description: "AI commit & push to remote" },
     { command: "/exit", description: "Exit the application" },
   ];
@@ -254,6 +216,10 @@ export function useInputHandler({
     if (trimmedInput === "/clear") {
       // Reset chat history
       setChatHistory([]);
+
+      // Clear saved history from disk
+      const historyManager = getHistoryManager();
+      historyManager.clearHistory();
 
       // Reset processing states
       setIsProcessing(false);
@@ -390,9 +356,7 @@ Built-in Commands:
   /clear      - Clear chat history
   /init       - Initialize project with smart analysis
   /help       - Show this help
-  /models     - Switch between available models
   /usage      - Show API usage statistics
-  /version    - Show AX CLI version
   /exit       - Exit application
   exit, quit  - Exit application
 
@@ -498,71 +462,10 @@ Examples:
       return true;
     }
 
-    if (trimmedInput === "/version") {
-      const version = getVersion();
-      const versionEntry: ChatEntry = {
-        type: "assistant",
-        content: `🤖 **AX CLI Version ${version}**\n\nEnterprise-Class AI Command Line Interface\nPrimary support for GLM (General Language Model)\n\n💡 Check for updates: \`ax-cli update\`\n💡 Documentation: https://github.com/defai-digital/ax-cli`,
-        timestamp: new Date(),
-      };
-      setChatHistory((prev) => [...prev, versionEntry]);
-      clearInput();
-      return true;
-    }
-
     if (trimmedInput === "/exit") {
       process.exit(0);
       return true;
     }
-
-    if (trimmedInput === "/models") {
-      setShowModelSelection(true);
-      setSelectedModelIndex(0);
-      clearInput();
-      return true;
-    }
-
-    if (trimmedInput.startsWith("/models ")) {
-      const modelArg = trimmedInput.split(" ")[1];
-
-      if (!modelArg) {
-        const errorEntry: ChatEntry = {
-          type: "assistant",
-          content: `Usage: /models <model-name>\n\nAvailable models: ${availableModels.map((m) => m.model).join(", ")}`,
-          timestamp: new Date(),
-        };
-        setChatHistory((prev) => [...prev, errorEntry]);
-        clearInput();
-        return true;
-      }
-
-      const modelNames = availableModels.map((m) => m.model);
-
-      if (modelNames.includes(modelArg)) {
-        agent.setModel(modelArg);
-        const settingsManager = getSettingsManager();
-        settingsManager.setCurrentModel(modelArg);
-        const confirmEntry: ChatEntry = {
-          type: "assistant",
-          content: `✓ Switched to model: ${modelArg}`,
-          timestamp: new Date(),
-        };
-        setChatHistory((prev) => [...prev, confirmEntry]);
-      } else {
-        const errorEntry: ChatEntry = {
-          type: "assistant",
-          content: `Invalid model: ${modelArg}
-
-Available models: ${modelNames.join(", ")}`,
-          timestamp: new Date(),
-        };
-        setChatHistory((prev) => [...prev, errorEntry]);
-      }
-
-      clearInput();
-      return true;
-    }
-
 
     if (trimmedInput === "/commit-and-push") {
       const userEntry: ChatEntry = {
@@ -962,8 +865,6 @@ Respond with ONLY the commit message, no additional text.`;
     cursorPosition,
     showCommandSuggestions,
     selectedCommandIndex,
-    showModelSelection,
-    selectedModelIndex,
     commandSuggestions,
     availableModels,
     agent,

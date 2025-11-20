@@ -340,7 +340,11 @@ export class SettingsManager {
    * Set the current model for the project
    */
   public setCurrentModel(model: string): void {
-    this.updateProjectSetting("model", ModelIdSchema.parse(model));
+    const result = ModelIdSchema.safeParse(model);
+    if (!result.success) {
+      throw new Error(`Invalid model ID: ${model}. ${result.error.message}`);
+    }
+    this.updateProjectSetting("model", result.data);
   }
 
   /**
@@ -348,7 +352,7 @@ export class SettingsManager {
    */
   public getAvailableModels(): string[] {
     const models = this.getUserSetting("models");
-    return models || DEFAULT_USER_SETTINGS.models || [];
+    return models || [];
   }
 
   /**
