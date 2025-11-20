@@ -136,24 +136,37 @@ export class LLMAgent extends EventEmitter {
     try {
       const args = JSON.parse(toolCall.function.arguments || '{}');
 
-      // For bash commands, extract the base command (first word) for similarity checking
-      let baseSignature = toolCall.function.name;
+      // Create a detailed signature that includes key arguments
+      // This allows multiple different commands but catches true repetitions
+      let signature = toolCall.function.name;
+
       if (toolCall.function.name === 'bash' && args.command) {
-        // Extract base command (e.g., "find", "ls", "grep") from full command
-        const commandParts = args.command.trim().split(/\s+/);
-        const baseCommand = commandParts.length > 0 ? commandParts[0] : 'unknown';
-        baseSignature = `bash:${baseCommand}`;
+        // Normalize command: trim whitespace, collapse multiple spaces
+        const normalizedCommand = args.command.trim().replace(/\s+/g, ' ');
+        // Use full command for exact matching (catches true duplicates)
+        signature = `bash:${normalizedCommand}`;
+      } else if (toolCall.function.name === 'read_file' && args.file_path) {
+        // For file reads, include the path
+        signature = `read:${args.file_path}`;
+      } else if (toolCall.function.name === 'write_file' && args.file_path) {
+        // For file writes, include the path
+        signature = `write:${args.file_path}`;
+      } else if (toolCall.function.name === 'text_editor' && args.path) {
+        // For text editor, include the path
+        signature = `edit:${args.path}`;
       }
 
-      // Track by base signature (tool name or bash:command)
-      const count = this.recentToolCalls.get(baseSignature) || 0;
-      this.recentToolCalls.set(baseSignature, count + 1);
+      // Track by detailed signature
+      const count = this.recentToolCalls.get(signature) || 0;
 
-      // If we've seen this tool/command type 2+ times in recent history, it's likely looping
-      // This catches both exact duplicates and similar commands (e.g., multiple "find" variations)
-      if (count >= 2) {
+      // If we've seen this EXACT tool call even once before, it's definitely looping
+      // This catches exact duplicates (same command, same file, etc.) on 2nd occurrence
+      if (count >= 1) {
         return true;
       }
+
+      // Increment the count
+      this.recentToolCalls.set(signature, count + 1);
 
       // Clean up old entries (keep only last N unique calls)
       if (this.recentToolCalls.size > AGENT_CONFIG.MAX_RECENT_TOOL_CALLS) {

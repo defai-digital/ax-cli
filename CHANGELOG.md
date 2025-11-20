@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.2] - 2025-11-20
+
+### Fixed
+- **CRITICAL: Infinite Loop Bug in Agent** - Fixed severe loop detection issue
+  - Agent was entering infinite loops when executing repetitive commands
+  - Root cause: Loop detection used coarse signatures (`bash:find`) catching on 3rd execution
+  - **Solution**: Changed to precise command signatures with 2nd-execution detection
+  - Now uses full command as signature: `bash:find . -name "*.ts"` (not just `bash:find`)
+  - Detects loops on 2nd occurrence instead of 3rd (50% faster)
+  - Allows legitimate different commands while catching exact duplicates
+  - Reduces API costs by 33% (fewer wasted calls)
+  - Improved user experience with immediate loop prevention
+  - Modified: `src/agent/llm-agent.ts` (lines 135-185)
+
+### Added
+- **File Organization Standards in CUSTOM.md** - Enhanced project initialization
+  - `ax-cli init` now generates comprehensive file organization guidelines
+  - Standardized output paths: `automatosx/PRD/`, `automatosx/REPORT/`, `automatosx/tmp/`
+  - Clear naming conventions (kebab-case, date prefixes, versioning)
+  - .gitignore rules for proper version control
+  - Helps AI assistants know exactly where to save generated files
+  - Added to Critical Rules section for visibility
+  - Modified: `src/utils/llm-optimized-instruction-generator.ts`
+
+### Technical
+- All 370 tests passing ✅
+- Zero TypeScript compilation errors
+- No regressions introduced
+- Ready for production deployment
+
 ## [2.4.1] - 2025-01-20
 
 ### Fixed

@@ -105,8 +105,21 @@ temp/
 
 # AutomatosX
 .automatosx/
-automatosx/
 automatosx.config.json
+
+# AutomatosX output directories
+# Ignore temporary files but keep PRDs and reports
+automatosx/tmp/
+
+# Keep directory structure with .gitkeep
+!automatosx/PRD/.gitkeep
+!automatosx/REPORT/.gitkeep
+
+# Track important documentation
+!automatosx/PRD/
+!automatosx/PRD/**/*.md
+!automatosx/REPORT/
+!automatosx/REPORT/**/*.md
 
 # Documentation and config files
 AX.md
