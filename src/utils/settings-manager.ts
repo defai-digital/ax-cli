@@ -1,15 +1,10 @@
-import { existsSync, mkdirSync, copyFileSync, chmodSync } from "fs";
+import { existsSync, mkdirSync, chmodSync } from "fs";
 import { dirname, join } from "path";
 import { homedir } from "os";
 import { UserSettingsSchema, ProjectSettingsSchema } from "../schemas/settings-schemas.js";
 import type { UserSettings, ProjectSettings } from "../schemas/settings-schemas.js";
 import { ModelIdSchema } from '@ax-cli/schemas';
-import { loadMessagesConfig, formatMessage } from "./config-loader.js";
 import { parseJsonFile, writeJsonFile } from "./json-utils.js";
-
-// Load migration messages from YAML
-const messages = loadMessagesConfig();
-const migrationMessages = messages.migration || {};
 
 // Re-export types for external use
 export type { UserSettings, ProjectSettings };
@@ -48,23 +43,11 @@ export class SettingsManager {
   private readonly CACHE_TTL = 5000; // 5 seconds TTL for cache
 
   private constructor() {
-    // NEW: User settings path: ~/.ax-cli/config.json
-    // Fallback to ~/.grok/user-settings.json for backward compatibility
-    const newUserPath = join(homedir(), ".ax-cli", "config.json");
-    const oldUserPath = join(homedir(), ".grok", "user-settings.json");
+    // User settings path: ~/.ax-cli/config.json
+    this.userSettingsPath = join(homedir(), ".ax-cli", "config.json");
 
-    this.userSettingsPath = existsSync(oldUserPath) && !existsSync(newUserPath)
-      ? oldUserPath  // Use old path if it exists and new doesn't
-      : newUserPath; // Prefer new path
-
-    // NEW: Project settings path: .ax-cli/settings.json
-    // Fallback to .grok/settings.json for backward compatibility
-    const newProjectPath = join(process.cwd(), ".ax-cli", "settings.json");
-    const oldProjectPath = join(process.cwd(), ".grok", "settings.json");
-
-    this.projectSettingsPath = existsSync(oldProjectPath) && !existsSync(newProjectPath)
-      ? oldProjectPath  // Use old path if it exists and new doesn't
-      : newProjectPath; // Prefer new path
+    // Project settings path: .ax-cli/settings.json
+    this.projectSettingsPath = join(process.cwd(), ".ax-cli", "settings.json");
   }
 
   /**
@@ -77,90 +60,6 @@ export class SettingsManager {
     return SettingsManager.instance;
   }
 
-  /**
-   * Migrate from old .grok paths to new .ax-cli paths
-   * This is a one-time migration helper
-   */
-  public migrateFromGrokToAxCli(): { migrated: boolean; details: string[] } {
-    const details: string[] = [];
-    let migrated = false;
-
-    // Migrate user settings
-    const oldUserPath = join(homedir(), ".grok", "user-settings.json");
-    const newUserPath = join(homedir(), ".ax-cli", "config.json");
-
-    if (existsSync(oldUserPath) && !existsSync(newUserPath)) {
-      try {
-        // Create new directory
-        const newUserDir = dirname(newUserPath);
-        if (!existsSync(newUserDir)) {
-          mkdirSync(newUserDir, { recursive: true, mode: 0o700 });
-        }
-
-        // Copy file
-        copyFileSync(oldUserPath, newUserPath);
-        chmodSync(newUserPath, 0o600); // Secure permissions for API key
-
-        const successMsg = formatMessage(
-          migrationMessages.user_settings_success || "✅ Migrated user settings: {oldPath} → {newPath}",
-          { oldPath: oldUserPath, newPath: newUserPath }
-        );
-        details.push(successMsg);
-        migrated = true;
-      } catch (error) {
-        const errorMsg = formatMessage(
-          migrationMessages.user_settings_failed || "❌ Failed to migrate user settings: {error}",
-          { error: error instanceof Error ? error.message : 'Unknown error' }
-        );
-        details.push(errorMsg);
-      }
-    }
-
-    // Migrate project settings
-    const oldProjectPath = join(process.cwd(), ".grok", "settings.json");
-    const newProjectPath = join(process.cwd(), ".ax-cli", "settings.json");
-
-    if (existsSync(oldProjectPath) && !existsSync(newProjectPath)) {
-      try {
-        // Create new directory
-        const newProjectDir = dirname(newProjectPath);
-        if (!existsSync(newProjectDir)) {
-          mkdirSync(newProjectDir, { recursive: true });
-        }
-
-        // Copy file
-        copyFileSync(oldProjectPath, newProjectPath);
-
-        const successMsg = formatMessage(
-          migrationMessages.project_settings_success || "✅ Migrated project settings: {oldPath} → {newPath}",
-          { oldPath: oldProjectPath, newPath: newProjectPath }
-        );
-        details.push(successMsg);
-        migrated = true;
-      } catch (error) {
-        const errorMsg = formatMessage(
-          migrationMessages.project_settings_failed || "❌ Failed to migrate project settings: {error}",
-          { error: error instanceof Error ? error.message : 'Unknown error' }
-        );
-        details.push(errorMsg);
-      }
-    }
-
-    if (!migrated) {
-      details.push(migrationMessages.no_migration_needed || 'ℹ️  No migration needed - already using .ax-cli paths or no old settings found');
-    }
-
-    // Update the instance paths to use new locations
-    this.userSettingsPath = newUserPath;
-    this.projectSettingsPath = newProjectPath;
-
-    // Invalidate cache after migration
-    this.userSettingsCache = null;
-    this.projectSettingsCache = null;
-    this.cacheTimestamp = { user: 0, project: 0 };
-
-    return { migrated, details };
-  }
 
   /**
    * Ensure directory exists for a given file path
@@ -173,7 +72,7 @@ export class SettingsManager {
   }
 
   /**
-   * Load user settings from ~/.grok/user-settings.json
+   * Load user settings from ~/.ax-cli/config.json
    */
   public loadUserSettings(): UserSettings {
     // Check cache first
@@ -229,7 +128,7 @@ export class SettingsManager {
   }
 
   /**
-   * Save user settings to ~/.grok/user-settings.json
+   * Save user settings to ~/.ax-cli/config.json
    */
   public saveUserSettings(settings: Partial<UserSettings>): void {
     try {
@@ -296,7 +195,7 @@ export class SettingsManager {
   }
 
   /**
-   * Load project settings from .grok/settings.json
+   * Load project settings from .ax-cli/settings.json
    */
   public loadProjectSettings(): ProjectSettings {
     // Check cache first
@@ -352,7 +251,7 @@ export class SettingsManager {
   }
 
   /**
-   * Save project settings to .grok/settings.json
+   * Save project settings to .ax-cli/settings.json
    */
   public saveProjectSettings(settings: Partial<ProjectSettings>): void {
     try {

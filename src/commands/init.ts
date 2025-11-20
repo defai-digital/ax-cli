@@ -246,13 +246,6 @@ export function createInitCommand(): Command {
 
         progress.stop();
 
-        // Check for legacy .grok directory
-        const legacyGrokDir = path.join(projectRoot, '.grok');
-        if (fs.existsSync(legacyGrokDir)) {
-          console.log('\nℹ️  Legacy .grok directory detected');
-          console.log('   Consider migrating to .ax-cli by copying custom settings\n');
-        }
-
       } catch (error) {
         console.error('❌ Error during initialization:', error instanceof Error ? error.message : 'Unknown error');
         if (options.verbose && error instanceof Error && error.stack) {
