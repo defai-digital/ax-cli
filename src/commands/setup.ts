@@ -155,7 +155,7 @@ export function createSetupCommand(): Command {
           _website: selectedProvider.website,
           apiKey: apiKey,
           baseURL: selectedProvider.baseURL,
-          model: selectedProvider.defaultModel,
+          defaultModel: selectedProvider.defaultModel,
           maxTokens: maxTokens,
           temperature: 0.7,
           mcpServers: {},

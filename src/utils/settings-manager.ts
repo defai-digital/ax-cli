@@ -16,24 +16,17 @@ export type { UserSettings, ProjectSettings };
 
 /**
  * Default values for user settings
+ * Note: These are minimal defaults. Users should run 'ax-cli setup' to configure properly.
  */
 const DEFAULT_USER_SETTINGS: Partial<UserSettings> = {
-  baseURL: "https://api.x.ai/v1",
-  defaultModel: ModelIdSchema.parse("grok-code-fast-1"),
-  models: [
-    ModelIdSchema.parse("grok-code-fast-1"),
-    ModelIdSchema.parse("grok-4-latest"),
-    ModelIdSchema.parse("grok-3-latest"),
-    ModelIdSchema.parse("grok-3-fast"),
-    ModelIdSchema.parse("grok-3-mini-fast"),
-  ],
+  // No hardcoded defaults - users must configure via setup command
 };
 
 /**
  * Default values for project settings
  */
 const DEFAULT_PROJECT_SETTINGS: Partial<ProjectSettings> = {
-  model: ModelIdSchema.parse("grok-code-fast-1"),
+  // Project settings inherit from user settings, no hardcoded defaults
 };
 
 /**
@@ -428,9 +421,9 @@ export class SettingsManager {
    * Get the current model with proper fallback logic:
    * 1. Project-specific model setting
    * 2. User's default model
-   * 3. System default
+   * 3. Undefined (user must configure)
    */
-  public getCurrentModel(): string {
+  public getCurrentModel(): string | undefined {
     const projectModel = this.getProjectSetting("model");
     if (projectModel) {
       return projectModel;
@@ -441,7 +434,7 @@ export class SettingsManager {
       return userDefaultModel;
     }
 
-    return DEFAULT_PROJECT_SETTINGS.model || ModelIdSchema.parse("grok-code-fast-1");
+    return undefined; // No hardcoded fallback - user must run setup
   }
 
   /**
@@ -476,7 +469,7 @@ export class SettingsManager {
   /**
    * Get base URL from user settings or environment
    */
-  public getBaseURL(): string {
+  public getBaseURL(): string | undefined {
     // First check environment variable
     const envBaseURL = process.env.AI_BASE_URL;
     if (envBaseURL) {
@@ -485,9 +478,7 @@ export class SettingsManager {
 
     // Then check user settings
     const userBaseURL = this.getUserSetting("baseURL");
-    return (
-      userBaseURL || DEFAULT_USER_SETTINGS.baseURL || "https://api.x.ai/v1"
-    );
+    return userBaseURL; // No hardcoded fallback - user must run setup
   }
 
   /**

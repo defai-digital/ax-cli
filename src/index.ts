@@ -89,7 +89,7 @@ function loadApiKey(): string | undefined {
 }
 
 // Load base URL from user settings if not in environment
-function loadBaseURL(): string {
+function loadBaseURL(): string | undefined {
   const manager = getSettingsManager();
   return manager.getBaseURL();
 }

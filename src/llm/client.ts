@@ -77,14 +77,23 @@ export class LLMClient {
   private defaultTemperature: number;
 
   constructor(apiKey: string, model?: string, baseURL?: string) {
+    if (!model) {
+      throw new Error('No model specified. Please run "ax-cli setup" to configure your AI provider and model.');
+    }
+
+    const finalBaseURL = baseURL || process.env.AI_BASE_URL;
+    if (!finalBaseURL) {
+      throw new Error('No base URL configured. Please run "ax-cli setup" to configure your AI provider.');
+    }
+
     this.client = new OpenAI({
       apiKey,
-      baseURL: baseURL || process.env.AI_BASE_URL || "https://api.x.ai/v1",
+      baseURL: finalBaseURL,
       timeout: 360000,
     });
 
     // Set model with validation
-    this.currentModel = this.validateModel(model || DEFAULT_MODEL);
+    this.currentModel = this.validateModel(model);
 
     // Get model configuration
     const modelConfig = GLM_MODELS[this.currentModel];

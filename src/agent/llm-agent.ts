@@ -69,7 +69,12 @@ export class LLMAgent extends EventEmitter {
     super();
     const manager = getSettingsManager();
     const savedModel = manager.getCurrentModel();
-    const modelToUse = model || savedModel || "grok-code-fast-1";
+    const modelToUse = model || savedModel;
+
+    if (!modelToUse) {
+      throw new Error('No model configured. Please run "ax-cli setup" to configure your AI provider and model.');
+    }
+
     this.maxToolRounds = maxToolRounds || 400;
     this.llmClient = new LLMClient(apiKey, modelToUse, baseURL);
     this.textEditor = new TextEditorTool();
