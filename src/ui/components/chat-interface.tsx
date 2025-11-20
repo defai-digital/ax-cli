@@ -437,7 +437,9 @@ function ChatInterfaceWithAgent({
               </Text>
             </Box>
             <Box marginRight={2}>
-              <Text color="gray" dimColor>model: </Text>
+              <Text color="gray" dimColor>ax-cli: </Text>
+              <Text color="cyan">v{getVersion()}</Text>
+              <Text color="gray" dimColor> | model: </Text>
               <Text color="yellow">{agent.getCurrentModel()}</Text>
               <Text color="gray" dimColor> | context: </Text>
               {showAutoPrune ? (
@@ -447,8 +449,6 @@ function ChatInterfaceWithAgent({
                   {contextPercentage}%
                 </Text>
               )}
-              <Text color="gray" dimColor> | ax-cli: </Text>
-              <Text color="cyan">v{getVersion()}</Text>
             </Box>
             <MCPStatus />
           </Box>

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.10] - 2025-11-20
+
+### Changed
+- **Status Line Reordering** - Improved status line element order for better readability
+  - New format: `ax-cli: v2.4.10 | model: glm-4.6 | context: 2%`
+  - Previous format: `model: glm-4.6 | context: 2% | ax-cli: v2.4.9`
+  - Version information now appears first for easier identification
+  - Modified: `src/ui/components/chat-interface.tsx:440-443`
+
 ## [2.4.9] - 2025-11-20
 
 ### Fixed
