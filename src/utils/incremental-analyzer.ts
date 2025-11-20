@@ -172,6 +172,9 @@ export async function getChangedFiles(
         const [status, ...paths] = line.split('\t');
         const filePath = paths[0];
 
+        // Skip if no file path found
+        if (!filePath) continue;
+
         // Skip if already in changed files
         if (changedFiles.some((f) => f.path === filePath)) {
           continue;
@@ -326,9 +329,12 @@ export function getGitInfo(baseDir: string = process.cwd()): {
           encoding: 'utf-8',
         }
       ).trim();
-      const [aheadStr, behindStr] = aheadBehind.split('\t');
-      ahead = parseInt(aheadStr, 10);
-      behind = parseInt(behindStr, 10);
+      const splitParts = aheadBehind.split('\t');
+      if (splitParts.length >= 2) {
+        const [aheadStr, behindStr] = splitParts;
+        ahead = parseInt(aheadStr, 10);
+        behind = parseInt(behindStr, 10);
+      }
     } catch {
       // No upstream branch
     }

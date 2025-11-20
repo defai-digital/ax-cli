@@ -94,9 +94,13 @@ export class Agent {
     if (parts.length > 2) {
       const rangePart = parts[2];
       if (rangePart.includes('-')) {
-        const [start, end] = rangePart.split('-').map(Number);
-        if (!isNaN(start) && !isNaN(end) && start > 0 && end >= start) {
-          return { path, range: [start, end] };
+        const splitParts = rangePart.split('-').map(Number);
+        // Ensure we have exactly 2 parts for valid range
+        if (splitParts.length === 2) {
+          const [start, end] = splitParts;
+          if (!isNaN(start) && !isNaN(end) && start > 0 && end >= start) {
+            return { path, range: [start, end] };
+          }
         }
       }
     }
