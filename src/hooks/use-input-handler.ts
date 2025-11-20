@@ -196,6 +196,7 @@ export function useInputHandler({
 
   const commandSuggestions: CommandSuggestion[] = [
     { command: "/help", description: "Show help information" },
+    { command: "/continue", description: "Continue incomplete response" },
     { command: "/clear", description: "Clear chat history" },
     { command: "/init", description: "Initialize project with smart analysis" },
     { command: "/usage", description: "Show API usage statistics" },
@@ -212,6 +213,178 @@ export function useInputHandler({
 
   const handleDirectCommand = async (input: string): Promise<boolean> => {
     const trimmedInput = input.trim();
+
+    if (trimmedInput === "/continue") {
+      // Send a continuation prompt to the LLM
+      const continuePrompt = "Please continue your previous response from where you left off. Complete the thought or section that was incomplete.";
+
+      // Add user continue command to history
+      const userEntry: ChatEntry = {
+        type: "user",
+        content: continuePrompt,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, userEntry]);
+
+      // Process through agent
+      setIsProcessing(true);
+      setIsStreaming(true);
+      processingStartTime.current = Date.now();
+
+      (async () => {
+        try {
+          let streamingEntry: ChatEntry | null = null;
+
+          for await (const chunk of agent.processUserMessageStream(continuePrompt)) {
+            switch (chunk.type) {
+              case "reasoning":
+                if (chunk.reasoningContent) {
+                  if (!streamingEntry) {
+                    const newStreamingEntry: ChatEntry = {
+                      type: "assistant",
+                      content: "",
+                      timestamp: new Date(),
+                      isStreaming: true,
+                      reasoningContent: chunk.reasoningContent,
+                      isReasoningStreaming: true,
+                    };
+                    setChatHistory((prev) => [...prev, newStreamingEntry]);
+                    streamingEntry = newStreamingEntry;
+                  } else {
+                    setChatHistory((prev) =>
+                      prev.map((entry, idx) =>
+                        idx === prev.length - 1 && entry.isStreaming
+                          ? {
+                              ...entry,
+                              reasoningContent:
+                                (entry.reasoningContent || "") +
+                                chunk.reasoningContent,
+                              isReasoningStreaming: true,
+                            }
+                          : entry
+                      )
+                    );
+                  }
+                }
+                break;
+
+              case "content":
+                if (chunk.content) {
+                  if (!streamingEntry) {
+                    const newStreamingEntry: ChatEntry = {
+                      type: "assistant",
+                      content: chunk.content,
+                      timestamp: new Date(),
+                      isStreaming: true,
+                    };
+                    setChatHistory((prev) => [...prev, newStreamingEntry]);
+                    streamingEntry = newStreamingEntry;
+                  } else {
+                    setChatHistory((prev) =>
+                      prev.map((entry, idx) =>
+                        idx === prev.length - 1 && entry.isStreaming
+                          ? {
+                              ...entry,
+                              content: entry.content + chunk.content,
+                              isReasoningStreaming: false,
+                            }
+                          : entry
+                      )
+                    );
+                  }
+                }
+                break;
+
+              case "token_count":
+                if (chunk.tokenCount !== undefined) {
+                  setTokenCount(chunk.tokenCount);
+                }
+                break;
+
+              case "tool_calls":
+                if (chunk.toolCalls) {
+                  setChatHistory((prev) =>
+                    prev.map((entry) =>
+                      entry.isStreaming
+                        ? {
+                            ...entry,
+                            isStreaming: false,
+                            toolCalls: chunk.toolCalls,
+                          }
+                        : entry
+                    )
+                  );
+                  streamingEntry = null;
+
+                  chunk.toolCalls.forEach((toolCall) => {
+                    const toolCallEntry: ChatEntry = {
+                      type: "tool_call",
+                      content: "Executing...",
+                      timestamp: new Date(),
+                      toolCall: toolCall,
+                    };
+                    setChatHistory((prev) => [...prev, toolCallEntry]);
+                  });
+                }
+                break;
+
+              case "tool_result":
+                if (chunk.toolCall && chunk.toolResult) {
+                  setChatHistory((prev) =>
+                    prev.map((entry) => {
+                      if (entry.isStreaming) {
+                        return { ...entry, isStreaming: false };
+                      }
+                      if (
+                        entry.type === "tool_call" &&
+                        entry.toolCall?.id === chunk.toolCall?.id
+                      ) {
+                        return {
+                          ...entry,
+                          type: "tool_result",
+                          content: chunk.toolResult?.success
+                            ? chunk.toolResult?.output || "Success"
+                            : chunk.toolResult?.error || "Error occurred",
+                          toolResult: chunk.toolResult,
+                        };
+                      }
+                      return entry;
+                    })
+                  );
+                  streamingEntry = null;
+                }
+                break;
+
+              case "done":
+                if (streamingEntry) {
+                  setChatHistory((prev) =>
+                    prev.map((entry) =>
+                      entry.isStreaming ? { ...entry, isStreaming: false } : entry
+                    )
+                  );
+                }
+                setIsStreaming(false);
+                break;
+            }
+          }
+        } catch (error: any) {
+          const errorEntry: ChatEntry = {
+            type: "assistant",
+            content: `Error: ${error.message}`,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, errorEntry]);
+          setIsStreaming(false);
+        }
+
+        setIsProcessing(false);
+        processingStartTime.current = 0;
+      })();
+
+      clearInput();
+      resetHistory();
+      return true;
+    }
 
     if (trimmedInput === "/clear") {
       // Reset chat history
@@ -353,6 +526,7 @@ export function useInputHandler({
         content: `AX CLI Help:
 
 Built-in Commands:
+  /continue   - Continue incomplete response from where it left off
   /clear      - Clear chat history
   /init       - Initialize project with smart analysis
   /help       - Show this help

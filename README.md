@@ -134,6 +134,7 @@ ax-cli -c
 
 # Available slash commands:
 /help              # Show help
+/continue          # Continue incomplete response
 /init              # Initialize project
 /clear             # Clear chat history
 /models            # Switch AI model
