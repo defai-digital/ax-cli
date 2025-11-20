@@ -342,9 +342,10 @@ function ChatInterfaceWithAgent({
     const immediateId = setImmediate(() => {
       const percentage = agent.getContextPercentage();
 
-      // Detect auto-prune: if percentage drops by more than 10%, pruning happened
+      // Detect auto-prune: if percentage increases by more than 10%, pruning happened
+      // (With countdown from 100%, prune causes percentage to go UP as more space becomes available)
       if (lastPercentageRef.current > 0 &&
-          percentage < lastPercentageRef.current - 10) {
+          percentage > lastPercentageRef.current + 10) {
         setShowAutoPrune(true);
         // Hide "auto-prune" after 3 seconds
         setTimeout(() => setShowAutoPrune(false), 3000);
@@ -476,7 +477,7 @@ function ChatInterfaceWithAgent({
               {showAutoPrune ? (
                 <Text color="cyan">auto-prune</Text>
               ) : (
-                <Text color={contextPercentage > 75 ? "red" : contextPercentage > 50 ? "yellow" : "green"}>
+                <Text color={contextPercentage < 25 ? "red" : contextPercentage < 50 ? "yellow" : "green"}>
                   {contextPercentage.toFixed(1)}%
                 </Text>
               )}

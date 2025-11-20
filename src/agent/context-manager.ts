@@ -145,13 +145,14 @@ export class ContextManager {
    */
   getStats(messages: LLMMessage[], tokenCounter: TokenCounter) {
     const currentTokens = this.getCachedTokenCount(messages, tokenCounter);
-    const percentage = (currentTokens / this.contextWindow) * 100;
+    // Changed: Show remaining percentage (counting down from 100%)
+    const percentage = 100 - (currentTokens / this.contextWindow) * 100;
     const available = this.contextWindow - currentTokens;
 
     return {
       currentTokens,
       contextWindow: this.contextWindow,
-      percentage: percentage, // Keep full precision
+      percentage: percentage, // Remaining percentage (counts down from 100%)
       available,
       shouldPrune: currentTokens > (this.contextWindow * this.pruneThreshold),
       isNearLimit: currentTokens > (this.contextWindow * this.hardLimit),
@@ -374,18 +375,19 @@ export class ContextManager {
 
   /**
    * Create a warning message for approaching limit
+   * Percentage shows remaining capacity (counts down from 100%)
    */
   createWarningMessage(stats: ReturnType<typeof this.getStats>): string {
     if (stats.isNearLimit) {
-      return `⚠️  Context: ${stats.currentTokens.toLocaleString()}/${stats.contextWindow.toLocaleString()} tokens (${stats.percentage}%)
+      return `⚠️  Context: ${stats.currentTokens.toLocaleString()}/${stats.contextWindow.toLocaleString()} tokens (${stats.percentage.toFixed(1)}% remaining)
 💡 Near context limit! Consider starting a new conversation soon.`;
     }
 
     if (stats.shouldPrune) {
-      return `ℹ️  Context: ${stats.currentTokens.toLocaleString()}/${stats.contextWindow.toLocaleString()} tokens (${stats.percentage}%)
+      return `ℹ️  Context: ${stats.currentTokens.toLocaleString()}/${stats.contextWindow.toLocaleString()} tokens (${stats.percentage.toFixed(1)}% remaining)
 📊 Context pruning active to maintain performance.`;
     }
 
-    return `📊 Context: ${stats.currentTokens.toLocaleString()}/${stats.contextWindow.toLocaleString()} tokens (${stats.percentage}%)`;
+    return `📊 Context: ${stats.currentTokens.toLocaleString()}/${stats.contextWindow.toLocaleString()} tokens (${stats.percentage.toFixed(1)}% remaining)`;
   }
 }
