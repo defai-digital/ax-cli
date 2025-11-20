@@ -938,9 +938,14 @@ export class LLMAgent extends EventEmitter {
 
       if (result.isError) {
         // Extract error message from MCP result content
-        const errorMsg = result.content && result.content.length > 0
-          ? (result.content[0] as any)?.text || "MCP tool error"
-          : "MCP tool error";
+        // Safely check content structure before accessing
+        let errorMsg = "MCP tool error";
+        if (result.content && result.content.length > 0) {
+          const firstContent = result.content[0];
+          if (typeof firstContent === 'object' && firstContent !== null && 'text' in firstContent) {
+            errorMsg = String(firstContent.text) || errorMsg;
+          }
+        }
         return {
           success: false,
           error: errorMsg,

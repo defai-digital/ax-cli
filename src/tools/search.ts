@@ -246,8 +246,13 @@ export class SearchTool {
         isResolved = true;
 
         // Kill process if it's still running
+        // Wrap in try-catch as process might already be dead
         if (!rg.killed) {
-          rg.kill('SIGTERM');
+          try {
+            rg.kill('SIGTERM');
+          } catch {
+            // Process already terminated, ignore
+          }
         }
         reject(error);
       });

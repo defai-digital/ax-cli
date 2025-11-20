@@ -222,10 +222,10 @@ Respond with ONLY the commit message, no additional text.`;
     const commitResult = await agent.executeBashCommand(commitCommand);
 
     if (commitResult.success) {
+      // Safely extract first line with proper fallback
+      const firstLine = commitResult.output?.split("\n").filter(line => line.trim())[0];
       console.log(
-        `✅ git commit: ${
-          commitResult.output?.split("\n")[0] || "Commit successful"
-        }`
+        `✅ git commit: ${firstLine || "Commit successful"}`
       );
 
       // If commit was successful, push to remote
@@ -241,10 +241,10 @@ Respond with ONLY the commit message, no additional text.`;
       }
 
       if (pushResult.success) {
+        // Safely extract first line with proper fallback
+        const firstLine = pushResult.output?.split("\n").filter(line => line.trim())[0];
         console.log(
-          `✅ git push: ${
-            pushResult.output?.split("\n")[0] || "Push successful"
-          }`
+          `✅ git push: ${firstLine || "Push successful"}`
         );
       } else {
         console.log(`❌ git push: ${pushResult.error || "Push failed"}`);
@@ -288,18 +288,24 @@ async function buildContextFromFlags(options: {
         if (match) {
           const startLine = parseInt(match[1], 10);
           const endLine = parseInt(match[2], 10);
-          const lines = fileContent.split("\n");
 
-          // Validate line range
-          if (startLine < 1 || startLine > lines.length) {
-            contextParts.push(`Error: Invalid start line ${startLine}. File has ${lines.length} lines.`);
-          } else if (endLine < startLine) {
-            contextParts.push(`Error: Invalid line range ${startLine}-${endLine}. End line must be >= start line.`);
+          // Validate parsed integers are valid numbers
+          if (Number.isNaN(startLine) || Number.isNaN(endLine)) {
+            contextParts.push(`Error: Invalid line range format. Expected format: START-END (e.g., 10-20).`);
           } else {
-            // Clamp endLine to file length
-            const validEndLine = Math.min(endLine, lines.length);
-            fileContent = lines.slice(startLine - 1, validEndLine).join("\n");
-            contextParts.push(`File: ${filePath} (lines ${startLine}-${validEndLine}):\n\`\`\`\n${fileContent}\n\`\`\``);
+            const lines = fileContent.split("\n");
+
+            // Validate line range
+            if (startLine < 1 || startLine > lines.length) {
+              contextParts.push(`Error: Invalid start line ${startLine}. File has ${lines.length} lines.`);
+            } else if (endLine < startLine) {
+              contextParts.push(`Error: Invalid line range ${startLine}-${endLine}. End line must be >= start line.`);
+            } else {
+              // Clamp endLine to file length
+              const validEndLine = Math.min(endLine, lines.length);
+              fileContent = lines.slice(startLine - 1, validEndLine).join("\n");
+              contextParts.push(`File: ${filePath} (lines ${startLine}-${validEndLine}):\n\`\`\`\n${fileContent}\n\`\`\``);
+            }
           }
         } else {
           contextParts.push(`File: ${filePath}:\n\`\`\`\n${fileContent}\n\`\`\``);

@@ -129,7 +129,7 @@ export class InitWizard {
             initialValue: 'glm' as const,
           }),
 
-        apiKey: ({ results }) => {
+        apiKey: ({ results }: { results: { provider?: string } }) => {
           // Skip API key for Ollama (local)
           if (results.provider === 'ollama') {
             return Promise.resolve(undefined);
@@ -137,7 +137,7 @@ export class InitWizard {
 
           return prompts.password({
             message: `Enter your ${results.provider?.toUpperCase()} API key:`,
-            validate: (value) => {
+            validate: (value: string) => {
               if (!value || value.length === 0) {
                 return 'API key is required (or use Ollama for local models)';
               }
@@ -146,12 +146,12 @@ export class InitWizard {
           });
         },
 
-        baseUrl: ({ results }) => {
+        baseUrl: ({ results }: { results: { provider?: string } }) => {
           if (results.provider === 'custom') {
             return prompts.text({
               message: 'Enter custom API base URL:',
               placeholder: 'https://api.example.com/v1',
-              validate: (value) => {
+              validate: (value: string) => {
                 if (!value || !value.startsWith('http')) {
                   return 'Please enter a valid URL';
                 }
@@ -162,7 +162,7 @@ export class InitWizard {
           return Promise.resolve(undefined);
         },
 
-        model: ({ results }) => {
+        model: ({ results }: { results: { provider?: string } }) => {
           const modelOptions: Record<string, Array<{ value: string; label: string; hint: string }>> = {
             glm: [
               { value: 'glm-4.6', label: 'glm-4.6 (Recommended)', hint: '200K context, reasoning mode' },
