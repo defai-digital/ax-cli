@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { fileURLToPath } from 'url';
+import { parseJsonFile } from './json-utils.js';
 
 export interface OnboardingState {
   isFirstRun: boolean;
@@ -95,10 +96,8 @@ export class OnboardingManager {
       };
     }
 
-    try {
-      const content = fs.readFileSync(markerPath, 'utf-8');
-      return JSON.parse(content) as OnboardingState;
-    } catch {
+    const parseResult = parseJsonFile<OnboardingState>(markerPath);
+    if (!parseResult.success) {
       // If marker file is corrupted, treat as first run
       return {
         isFirstRun: true,
@@ -106,6 +105,8 @@ export class OnboardingManager {
         version: this.getVersion(),
       };
     }
+
+    return parseResult.data;
   }
 
   /**
@@ -136,8 +137,13 @@ export class OnboardingManager {
       const packageJsonPath = path.join(cliRootPath, 'package.json');
 
       if (fs.existsSync(packageJsonPath)) {
-        const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-        return pkg.version || '0.0.0';
+        const parseResult = parseJsonFile(packageJsonPath);
+        if (parseResult.success) {
+          const pkg = parseResult.data as any;
+          if (pkg && typeof pkg === 'object' && 'version' in pkg && typeof pkg.version === 'string') {
+            return pkg.version;
+          }
+        }
       }
     } catch {
       // Ignore errors

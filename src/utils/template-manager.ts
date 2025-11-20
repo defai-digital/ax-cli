@@ -191,11 +191,17 @@ export class TemplateManager {
 
     while (this.getTemplate(id)) {
       if (counter >= MAX_ATTEMPTS) {
-        // Use timestamp to ensure uniqueness
-        id = `${baseId}-${Date.now()}`;
+        // Use timestamp + random string to ensure uniqueness
+        const randomSuffix = Math.random().toString(36).substring(2, 9);
+        id = `${baseId}-${Date.now()}-${randomSuffix}`;
         break;
       }
       id = `${baseId}-${counter++}`;
+    }
+
+    // Final verification
+    if (this.getTemplate(id)) {
+      throw new Error('Failed to generate unique template ID after maximum attempts');
     }
 
     return id;
@@ -371,6 +377,13 @@ export class TemplateManager {
       const stats = fs.statSync(resolvedPath);
       if (!stats.isFile()) {
         console.error('Path must be a file, not a directory');
+        return false;
+      }
+
+      // Check file size to prevent DOS
+      const MAX_TEMPLATE_SIZE = 10 * 1024 * 1024; // 10MB
+      if (stats.size > MAX_TEMPLATE_SIZE) {
+        console.error(`Template file too large: ${(stats.size / 1024 / 1024).toFixed(2)}MB (max: 10MB)`);
         return false;
       }
 

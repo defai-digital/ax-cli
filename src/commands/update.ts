@@ -71,7 +71,15 @@ async function getLatestVersion(): Promise<string> {
 function isNewer(a: string, b: string): boolean {
   const parseVersion = (v: string): number[] => {
     const version = v.split("-")[0] || v; // Strip prerelease metadata
-    return version.split(".").map(Number);
+    const cleanVersion = version.startsWith('v') ? version.substring(1) : version;
+    const parts = cleanVersion.split(".").map(Number);
+
+    // Validate all parts are valid numbers
+    if (parts.some(isNaN)) {
+      throw new Error(`Invalid version format: ${v}`);
+    }
+
+    return parts;
   };
 
   const [aMajor = 0, aMinor = 0, aPatch = 0] = parseVersion(a);

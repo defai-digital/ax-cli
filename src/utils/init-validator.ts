@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { ProjectInfo } from '../types/project-analysis.js';
+import { parseJson, parseJsonFile } from './json-utils.js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -84,7 +85,13 @@ export class InitValidator {
           return;
         }
 
-        const packageJson = JSON.parse(content);
+        const parseResult = parseJson(content);
+        if (!parseResult.success) {
+          result.errors.push(`Invalid package.json - ${parseResult.error}`);
+          return;
+        }
+
+        const packageJson = parseResult.data as any;
 
         // Check if package.json is actually an object
         if (typeof packageJson !== 'object' || packageJson === null) {
@@ -106,7 +113,7 @@ export class InitValidator {
           result.suggestions.push('Consider adding "type": "module" for ESM support');
         }
       } catch (error) {
-        result.errors.push(`Invalid package.json - ${error instanceof Error ? error.message : 'JSON parse error'}`);
+        result.errors.push(`Invalid package.json - ${error instanceof Error ? error.message : 'File read error'}`);
       }
     }
   }
@@ -136,8 +143,9 @@ export class InitValidator {
     }
 
     if (fs.existsSync(indexPath)) {
-      try {
-        const indexData = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+      const parseResult = parseJsonFile(indexPath);
+      if (parseResult.success) {
+        const indexData = parseResult.data as any;
         const lastUpdated = indexData.lastAnalyzed || indexData.templateAppliedAt;
 
         if (lastUpdated) {
@@ -148,7 +156,7 @@ export class InitValidator {
             result.suggestions.push(`CUSTOM.md is ${daysSince} days old - consider refreshing`);
           }
         }
-      } catch (error) {
+      } else {
         result.warnings.push('Existing index.json is invalid');
       }
     }

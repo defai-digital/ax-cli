@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as prompts from '@clack/prompts';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { parseJsonFile } from '../utils/json-utils.js';
 
 const execAsync = promisify(exec);
 
@@ -274,15 +275,18 @@ export function createMemoryCommand(): Command {
 
         // Show project info if available
         if (fs.existsSync(indexPath)) {
-          const indexData = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
-          await prompts.note(
-            `Name: ${indexData.projectName || 'Unknown'}\n` +
-            `Type: ${indexData.projectType || 'Unknown'}\n` +
-            `Language: ${indexData.primaryLanguage || 'Unknown'}\n` +
-            (indexData.templateId ? `Template: ${indexData.templateId}\n` : '') +
-            `Last Updated: ${indexData.lastAnalyzed || indexData.templateAppliedAt || 'Unknown'}`,
-            'Project Info'
-          );
+          const result = parseJsonFile(indexPath);
+          if (result.success) {
+            const indexData = result.data as any;
+            await prompts.note(
+              `Name: ${indexData.projectName || 'Unknown'}\n` +
+              `Type: ${indexData.projectType || 'Unknown'}\n` +
+              `Language: ${indexData.primaryLanguage || 'Unknown'}\n` +
+              (indexData.templateId ? `Template: ${indexData.templateId}\n` : '') +
+              `Last Updated: ${indexData.lastAnalyzed || indexData.templateAppliedAt || 'Unknown'}`,
+              'Project Info'
+            );
+          }
         }
 
         console.log('');
