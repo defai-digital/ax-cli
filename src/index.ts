@@ -16,6 +16,7 @@ import { createUsageCommand } from "./commands/usage.js";
 import { createTemplatesCommand } from "./commands/templates.js";
 import { createMemoryCommand } from "./commands/memory.js";
 import { createCacheCommand } from "./commands/cache.js";
+import { createModelsCommand } from "./commands/models.js";
 import { getVersion } from "./utils/version.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat.js";
 
@@ -50,11 +51,29 @@ process.on("SIGTERM", () => {
 // Handle uncaught exceptions to prevent hanging
 process.on("uncaughtException", (error) => {
   console.error("Uncaught exception:", error);
+  // Clean up active agent before exit
+  if (activeAgent) {
+    try {
+      activeAgent.dispose();
+    } catch {
+      // Ignore cleanup errors during emergency shutdown
+    }
+    activeAgent = null;
+  }
   process.exit(1);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
   console.error("Unhandled rejection at:", promise, "reason:", reason);
+  // Clean up active agent before exit
+  if (activeAgent) {
+    try {
+      activeAgent.dispose();
+    } catch {
+      // Ignore cleanup errors during emergency shutdown
+    }
+    activeAgent = null;
+  }
   process.exit(1);
 });
 
@@ -334,7 +353,11 @@ async function buildContextFromFlags(options: {
   if (options.gitDiff) {
     try {
       const { execSync } = await import("child_process");
-      const gitDiff = execSync("git diff", { encoding: "utf-8" });
+      const gitDiff = execSync("git diff", {
+        encoding: "utf-8",
+        timeout: 10000, // 10 second timeout to prevent hanging
+        maxBuffer: 10 * 1024 * 1024 // 10MB max buffer for large diffs
+      });
       if (gitDiff.trim()) {
         contextParts.push(`Git diff:\n\`\`\`diff\n${gitDiff}\n\`\`\``);
       }
@@ -487,7 +510,7 @@ program
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., grok-code-fast-1, grok-4-latest) (or set AI_MODEL env var)"
+    "AI model to use (e.g., glm-4.6, grok-code-fast-1, llama3.1:8b, gpt-4) (or set AI_MODEL env var)"
   )
   .option(
     "-p, --prompt <prompt>",
@@ -624,7 +647,7 @@ gitCommand
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., grok-code-fast-1, grok-4-latest) (or set AI_MODEL env var)"
+    "AI model to use (e.g., glm-4.6, grok-code-fast-1, llama3.1:8b, gpt-4) (or set AI_MODEL env var)"
   )
   .option(
     "--max-tool-rounds <rounds>",
@@ -694,5 +717,8 @@ program.addCommand(createUsageCommand());
 
 // Cache command
 program.addCommand(createCacheCommand());
+
+// Models command
+program.addCommand(createModelsCommand());
 
 program.parse();

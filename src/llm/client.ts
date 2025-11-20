@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat.js";
 import { safeValidateGrokResponse } from "../schemas/api-schemas.js";
 import { ErrorCategory, createErrorMessage, extractErrorMessage } from "../utils/error-handler.js";
-import { GLM_MODELS, DEFAULT_MODEL, type SupportedModel } from "../constants.js";
+import { GLM_MODELS, type SupportedModel } from "../constants.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
 import type {
   ChatOptions,
@@ -72,7 +72,7 @@ export interface LLMResponse {
  */
 export class LLMClient {
   private client: OpenAI;
-  private currentModel: SupportedModel;
+  private currentModel: string; // Can be SupportedModel or custom model name (e.g., Ollama)
   private defaultMaxTokens: number;
   private defaultTemperature: number;
 
@@ -95,8 +95,13 @@ export class LLMClient {
     // Set model with validation
     this.currentModel = this.validateModel(model);
 
-    // Get model configuration
-    const modelConfig = GLM_MODELS[this.currentModel];
+    // Get model configuration (with fallback for custom models)
+    const modelConfig = GLM_MODELS[this.currentModel as SupportedModel] || {
+      maxOutputTokens: 128000, // Generous default for custom models
+      defaultMaxTokens: 4096,
+      temperatureRange: { min: 0.0, max: 2.0 },
+      defaultTemperature: 0.7,
+    };
 
     // Set defaults from environment or model config
     const envMax = Number(process.env.AI_MAX_TOKENS);
@@ -114,22 +119,34 @@ export class LLMClient {
 
   /**
    * Validate and normalize model name
+   * For known models, validate against GLM_MODELS
+   * For unknown models (e.g., Ollama), pass through without validation
    */
-  private validateModel(model: string): SupportedModel {
+  private validateModel(model: string): string {
     if (model in GLM_MODELS) {
       return model as SupportedModel;
     }
-    console.warn(`Unknown model "${model}", using default: ${DEFAULT_MODEL}`);
-    return DEFAULT_MODEL;
+
+    // Allow arbitrary model names for providers like Ollama
+    // Don't fall back to DEFAULT_MODEL - respect user's choice
+    console.warn(`Using custom model "${model}" (not in predefined list)`);
+    return model;
   }
 
   /**
    * Validate temperature for current model
    */
-  private validateTemperature(temperature: number, model: SupportedModel): void {
-    const config = GLM_MODELS[model];
-    const { min, max } = config.temperatureRange;
+  private validateTemperature(temperature: number, model: string): void {
+    const config = GLM_MODELS[model as SupportedModel];
+    if (!config) {
+      // Custom model - allow any temperature between 0 and 2
+      if (temperature < 0 || temperature > 2) {
+        throw new Error(`Temperature ${temperature} is out of range. Valid range: 0.0 - 2.0`);
+      }
+      return;
+    }
 
+    const { min, max } = config.temperatureRange;
     if (temperature < min || temperature > max) {
       throw new Error(
         `Temperature ${temperature} is out of range for model ${model}. ` +
@@ -141,8 +158,20 @@ export class LLMClient {
   /**
    * Validate max tokens for current model
    */
-  private validateMaxTokens(maxTokens: number, model: SupportedModel): void {
-    const config = GLM_MODELS[model];
+  private validateMaxTokens(maxTokens: number, model: string): void {
+    const config = GLM_MODELS[model as SupportedModel];
+
+    if (maxTokens < 1) {
+      throw new Error(`Max tokens must be at least 1, got ${maxTokens}`);
+    }
+
+    if (!config) {
+      // Custom model - allow up to 128K tokens
+      if (maxTokens > 128000) {
+        throw new Error(`Max tokens ${maxTokens} exceeds reasonable limit. Maximum: 128000`);
+      }
+      return;
+    }
 
     if (maxTokens > config.maxOutputTokens) {
       throw new Error(
@@ -150,19 +179,15 @@ export class LLMClient {
         `Maximum: ${config.maxOutputTokens}`
       );
     }
-
-    if (maxTokens < 1) {
-      throw new Error(`Max tokens must be at least 1, got ${maxTokens}`);
-    }
   }
 
   /**
    * Validate thinking configuration for current model
    */
-  private validateThinking(thinking: ThinkingConfig | undefined, model: SupportedModel): void {
+  private validateThinking(thinking: ThinkingConfig | undefined, model: string): void {
     if (thinking && thinking.type === "enabled") {
-      const config = GLM_MODELS[model];
-      if (!config.supportsThinking) {
+      const config = GLM_MODELS[model as SupportedModel];
+      if (config && !config.supportsThinking) {
         throw new Error(
           `Thinking mode is not supported by model ${model}. ` +
           `Use glm-4.6 for thinking capabilities.`
@@ -220,7 +245,7 @@ export class LLMClient {
   }
 
   getModelConfig() {
-    return GLM_MODELS[this.currentModel];
+    return GLM_MODELS[this.currentModel as SupportedModel] || null;
   }
 
   /**
