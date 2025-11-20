@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2025-01-20
+
+### Fixed
+- **Loop Detection False Positives** - Significantly improved loop detection accuracy
+  - Adjusted threshold from `count >= 1` to `count >= 2`, allowing up to 3 occurrences before detecting loop
+  - Added Search tool signature tracking with query parameter (`search:query`)
+  - Previously, all Search calls were treated as identical regardless of query
+  - Now properly differentiates: `Search(defai.digital)` vs `Search(defai digital)`
+  - Fixes issue where simple questions requiring multiple searches would falsely trigger loop detection
+  - Modified: `src/agent/llm-agent.ts:148-151,173`
+
+### Removed
+- **Backward Compatibility for .grok Paths** - Cleaned up legacy code
+  - Removed all `.grok` directory fallback logic
+  - Removed `migrateFromGrokToAxCli()` migration method
+  - Now only uses `.ax-cli` paths for all configuration
+  - User settings: `~/.ax-cli/config.json` (was `~/.grok/user-settings.json`)
+  - Project settings: `.ax-cli/settings.json` (was `.grok/settings.json`)
+  - Custom instructions: `.ax-cli/CUSTOM.md` (was `.grok/GROK.md`)
+  - Result: -117 lines of code, cleaner and faster initialization
+  - Modified: `src/utils/settings-manager.ts`, `src/utils/custom-instructions.ts`, `src/commands/init.ts`
+
+### Changed
+- **Branding Cleanup** - Removed hardcoded "Grok API" references
+  - Updated error messages to use "LLM API" instead of "Grok API"
+  - Updated CLI help text to use "AI API" instead of "Grok API"
+  - Ensures consistent multi-provider messaging (GLM, OpenAI, Anthropic, Ollama, xAI)
+  - Modified: `src/llm/client.ts`, `src/index.ts`
+
+### Added
+- **Version Display in Interactive Mode** - Shows AX CLI version in status bar
+  - Displays next to model name (e.g., "project: ax-cli | ax-cli: v2.5.0 | model: glm-4.6")
+  - Dynamically reads from package.json
+  - Modified: `src/ui/components/chat-interface.tsx`
+
+- **Clear Labels in Status Bar** - Improved status bar readability
+  - Added "model:", "ax-cli:", "project:", "context:" labels
+  - Format: `project: ax-cli | ax-cli: v2.5.0 | model: glm-4.6 | context: 45%`
+  - Makes it immediately clear what each value represents
+  - Modified: `src/ui/components/chat-interface.tsx:411-424`
+
+### Technical
+- Breaking Change: Users with `.grok` directories must manually migrate to `.ax-cli`
+- Loop detection now more permissive (3 occurrences instead of 2) while still catching real loops
+- Reduced false positive rate for legitimate tool usage patterns
+
 ## [2.4.10] - 2025-11-20
 
 ### Changed
