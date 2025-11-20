@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Loop Detection in Agent**: Fixed issue where agent would repeatedly call similar tools without making progress
+  - Added intelligent loop detection that recognizes similar bash commands (e.g., multiple `find` variations)
+  - Agent now stops after 3 similar tool calls with clear warning message
+  - Enhanced system prompt to emphasize completing tasks after gathering information
+  - Tracks tool calls by base command signature (e.g., `bash:find`, `bash:ls`) rather than exact arguments
+  - Prevents infinite loops when asking simple questions that trigger exploration behavior
+
 ## [2.3.1] - 2025-01-19
 
 ### Enhanced

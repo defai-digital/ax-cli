@@ -7,8 +7,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ProjectAnalyzer } from '../utils/project-analyzer.js';
 import { LLMOptimizedInstructionGenerator } from '../utils/llm-optimized-instruction-generator.js';
-import { TemplateManager } from '../utils/template-manager.js';
 import { InitWizard } from './init/wizard.js';
+import { InitValidator } from '../utils/init-validator.js';
+import { InitPreviewer } from '../utils/init-previewer.js';
+import { ProgressTracker } from '../utils/progress-tracker.js';
 import type { InitOptions } from '../types/project-analysis.js';
 
 export function createInitCommand(): Command {
@@ -20,7 +22,18 @@ export function createInitCommand(): Command {
     .option('-y, --yes', 'Skip interactive prompts and use defaults', false)
     .option('--no-interaction', 'Run in non-interactive mode', false)
     .option('-t, --template <template-id>', 'Use a specific template')
-    .action(async (options: InitOptions & { directory?: string; yes?: boolean; noInteraction?: boolean; template?: string }) => {
+    .option('--preview', 'Preview changes before applying', false)
+    .option('--dry-run', 'Show what would be done without making changes', false)
+    .option('--validate', 'Run validation checks only', false)
+    .action(async (options: InitOptions & {
+      directory?: string;
+      yes?: boolean;
+      noInteraction?: boolean;
+      template?: string;
+      preview?: boolean;
+      dryRun?: boolean;
+      validate?: boolean;
+    }) => {
       try {
         if (options.verbose) {
           console.log(`options.directory: ${options.directory}`);
@@ -33,6 +46,15 @@ export function createInitCommand(): Command {
           console.log(`Working directory: ${projectRoot}`);
         }
 
+        // Run validation if requested
+        if (options.validate) {
+          const validator = new InitValidator(projectRoot);
+          const validationResult = validator.validate();
+
+          console.log('\n' + InitValidator.formatValidationResult(validationResult));
+          process.exit(validationResult.valid ? 0 : 1);
+        }
+
         // Run interactive wizard for first-time users (unless --yes or --no-interaction)
         const wizard = new InitWizard({
           nonInteractive: options.noInteraction,
@@ -42,12 +64,38 @@ export function createInitCommand(): Command {
 
         const wizardResult = await wizard.run();
 
+        // Initialize progress tracker
+        const progress = new ProgressTracker();
+        progress.addStep('validate', 'Validating project');
+        progress.addStep('analyze', 'Analyzing project');
+        progress.addStep('generate', 'Generating instructions');
+        progress.addStep('write', 'Writing files');
+
+        // Run validation before proceeding
+        await progress.startStep('validate');
+        const validator = new InitValidator(projectRoot);
+        const validationResult = validator.validate();
+
+        if (options.verbose && (validationResult.warnings.length > 0 || validationResult.suggestions.length > 0)) {
+          console.log('\n' + InitValidator.formatValidationResult(validationResult));
+        }
+
+        if (!validationResult.valid) {
+          await progress.failStep('validate', 'Validation failed');
+          console.error('\n❌ Validation failed:');
+          console.error(InitValidator.formatValidationResult(validationResult));
+          process.exit(1);
+        }
+
+        await progress.completeStep('validate');
+
         // Check if already initialized
         const axCliDir = path.join(projectRoot, '.ax-cli');
         const customMdPath = path.join(axCliDir, 'CUSTOM.md');
         const indexPath = path.join(axCliDir, 'index.json');
 
         if (!options.force && fs.existsSync(customMdPath)) {
+          progress.stop();
           console.log('✅ Project already initialized!');
           console.log(`📝 Custom instructions: ${customMdPath}`);
           console.log(`📊 Project index: ${indexPath}`);
@@ -56,10 +104,12 @@ export function createInitCommand(): Command {
         }
 
         // Analyze project
+        await progress.startStep('analyze');
         const analyzer = new ProjectAnalyzer(projectRoot);
         const result = await analyzer.analyze();
 
         if (!result.success || !result.projectInfo) {
+          await progress.failStep('analyze', result.error || 'Unknown error');
           console.error('❌ Failed to analyze project:', result.error);
           if (result.warnings && result.warnings.length > 0) {
             console.error('\n⚠️  Warnings:');
@@ -69,6 +119,7 @@ export function createInitCommand(): Command {
         }
 
         const projectInfo = result.projectInfo;
+        await progress.completeStep('analyze');
 
         // Display analysis results
         if (options.verbose) {
@@ -91,20 +142,25 @@ export function createInitCommand(): Command {
           console.log('📁 Created .ax-cli directory');
         }
 
-        // Check if using a template
+        // Generate content (either from template or project analysis)
+        await progress.startStep('generate');
+        let instructions: string;
+        let index: string;
+
         if (wizardResult.selectedTemplate) {
-          // Apply template
-          const success = TemplateManager.applyTemplate(wizardResult.selectedTemplate, projectRoot);
-          if (success) {
-            console.log(`✅ Applied template: ${wizardResult.selectedTemplate.name}`);
-            console.log(`✅ Generated custom instructions: ${customMdPath}`);
-            console.log(`✅ Generated project index: ${indexPath}`);
-          } else {
-            console.error('❌ Failed to apply template');
-            process.exit(1);
-          }
+          progress.updateMessage(`Applying template: ${wizardResult.selectedTemplate.name}`);
+          instructions = wizardResult.selectedTemplate.instructions;
+          const indexData = {
+            projectName: wizardResult.selectedTemplate.name,
+            version: wizardResult.selectedTemplate.version,
+            projectType: wizardResult.selectedTemplate.projectType,
+            ...wizardResult.selectedTemplate.metadata,
+            templateId: wizardResult.selectedTemplate.id,
+            templateAppliedAt: new Date().toISOString(),
+          };
+          index = JSON.stringify(indexData, null, 2);
         } else {
-          // Generate LLM-optimized instructions
+          progress.updateMessage('Generating LLM-optimized instructions');
           const generator = new LLMOptimizedInstructionGenerator({
             compressionLevel: 'moderate',
             hierarchyEnabled: true,
@@ -112,17 +168,47 @@ export function createInitCommand(): Command {
             includeDODONT: true,
             includeTroubleshooting: true,
           });
-          const instructions = generator.generateInstructions(projectInfo);
-          const index = generator.generateIndex(projectInfo);
-
-          // Write custom instructions
-          fs.writeFileSync(customMdPath, instructions, 'utf-8');
-          console.log(`✅ Generated custom instructions: ${customMdPath}`);
-
-          // Write project index
-          fs.writeFileSync(indexPath, index, 'utf-8');
-          console.log(`✅ Generated project index: ${indexPath}`);
+          instructions = generator.generateInstructions(projectInfo);
+          index = generator.generateIndex(projectInfo);
         }
+
+        await progress.completeStep('generate');
+
+        // Preview or dry-run mode
+        if (options.preview || options.dryRun) {
+          progress.stop();
+          const previewer = new InitPreviewer(projectRoot);
+          await previewer.preview(instructions, index, {
+            showDiff: options.preview,
+            showFull: false,
+            maxLines: 30,
+          });
+
+          if (options.dryRun) {
+            console.log('\n✅ Dry-run complete (no changes made)\n');
+            console.log(progress.getSummary());
+            return;
+          }
+
+          // Ask for confirmation if preview mode
+          if (options.preview) {
+            const confirmed = await previewer.confirmChanges();
+            if (!confirmed) {
+              console.log('\n❌ Operation cancelled\n');
+              return;
+            }
+          }
+        }
+
+        // Write files
+        await progress.startStep('write');
+        fs.writeFileSync(customMdPath, instructions, 'utf-8');
+        console.log(`✅ Generated custom instructions: ${customMdPath}`);
+
+        fs.writeFileSync(indexPath, index, 'utf-8');
+        console.log(`✅ Generated project index: ${indexPath}`);
+
+        await progress.completeStep('write');
 
         // Display warnings if any
         if (result.warnings && result.warnings.length > 0) {
@@ -132,6 +218,13 @@ export function createInitCommand(): Command {
 
         // Show completion summary using wizard
         await wizard.showCompletion(wizardResult, projectInfo);
+
+        // Show progress summary if verbose
+        if (options.verbose) {
+          console.log('\n📊 ' + progress.getSummary() + '\n');
+        }
+
+        progress.stop();
 
         // Check for legacy .grok directory
         const legacyGrokDir = path.join(projectRoot, '.grok');
