@@ -133,6 +133,16 @@ export class LLMAgent extends EventEmitter {
    * Returns true if the same tool with similar arguments was called multiple times recently
    */
   private isRepetitiveToolCall(toolCall: LLMToolCall): boolean {
+    // Check if loop detection is disabled globally
+    if (!AGENT_CONFIG.ENABLE_LOOP_DETECTION) {
+      return false;
+    }
+
+    // Check if threshold is 0 (disabled via threshold)
+    if (AGENT_CONFIG.LOOP_DETECTION_THRESHOLD <= 0) {
+      return false;
+    }
+
     try {
       const args = JSON.parse(toolCall.function.arguments || '{}');
 
@@ -163,20 +173,20 @@ export class LLMAgent extends EventEmitter {
       // Track by detailed signature
       const count = this.recentToolCalls.get(signature) || 0;
 
-      // Debug logging (remove after fixing)
+      // Debug logging
       if (process.env.DEBUG_LOOP_DETECTION === '1') {
         console.error(`[LOOP DETECTION] Tool: ${toolCall.function.name}`);
         console.error(`[LOOP DETECTION] Signature: ${signature}`);
         console.error(`[LOOP DETECTION] Count: ${count}`);
+        console.error(`[LOOP DETECTION] Threshold: ${AGENT_CONFIG.LOOP_DETECTION_THRESHOLD}`);
         console.error(`[LOOP DETECTION] Map size: ${this.recentToolCalls.size}`);
       }
 
-      // If we've seen this EXACT tool call 2+ times before, it's looping
-      // Allow up to 2 occurrences (count of 2 means 3rd attempt)
-      // This catches real loops while allowing legitimate repeated operations
-      if (count >= 2) {
+      // Check if we've exceeded the configured threshold
+      // count >= threshold means we've seen it threshold+1 times
+      if (count >= AGENT_CONFIG.LOOP_DETECTION_THRESHOLD) {
         if (process.env.DEBUG_LOOP_DETECTION === '1') {
-          console.error(`[LOOP DETECTION] ⚠️ LOOP DETECTED! Signature: ${signature} (count: ${count})`);
+          console.error(`[LOOP DETECTION] ⚠️ LOOP DETECTED! Signature: ${signature} (count: ${count}, threshold: ${AGENT_CONFIG.LOOP_DETECTION_THRESHOLD})`);
         }
         return true;
       }

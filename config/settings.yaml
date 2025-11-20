@@ -7,6 +7,34 @@ agent:
   default_max_tokens: 8192
   max_recent_tool_calls: 20  # Keep only last 20 unique tool calls
 
+  # Loop Detection (DISABLED BY DEFAULT)
+  # Detects when the AI repeats the same tool call multiple times
+  #
+  # HOW IT WORKS:
+  # - Tracks tool calls by signature (tool name + key arguments)
+  # - If same tool called N times (threshold), stops execution
+  # - Prevents infinite loops but may stop legitimate repetitive operations
+  #
+  # WHEN TO ENABLE:
+  # - If AI gets stuck in loops (same command over and over)
+  # - For production environments with untrusted prompts
+  # - When max_tool_rounds (400) is too high for your use case
+  #
+  # HOW TO ENABLE:
+  # 1. Set enable_loop_detection: true
+  # 2. Set loop_detection_threshold to desired number (recommended: 5-10)
+  #    - Lower (3-5): Aggressive, may stop legitimate operations
+  #    - Medium (6-10): Balanced, good for most cases
+  #    - Higher (10+): Lenient, only stops obvious loops
+  #
+  # DISABLE OPTIONS:
+  # Option 1: enable_loop_detection: false (complete disable)
+  # Option 2: loop_detection_threshold: 0 (disable via threshold)
+  #
+  # DEFAULT: Disabled - Most users don't need this
+  enable_loop_detection: false  # Set to true to enable loop detection
+  loop_detection_threshold: 8   # Number of repetitions before flagging as loop
+
 file:
   max_file_size: 1048576  # 1MB in bytes
   max_buffer_size: 1048576  # 1MB for bash commands

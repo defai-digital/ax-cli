@@ -16,6 +16,8 @@ export const AGENT_CONFIG = {
   DEFAULT_TIMEOUT: settingsYaml.agent.default_timeout,
   DEFAULT_MAX_TOKENS: settingsYaml.agent.default_max_tokens,
   MAX_RECENT_TOOL_CALLS: settingsYaml.agent.max_recent_tool_calls,
+  LOOP_DETECTION_THRESHOLD: settingsYaml.agent.loop_detection_threshold,
+  ENABLE_LOOP_DETECTION: settingsYaml.agent.enable_loop_detection,
 } as const;
 
 // Convert YAML model config to runtime format

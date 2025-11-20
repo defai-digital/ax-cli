@@ -102,6 +102,8 @@ export interface SettingsYaml {
     default_timeout: number;
     default_max_tokens: number;
     max_recent_tool_calls: number;
+    loop_detection_threshold: number;
+    enable_loop_detection: boolean;
   };
   file: {
     max_file_size: number;

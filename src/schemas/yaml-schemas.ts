@@ -43,6 +43,8 @@ export const SettingsYamlSchema = z.object({
     default_timeout: z.number().positive().int(),
     default_max_tokens: z.number().positive().int(),
     max_recent_tool_calls: z.number().positive().int(),
+    loop_detection_threshold: z.number().nonnegative().int(),
+    enable_loop_detection: z.boolean(),
   }),
   file: z.object({
     max_file_size: z.number().positive().int(),
