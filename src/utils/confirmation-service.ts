@@ -98,13 +98,19 @@ export class ConfirmationService extends EventEmitter {
       }
     }
 
+    // Clear any existing timeout first to prevent memory leaks
+    if (this.confirmationTimeoutId) {
+      clearTimeout(this.confirmationTimeoutId);
+      this.confirmationTimeoutId = null;
+    }
+
     // Create a promise that will be resolved by the UI component
     // Add a timeout to prevent hanging indefinitely
     this.pendingConfirmation = new Promise<ConfirmationResult>((resolve) => {
       this.resolveConfirmation = resolve;
 
       // Set a timeout of 60 seconds for confirmation
-      const timeoutId = setTimeout(() => {
+      this.confirmationTimeoutId = setTimeout(() => {
         if (this.resolveConfirmation) {
           this.resolveConfirmation({
             confirmed: false,
@@ -115,9 +121,6 @@ export class ConfirmationService extends EventEmitter {
           this.confirmationTimeoutId = null;
         }
       }, 60000); // 60 second timeout
-
-      // Store timeout ID to clear it if confirmation comes early
-      this.confirmationTimeoutId = timeoutId;
     });
 
     // Emit custom event that the UI can listen to (using setImmediate to ensure the UI updates)

@@ -417,7 +417,7 @@ program
       const apiKey = options.apiKey || loadApiKey();
       const baseURL = options.baseUrl || loadBaseURL();
       const model = options.model || loadModel();
-      const maxToolRounds = parseInt(String(options.maxToolRounds), 10) || 400;
+      const maxToolRounds = options.maxToolRounds ? parseInt(options.maxToolRounds.toString(), 10) : 400;
 
       if (!apiKey) {
         console.error(
@@ -510,7 +510,7 @@ gitCommand
       const apiKey = options.apiKey || loadApiKey();
       const baseURL = options.baseUrl || loadBaseURL();
       const model = options.model || loadModel();
-      const maxToolRounds = parseInt(String(options.maxToolRounds), 10) || 400;
+      const maxToolRounds = options.maxToolRounds ? parseInt(options.maxToolRounds.toString(), 10) : 400;
 
       if (!apiKey) {
         console.error(

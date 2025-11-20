@@ -135,24 +135,15 @@ export class InitPreviewer {
     const oldLines = oldContent.split('\n');
     const newLines = newContent.split('\n');
 
-    // Simple line-based diff
+    // Simple line-based diff (optimized)
     const oldSet = new Set(oldLines);
     const newSet = new Set(newLines);
 
-    let added = 0;
-    let removed = 0;
+    // Count added lines (in new but not in old)
+    const added = newLines.filter(line => !oldSet.has(line)).length;
 
-    for (const line of newLines) {
-      if (!oldSet.has(line)) {
-        added++;
-      }
-    }
-
-    for (const line of oldLines) {
-      if (!newSet.has(line)) {
-        removed++;
-      }
-    }
+    // Count removed lines (in old but not in new)
+    const removed = oldLines.filter(line => !newSet.has(line)).length;
 
     return {
       added,
@@ -170,11 +161,12 @@ export class InitPreviewer {
 
     const diff: string[] = [];
     let lineCount = 0;
+    let i = 0;
 
     // Simple line-by-line comparison
     const maxLength = Math.max(oldLines.length, newLines.length);
 
-    for (let i = 0; i < maxLength && (!maxLines || lineCount < maxLines); i++) {
+    for (i = 0; i < maxLength && (!maxLines || lineCount < maxLines); i++) {
       const oldLine = oldLines[i];
       const newLine = newLines[i];
 
@@ -193,8 +185,10 @@ export class InitPreviewer {
       }
     }
 
-    if (maxLines && lineCount >= maxLines) {
-      diff.push(`\n... (${maxLength - maxLines} more lines)`);
+    // Calculate remaining lines correctly
+    if (maxLines && i < maxLength) {
+      const remaining = maxLength - i;
+      diff.push(`\n... (${remaining} more lines)`);
     }
 
     return diff.join('\n');
