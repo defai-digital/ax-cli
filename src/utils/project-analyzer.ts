@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { ProjectInfo, CodeConventions, AnalysisResult } from '../types/project-analysis.js';
 import { parseJsonFile } from './json-utils.js';
+import { normalizePath } from './path-utils.js';
 
 interface PackageJson {
   name?: string;
@@ -321,11 +322,11 @@ export class ProjectAnalyzer {
       }
     }
 
-    // Tools directory
+    // Tools directory (normalize for cross-platform compatibility)
     if (dirs.source) {
       const toolsPath = path.join(this.projectRoot, dirs.source, 'tools');
       if (fs.existsSync(toolsPath) && fs.statSync(toolsPath).isDirectory()) {
-        dirs.tools = path.join(dirs.source, 'tools');
+        dirs.tools = normalizePath(path.join(dirs.source, 'tools'));
       }
     }
 
@@ -361,15 +362,10 @@ export class ProjectAnalyzer {
   private async detectConventions(): Promise<CodeConventions> {
     const conventions: CodeConventions = {};
 
-    // Module system from package.json
-    const packageJsonPath = path.join(this.projectRoot, 'package.json');
-    if (fs.existsSync(packageJsonPath)) {
-      try {
-        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-        conventions.moduleSystem = packageJson.type === 'module' ? 'esm' : 'commonjs';
-      } catch {
-        // Ignore
-      }
+    // Module system from package.json (use cached version)
+    const packageJson = this.getPackageJson();
+    if (packageJson) {
+      conventions.moduleSystem = packageJson.type === 'module' ? 'esm' : 'commonjs';
     }
 
     // TypeScript config
@@ -402,8 +398,7 @@ export class ProjectAnalyzer {
       conventions.linter = 'eslint';
     }
 
-    // Validation library from package.json
-    const packageJson = this.getPackageJson();
+    // Validation library from package.json (reuse cached packageJson)
     if (packageJson) {
       const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
 

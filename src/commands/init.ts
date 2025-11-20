@@ -200,13 +200,33 @@ export function createInitCommand(): Command {
           }
         }
 
-        // Write files
+        // Write files using atomic operations
         await progress.startStep('write');
-        fs.writeFileSync(customMdPath, instructions, 'utf-8');
-        console.log(`✅ Generated custom instructions: ${customMdPath}`);
 
-        fs.writeFileSync(indexPath, index, 'utf-8');
-        console.log(`✅ Generated project index: ${indexPath}`);
+        // Atomic write for CUSTOM.md
+        const tmpCustomPath = `${customMdPath}.tmp`;
+        const tmpIndexPath = `${indexPath}.tmp`;
+
+        try {
+          fs.writeFileSync(tmpCustomPath, instructions, 'utf-8');
+          fs.writeFileSync(tmpIndexPath, index, 'utf-8');
+
+          // Atomic rename
+          fs.renameSync(tmpCustomPath, customMdPath);
+          fs.renameSync(tmpIndexPath, indexPath);
+
+          console.log(`✅ Generated custom instructions: ${customMdPath}`);
+          console.log(`✅ Generated project index: ${indexPath}`);
+        } catch (writeError) {
+          // Cleanup temp files on error
+          try {
+            if (fs.existsSync(tmpCustomPath)) fs.unlinkSync(tmpCustomPath);
+            if (fs.existsSync(tmpIndexPath)) fs.unlinkSync(tmpIndexPath);
+          } catch {
+            // Ignore cleanup errors
+          }
+          throw writeError;
+        }
 
         await progress.completeStep('write');
 

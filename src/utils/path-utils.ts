@@ -24,10 +24,10 @@ import os from 'node:os';
  * normalizePath('/Users/foo/bar') // => '/Users/foo/bar'
  *
  * @param filePath - The path to normalize
- * @returns Path with forward slashes
+ * @returns Path with forward slashes (empty string if input is falsy)
  */
 export function normalizePath(filePath: string): string {
-  if (!filePath) return filePath;
+  if (!filePath) return '';
   // Replace all backslashes with forward slashes
   // This works consistently across all platforms
   return filePath.replace(/\\/g, '/');
@@ -47,10 +47,10 @@ export function normalizePath(filePath: string): string {
  * platformPath('foo/bar/baz') // => 'foo/bar/baz'
  *
  * @param filePath - The path to convert
- * @returns Path with platform-native separators
+ * @returns Path with platform-native separators (empty string if input is falsy)
  */
 export function platformPath(filePath: string): string {
-  if (!filePath) return filePath;
+  if (!filePath) return '';
   return path.normalize(filePath);
 }
 

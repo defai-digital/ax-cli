@@ -299,7 +299,7 @@ export class TemplateManager {
   }
 
   /**
-   * Export a template to a file
+   * Export a template to a file (with atomic write)
    */
   static exportTemplate(templateId: string, outputPath: string): boolean {
     try {
@@ -310,7 +310,23 @@ export class TemplateManager {
         return false;
       }
 
-      fs.writeFileSync(outputPath, JSON.stringify(template, null, 2), 'utf-8');
+      // Atomic write using temporary file
+      const tmpPath = `${outputPath}.tmp`;
+      try {
+        fs.writeFileSync(tmpPath, JSON.stringify(template, null, 2), 'utf-8');
+        fs.renameSync(tmpPath, outputPath); // Atomic operation
+      } catch (writeError) {
+        // Cleanup temp file on error
+        if (fs.existsSync(tmpPath)) {
+          try {
+            fs.unlinkSync(tmpPath);
+          } catch {
+            // Ignore cleanup errors
+          }
+        }
+        throw writeError;
+      }
+
       return true;
     } catch (error) {
       console.error('Failed to export template:', error);

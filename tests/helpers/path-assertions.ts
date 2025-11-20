@@ -18,9 +18,17 @@ import { normalizePath, pathsEqual, pathContains } from '../../src/utils/path-ut
  * @param actual - Actual path from code/test
  * @param expected - Expected path (use forward slashes)
  */
-export function expectPathsToBeEqual(actual: string | undefined, expected: string): void {
+export function expectPathsToBeEqual(actual: string | undefined | null, expected: string): void {
   if (actual === undefined) {
     throw new Error(`Expected path to be ${expected}, but got undefined`);
+  }
+
+  if (actual === null) {
+    throw new Error(`Expected path to be ${expected}, but got null`);
+  }
+
+  if (actual === '') {
+    throw new Error(`Expected path to be ${expected}, but got empty string`);
   }
 
   const normalizedActual = normalizePath(actual);
