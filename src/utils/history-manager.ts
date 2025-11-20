@@ -1,24 +1,46 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as crypto from "crypto";
 import { ChatEntry } from "../agent/llm-agent.js";
 
 /**
  * HistoryManager - Manages conversation history persistence
- * Saves chat history to disk and restores it on app restart
+ * Supports both global history and directory-specific sessions
  */
 export class HistoryManager {
   private historyDir: string;
   private historyFile: string;
   private maxHistoryEntries: number;
+  private currentProjectDir?: string;
 
   constructor(
     baseDir: string = path.join(process.env.HOME || "~", ".ax-cli"),
-    maxEntries: number = 50
+    maxEntries: number = 50,
+    projectDir?: string
   ) {
     this.historyDir = baseDir;
-    this.historyFile = path.join(baseDir, "history.json");
+    this.currentProjectDir = projectDir;
+
+    // Use project-specific history file if projectDir is provided
+    if (projectDir) {
+      const sessionId = this.getSessionIdForDirectory(projectDir);
+      this.historyFile = path.join(baseDir, "sessions", `${sessionId}.json`);
+    } else {
+      this.historyFile = path.join(baseDir, "history.json");
+    }
+
     this.maxHistoryEntries = maxEntries;
     this.ensureHistoryDir();
+  }
+
+  /**
+   * Generate a session ID based on project directory path
+   * Uses a hash of the absolute path for consistent session identification
+   */
+  private getSessionIdForDirectory(dir: string): string {
+    const absolutePath = path.resolve(dir);
+    const hash = crypto.createHash('sha256').update(absolutePath).digest('hex');
+    return hash.substring(0, 16); // Use first 16 chars for shorter filenames
   }
 
   /**
@@ -27,6 +49,14 @@ export class HistoryManager {
   private ensureHistoryDir(): void {
     if (!fs.existsSync(this.historyDir)) {
       fs.mkdirSync(this.historyDir, { recursive: true });
+    }
+
+    // Ensure sessions directory exists if using project-specific history
+    if (this.currentProjectDir) {
+      const sessionsDir = path.join(this.historyDir, "sessions");
+      if (!fs.existsSync(sessionsDir)) {
+        fs.mkdirSync(sessionsDir, { recursive: true });
+      }
     }
   }
 
@@ -45,9 +75,19 @@ export class HistoryManager {
         timestamp: entry.timestamp.toISOString(),
       }));
 
+      // Add session metadata if using project-specific history
+      const data = this.currentProjectDir ? {
+        metadata: {
+          projectDir: this.currentProjectDir,
+          lastUpdated: new Date().toISOString(),
+          version: 1,
+        },
+        history: serialized,
+      } : serialized;
+
       fs.writeFileSync(
         this.historyFile,
-        JSON.stringify(serialized, null, 2),
+        JSON.stringify(data, null, 2),
         "utf-8"
       );
     } catch (error) {
@@ -68,8 +108,11 @@ export class HistoryManager {
       const content = fs.readFileSync(this.historyFile, "utf-8");
       const parsed = JSON.parse(content);
 
+      // Handle both old format (array) and new format (object with metadata)
+      const historyData = Array.isArray(parsed) ? parsed : parsed.history || [];
+
       // Deserialize (convert ISO strings back to Date objects)
-      const history: ChatEntry[] = parsed.map((entry: any) => ({
+      const history: ChatEntry[] = historyData.map((entry: any) => ({
         ...entry,
         timestamp: new Date(entry.timestamp),
       }));
@@ -117,10 +160,23 @@ let historyManagerInstance: HistoryManager | null = null;
 
 /**
  * Get the singleton HistoryManager instance
+ * @param projectDir Optional project directory for session-specific history
+ * @param force Force create new instance (useful for --continue flag)
  */
-export function getHistoryManager(): HistoryManager {
-  if (!historyManagerInstance) {
-    historyManagerInstance = new HistoryManager();
+export function getHistoryManager(projectDir?: string, force = false): HistoryManager {
+  if (force || !historyManagerInstance) {
+    historyManagerInstance = new HistoryManager(
+      path.join(process.env.HOME || "~", ".ax-cli"),
+      50,
+      projectDir
+    );
   }
   return historyManagerInstance;
+}
+
+/**
+ * Reset the singleton instance (useful for testing)
+ */
+export function resetHistoryManager(): void {
+  historyManagerInstance = null;
 }

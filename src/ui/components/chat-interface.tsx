@@ -21,6 +21,7 @@ import path from "path";
 interface ChatInterfaceProps {
   agent?: LLMAgent;
   initialMessage?: string;
+  loadPreviousHistory?: boolean; // For --continue flag
 }
 
 // Get current project folder name
@@ -32,13 +33,17 @@ function getCurrentProjectName(): string {
 function ChatInterfaceWithAgent({
   agent,
   initialMessage,
+  loadPreviousHistory = false,
 }: {
   agent: LLMAgent;
   initialMessage?: string;
+  loadPreviousHistory?: boolean;
 }) {
   const historyManager = getHistoryManager();
-  const [chatHistory, setChatHistory] = useState<ChatEntry[]>([]);
-  // Start with empty chat history for fresh session
+  const [chatHistory, setChatHistory] = useState<ChatEntry[]>(() => {
+    // Load saved history on mount (for --continue flag)
+    return loadPreviousHistory ? historyManager.loadHistory() : [];
+  });
   // Command history (up/down arrows) is handled separately in use-input-history.ts
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingTime, setProcessingTime] = useState(0);
@@ -501,6 +506,7 @@ function ChatInterfaceWithAgent({
 export default function ChatInterface({
   agent,
   initialMessage,
+  loadPreviousHistory = false,
 }: ChatInterfaceProps) {
   const [currentAgent, setCurrentAgent] = useState<LLMAgent | null>(
     agent || null
@@ -518,6 +524,7 @@ export default function ChatInterface({
     <ChatInterfaceWithAgent
       agent={currentAgent}
       initialMessage={initialMessage}
+      loadPreviousHistory={loadPreviousHistory}
     />
   );
 }

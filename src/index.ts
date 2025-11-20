@@ -521,6 +521,10 @@ program
     "maximum number of tool execution rounds (default: 400)",
     "400"
   )
+  .option(
+    "-c, --continue",
+    "continue the most recent conversation from the current directory"
+  )
   // VSCode Integration Flags (Phase 1)
   .option("--json", "output responses in JSON format (for IDE integration)")
   .option("--file <path>", "include file context from specified path")
@@ -608,7 +612,27 @@ program
       // Interactive mode: launch UI
       const agent = new LLMAgent(apiKey, baseURL, model, maxToolRounds);
       activeAgent = agent; // Track for cleanup on exit
-      console.log("🤖 Starting AX CLI AI Assistant...\n");
+
+      // Handle --continue flag: load directory-specific session
+      if (options.continue) {
+        const currentDir = process.cwd();
+        const { getHistoryManager } = await import("./utils/history-manager.js");
+
+        // Create a new history manager instance for this project directory
+        const historyManager = getHistoryManager(currentDir, true);
+        const previousHistory = historyManager.loadHistory();
+
+        if (previousHistory.length > 0) {
+          console.log(`🔄 Continuing conversation from ${currentDir}`);
+          console.log(`📜 Loaded ${previousHistory.length} previous messages\n`);
+        } else {
+          console.log(`💬 Starting new conversation in ${currentDir}\n`);
+        }
+
+        console.log("🤖 Starting AX CLI AI Assistant...\n");
+      } else {
+        console.log("🤖 Starting AX CLI AI Assistant...\n");
+      }
 
       ensureUserSettingsDirectory();
 
@@ -617,7 +641,13 @@ program
         ? message.join(" ")
         : message;
 
-      const { waitUntilExit } = render(React.createElement(ChatInterface, { agent, initialMessage }));
+      const { waitUntilExit } = render(
+        React.createElement(ChatInterface, {
+          agent,
+          initialMessage,
+          loadPreviousHistory: options.continue || false,
+        })
+      );
 
       // Wait for app to exit and clean up
       await waitUntilExit();

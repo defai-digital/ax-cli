@@ -42,6 +42,10 @@ ax-cli
   - 200K context window, 128K max output capability
   - 30% more token efficient than GLM 4.5
   - Optimized for complex code generation and refactoring
+- **🔄 Session Continuity**: Directory-specific conversation history with `--continue` flag
+  - Preserve context across sessions for multi-day development
+  - Each project maintains its own independent history
+  - Seamlessly resume conversations where you left off
 - **🔌 MCP Integration**: Model Context Protocol for extensible tool support
 - **✅ Production-Ready**: 98%+ test coverage, TypeScript strict mode, Zod validation
 - **🎯 Interactive & Headless**: Chat interface or one-shot commands
@@ -123,6 +127,11 @@ ax-cli  # Will prompt for API key on first run
 # Start interactive chat
 ax-cli
 
+# Continue the most recent conversation in this directory
+ax-cli --continue
+# or
+ax-cli -c
+
 # Available slash commands:
 /help              # Show help
 /init              # Initialize project
@@ -185,6 +194,40 @@ cp node_modules/@defai.digital/ax-cli/templates/vscode/*.json .vscode/
 - ⚡ Optimize Performance
 
 [VSCode Integration Guide →](docs/vscode-integration-guide.md)
+
+### 🔄 Session Continuity (`--continue`)
+
+Resume conversations seamlessly with directory-specific session history:
+
+```bash
+# Start a conversation in your project
+cd /path/to/your/project
+ax-cli
+# > Work on some features, then exit
+
+# Later, continue where you left off
+cd /path/to/your/project
+ax-cli --continue
+# All previous context is restored!
+
+# Each project maintains its own independent history
+cd /path/to/another/project
+ax-cli --continue
+# Fresh context for this project
+```
+
+**How It Works:**
+- Each project directory gets its own conversation session
+- History includes all messages, tool calls, and results
+- Integrated with `.ax-cli/CUSTOM.md` for project-specific context
+- Sessions stored in `~/.ax-cli/sessions/` by project hash
+- Up to 50 most recent messages preserved per session
+
+**Use Cases:**
+- Multi-day feature development with accumulated knowledge
+- Resume after interruptions without losing context
+- Maintain separate conversations per project
+- Natural workflow continuity across sessions
 
 ### Project Initialization
 
