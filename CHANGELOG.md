@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.5] - 2025-11-20
+
+### Known Issues
+- **Loop Detection Issue in Interactive Mode** - Investigating infinite loop behavior
+  - User reports `date` command and other commands executing 10+ times in interactive mode
+  - Loop detection code logic verified correct in isolation and headless mode
+  - Issue appears specific to interactive/streaming mode
+  - Debug logging available via `DEBUG_LOOP_DETECTION=1` for troubleshooting
+  - Awaiting debug output from production environment to diagnose root cause
+
+### Investigation Status
+- **Verified Working**: Loop detection functions correctly in headless mode with `--prompt`
+- **Verified Working**: Isolated logic tests confirm algorithm correctness
+- **Issue Scope**: Problem manifests in interactive mode when LLM repeatedly calls same tool across multiple agent loop iterations
+- **Hypothesis**: Map persistence across agent loop iterations may have environment-specific behavior
+- **Next Steps**: Analyzing user debug output to identify exact failure point
+
+### Technical Notes
+- Loop detection checks occur at line 811 using `.some()` on tool calls
+- Map tracking should persist across agent loop iterations (not reset mid-loop)
+- Count threshold `>= 1` should trigger on 2nd occurrence
+- All debug logging remains in place for continued investigation
+
+### Documentation
+- Updated investigation notes in automatosx/REPORT/analysis/
+- URGENT-DEBUG-INSTRUCTIONS.md available for user troubleshooting
+- Issue tracking continues in v2.4.x branch
+
 ## [2.4.4] - 2025-11-20
 
 ### Added
