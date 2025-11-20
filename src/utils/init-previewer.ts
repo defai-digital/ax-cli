@@ -110,6 +110,7 @@ export class InitPreviewer {
       // Show summary
       const lines = preview.newContent.split('\n').length;
       const chars = preview.newContent.length;
+      // Rough approximation: actual tokens vary by content (English ~4 chars/token, code ~3)
       const tokens = Math.ceil(chars / 4);
 
       let summary = `Lines: ${lines}\nCharacters: ${chars}\nEstimated Tokens: ~${tokens}`;

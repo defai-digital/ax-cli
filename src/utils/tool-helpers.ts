@@ -21,9 +21,20 @@ export async function executeTool<T>(
 ): Promise<ToolResult> {
   try {
     const result = await operation();
+    let output: string;
+    if (typeof result === 'string') {
+      output = result;
+    } else {
+      try {
+        output = JSON.stringify(result);
+      } catch {
+        // Fallback for circular references or non-serializable values
+        output = String(result);
+      }
+    }
     return {
       success: true,
-      output: typeof result === 'string' ? result : JSON.stringify(result)
+      output
     };
   } catch (error: any) {
     return {
@@ -46,9 +57,20 @@ export function executeToolSync<T>(
 ): ToolResult {
   try {
     const result = operation();
+    let output: string;
+    if (typeof result === 'string') {
+      output = result;
+    } else {
+      try {
+        output = JSON.stringify(result);
+      } catch {
+        // Fallback for circular references or non-serializable values
+        output = String(result);
+      }
+    }
     return {
       success: true,
-      output: typeof result === 'string' ? result : JSON.stringify(result)
+      output
     };
   } catch (error: any) {
     return {
