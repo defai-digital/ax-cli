@@ -160,9 +160,14 @@
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "package": "npm run check-types && node esbuild.js --production",
+    "compile:prod": "npm run package",
     "check-types": "tsc --noEmit",
     "lint": "eslint src --ext ts",
-    "test": "vitest"
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "package:vsix": "vsce package",
+    "publish": "vsce publish",
+    "clean": "rm -rf dist *.vsix"
   },
   "devDependencies": {
     "@types/node": "^20.x",

@@ -41,6 +41,72 @@ describe('ContextProvider', () => {
       const result = contextProvider.formatContextForDisplay(context);
       expect(result).toBe('');
     });
+
+    it('should format multiple context types', () => {
+      const context = {
+        file: '/path/to/file.ts',
+        selection: 'code',
+        lineRange: '1-10',
+        gitDiff: true,
+      };
+      const result = contextProvider.formatContextForDisplay(context);
+      expect(result).toContain('📄 File');
+      expect(result).toContain('📝 Selection');
+      expect(result).toContain('📏 Lines');
+      expect(result).toContain('🔄 Git');
+    });
+  });
+});
+
+describe('Extension Package', () => {
+  it('should have valid package.json structure', () => {
+    const pkg = require('../../package.json');
+
+    expect(pkg.name).toBe('ax-cli-vscode');
+    expect(pkg.displayName).toBe('AX CLI');
+    expect(pkg.version).toBeDefined();
+    expect(pkg.publisher).toBe('defai-digital');
+    expect(pkg.engines.vscode).toBeDefined();
+  });
+
+  it('should define all required commands', () => {
+    const pkg = require('../../package.json');
+    const commands = pkg.contributes.commands;
+
+    const requiredCommands = [
+      'ax-cli.openChat',
+      'ax-cli.analyzeFile',
+      'ax-cli.explainSelection',
+      'ax-cli.generateTests',
+      'ax-cli.refactorSelection',
+      'ax-cli.documentCode',
+      'ax-cli.findBugs',
+      'ax-cli.reviewChanges',
+      'ax-cli.selectModel',
+      'ax-cli.configure',
+    ];
+
+    const commandIds = commands.map((cmd: any) => cmd.command);
+    requiredCommands.forEach(cmd => {
+      expect(commandIds).toContain(cmd);
+    });
+  });
+
+  it('should define keybindings', () => {
+    const pkg = require('../../package.json');
+    const keybindings = pkg.contributes.keybindings;
+
+    expect(keybindings).toBeDefined();
+    expect(keybindings.length).toBeGreaterThan(0);
+  });
+
+  it('should define configuration settings', () => {
+    const pkg = require('../../package.json');
+    const config = pkg.contributes.configuration;
+
+    expect(config.properties['ax-cli.apiKey']).toBeDefined();
+    expect(config.properties['ax-cli.model']).toBeDefined();
+    expect(config.properties['ax-cli.baseURL']).toBeDefined();
   });
 });
 

@@ -320,3 +320,307 @@ body {
     gap: 8px;
   }
 }
+
+/* Diff Viewer */
+.diff-viewer {
+  margin: 12px 0;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: var(--border-radius);
+  background-color: var(--vscode-editor-background);
+}
+
+.diff-header {
+  padding: 8px 12px;
+  background-color: var(--vscode-editorGroupHeader-tabsBackground);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.diff-container {
+  display: flex;
+  gap: 1px;
+  background-color: var(--vscode-panel-border);
+}
+
+.diff-pane {
+  flex: 1;
+  min-width: 0;
+  background-color: var(--vscode-editor-background);
+}
+
+.diff-pane-header {
+  padding: 6px 12px;
+  background-color: var(--vscode-editorGroupHeader-tabsBackground);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--vscode-descriptionForeground);
+}
+
+.diff-pane-content {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+
+.diff-line {
+  display: flex;
+  align-items: flex-start;
+  min-height: 20px;
+}
+
+.diff-line .line-num {
+  flex-shrink: 0;
+  width: 40px;
+  padding: 0 8px;
+  text-align: right;
+  color: var(--vscode-editorLineNumber-foreground);
+  user-select: none;
+  font-size: 11px;
+}
+
+.diff-line .line-content {
+  flex: 1;
+  padding: 0 8px;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* Diff line types */
+.diff-add {
+  background-color: var(--vscode-diffEditor-insertedTextBackground);
+}
+
+.diff-remove {
+  background-color: var(--vscode-diffEditor-removedTextBackground);
+}
+
+.diff-modify {
+  background-color: var(--vscode-diffEditor-insertedTextBackground);
+}
+
+.diff-empty {
+  background-color: var(--vscode-diffEditor-diagonalFill);
+  opacity: 0.3;
+}
+
+/* Inline diff mode */
+.diff-viewer.inline .diff-content {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 13px;
+}
+
+.diff-viewer.inline .diff-line .line-content.removed {
+  color: var(--vscode-diffEditor-removedTextForeground);
+  background-color: var(--vscode-diffEditor-removedTextBackground);
+  display: block;
+  padding: 0 8px;
+}
+
+.diff-viewer.inline .diff-line .line-content.added {
+  color: var(--vscode-diffEditor-insertedTextForeground);
+  background-color: var(--vscode-diffEditor-insertedTextBackground);
+  display: block;
+  padding: 0 8px;
+}
+
+.diff-viewer.inline .diff-line.diff-modify .line-content {
+  padding: 0;
+}
+
+/* Diff actions */
+.diff-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--vscode-panel-border);
+  background-color: var(--vscode-editorGroupHeader-tabsBackground);
+}
+
+.diff-action-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diff-action-btn:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.diff-action-btn.secondary {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+.diff-action-btn.secondary:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* Settings Panel */
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--vscode-sideBar-background);
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--container-padding);
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.settings-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--container-padding);
+}
+
+.settings-section {
+  margin-bottom: 24px;
+}
+
+.settings-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: var(--vscode-foreground);
+}
+
+.settings-field {
+  margin-bottom: 16px;
+}
+
+.settings-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: var(--vscode-foreground);
+}
+
+.settings-input,
+.settings-select {
+  width: 100%;
+  padding: 6px 8px;
+  font-family: var(--vscode-font-family);
+  font-size: 13px;
+  color: var(--vscode-input-foreground);
+  background-color: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: var(--border-radius);
+}
+
+.settings-input:focus,
+.settings-select:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder);
+}
+
+.settings-input[type="password"] {
+  font-family: monospace;
+  letter-spacing: 2px;
+}
+
+.settings-range {
+  width: calc(100% - 50px);
+  margin-right: 8px;
+}
+
+.range-value {
+  display: inline-block;
+  width: 40px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.settings-help {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.checkbox-field input[type="checkbox"] {
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.checkbox-field label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+
+.checkbox-field label input {
+  margin-right: 8px;
+}
+
+.settings-footer {
+  display: flex;
+  gap: 8px;
+  padding: var(--container-padding);
+  border-top: 1px solid var(--vscode-panel-border);
+  background-color: var(--vscode-sideBar-background);
+}
+
+.settings-btn {
+  flex: 1;
+  padding: var(--button-padding);
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.settings-btn.primary {
+  color: var(--vscode-button-foreground);
+  background-color: var(--vscode-button-background);
+}
+
+.settings-btn.primary:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.settings-btn.secondary {
+  color: var(--vscode-button-secondaryForeground);
+  background-color: var(--vscode-button-secondaryBackground);
+}
+
+.settings-btn.secondary:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
