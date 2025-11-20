@@ -90,7 +90,7 @@ export class LLMClient {
     this.client = new OpenAI({
       apiKey,
       baseURL: finalBaseURL,
-      timeout: 360000,
+      timeout: 600000, // Increased to 10 minutes for long contexts
     });
 
     // Set model with validation

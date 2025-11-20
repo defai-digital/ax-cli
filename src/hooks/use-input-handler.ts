@@ -215,13 +215,14 @@ export function useInputHandler({
     const trimmedInput = input.trim();
 
     if (trimmedInput === "/continue") {
-      // Send a continuation prompt to the LLM
-      const continuePrompt = "Please continue your previous response from where you left off. Complete the thought or section that was incomplete.";
+      // Send a shorter, more focused continuation prompt to avoid timeout
+      // Using a brief prompt reduces token overhead for large contexts
+      const continuePrompt = "Continue from where you left off.";
 
-      // Add user continue command to history
+      // Add user continue command to history (showing the actual command for clarity)
       const userEntry: ChatEntry = {
         type: "user",
-        content: continuePrompt,
+        content: "/continue",
         timestamp: new Date(),
       };
       setChatHistory((prev) => [...prev, userEntry]);
@@ -368,9 +369,19 @@ export function useInputHandler({
             }
           }
         } catch (error: any) {
+          let errorMessage = `Error: ${error.message}`;
+
+          // Provide helpful guidance for timeout errors during /continue
+          if (error.message && error.message.includes('timeout')) {
+            errorMessage += `\n\n💡 Tip: For very long conversations, try:\n`;
+            errorMessage += `   • Use /clear to start fresh and ask a more focused question\n`;
+            errorMessage += `   • Break down your request into smaller parts\n`;
+            errorMessage += `   • Use --continue flag to start a new session with history`;
+          }
+
           const errorEntry: ChatEntry = {
             type: "assistant",
-            content: `Error: ${error.message}`,
+            content: errorMessage,
             timestamp: new Date(),
           };
           setChatHistory((prev) => [...prev, errorEntry]);
