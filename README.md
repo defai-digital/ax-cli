@@ -13,7 +13,7 @@
 ![AX CLI Logo](.github/assets/ax-cli.png)
 
 <p align="center">
-  <strong>Production-Ready AI CLI • Enterprise-Grade Architecture • 98%+ Test Coverage • TypeScript & Zod Validation</strong>
+  <strong>Enterprise-Grade Architecture • 98%+ Test Coverage • TypeScript & Zod Validation</strong>
 </p>
 
 ---
@@ -23,6 +23,9 @@
 ```bash
 # Install globally
 npm install -g @defai.digital/ax-cli
+
+# Configure your API key
+ax-cli setup
 
 # Initialize your project
 ax-cli init
