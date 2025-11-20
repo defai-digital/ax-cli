@@ -167,11 +167,12 @@ export class LLMAgent extends EventEmitter {
         console.error(`[LOOP DETECTION] Map size: ${this.recentToolCalls.size}`);
       }
 
-      // If we've seen this EXACT tool call even once before, it's definitely looping
-      // This catches exact duplicates (same command, same file, etc.) on 2nd occurrence
-      if (count >= 1) {
+      // If we've seen this EXACT tool call 2+ times before, it's looping
+      // Allow up to 2 occurrences (count of 2 means 3rd attempt)
+      // This catches real loops while allowing legitimate repeated operations
+      if (count >= 2) {
         if (process.env.DEBUG_LOOP_DETECTION === '1') {
-          console.error(`[LOOP DETECTION] ⚠️ LOOP DETECTED! Signature: ${signature}`);
+          console.error(`[LOOP DETECTION] ⚠️ LOOP DETECTED! Signature: ${signature} (count: ${count})`);
         }
         return true;
       }
