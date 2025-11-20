@@ -136,7 +136,7 @@ describe('ProjectAnalyzer', () => {
       expect(result.success).toBe(true);
       expect(result.projectInfo!.directories.source).toBe('src');
       expect(result.projectInfo!.directories.tests).toBe('tests');
-      expect(result.projectInfo!.directories.tools).toBe('src/tools');
+      expect(result.projectInfo!.directories.tools).toBe(path.join('src', 'tools'));
     });
 
     it('should handle projects without package.json', async () => {

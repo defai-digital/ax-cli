@@ -123,12 +123,10 @@ jobs:
 
       - name: Create GitHub Release
         if: steps.check-version.outputs.exists == 'false' && github.event_name == 'push'
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ steps.package-version.outputs.version }}
+          name: Release ${{ steps.package-version.outputs.version }}
           body: |
             ## AX CLI v${{ steps.package-version.outputs.version }}
 
@@ -144,6 +142,7 @@ jobs:
             https://www.npmjs.com/package/@defai.digital/ax-cli/v/${{ steps.package-version.outputs.version }}
           draft: false
           prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Notify success
         if: steps.check-version.outputs.exists == 'false'
