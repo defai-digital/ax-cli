@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ProjectAnalyzer } from '../../src/utils/project-analyzer.js';
+import { expectPathsToBeEqual } from '../helpers/path-assertions.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -136,7 +137,7 @@ describe('ProjectAnalyzer', () => {
       expect(result.success).toBe(true);
       expect(result.projectInfo!.directories.source).toBe('src');
       expect(result.projectInfo!.directories.tests).toBe('tests');
-      expect(result.projectInfo!.directories.tools).toBe(path.join('src', 'tools'));
+      expectPathsToBeEqual(result.projectInfo!.directories.tools, 'src/tools');
     });
 
     it('should handle projects without package.json', async () => {
