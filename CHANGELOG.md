@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.8] - 2025-11-20
+
+### Added
+- **Context Window Indicator** - Real-time context usage display in status line
+  - Shows percentage of context window used (e.g., "context: 45%")
+  - Color-coded: green (0-50%), yellow (50-75%), red (>75%)
+  - Updates every 5 seconds (occasional refresh, not real-time)
+  - **Auto-prune notification**: Shows "auto-prune" for 3 seconds when context is pruned
+  - Detects pruning automatically (>10% drop in context percentage)
+  - Helps users track conversation length and know when to start fresh
+  - Modified: `src/ui/components/chat-interface.tsx:38-44,320-344,443-449`
+  - Modified: `src/agent/llm-agent.ts:1092-1099`
+
+### Changed
+- **Status Line Display** - Added context percentage between model and version
+  - Format: `model: glm-4.6 | context: 45% | ax-cli: v2.4.8`
+  - Non-intrusive, updates occasionally (not continuously)
+  - Uses existing ContextManager (already tracking at 75%/95% thresholds)
+
+### Technical
+- Added `getContextPercentage()` method to LLMAgent
+- Returns rounded percentage (0-100) from ContextManager.getStats()
+- useEffect updates every 5 seconds or when chat history changes
+- Zero performance impact (uses cached token counts)
+
+### User Benefits
+- ✅ Know when approaching context limit (75% = pruning, 95% = warning)
+- ✅ Visual notification when auto-pruning happens
+- ✅ Decide when to start new conversation
+- ✅ Better understanding of conversation size
+- ✅ Consistent with Claude Code UX
+
+### Display Behavior
+- **Location**: Bottom right of screen in status line
+- **Normal**: `context: 45%` (green/yellow/red based on percentage)
+- **During pruning**: `context: auto-prune` (cyan, shows for 3 seconds)
+- **After pruning**: Returns to showing updated percentage
+
 ## [2.4.7] - 2025-11-20
 
 ### Added

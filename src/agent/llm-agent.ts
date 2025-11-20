@@ -1090,6 +1090,15 @@ export class LLMAgent extends EventEmitter {
   }
 
   /**
+   * Get current context window usage percentage
+   * Returns a number between 0-100
+   */
+  getContextPercentage(): number {
+    const stats = this.contextManager.getStats(this.messages, this.tokenCounter);
+    return Math.round(stats.percentage);
+  }
+
+  /**
    * Dispose of resources and remove event listeners
    * Call this when the agent is no longer needed
    */

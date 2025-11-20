@@ -35,10 +35,13 @@ function ChatInterfaceWithAgent({
   const [processingTime, setProcessingTime] = useState(0);
   const [tokenCount, setTokenCount] = useState(0);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [contextPercentage, setContextPercentage] = useState<number>(0);
+  const [showAutoPrune, setShowAutoPrune] = useState(false);
   const [confirmationOptions, setConfirmationOptions] =
     useState<ConfirmationOptions | null>(null);
   const scrollRef = useRef<any>();
   const processingStartTime = useRef<number>(0);
+  const lastPercentageRef = useRef<number>(0);
 
   const confirmationService = ConfirmationService.getInstance();
 
@@ -314,6 +317,32 @@ function ChatInterfaceWithAgent({
     return () => clearInterval(interval);
   }, [isProcessing, isStreaming]);
 
+  // Update context percentage occasionally (every 5 seconds)
+  useEffect(() => {
+    const updateContextPercentage = () => {
+      const percentage = agent.getContextPercentage();
+
+      // Detect auto-prune: if percentage drops by more than 10%, pruning happened
+      if (lastPercentageRef.current > 0 &&
+          percentage < lastPercentageRef.current - 10) {
+        setShowAutoPrune(true);
+        // Hide "auto-prune" after 3 seconds
+        setTimeout(() => setShowAutoPrune(false), 3000);
+      }
+
+      lastPercentageRef.current = percentage;
+      setContextPercentage(percentage);
+    };
+
+    // Update immediately
+    updateContextPercentage();
+
+    // Then update every 5 seconds
+    const interval = setInterval(updateContextPercentage, 5000);
+
+    return () => clearInterval(interval);
+  }, [agent, chatHistory]); // Re-run when chat history changes
+
   const handleConfirmation = (dontAskAgain?: boolean) => {
     confirmationService.confirmOperation(true, dontAskAgain);
     setConfirmationOptions(null);
@@ -410,6 +439,14 @@ function ChatInterfaceWithAgent({
             <Box marginRight={2}>
               <Text color="gray" dimColor>model: </Text>
               <Text color="yellow">{agent.getCurrentModel()}</Text>
+              <Text color="gray" dimColor> | context: </Text>
+              {showAutoPrune ? (
+                <Text color="cyan">auto-prune</Text>
+              ) : (
+                <Text color={contextPercentage > 75 ? "red" : contextPercentage > 50 ? "yellow" : "green"}>
+                  {contextPercentage}%
+                </Text>
+              )}
               <Text color="gray" dimColor> | ax-cli: </Text>
               <Text color="cyan">v{getVersion()}</Text>
             </Box>
