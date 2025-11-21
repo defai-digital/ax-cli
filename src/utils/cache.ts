@@ -83,9 +83,21 @@ export class LRUCache<K, V> {
 
   /**
    * Check if key exists and is not expired
+   * Unlike get(), this properly handles cached undefined values
    */
   has(key: K): boolean {
-    return this.get(key) !== undefined;
+    const entry = this.cache.get(key);
+    if (!entry) {
+      return false;
+    }
+
+    // Check if expired
+    if (this.ttl && Date.now() - entry.timestamp > this.ttl) {
+      this.cache.delete(key);
+      return false;
+    }
+
+    return true;
   }
 
   /**
@@ -154,10 +166,9 @@ export function memoizeAsync<TArgs extends any[], TReturn>(
   return async (...args: TArgs): Promise<TReturn> => {
     const key = keyFn(...args);
 
-    // Check cache first
-    const cached = cache.get(key);
-    if (cached !== undefined) {
-      return cached;
+    // Check cache first using has() to properly handle cached undefined values
+    if (cache.has(key)) {
+      return cache.get(key) as TReturn;
     }
 
     // Check if already pending to prevent cache stampede
@@ -202,10 +213,10 @@ export function memoize<TArgs extends any[], TReturn>(
 
   return (...args: TArgs): TReturn => {
     const key = keyFn(...args);
-    const cached = cache.get(key);
 
-    if (cached !== undefined) {
-      return cached;
+    // Check cache first using has() to properly handle cached undefined values
+    if (cache.has(key)) {
+      return cache.get(key) as TReturn;
     }
 
     const result = fn(...args);

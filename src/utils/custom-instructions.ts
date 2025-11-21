@@ -5,10 +5,8 @@ export function loadCustomInstructions(workingDirectory: string = process.cwd())
   try {
     const instructionsPath = path.join(workingDirectory, '.ax-cli', 'CUSTOM.md');
 
-    if (!fs.existsSync(instructionsPath)) {
-      return null;
-    }
-
+    // Directly attempt to read the file - avoids TOCTOU race condition
+    // If the file doesn't exist, readFileSync will throw ENOENT which is handled below
     const customInstructions = fs.readFileSync(instructionsPath, 'utf-8');
     return customInstructions.trim();
   } catch (error) {

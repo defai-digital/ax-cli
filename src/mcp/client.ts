@@ -261,10 +261,22 @@ export class MCPManager extends EventEmitter {
 
   /**
    * Cleanup all resources and remove event listeners
+   * Uses Promise.allSettled to ensure all servers are cleaned up even if some fail
    */
   async dispose(): Promise<void> {
     const serverNames = Array.from(this.clients.keys());
-    await Promise.all(serverNames.map(name => this.removeServer(name)));
+    // Use Promise.allSettled (like shutdown) to ensure all servers are attempted
+    const results = await Promise.allSettled(
+      serverNames.map(name => this.removeServer(name))
+    );
+
+    // Log any failures but don't throw
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.warn(`Failed to dispose server ${serverNames[index]}:`, result.reason);
+      }
+    });
+
     this.removeAllListeners();
   }
 }

@@ -343,6 +343,7 @@ export class SubagentOrchestrator extends EventEmitter {
   /**
    * Terminate all subagents
    * Properly removes all event listeners to prevent memory leaks
+   * Uses Promise.allSettled to ensure all subagents are terminated even if some fail
    */
   async terminateAll(): Promise<void> {
     // Remove all event listeners before terminating
@@ -356,11 +357,21 @@ export class SubagentOrchestrator extends EventEmitter {
     }
     this.subagentListeners.clear();
 
-    const terminatePromises = Array.from(this.subagents.values()).map(
-      (subagent) => subagent.terminate()
+    const subagentEntries = Array.from(this.subagents.entries());
+    const terminatePromises = subagentEntries.map(
+      ([, subagent]) => subagent.terminate()
     );
 
-    await Promise.all(terminatePromises);
+    // Use Promise.allSettled to ensure all subagents are attempted
+    // even if some terminations fail
+    const results = await Promise.allSettled(terminatePromises);
+
+    // Log any failures but don't throw
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.warn(`Failed to terminate subagent ${subagentEntries[index][0]}:`, result.reason);
+      }
+    });
 
     this.subagents.clear();
     this.activeCount = 0;

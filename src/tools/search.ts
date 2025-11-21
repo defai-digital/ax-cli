@@ -261,11 +261,12 @@ export class SearchTool {
 
         // Try to kill process with escalating signals
         // Use a safer check: only kill if process hasn't exited
+        let killTimeout: ReturnType<typeof setTimeout> | null = null;
         try {
           if (rg.exitCode === null && rg.signalCode === null) {
             rg.kill('SIGTERM');
             // Set a timeout to force kill if SIGTERM doesn't work
-            const killTimeout = setTimeout(() => {
+            killTimeout = setTimeout(() => {
               try {
                 if (rg.exitCode === null && !rg.killed) {
                   rg.kill('SIGKILL');
@@ -274,14 +275,22 @@ export class SearchTool {
                 // Process already terminated
               }
             }, 3000);
-            // Clean up timeout when process exits
-            rg.once('exit', () => clearTimeout(killTimeout));
           }
         } catch {
           // Process already terminated or can't be killed, ignore
         }
 
-        cleanup(); // Call cleanup AFTER initiating termination
+        // Clean up timeout when process exits (add listener BEFORE cleanup)
+        // Note: We need to keep this specific listener active for timeout cleanup
+        if (killTimeout) {
+          const timeoutRef = killTimeout;
+          rg.once('exit', () => clearTimeout(timeoutRef));
+        }
+
+        // Call cleanup for stdout/stderr listeners only, keep exit listener for timeout
+        rg.stdout.removeAllListeners();
+        rg.stderr.removeAllListeners();
+
         reject(error);
       });
     });

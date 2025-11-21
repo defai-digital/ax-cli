@@ -345,17 +345,32 @@ export class PlanStorage {
 
   /**
    * Deserialize plan from JSON storage (convert ISO strings to Dates)
+   * Validates Date objects to prevent Invalid Date issues
    */
   private deserializePlan(data: unknown): TaskPlan {
     const obj = data as Record<string, unknown>;
+
+    // Helper to safely parse dates, returning current date as fallback for invalid strings
+    const safeParseDate = (dateStr: unknown, fallback?: Date): Date => {
+      if (!dateStr || typeof dateStr !== 'string') {
+        return fallback || new Date();
+      }
+      const date = new Date(dateStr);
+      // Check for Invalid Date (NaN timestamp)
+      if (isNaN(date.getTime())) {
+        return fallback || new Date();
+      }
+      return date;
+    };
+
     return {
       ...obj,
-      createdAt: new Date(obj.createdAt as string),
-      updatedAt: new Date(obj.updatedAt as string),
+      createdAt: safeParseDate(obj.createdAt),
+      updatedAt: safeParseDate(obj.updatedAt),
       phases: (obj.phases as Array<Record<string, unknown>>).map((phase) => ({
         ...phase,
-        startedAt: phase.startedAt ? new Date(phase.startedAt as string) : undefined,
-        completedAt: phase.completedAt ? new Date(phase.completedAt as string) : undefined,
+        startedAt: phase.startedAt ? safeParseDate(phase.startedAt) : undefined,
+        completedAt: phase.completedAt ? safeParseDate(phase.completedAt) : undefined,
       })),
     } as TaskPlan;
   }
@@ -373,13 +388,24 @@ export class PlanStorage {
 
   /**
    * Deserialize state from JSON storage
+   * Validates Date objects to prevent Invalid Date issues
    */
   private deserializeState(data: unknown): SavedPlanState {
     const obj = data as Record<string, unknown>;
+
+    // Safely parse savedAt date
+    let savedAt = new Date();
+    if (obj.savedAt && typeof obj.savedAt === 'string') {
+      const parsed = new Date(obj.savedAt);
+      if (!isNaN(parsed.getTime())) {
+        savedAt = parsed;
+      }
+    }
+
     return {
       ...obj,
       plan: this.deserializePlan(obj.plan),
-      savedAt: new Date(obj.savedAt as string),
+      savedAt,
     } as SavedPlanState;
   }
 }

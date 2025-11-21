@@ -228,19 +228,35 @@ const MemoizedChatEntry = React.memo(
           !shouldShowDiff &&
           !shouldShowFileContent;
 
+        // Format execution duration like Claude Code
+        const formatDuration = (ms: number): string => {
+          if (ms < 1000) return `${ms}ms`;
+          if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+          const mins = Math.floor(ms / 60000);
+          const secs = Math.floor((ms % 60000) / 1000);
+          return `${mins}m ${secs}s`;
+        };
+
         // CONCISE MODE (default): Single line summary
         if (!verboseMode) {
           return (
             <Box key={index} flexDirection="row" marginTop={0}>
               <Text color="magenta">⏺</Text>
-              <Text color="white">
+              <Text color="yellow" bold>
                 {" "}
-                {filePath ? `${actionName}(${filePath})` : actionName}
+                {actionName}
+              </Text>
+              <Text color="gray">
+                {filePath ? `(${filePath})` : ""}
               </Text>
               {isExecuting ? (
                 <Text color="cyan"> ...</Text>
               ) : (
                 <>
+                  {/* Show execution duration in yellow like Claude Code */}
+                  {entry.executionDurationMs !== undefined && (
+                    <Text color="yellow"> {formatDuration(entry.executionDurationMs)}</Text>
+                  )}
                   <Text color={isSuccess ? "green" : "red"}>
                     {" "}{isSuccess ? "✓" : "✗"}
                   </Text>
@@ -259,10 +275,17 @@ const MemoizedChatEntry = React.memo(
             {/* Header line */}
             <Box>
               <Text color="magenta">⏺</Text>
-              <Text color="white">
+              <Text color="yellow" bold>
                 {" "}
-                {filePath ? `${actionName}(${filePath})` : actionName}
+                {actionName}
               </Text>
+              <Text color="gray">
+                {filePath ? `(${filePath})` : ""}
+              </Text>
+              {/* Show execution duration in yellow like Claude Code */}
+              {!isExecuting && entry.executionDurationMs !== undefined && (
+                <Text color="yellow"> {formatDuration(entry.executionDurationMs)}</Text>
+              )}
               {entry.toolCall?.id && (
                 <Text color="gray" dimColor> [{entry.toolCall.id.slice(0, 8)}]</Text>
               )}

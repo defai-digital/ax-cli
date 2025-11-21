@@ -387,8 +387,33 @@ export class TextEditorTool {
         };
       }
 
-      lines.splice(insertLine - 1, 0, content);
-      const newContent = lines.join("\n");
+      // Split content into individual lines for proper handling
+      // This ensures multi-line content is correctly inserted and can be undone
+      const contentLines = content.split("\n");
+      const newLines = [...lines];
+      newLines.splice(insertLine - 1, 0, ...contentLines);
+      const newContent = newLines.join("\n");
+
+      // Generate diff for confirmation
+      const diffContent = this.generateDiff(lines, newLines, filePath);
+
+      // Request confirmation (consistent with other editing methods)
+      const shouldProceed = await this.confirmationService.shouldProceed('file', {
+        operation: `Insert ${contentLines.length} line${contentLines.length !== 1 ? 's' : ''} at line ${insertLine}`,
+        filename: filePath,
+        showVSCodeOpen: false,
+        content: diffContent,
+      });
+
+      if (!shouldProceed) {
+        return {
+          success: false,
+          error: "Insert operation cancelled by user",
+        };
+      }
+
+      // Create checkpoint before modification (consistent with other methods)
+      await this.createCheckpointIfNeeded(filePath, 'insert');
 
       await writeFilePromise(resolvedPath, newContent, "utf-8");
 
@@ -401,7 +426,7 @@ export class TextEditorTool {
 
       return {
         success: true,
-        output: `Successfully inserted content at line ${insertLine} in ${filePath}`,
+        output: diffContent,
       };
     } catch (error: any) {
       return {

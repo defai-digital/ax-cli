@@ -17,6 +17,10 @@ interface CollapsibleToolResultProps {
   toolArgs?: string;
   toolId?: string;
   verboseMode?: boolean;
+  /** Execution duration in milliseconds (shown after completion) */
+  executionDurationMs?: number;
+  /** Execution start time (for elapsed time while running) */
+  executionStartTime?: Date;
 }
 
 /**
@@ -129,6 +133,22 @@ function formatExpandedContent(content: string, toolName: string): string {
   return content;
 }
 
+/**
+ * Format execution duration for display (like Claude Code)
+ * Shows ms for short durations, seconds for longer ones
+ */
+function formatDuration(ms: number): string {
+  if (ms < 1000) {
+    return `${ms}ms`;
+  } else if (ms < 60000) {
+    return `${(ms / 1000).toFixed(1)}s`;
+  } else {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}m ${seconds}s`;
+  }
+}
+
 export function CollapsibleToolResult({
   toolName,
   filePath,
@@ -139,6 +159,8 @@ export function CollapsibleToolResult({
   toolArgs,
   toolId,
   verboseMode = false,
+  executionDurationMs,
+  executionStartTime,
 }: CollapsibleToolResultProps) {
   const actionName = getToolActionName(toolName);
   const summary = summarizeResult(content, toolName);
@@ -155,15 +177,39 @@ export function CollapsibleToolResult({
     isSuccess &&
     !shouldShowDiff;
 
+  // Calculate elapsed time for executing tools
+  const [elapsedMs, setElapsedMs] = React.useState(0);
+
+  React.useEffect(() => {
+    if (isExecuting && executionStartTime) {
+      const interval = setInterval(() => {
+        setElapsedMs(Date.now() - executionStartTime.getTime());
+      }, 100);
+      return () => clearInterval(interval);
+    }
+    return undefined;
+  }, [isExecuting, executionStartTime]);
+
   return (
     <Box flexDirection="column" marginTop={1}>
       {/* Header row */}
       <Box>
         <Text color="magenta">⏺</Text>
-        <Text color="white">
+        <Text color="yellow" bold>
           {" "}
-          {filePath ? `${actionName}(${filePath})` : actionName}
+          {actionName}
         </Text>
+        <Text color="gray">
+          {filePath ? `(${filePath})` : ""}
+        </Text>
+        {/* Show execution duration in yellow after completion (like Claude Code) */}
+        {!isExecuting && executionDurationMs !== undefined && (
+          <Text color="yellow"> {formatDuration(executionDurationMs)}</Text>
+        )}
+        {/* Show elapsed time in gray while executing (like Claude Code's timeout display) */}
+        {isExecuting && executionStartTime && (
+          <Text color="gray" dimColor> timeout: {formatDuration(elapsedMs)}</Text>
+        )}
         {!isExecuting && (
           <Text color="gray" dimColor>
             {" "}

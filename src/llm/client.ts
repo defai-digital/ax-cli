@@ -218,17 +218,19 @@ export class LLMClient {
     const payload: any = {
       model,
       messages,
-      tools: tools || [],
-      tool_choice: tools && tools.length > 0 ? "auto" : undefined,
       temperature,
       max_tokens: maxTokens,
     };
 
+    // Only include tools if there are any - some APIs reject empty tools array
+    if (tools && tools.length > 0) {
+      payload.tools = tools;
+      payload.tool_choice = "auto";
+    }
+
     if (stream) {
       payload.stream = true;
-      // Enable progressive tool call streaming for better UX
-      // When enabled, tool calls stream incrementally instead of arriving at once
-      payload.tool_stream = true;
+      // Note: tool_stream is NOT a valid z.ai parameter - removed to prevent API errors
     }
 
     // Add GLM-4.6 thinking parameter if specified
@@ -249,13 +251,12 @@ export class LLMClient {
 
     // Add sampling parameters for deterministic/reproducible mode
     // do_sample=false enables greedy decoding for consistent outputs
+    // Note: seed is NOT a valid z.ai parameter - only do_sample and top_p are supported
     if (sampling) {
       if (sampling.doSample !== undefined) {
         payload.do_sample = sampling.doSample;
       }
-      if (sampling.seed !== undefined) {
-        payload.seed = sampling.seed;
-      }
+      // seed is not supported by z.ai API - omitted to prevent "Invalid API parameter" error
       if (sampling.topP !== undefined) {
         payload.top_p = sampling.topP;
       }

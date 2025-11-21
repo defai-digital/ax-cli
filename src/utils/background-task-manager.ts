@@ -42,16 +42,26 @@ export class BackgroundTaskManager extends EventEmitter {
     super();
     // Track if cleanup has already been performed to prevent multiple invocations
     let cleanupPerformed = false;
-    const safeCleanup = () => {
+    const safeCleanup = (exitCode?: number) => {
       if (cleanupPerformed) return;
       cleanupPerformed = true;
       this.cleanup();
+      return exitCode;
     };
 
-    // Cleanup on process exit
-    process.on('exit', safeCleanup);
-    process.on('SIGINT', safeCleanup);
-    process.on('SIGTERM', safeCleanup);
+    // Cleanup on process exit (synchronous, can't call process.exit here)
+    process.on('exit', () => safeCleanup());
+
+    // Signal handlers need to exit the process after cleanup
+    // Otherwise the process hangs after receiving the signal
+    process.on('SIGINT', () => {
+      safeCleanup();
+      process.exit(130); // 128 + SIGINT(2)
+    });
+    process.on('SIGTERM', () => {
+      safeCleanup();
+      process.exit(143); // 128 + SIGTERM(15)
+    });
   }
 
   static getInstance(): BackgroundTaskManager {

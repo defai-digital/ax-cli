@@ -200,10 +200,12 @@ export function loadMessagesConfig(): MessagesYaml {
 
 /**
  * Format a message template with variables
- * Example: formatMessage("Tool {toolName} not found", { toolName: "bash" })
+ * Supports alphanumeric keys with hyphens and underscores
+ * Example: formatMessage("Tool {tool-name} not found", { "tool-name": "bash" })
  */
 export function formatMessage(template: string, variables: Record<string, string | number>): string {
-  return template.replace(/\{(\w+)\}/g, (match, key) => {
+  // Match {key} where key can contain letters, numbers, hyphens, and underscores
+  return template.replace(/\{([a-zA-Z0-9_-]+)\}/g, (match, key) => {
     return variables[key]?.toString() ?? match;
   });
 }

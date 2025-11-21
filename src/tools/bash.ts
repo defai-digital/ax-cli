@@ -55,26 +55,36 @@ export class BashTool extends EventEmitter {
 
   /**
    * Move the currently running command to background
-   * Returns task ID if successful, null if no command is running
+   * Returns task ID if successful, null if no command is running or adoption fails
    */
   moveToBackground(): string | null {
     if (!this.currentProcess || !this.currentCommand) {
       return null;
     }
 
-    const taskId = this.backgroundTaskManager.adoptProcess(
-      this.currentProcess,
-      this.currentCommand,
-      this.currentDirectory,
-      this.currentOutput
-    );
+    // Store references before clearing state
+    const processToAdopt = this.currentProcess;
+    const commandToAdopt = this.currentCommand;
+    const outputToAdopt = [...this.currentOutput];
 
-    // Clear current state
-    this.currentProcess = null;
-    this.currentCommand = '';
-    this.currentOutput = [];
+    try {
+      const taskId = this.backgroundTaskManager.adoptProcess(
+        processToAdopt,
+        commandToAdopt,
+        this.currentDirectory,
+        outputToAdopt
+      );
 
-    return taskId;
+      // Only clear state after successful adoption
+      this.currentProcess = null;
+      this.currentCommand = '';
+      this.currentOutput = [];
+
+      return taskId;
+    } catch {
+      // Adoption failed - don't clear state so process can still be tracked
+      return null;
+    }
   }
 
   /**

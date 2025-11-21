@@ -50,6 +50,10 @@ export interface ChatEntry {
   isReasoningStreaming?: boolean;
   /** Response duration in milliseconds */
   durationMs?: number;
+  /** Tool execution start time (for elapsed time display while running) */
+  executionStartTime?: Date;
+  /** Tool execution duration in milliseconds (shown after completion) */
+  executionDurationMs?: number;
 }
 
 export interface StreamingChunk {
@@ -61,6 +65,8 @@ export interface StreamingChunk {
   toolCall?: LLMToolCall;
   toolResult?: ToolResult;
   tokenCount?: number;
+  /** Tool execution duration in milliseconds (for tool_result type) */
+  executionDurationMs?: number;
 }
 
 export class LLMAgent extends EventEmitter {
@@ -1460,7 +1466,10 @@ export class LLMAgent extends EventEmitter {
         return;
       }
 
+      // Track execution timing (like Claude Code's timeout display)
+      const executionStartTime = Date.now();
       const result = await this.executeTool(toolCall);
+      const executionDurationMs = Date.now() - executionStartTime;
 
       const toolResultEntry: ChatEntry = {
         type: "tool_result",
@@ -1470,6 +1479,7 @@ export class LLMAgent extends EventEmitter {
         timestamp: new Date(),
         toolCall: toolCall,
         toolResult: result,
+        executionDurationMs, // Add execution duration for UI display
       };
       this.chatHistory.push(toolResultEntry);
 
@@ -1477,6 +1487,7 @@ export class LLMAgent extends EventEmitter {
         type: "tool_result",
         toolCall,
         toolResult: result,
+        executionDurationMs,
       };
 
       // Add tool result with proper format (needed for AI context)
@@ -1950,7 +1961,9 @@ export class LLMAgent extends EventEmitter {
       this.chatHistory = [...conversationState];
 
       // Rebuild messages array from chat history
-      this.messages = [this.messages[0]]; // Keep system message
+      // Safely preserve system message if it exists
+      const systemMessage = this.messages.length > 0 ? this.messages[0] : null;
+      this.messages = systemMessage ? [systemMessage] : [];
 
       for (const entry of conversationState) {
         if (entry.type === 'user') {

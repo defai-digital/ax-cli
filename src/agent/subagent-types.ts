@@ -40,6 +40,10 @@ export interface ChatEntry {
   isStreaming?: boolean;
   reasoningContent?: string;
   isReasoningStreaming?: boolean;
+  /** Tool execution start time (for elapsed time display while running) */
+  executionStartTime?: Date;
+  /** Tool execution duration in milliseconds (shown after completion) */
+  executionDurationMs?: number;
 }
 
 /**

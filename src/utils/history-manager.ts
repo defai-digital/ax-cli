@@ -149,7 +149,12 @@ export class HistoryManager {
         .map((entry: any) => ({
           ...entry,
           timestamp: new Date(entry.timestamp),
-        }));
+        }))
+        // Filter out entries with invalid Date objects (NaN from invalid timestamp strings)
+        .filter((entry: ChatEntry) => {
+          const timestamp = entry.timestamp;
+          return timestamp instanceof Date && !isNaN(timestamp.getTime());
+        });
 
       return history;
     } catch (error) {

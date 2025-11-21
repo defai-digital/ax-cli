@@ -141,13 +141,16 @@ export class UsageTracker {
 
   /**
    * Get estimated cost savings from caching
-   * Cache tokens are billed at ~50% of standard rate
+   * Cached tokens are typically billed at reduced rates compared to standard input tokens
    */
   getCacheSavings(): { cachedTokens: number; estimatedSavings: number } {
     const cachedTokens = this.sessionStats.totalCachedTokens;
-    // Estimated savings: cached tokens * 50% of standard rate
-    // This is approximate - actual savings depend on the specific model pricing
-    const estimatedSavings = cachedTokens * 0.5;
+    // Estimated savings calculation based on typical pricing difference
+    // Standard input: ~$1.00 per 1M tokens ($0.001 per 1K tokens)
+    // Cached input: ~$0.25 per 1M tokens ($0.00025 per 1K tokens)
+    // Savings per token: ($0.001 - $0.00025) / 1000 = $0.00000075 per token
+    const savingsPerToken = 0.00000075;
+    const estimatedSavings = cachedTokens * savingsPerToken;
     return { cachedTokens, estimatedSavings };
   }
 

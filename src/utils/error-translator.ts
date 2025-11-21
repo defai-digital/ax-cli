@@ -60,10 +60,11 @@ function translateChineseError(message: string): string {
   }
 
   // Try partial match (in case message contains additional context)
+  // Use replaceAll to handle messages with repeated error phrases
   for (const [chinese, english] of Object.entries(ZAI_ERROR_TRANSLATIONS)) {
     if (message.includes(chinese)) {
-      // Replace the Chinese part with English
-      return message.replace(chinese, english);
+      // Replace all occurrences of the Chinese part with English
+      return message.replaceAll(chinese, english);
     }
   }
 

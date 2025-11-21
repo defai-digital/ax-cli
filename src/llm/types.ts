@@ -35,12 +35,14 @@ export interface ThinkingConfig {
  * Sampling configuration for controlling output diversity and reproducibility
  *
  * When do_sample is false, the model uses greedy decoding for deterministic output.
- * Combined with a seed value, this enables fully reproducible responses.
+ *
+ * Note: z.ai API only supports do_sample and top_p. The seed parameter is NOT
+ * supported by z.ai and will be ignored.
  *
  * @example
  * ```typescript
  * // Deterministic mode for reproducible outputs
- * const sampling: SamplingConfig = { doSample: false, seed: 42 };
+ * const sampling: SamplingConfig = { doSample: false };
  * const response = await client.chat(messages, [], { sampling });
  * ```
  */
@@ -51,15 +53,15 @@ export interface SamplingConfig {
    * - false: Use greedy decoding for deterministic, reproducible results
    *
    * When set to false, the model will always select the most probable token,
-   * making outputs reproducible (especially when combined with a seed).
+   * making outputs reproducible.
    */
   doSample?: boolean;
 
   /**
    * Random seed for reproducible sampling
    *
-   * When provided with doSample=false, ensures identical outputs for identical inputs.
-   * Useful for testing, debugging, and audit trails.
+   * @deprecated NOT supported by z.ai API - this parameter will be ignored.
+   * For deterministic outputs, use doSample: false instead.
    *
    * @example 42, 12345, Date.now()
    */
