@@ -1761,57 +1761,87 @@ export class LLMAgent extends EventEmitter {
         return { success: false, error: parseResult.error };
       }
 
-      const args = parseResult.args as any;
+      const args = parseResult.args;
+
+      // Helper to safely get string argument with validation
+      const getString = (key: string, required = true): string => {
+        const value = args[key];
+        if (typeof value !== 'string') {
+          if (required) throw new Error(`Tool argument '${key}' must be a string, got ${typeof value}`);
+          return '';
+        }
+        return value;
+      };
+
+      // Helper to safely get number argument
+      const getNumber = (key: string): number | undefined => {
+        const value = args[key];
+        if (value === undefined || value === null) return undefined;
+        if (typeof value !== 'number') return undefined;
+        return value;
+      };
+
+      // Helper to safely get boolean argument
+      const getBoolean = (key: string): boolean | undefined => {
+        const value = args[key];
+        if (value === undefined || value === null) return undefined;
+        if (typeof value !== 'boolean') return undefined;
+        return value;
+      };
 
       switch (toolCall.function.name) {
         case "view_file":
+          const startLine = getNumber('start_line');
+          const endLine = getNumber('end_line');
           const range: [number, number] | undefined =
-            args.start_line && args.end_line
-              ? [args.start_line as number, args.end_line as number]
+            startLine !== undefined && endLine !== undefined
+              ? [startLine, endLine]
               : undefined;
-          return await this.textEditor.view(args.path as string, range);
+          return await this.textEditor.view(getString('path'), range);
 
         case "create_file":
-          return await this.textEditor.create(args.path as string, args.content as string);
+          return await this.textEditor.create(getString('path'), getString('content'));
 
         case "str_replace_editor":
           return await this.textEditor.strReplace(
-            args.path as string,
-            args.old_str as string,
-            args.new_str as string,
-            args.replace_all as boolean
+            getString('path'),
+            getString('old_str'),
+            getString('new_str'),
+            getBoolean('replace_all') ?? false
           );
 
         case "bash":
-          return await this.bash.execute(args.command as string, {
-            background: args.background as boolean | undefined,
-            timeout: args.timeout as number | undefined,
+          return await this.bash.execute(getString('command'), {
+            background: getBoolean('background'),
+            timeout: getNumber('timeout'),
           });
 
         case "bash_output":
           return await this.bashOutput.execute(
-            args.task_id as string,
-            args.wait as boolean | undefined,
-            args.timeout as number | undefined
+            getString('task_id'),
+            getBoolean('wait'),
+            getNumber('timeout')
           );
 
         case "create_todo_list":
-          return await this.todoTool.createTodoList(args.todos as any[]);
+          return await this.todoTool.createTodoList(Array.isArray(args.todos) ? args.todos : []);
 
         case "update_todo_list":
-          return await this.todoTool.updateTodoList(args.updates as any[]);
+          return await this.todoTool.updateTodoList(Array.isArray(args.updates) ? args.updates : []);
 
         case "search":
-          return await this.search.search(args.query as string, {
-            searchType: args.search_type,
-            includePattern: args.include_pattern,
-            excludePattern: args.exclude_pattern,
-            caseSensitive: args.case_sensitive,
-            wholeWord: args.whole_word,
-            regex: args.regex,
-            maxResults: args.max_results,
-            fileTypes: args.file_types,
-            includeHidden: args.include_hidden,
+          const searchTypeValue = args.search_type;
+          const validSearchType = (searchTypeValue === 'text' || searchTypeValue === 'files' || searchTypeValue === 'both') ? searchTypeValue : undefined;
+          return await this.search.search(getString('query'), {
+            searchType: validSearchType,
+            includePattern: typeof args.include_pattern === 'string' ? args.include_pattern : undefined,
+            excludePattern: typeof args.exclude_pattern === 'string' ? args.exclude_pattern : undefined,
+            caseSensitive: getBoolean('case_sensitive'),
+            wholeWord: getBoolean('whole_word'),
+            regex: getBoolean('regex'),
+            maxResults: getNumber('max_results'),
+            fileTypes: Array.isArray(args.file_types) ? args.file_types : undefined,
+            includeHidden: getBoolean('include_hidden'),
           });
 
         default:
