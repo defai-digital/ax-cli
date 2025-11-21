@@ -499,13 +499,16 @@ describe('CheckpointManager', () => {
   describe('checkpoint limit enforcement', () => {
     it('should delete oldest checkpoints when limit exceeded', async () => {
       // Create checkpoints up to limit (5 in test config)
+      // Add small delays to ensure distinct timestamps for reliable sorting
       const checkpoints = [];
       for (let i = 0; i < 5; i++) {
         const checkpoint = await manager.createCheckpoint(createTestOptions());
         checkpoints.push(checkpoint);
+        await new Promise(resolve => setTimeout(resolve, 5)); // 5ms delay for distinct timestamps
       }
 
       // Create one more (should trigger deletion of oldest)
+      await new Promise(resolve => setTimeout(resolve, 5));
       const newest = await manager.createCheckpoint(createTestOptions());
 
       const allCheckpoints = await manager.listCheckpoints();
