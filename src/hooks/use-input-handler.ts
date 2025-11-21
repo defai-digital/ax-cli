@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useInput } from "ink";
 import { LLMAgent, ChatEntry } from "../agent/llm-agent.js";
 import { ConfirmationService } from "../utils/confirmation-service.js";
@@ -81,6 +81,7 @@ export function useInputHandler({
 }: UseInputHandlerProps) {
   const [showCommandSuggestions, setShowCommandSuggestions] = useState(false);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [autoEditEnabled, setAutoEditEnabled] = useState(() => {
     const confirmationService = ConfirmationService.getInstance();
     const sessionFlags = confirmationService.getSessionFlags();
@@ -262,6 +263,15 @@ export function useInputHandler({
   useEffect(() => {
     handleInputChange(input);
   }, [input, handleInputChange]);
+
+  // Cleanup retry timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const commandSuggestions: CommandSuggestion[] = [
     { command: "/help", description: "Show help information" },
@@ -500,7 +510,9 @@ export function useInputHandler({
         clearInput();
 
         // Trigger submit after a brief delay to allow state update
-        setTimeout(() => {
+        // Track timeout for cleanup on unmount
+        retryTimeoutRef.current = setTimeout(() => {
+          retryTimeoutRef.current = null;
           try {
             handleInputSubmit(messageToRetry);
           } catch {

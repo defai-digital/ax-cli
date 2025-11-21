@@ -525,6 +525,19 @@ program
     "-c, --continue",
     "continue the most recent conversation from the current directory"
   )
+  // Sampling/Reproducibility Options
+  .option(
+    "--deterministic",
+    "enable deterministic mode (do_sample=false) for reproducible outputs"
+  )
+  .option(
+    "--seed <number>",
+    "random seed for reproducible sampling (implies --deterministic)"
+  )
+  .option(
+    "--top-p <number>",
+    "nucleus sampling parameter (0.0-1.0, alternative to temperature)"
+  )
   // VSCode Integration Flags (Phase 1)
   .option("--json", "output responses in JSON format (for IDE integration)")
   .option("--file <path>", "include file context from specified path")

@@ -6,7 +6,7 @@
  * that shouldn't pollute chat history.
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Box, Text } from "ink";
 
 export interface ToastMessage {
@@ -140,36 +140,42 @@ export function ToastContainer({
 
 /**
  * Hook for managing toast state
+ *
+ * IMPORTANT: All returned functions are memoized with useCallback to prevent
+ * infinite re-render loops when used in useEffect dependency arrays.
  */
 export function useToasts() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const addToast = (toast: Omit<ToastMessage, "id">) => {
+  // Memoize addToast to prevent infinite loops when used in useEffect deps
+  const addToast = useCallback((toast: Omit<ToastMessage, "id">) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
     setToasts((prev) => [...prev, { ...toast, id }]);
     return id;
-  };
+  }, []);
 
-  const removeToast = (id: string) => {
+  // Memoize removeToast for stable reference
+  const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
+  }, []);
 
-  const clearToasts = () => {
+  // Memoize clearToasts for stable reference
+  const clearToasts = useCallback(() => {
     setToasts([]);
-  };
+  }, []);
 
-  // Convenience methods
-  const success = (message: string, icon?: string, duration?: number) =>
-    addToast({ message, type: "success", icon, duration });
+  // Convenience methods - memoized to prevent re-renders
+  const success = useCallback((message: string, icon?: string, duration?: number) =>
+    addToast({ message, type: "success", icon, duration }), [addToast]);
 
-  const info = (message: string, icon?: string, duration?: number) =>
-    addToast({ message, type: "info", icon, duration });
+  const info = useCallback((message: string, icon?: string, duration?: number) =>
+    addToast({ message, type: "info", icon, duration }), [addToast]);
 
-  const warning = (message: string, icon?: string, duration?: number) =>
-    addToast({ message, type: "warning", icon, duration });
+  const warning = useCallback((message: string, icon?: string, duration?: number) =>
+    addToast({ message, type: "warning", icon, duration }), [addToast]);
 
-  const error = (message: string, icon?: string, duration?: number) =>
-    addToast({ message, type: "error", icon, duration });
+  const error = useCallback((message: string, icon?: string, duration?: number) =>
+    addToast({ message, type: "error", icon, duration }), [addToast]);
 
   return {
     toasts,

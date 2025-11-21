@@ -6,6 +6,13 @@
 import { z } from 'zod';
 import { ModelIdSchema, MCPServerIdSchema } from '@ax-cli/schemas';
 
+// Sampling Settings Schema (for deterministic/reproducible mode)
+export const SamplingSettingsSchema = z.object({
+  doSample: z.boolean().optional(),
+  seed: z.number().int().nonnegative().optional(),
+  topP: z.number().min(0).max(1).optional(),
+}).optional();
+
 // User Settings Schema
 export const UserSettingsSchema: z.ZodType<any> = z.object({
   apiKey: z.string().optional(),
@@ -19,6 +26,8 @@ export const UserSettingsSchema: z.ZodType<any> = z.object({
     fileOperations: z.boolean().optional(),
     bashCommands: z.boolean().optional(),
   }).optional(),
+  // Sampling settings for deterministic/reproducible mode
+  sampling: SamplingSettingsSchema,
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Project Settings Schema
@@ -30,6 +39,8 @@ export const ProjectSettingsSchema: z.ZodType<any> = z.object({
   excludePatterns: z.array(z.string()).optional(),
   includePatterns: z.array(z.string()).optional(),
   mcpServers: z.record(z.any()).optional(), // MCP server configurations
+  // Project-level sampling settings (overrides user settings)
+  sampling: SamplingSettingsSchema,
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Model Option Schema
@@ -63,3 +74,4 @@ export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
 export type ModelOption = z.infer<typeof ModelOptionSchema>;
 export type MCPServerConfig = z.infer<typeof MCPServerConfigSchema>;
 export type MCPTransportConfig = z.infer<typeof MCPTransportConfigSchema>;
+export type SamplingSettings = z.infer<typeof SamplingSettingsSchema>;

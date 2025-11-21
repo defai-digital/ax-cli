@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, chmodSync } from "fs";
 import { dirname, join } from "path";
 import { homedir } from "os";
 import { UserSettingsSchema, ProjectSettingsSchema } from "../schemas/settings-schemas.js";
-import type { UserSettings, ProjectSettings } from "../schemas/settings-schemas.js";
+import type { UserSettings, ProjectSettings, SamplingSettings } from "../schemas/settings-schemas.js";
 import { ModelIdSchema } from '@ax-cli/schemas';
 import { parseJsonFile, writeJsonFile } from "./json-utils.js";
 
@@ -384,6 +384,65 @@ export class SettingsManager {
     // Then check user settings
     const userBaseURL = this.getUserSetting("baseURL");
     return userBaseURL; // No hardcoded fallback - user must run setup
+  }
+
+  /**
+   * Get sampling settings with proper fallback logic:
+   * 1. Environment variables (AI_DO_SAMPLE, AI_SEED, AI_TOP_P)
+   * 2. Project-specific sampling settings
+   * 3. User's default sampling settings
+   * 4. Undefined (default behavior - sampling enabled)
+   *
+   * @returns Merged sampling settings or undefined for default behavior
+   */
+  public getSamplingSettings(): SamplingSettings | undefined {
+    // Start with user settings as base
+    const userSampling = this.getUserSetting("sampling");
+    const projectSampling = this.getProjectSetting("sampling");
+
+    // Merge project settings over user settings
+    const baseSampling: Record<string, unknown> = { ...(userSampling || {}), ...(projectSampling || {}) };
+
+    // Environment variables take highest priority
+    const envDoSample = process.env.AI_DO_SAMPLE;
+    const envSeed = process.env.AI_SEED;
+    const envTopP = process.env.AI_TOP_P;
+
+    const result: { doSample?: boolean; seed?: number; topP?: number } = { ...baseSampling } as { doSample?: boolean; seed?: number; topP?: number };
+
+    if (envDoSample !== undefined) {
+      result.doSample = envDoSample.toLowerCase() === "true";
+    }
+
+    if (envSeed !== undefined) {
+      const seedNum = parseInt(envSeed, 10);
+      if (Number.isFinite(seedNum) && seedNum >= 0) {
+        result.seed = seedNum;
+      }
+    }
+
+    if (envTopP !== undefined) {
+      const topPNum = parseFloat(envTopP);
+      if (Number.isFinite(topPNum) && topPNum >= 0 && topPNum <= 1) {
+        result.topP = topPNum;
+      }
+    }
+
+    // Return undefined if no settings were configured (use defaults)
+    if (Object.keys(result).length === 0) {
+      return undefined;
+    }
+
+    return result;
+  }
+
+  /**
+   * Check if deterministic mode is enabled
+   * Returns true if do_sample is explicitly set to false
+   */
+  public isDeterministicMode(): boolean {
+    const sampling = this.getSamplingSettings();
+    return sampling?.doSample === false;
   }
 
   /**

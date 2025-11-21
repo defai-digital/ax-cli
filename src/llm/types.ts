@@ -32,6 +32,55 @@ export interface ThinkingConfig {
 }
 
 /**
+ * Sampling configuration for controlling output diversity and reproducibility
+ *
+ * When do_sample is false, the model uses greedy decoding for deterministic output.
+ * Combined with a seed value, this enables fully reproducible responses.
+ *
+ * @example
+ * ```typescript
+ * // Deterministic mode for reproducible outputs
+ * const sampling: SamplingConfig = { doSample: false, seed: 42 };
+ * const response = await client.chat(messages, [], { sampling });
+ * ```
+ */
+export interface SamplingConfig {
+  /**
+   * Whether to sample the output to increase diversity
+   * - true (default): Use random sampling based on temperature for creative outputs
+   * - false: Use greedy decoding for deterministic, reproducible results
+   *
+   * When set to false, the model will always select the most probable token,
+   * making outputs reproducible (especially when combined with a seed).
+   */
+  doSample?: boolean;
+
+  /**
+   * Random seed for reproducible sampling
+   *
+   * When provided with doSample=false, ensures identical outputs for identical inputs.
+   * Useful for testing, debugging, and audit trails.
+   *
+   * @example 42, 12345, Date.now()
+   */
+  seed?: number;
+
+  /**
+   * Nucleus sampling parameter (alternative to temperature)
+   *
+   * Controls diversity by limiting token selection to the smallest set
+   * whose cumulative probability exceeds top_p.
+   *
+   * Recommended range: 0.8-0.95
+   * Note: It's generally not advised to use both temperature and top_p simultaneously.
+   *
+   * @minimum 0.0
+   * @maximum 1.0
+   */
+  topP?: number;
+}
+
+/**
  * Comprehensive options for GLM-4.6 chat requests
  *
  * Consolidates all available parameters for chat completions,
@@ -90,6 +139,34 @@ export interface ChatOptions {
    * @default false
    */
   stream?: boolean;
+
+  /**
+   * Response format for structured output
+   *
+   * When set to { type: "json_object" }, the model will return valid JSON.
+   * Use this for plan generation and other structured responses.
+   *
+   * @example { type: "json_object" }
+   */
+  responseFormat?: {
+    type: "text" | "json_object";
+  };
+
+  /**
+   * Sampling configuration for controlling output diversity and reproducibility
+   *
+   * Use this to enable deterministic mode or fine-tune sampling behavior.
+   *
+   * @example
+   * ```typescript
+   * // Deterministic mode
+   * { sampling: { doSample: false, seed: 42 } }
+   *
+   * // Fine-tuned sampling with top_p
+   * { sampling: { doSample: true, topP: 0.9 } }
+   * ```
+   */
+  sampling?: SamplingConfig;
 }
 
 /**
@@ -314,7 +391,7 @@ export function validateThinking(
 /**
  * Create default chat options with sensible defaults
  */
-export function createDefaultChatOptions(model?: string): Required<Omit<ChatOptions, 'thinking' | 'searchOptions' | 'tools'>> {
+export function createDefaultChatOptions(model?: string): Required<Omit<ChatOptions, 'thinking' | 'searchOptions' | 'tools' | 'responseFormat' | 'sampling'>> {
   const modelName = model || "glm-4.6";
   const config = getModelConfig(modelName);
 
@@ -323,5 +400,81 @@ export function createDefaultChatOptions(model?: string): Required<Omit<ChatOpti
     temperature: config.defaultTemperature,
     maxTokens: Math.min(8192, config.maxOutputTokens), // Conservative default
     stream: false,
+  };
+}
+
+/**
+ * Validate sampling configuration
+ *
+ * @throws Error if sampling parameters are invalid or conflicting
+ */
+export function validateSampling(
+  sampling: SamplingConfig | undefined,
+  temperature?: number
+): void {
+  if (!sampling) return;
+
+  // Validate top_p range
+  if (sampling.topP !== undefined) {
+    if (sampling.topP < 0 || sampling.topP > 1) {
+      throw new Error(
+        `top_p ${sampling.topP} is out of range. Valid range: 0.0 - 1.0`
+      );
+    }
+
+    // Warn about using both temperature and top_p (not recommended)
+    if (temperature !== undefined && temperature !== 1.0) {
+      console.warn(
+        "Warning: Using both temperature and top_p simultaneously is not recommended. " +
+        "Consider using only one for controlling diversity."
+      );
+    }
+  }
+
+  // Validate seed is a positive integer
+  if (sampling.seed !== undefined) {
+    if (!Number.isInteger(sampling.seed) || sampling.seed < 0) {
+      throw new Error(
+        `seed must be a non-negative integer, got ${sampling.seed}`
+      );
+    }
+  }
+
+  // Log info about deterministic mode
+  if (sampling.doSample === false) {
+    if (sampling.seed !== undefined) {
+      // Fully deterministic mode enabled
+    } else {
+      console.warn(
+        "Note: doSample=false without a seed will produce deterministic output, " +
+        "but results may vary between API calls. Add a seed for full reproducibility."
+      );
+    }
+  }
+}
+
+/**
+ * Create sampling config for deterministic/reproducible mode
+ *
+ * @param seed Optional seed for reproducibility
+ * @returns SamplingConfig configured for deterministic output
+ */
+export function createDeterministicSampling(seed?: number): SamplingConfig {
+  return {
+    doSample: false,
+    seed: seed ?? Math.floor(Math.random() * 2147483647), // Generate random seed if not provided
+  };
+}
+
+/**
+ * Create sampling config for creative/diverse output
+ *
+ * @param topP Optional nucleus sampling parameter (default: 0.9)
+ * @returns SamplingConfig configured for diverse output
+ */
+export function createCreativeSampling(topP: number = 0.9): SamplingConfig {
+  return {
+    doSample: true,
+    topP,
   };
 }

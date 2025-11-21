@@ -1,5 +1,5 @@
 import { LLMClient, LLMMessage, LLMToolCall, LLMTool } from "../llm/client.js";
-import type { GLM46StreamChunk } from "../llm/types.js";
+import type { GLM46StreamChunk, SamplingConfig, ChatOptions } from "../llm/types.js";
 import {
   getAllGrokTools,
   getMCPManager,
@@ -82,6 +82,8 @@ export class LLMAgent extends EventEmitter {
   private taskPlanner: TaskPlanner;
   private currentPlan: TaskPlan | null = null;
   private planningEnabled: boolean = PLANNER_CONFIG.ENABLED;
+  /** Sampling configuration for deterministic/reproducible mode */
+  private samplingConfig: SamplingConfig | undefined;
 
   constructor(
     apiKey: string,
@@ -111,6 +113,9 @@ export class LLMAgent extends EventEmitter {
     this.subagentOrchestrator = new SubagentOrchestrator({ maxConcurrentAgents: 5 });
     this.taskPlanner = getTaskPlanner();
 
+    // Load sampling configuration from settings (supports env vars, project, and user settings)
+    this.samplingConfig = manager.getSamplingSettings();
+
     // Wire up checkpoint callback for automatic checkpoint creation
     this.textEditor.setCheckpointCallback(async (files, description) => {
       await this.checkpointManager.createCheckpoint({
@@ -137,9 +142,19 @@ export class LLMAgent extends EventEmitter {
     });
 
     // Initialize with system message
+    // OPTIMIZATION: Keep static system prompt separate from dynamic context
+    // This maximizes cache hit rates on the xAI API (cached tokens = 50% cost savings)
+    // The API automatically caches identical content across requests
     this.messages.push({
       role: "system",
-      content: `${systemPrompt}\n\nCurrent working directory: ${process.cwd()}`,
+      content: systemPrompt,
+    });
+
+    // Add dynamic context as a separate system message
+    // This allows the main system prompt to be cached while context varies
+    this.messages.push({
+      role: "system",
+      content: `Current working directory: ${process.cwd()}\nTimestamp: ${new Date().toISOString().split('T')[0]}`,
     });
   }
 
@@ -185,6 +200,43 @@ export class LLMAgent extends EventEmitter {
   private isGrokModel(): boolean {
     const currentModel = this.llmClient.getCurrentModel();
     return currentModel.toLowerCase().includes("grok");
+  }
+
+  /**
+   * Build chat options with sampling configuration included
+   * Merges provided options with the agent's sampling config
+   */
+  private buildChatOptions(options?: Partial<ChatOptions>): ChatOptions {
+    const result: ChatOptions = { ...options };
+
+    // Include sampling configuration if set and not overridden
+    if (this.samplingConfig && !result.sampling) {
+      result.sampling = this.samplingConfig;
+    }
+
+    return result;
+  }
+
+  /**
+   * Set sampling configuration for this agent session
+   * @param config Sampling configuration to apply
+   */
+  public setSamplingConfig(config: SamplingConfig | undefined): void {
+    this.samplingConfig = config;
+  }
+
+  /**
+   * Get current sampling configuration
+   */
+  public getSamplingConfig(): SamplingConfig | undefined {
+    return this.samplingConfig;
+  }
+
+  /**
+   * Check if agent is running in deterministic mode
+   */
+  public isDeterministicMode(): boolean {
+    return this.samplingConfig?.doSample === false;
   }
 
   /**
@@ -373,7 +425,7 @@ export class LLMAgent extends EventEmitter {
       const maxPhaseRounds = Math.min(this.maxToolRounds, 50); // Limit per phase
 
       while (toolRounds < maxPhaseRounds) {
-        const response = await this.llmClient.chat(this.messages, tools);
+        const response = await this.llmClient.chat(this.messages, tools, this.buildChatOptions());
         const assistantMessage = response.choices[0]?.message;
 
         if (!assistantMessage) break;

@@ -8,8 +8,10 @@ import { getUsageTracker } from "../utils/usage-tracker.js";
 import type {
   ChatOptions,
   ThinkingConfig,
+  SamplingConfig,
   GLM46StreamChunk,
 } from "./types.js";
+import { validateSampling } from "./types.js";
 
 export type LLMMessage = ChatCompletionMessageParam;
 
@@ -209,7 +211,9 @@ export class LLMClient {
     maxTokens: number,
     thinking: ThinkingConfig | undefined,
     searchOptions: SearchOptions | undefined,
-    stream: boolean = false
+    stream: boolean = false,
+    responseFormat?: { type: "text" | "json_object" },
+    sampling?: SamplingConfig
   ): any {
     const payload: any = {
       model,
@@ -222,6 +226,9 @@ export class LLMClient {
 
     if (stream) {
       payload.stream = true;
+      // Enable progressive tool call streaming for better UX
+      // When enabled, tool calls stream incrementally instead of arriving at once
+      payload.tool_stream = true;
     }
 
     // Add GLM-4.6 thinking parameter if specified
@@ -232,6 +239,26 @@ export class LLMClient {
     // Add search parameters if specified
     if (searchOptions?.search_parameters) {
       payload.search_parameters = searchOptions.search_parameters;
+    }
+
+    // Add structured output format if specified
+    // When using json_object, the model will return valid JSON
+    if (responseFormat) {
+      payload.response_format = responseFormat;
+    }
+
+    // Add sampling parameters for deterministic/reproducible mode
+    // do_sample=false enables greedy decoding for consistent outputs
+    if (sampling) {
+      if (sampling.doSample !== undefined) {
+        payload.do_sample = sampling.doSample;
+      }
+      if (sampling.seed !== undefined) {
+        payload.seed = sampling.seed;
+      }
+      if (sampling.topP !== undefined) {
+        payload.top_p = sampling.topP;
+      }
     }
 
     return payload;
@@ -279,11 +306,14 @@ export class LLMClient {
       const maxTokens = options?.maxTokens ?? this.defaultMaxTokens;
       const thinking = options?.thinking;
       const searchOptions = options?.searchOptions;
+      const responseFormat = options?.responseFormat;
+      const sampling = options?.sampling;
 
       // Validate parameters
       this.validateTemperature(temperature, model);
       this.validateMaxTokens(maxTokens, model);
       this.validateThinking(thinking, model);
+      validateSampling(sampling, temperature);
 
       // Build request payload using consolidated helper
       const requestPayload = this.buildRequestPayload(
@@ -294,7 +324,9 @@ export class LLMClient {
         maxTokens,
         thinking,
         searchOptions,
-        false // not streaming
+        false, // not streaming
+        responseFormat,
+        sampling
       );
 
       const response =
@@ -366,11 +398,14 @@ export class LLMClient {
       const maxTokens = options?.maxTokens ?? this.defaultMaxTokens;
       const thinking = options?.thinking;
       const searchOptions = options?.searchOptions;
+      const responseFormat = options?.responseFormat;
+      const sampling = options?.sampling;
 
       // Validate parameters
       this.validateTemperature(temperature, model);
       this.validateMaxTokens(maxTokens, model);
       this.validateThinking(thinking, model);
+      validateSampling(sampling, temperature);
 
       // Build request payload using consolidated helper
       const requestPayload = this.buildRequestPayload(
@@ -381,7 +416,9 @@ export class LLMClient {
         maxTokens,
         thinking,
         searchOptions,
-        true // streaming
+        true, // streaming
+        responseFormat,
+        sampling
       );
 
       const stream = (await this.client.chat.completions.create(

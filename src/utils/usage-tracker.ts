@@ -12,6 +12,8 @@ export interface UsageStats {
   completionTokens: number;
   totalTokens: number;
   reasoningTokens: number;
+  /** Tokens served from cache (50% cost savings) */
+  cachedTokens: number;
 }
 
 export interface SessionStats {
@@ -20,6 +22,8 @@ export interface SessionStats {
   totalCompletionTokens: number;
   totalTokens: number;
   totalReasoningTokens: number;
+  /** Total tokens served from cache across all requests */
+  totalCachedTokens: number;
   byModel: Map<string, UsageStats>;
 }
 
@@ -35,6 +39,7 @@ export class UsageTracker {
     totalCompletionTokens: 0,
     totalTokens: 0,
     totalReasoningTokens: 0,
+    totalCachedTokens: 0,
     byModel: new Map()
   };
 
@@ -54,17 +59,26 @@ export class UsageTracker {
 
   /**
    * Track usage from API response
+   *
+   * @param model - The model identifier
+   * @param usage - Usage data from API response including prompt_tokens_details for cache info
    */
   trackUsage(model: string, usage: {
     prompt_tokens?: number;
     completion_tokens?: number;
     total_tokens?: number;
     reasoning_tokens?: number;
+    /** xAI API returns cached token info in prompt_tokens_details */
+    prompt_tokens_details?: {
+      cached_tokens?: number;
+    };
   }): void {
     const promptTokens = usage.prompt_tokens || 0;
     const completionTokens = usage.completion_tokens || 0;
     const totalTokens = usage.total_tokens || (promptTokens + completionTokens);
     const reasoningTokens = usage.reasoning_tokens || 0;
+    // Extract cached tokens from prompt_tokens_details (xAI API format)
+    const cachedTokens = usage.prompt_tokens_details?.cached_tokens || 0;
 
     // Update total stats
     this.sessionStats.totalRequests++;
@@ -72,6 +86,7 @@ export class UsageTracker {
     this.sessionStats.totalCompletionTokens += completionTokens;
     this.sessionStats.totalTokens += totalTokens;
     this.sessionStats.totalReasoningTokens += reasoningTokens;
+    this.sessionStats.totalCachedTokens += cachedTokens;
 
     // Update per-model stats
     const modelStats = this.sessionStats.byModel.get(model) || {
@@ -79,7 +94,8 @@ export class UsageTracker {
       promptTokens: 0,
       completionTokens: 0,
       totalTokens: 0,
-      reasoningTokens: 0
+      reasoningTokens: 0,
+      cachedTokens: 0
     };
 
     modelStats.requests++;
@@ -87,6 +103,7 @@ export class UsageTracker {
     modelStats.completionTokens += completionTokens;
     modelStats.totalTokens += totalTokens;
     modelStats.reasoningTokens += reasoningTokens;
+    modelStats.cachedTokens += cachedTokens;
 
     this.sessionStats.byModel.set(model, modelStats);
   }
@@ -117,8 +134,21 @@ export class UsageTracker {
       totalCompletionTokens: 0,
       totalTokens: 0,
       totalReasoningTokens: 0,
+      totalCachedTokens: 0,
       byModel: new Map()
     };
+  }
+
+  /**
+   * Get estimated cost savings from caching
+   * Cache tokens are billed at ~50% of standard rate
+   */
+  getCacheSavings(): { cachedTokens: number; estimatedSavings: number } {
+    const cachedTokens = this.sessionStats.totalCachedTokens;
+    // Estimated savings: cached tokens * 50% of standard rate
+    // This is approximate - actual savings depend on the specific model pricing
+    const estimatedSavings = cachedTokens * 0.5;
+    return { cachedTokens, estimatedSavings };
   }
 
   /**
