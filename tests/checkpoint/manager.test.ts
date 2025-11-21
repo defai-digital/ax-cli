@@ -357,7 +357,15 @@ describe('CheckpointManager', () => {
 
     it('should track failed file restorations', async () => {
       const options = createTestOptions();
-      options.files = [{ path: '/invalid/path/that/cannot/be/written.txt', content: 'content' }];
+
+      // Use cross-platform invalid path
+      // On Windows: use an invalid drive letter, on Unix: use a path that requires root
+      const isWindows = process.platform === 'win32';
+      const invalidPath = isWindows
+        ? 'Z:\\invalid\\path\\that\\cannot\\be\\written.txt' // Non-existent drive on Windows
+        : '/root/invalid/path/that/cannot/be/written.txt'; // Requires root on Unix
+
+      options.files = [{ path: invalidPath, content: 'content' }];
 
       const checkpoint = await manager.createCheckpoint(options);
 
@@ -591,11 +599,14 @@ describe('CheckpointManager', () => {
 // ==================== Helper Functions ====================
 
 function createTestOptions(): CheckpointOptions {
+  // Use cross-platform path - path.join handles platform differences
+  const testFilePath = path.join(process.cwd(), `test-file-${Date.now()}.ts`);
+
   return {
     description: 'Test checkpoint',
     files: [
       {
-        path: `/test/file-${Date.now()}.ts`,
+        path: testFilePath,
         content: 'test content',
       },
     ],

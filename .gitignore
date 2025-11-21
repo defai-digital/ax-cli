@@ -128,3 +128,9 @@ CLAUDE.md
 GEMINI.md
 GROK.md
 AutomatosX-Integration.md
+
+# Test checkpoint artifacts
+.test-checkpoints-*
+
+# Local checkpoints
+.ax-cli/checkpoints/
