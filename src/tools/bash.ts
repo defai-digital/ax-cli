@@ -279,17 +279,18 @@ export class BashTool extends EventEmitter {
       if (signal) {
         abortHandler = () => {
           if (this.currentProcess === childProcess) {
-            movedToBackground = true;
             clearTimeout(timeoutId);
 
             const taskId = this.moveToBackground();
             if (taskId) {
+              movedToBackground = true;
               resolve({
                 movedToBackground: true,
                 taskId,
                 partialOutput: stdout.join('\n'),
               });
             }
+            // If moveToBackground() returns null, don't resolve - let the process complete normally
           }
         };
         signal.addEventListener('abort', abortHandler, { once: true });
@@ -371,6 +372,7 @@ export class BashTool extends EventEmitter {
       // Handle process errors
       childProcess.on('error', (error: Error) => {
         clearTimeout(timeoutId);
+        cleanupAbortListener(); // Remove abort listener to prevent memory leaks
 
         if (this.currentProcess === childProcess) {
           this.currentProcess = null;

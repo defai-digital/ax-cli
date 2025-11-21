@@ -89,11 +89,12 @@ export class MCPManager extends EventEmitter {
         }
       );
 
-      this.clients.set(config.name, client);
-
-      // Connect
+      // Connect before adding to map to avoid zombie entries on connection failure
       const sdkTransport = await transport.connect();
       await client.connect(sdkTransport);
+
+      // Only add to clients map after successful connection
+      this.clients.set(config.name, client);
 
       // List available tools
       const toolsResult = await client.listTools();
@@ -158,7 +159,7 @@ export class MCPManager extends EventEmitter {
     this.emit('serverRemoved', serverName);
   }
 
-  async callTool(toolName: string, arguments_: any): Promise<CallToolResult> {
+  async callTool(toolName: string, arguments_: Record<string, unknown> | null | undefined): Promise<CallToolResult> {
     const tool = this.tools.get(toolName);
     if (!tool) {
       throw new Error(`Tool ${toolName} not found`);
@@ -176,9 +177,14 @@ export class MCPManager extends EventEmitter {
       ? toolName.substring(prefix.length)
       : toolName;
 
+    // Validate arguments - ensure it's an object or default to empty object
+    const safeArgs = (arguments_ && typeof arguments_ === 'object' && !Array.isArray(arguments_))
+      ? arguments_
+      : {};
+
     const result = await client.callTool({
       name: originalToolName,
-      arguments: arguments_
+      arguments: safeArgs
     });
 
     return result as CallToolResult;
