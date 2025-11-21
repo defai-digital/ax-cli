@@ -165,6 +165,10 @@ export function CollapsibleToolResult({
   const actionName = getToolActionName(toolName);
   const summary = summarizeResult(content, toolName);
 
+  // Auto-verbose for errors: always show full details when a tool fails
+  const effectiveVerbose = verboseMode || (!isExecuting && !isSuccess);
+  const effectiveExpanded = isExpanded || effectiveVerbose;
+
   const shouldShowDiff =
     toolName === "str_replace_editor" &&
     isSuccess &&
@@ -213,10 +217,10 @@ export function CollapsibleToolResult({
         {!isExecuting && (
           <Text color="gray" dimColor>
             {" "}
-            {isExpanded ? "[▼]" : "[▶]"}
+            {effectiveExpanded ? "[▼]" : "[▶]"}
           </Text>
         )}
-        {verboseMode && toolId && (
+        {effectiveVerbose && toolId && (
           <Text color="gray" dimColor>
             {" "}
             [{toolId.slice(0, 8)}]
@@ -224,8 +228,8 @@ export function CollapsibleToolResult({
         )}
       </Box>
 
-      {/* Verbose mode: show arguments */}
-      {verboseMode && toolArgs && (
+      {/* Verbose mode: show arguments (also shown on errors for debugging) */}
+      {effectiveVerbose && toolArgs && (
         <Box marginLeft={2} flexDirection="column">
           <Text color="blue" dimColor>
             Arguments:
@@ -242,8 +246,8 @@ export function CollapsibleToolResult({
       <Box marginLeft={2} flexDirection="column">
         {isExecuting ? (
           <Text color="cyan">⎿ Executing...</Text>
-        ) : isExpanded ? (
-          // Expanded view
+        ) : effectiveExpanded ? (
+          // Expanded view (includes auto-expand on errors)
           <>
             {shouldShowDiff ? (
               <>
@@ -296,7 +300,7 @@ export function CollapsibleToolResult({
       </Box>
 
       {/* Verbose mode: status */}
-      {verboseMode && !isExecuting && (
+      {effectiveVerbose && !isExecuting && (
         <Box marginLeft={2}>
           <Text color={isSuccess ? "green" : "red"}>
             Status: {isSuccess ? "✓ Success" : "✗ Failed"}

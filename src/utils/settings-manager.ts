@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, chmodSync } from "fs";
 import { dirname, join } from "path";
 import { homedir } from "os";
 import { UserSettingsSchema, ProjectSettingsSchema } from "../schemas/settings-schemas.js";
-import type { UserSettings, ProjectSettings, SamplingSettings } from "../schemas/settings-schemas.js";
+import type { UserSettings, ProjectSettings, SamplingSettings, ThinkingSettings } from "../schemas/settings-schemas.js";
 import { ModelIdSchema } from '@ax-cli/schemas';
 import { parseJsonFile, writeJsonFile } from "./json-utils.js";
 
@@ -443,6 +443,40 @@ export class SettingsManager {
   public isDeterministicMode(): boolean {
     const sampling = this.getSamplingSettings();
     return sampling?.doSample === false;
+  }
+
+  /**
+   * Get thinking settings with proper fallback logic:
+   * 1. Environment variable (AI_THINK)
+   * 2. Project-specific thinking settings
+   * 3. User's default thinking settings
+   * 4. Undefined (default behavior - thinking disabled)
+   *
+   * @returns Thinking settings or undefined for default behavior
+   */
+  public getThinkingSettings(): ThinkingSettings | undefined {
+    // Start with user settings as base
+    const userThinking = this.getUserSetting("thinking");
+    const projectThinking = this.getProjectSetting("thinking");
+
+    // Merge project settings over user settings
+    const baseThinking: Record<string, unknown> = { ...(userThinking || {}), ...(projectThinking || {}) };
+
+    // Environment variable takes highest priority
+    const envThink = process.env.AI_THINK;
+
+    const result: { enabled?: boolean } = { ...baseThinking } as { enabled?: boolean };
+
+    if (envThink !== undefined) {
+      result.enabled = envThink.toLowerCase() === "true";
+    }
+
+    // Return undefined if no settings were configured (use defaults)
+    if (Object.keys(result).length === 0) {
+      return undefined;
+    }
+
+    return result;
   }
 
   /**

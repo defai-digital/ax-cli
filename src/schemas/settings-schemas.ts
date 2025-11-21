@@ -48,6 +48,8 @@ export const ProjectSettingsSchema: z.ZodType<any> = z.object({
   mcpServers: z.record(z.any()).optional(), // MCP server configurations
   // Project-level sampling settings (overrides user settings)
   sampling: SamplingSettingsSchema,
+  // Project-level thinking settings (overrides user settings)
+  thinking: ThinkingSettingsSchema,
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Model Option Schema
@@ -82,3 +84,4 @@ export type ModelOption = z.infer<typeof ModelOptionSchema>;
 export type MCPServerConfig = z.infer<typeof MCPServerConfigSchema>;
 export type MCPTransportConfig = z.infer<typeof MCPTransportConfigSchema>;
 export type SamplingSettings = z.infer<typeof SamplingSettingsSchema>;
+export type ThinkingSettings = z.infer<typeof ThinkingSettingsSchema>;

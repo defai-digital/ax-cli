@@ -390,11 +390,20 @@ async function processPromptHeadless(
   try {
     agent = new LLMAgent(apiKey, baseURL, model, maxToolRounds);
 
-    // Configure thinking mode if specified via CLI flag
+    // Configure thinking mode: CLI flag takes priority, then settings
     if (options?.think === true) {
       agent.setThinkingConfig({ type: "enabled" });
     } else if (options?.think === false) {
       agent.setThinkingConfig({ type: "disabled" });
+    } else {
+      // No CLI flag - check settings (env > project > user)
+      const manager = getSettingsManager();
+      const thinkingSettings = manager.getThinkingSettings();
+      if (thinkingSettings?.enabled === true) {
+        agent.setThinkingConfig({ type: "enabled" });
+      } else if (thinkingSettings?.enabled === false) {
+        agent.setThinkingConfig({ type: "disabled" });
+      }
     }
 
     // Configure confirmation service for headless mode (auto-approve all operations)
@@ -644,11 +653,20 @@ program
       const agent = new LLMAgent(apiKey, baseURL, model, maxToolRounds);
       activeAgent = agent; // Track for cleanup on exit
 
-      // Configure thinking mode if specified via CLI flag
+      // Configure thinking mode: CLI flag takes priority, then settings
       if (options.think === true) {
         agent.setThinkingConfig({ type: "enabled" });
       } else if (options.think === false) {
         agent.setThinkingConfig({ type: "disabled" });
+      } else {
+        // No CLI flag - check settings (env > project > user)
+        const manager = getSettingsManager();
+        const thinkingSettings = manager.getThinkingSettings();
+        if (thinkingSettings?.enabled === true) {
+          agent.setThinkingConfig({ type: "enabled" });
+        } else if (thinkingSettings?.enabled === false) {
+          agent.setThinkingConfig({ type: "disabled" });
+        }
       }
 
       // Handle --continue flag: load directory-specific session

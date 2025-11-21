@@ -210,21 +210,25 @@ const MemoizedChatEntry = React.memo(
         const isSuccess = entry.toolResult?.success ?? true;
         const briefSummary = !isExecuting ? getBriefSummary(entry.content, toolName) : "";
 
+        // Auto-verbose for errors: always show full details when a tool fails
+        // This helps users debug without needing to toggle verbose mode
+        const effectiveVerbose = verboseMode || (!isExecuting && !isSuccess);
+
         const shouldShowDiff =
-          verboseMode &&
+          effectiveVerbose &&
           entry.toolCall?.function?.name === "str_replace_editor" &&
           entry.toolResult?.success &&
           entry.content.includes("---") &&
           entry.content.includes("+++");
 
         const shouldShowFileContent =
-          verboseMode &&
+          effectiveVerbose &&
           (entry.toolCall?.function?.name === "view_file" ||
             entry.toolCall?.function?.name === "create_file") &&
           entry.toolResult?.success;
 
         const shouldShowFullOutput =
-          verboseMode &&
+          effectiveVerbose &&
           !shouldShowDiff &&
           !shouldShowFileContent;
 
@@ -238,7 +242,8 @@ const MemoizedChatEntry = React.memo(
         };
 
         // CONCISE MODE (default): Single line summary
-        if (!verboseMode) {
+        // Note: effectiveVerbose includes auto-verbose for errors
+        if (!effectiveVerbose) {
           return (
             <Box key={index} flexDirection="row" marginTop={0}>
               <Text color="magenta">⏺</Text>

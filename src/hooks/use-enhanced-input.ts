@@ -251,13 +251,15 @@ export function useEnhancedInput({
     }
 
     // Handle Ctrl+K: Open quick actions menu
-    if (key.ctrl && inputChar === "k") {
+    // Check both key.ctrl with 'k' and raw ASCII code \x0b (Ctrl+K = ASCII 11)
+    if ((key.ctrl && inputChar === "k") || inputChar === "\x0b") {
       onQuickActions?.();
       return;
     }
 
     // Handle Ctrl+U: Delete from cursor to start of line
-    if (key.ctrl && inputChar === "u") {
+    // Check both key.ctrl with 'u' and raw ASCII code \x15 (Ctrl+U = ASCII 21)
+    if ((key.ctrl && inputChar === "u") || inputChar === "\x15") {
       const lineStart = moveToLineStart(input, cursorPosition);
       const newText = input.slice(0, lineStart) + input.slice(cursorPosition);
       setInputState(newText);
@@ -267,7 +269,8 @@ export function useEnhancedInput({
     }
 
     // Handle Ctrl+W: Delete word before cursor
-    if (key.ctrl && inputChar === "w") {
+    // Check both key.ctrl with 'w' and raw ASCII code \x17 (Ctrl+W = ASCII 23)
+    if ((key.ctrl && inputChar === "w") || inputChar === "\x17") {
       const result = deleteWordBefore(input, cursorPosition);
       setInputState(result.text);
       setCursorPositionState(result.position);
@@ -276,25 +279,29 @@ export function useEnhancedInput({
     }
 
     // Handle Ctrl+O: Toggle verbose mode
-    if (key.ctrl && inputChar === "o") {
+    // Check both key.ctrl with 'o' and raw ASCII code \x0f (Ctrl+O = ASCII 15)
+    if ((key.ctrl && inputChar === "o") || inputChar === "\x0f") {
       onVerboseToggle?.();
       return;
     }
 
     // Handle Ctrl+B: Toggle background mode
-    if (key.ctrl && inputChar === "b") {
+    // Check both key.ctrl with 'b' and raw ASCII code \x02 (Ctrl+B = ASCII 2)
+    if ((key.ctrl && inputChar === "b") || inputChar === "\x02") {
       onBackgroundModeToggle?.();
       return;
     }
 
     // Handle Ctrl+Y: Copy last response to clipboard
-    if (key.ctrl && inputChar === "y") {
+    // Check both key.ctrl with 'y' and raw ASCII code \x19 (Ctrl+Y = ASCII 25)
+    if ((key.ctrl && inputChar === "y") || inputChar === "\x19") {
       onCopyLastResponse?.();
       return;
     }
 
     // Handle Ctrl+X: Clear entire input
-    if (key.ctrl && inputChar === "x") {
+    // Check both key.ctrl with 'x' and raw ASCII code \x18 (Ctrl+X = ASCII 24)
+    if ((key.ctrl && inputChar === "x") || inputChar === "\x18") {
       setInputState("");
       setCursorPositionState(0);
       setOriginalInput("");
