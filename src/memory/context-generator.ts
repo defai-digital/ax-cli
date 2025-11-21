@@ -568,8 +568,7 @@ export class ContextGenerator {
     sections: Record<string, SectionContent>,
     maxTokens: number
   ): string {
-    const projectName = path.basename(this.projectRoot);
-    const header = `# Project: ${projectName}\n\n`;
+    const header = `# Project Context\n\n`;
     let currentTokens = this.tokenCounter.countTokens(header);
 
     const parts: string[] = [header];
