@@ -7,8 +7,9 @@ import { EventEmitter } from 'events';
 
 /**
  * Escape shell argument to prevent command injection
+ * Exported for use in other modules that need to construct shell commands
  */
-function escapeShellArg(arg: string): string {
+export function escapeShellArg(arg: string): string {
   // Replace single quotes with '\'' to safely escape them
   return `'${arg.replace(/'/g, "'\\''")}'`;
 }

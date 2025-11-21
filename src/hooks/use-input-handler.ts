@@ -3,6 +3,7 @@ import { useInput } from "ink";
 import { LLMAgent, ChatEntry } from "../agent/llm-agent.js";
 import { ConfirmationService } from "../utils/confirmation-service.js";
 import { useEnhancedInput, Key } from "./use-enhanced-input.js";
+import { escapeShellArg } from "../tools/bash.js";
 
 import { filterCommandSuggestions } from "../ui/components/command-suggestions.js";
 import { getSettingsManager } from "../utils/settings-manager.js";
@@ -475,11 +476,12 @@ export function useInputHandler({
                 break;
             }
           }
-        } catch (error: any) {
-          let errorMessage = `Error: ${error.message}`;
+        } catch (error: unknown) {
+          const errorObj = error instanceof Error ? error : new Error(String(error));
+          let errorMessage = `Error: ${errorObj.message}`;
 
           // Provide helpful guidance for timeout errors during /continue
-          if (error.message && error.message.includes('timeout')) {
+          if (errorObj.message?.includes('timeout')) {
             errorMessage += `\n\n💡 Tip: For very long conversations, try:\n`;
             errorMessage += `   • Use /clear to start fresh and ask a more focused question\n`;
             errorMessage += `   • Break down your request into smaller parts\n`;
@@ -1325,11 +1327,9 @@ Respond with ONLY the commit message, no additional text.`;
           }
         }
 
-        // Execute the commit
-        const cleanCommitMessage = commitMessage
-          .trim()
-          .replace(/^["']|["']$/g, "");
-        const commitCommand = `git commit -m "${cleanCommitMessage}"`;
+        // Execute the commit with properly escaped message to prevent command injection
+        const cleanCommitMessage = commitMessage.trim();
+        const commitCommand = `git commit -m ${escapeShellArg(cleanCommitMessage)}`;
         const commitResult = await agent.executeBashCommand(commitCommand);
 
         const commitEntry: ChatEntry = {

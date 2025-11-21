@@ -41,7 +41,7 @@ export class Subagent extends EventEmitter {
   constructor(role: SubagentRole, configOverrides?: Partial<SubagentConfig>) {
     super();
 
-    this.id = `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    this.id = `${role}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     this.role = role;
 
     // Merge with default config for this role
