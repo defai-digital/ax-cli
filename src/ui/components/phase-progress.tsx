@@ -199,7 +199,7 @@ function CompactProgress({ plan }: CompactProgressProps) {
         <Text color="cyan" bold>
           Phase {currentIndex + 1}/{total}
         </Text>
-        {currentIndex >= 0 && currentIndex < plan.phases.length && (
+        {currentIndex >= 0 && currentIndex < plan.phases.length && plan.phases[currentIndex] && (
           <Text color="white">
             : {plan.phases[currentIndex].name}
           </Text>

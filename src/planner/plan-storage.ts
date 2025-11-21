@@ -189,9 +189,12 @@ export class PlanStorage {
     }
 
     // Sort by updatedAt descending (most recent first)
-    summaries.sort(
-      (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
-    );
+    // Defensive: handle cases where dates might not be proper Date objects
+    summaries.sort((a, b) => {
+      const aTime = a.updatedAt instanceof Date ? a.updatedAt.getTime() : 0;
+      const bTime = b.updatedAt instanceof Date ? b.updatedAt.getTime() : 0;
+      return bTime - aTime;
+    });
 
     return summaries;
   }

@@ -309,6 +309,11 @@ export class TaskPlanner extends EventEmitter {
     completedPhaseIds: Set<string>,
     options: ExecutionOptions
   ): Promise<PhaseResult[]> {
+    // Early return for empty batch
+    if (!batch.phases || batch.phases.length === 0) {
+      return [];
+    }
+
     const context = {
       planId: plan.id,
       originalRequest: plan.originalPrompt,

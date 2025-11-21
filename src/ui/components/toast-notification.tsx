@@ -66,7 +66,11 @@ export function ToastNotification({ toast, onDismiss }: ToastNotificationProps) 
     // Hide and dismiss
     const hideTimer = setTimeout(() => {
       setVisible(false);
-      onDismiss?.();
+      try {
+        onDismiss?.();
+      } catch {
+        // Prevent callback errors from crashing the component
+      }
     }, duration);
 
     return () => {
