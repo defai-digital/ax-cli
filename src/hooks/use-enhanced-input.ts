@@ -67,7 +67,10 @@ export function useEnhancedInput({
   const [input, setInputState] = useState("");
   const [cursorPosition, setCursorPositionState] = useState(0);
   const isMultilineRef = useRef(multiline);
-  
+
+  // Keep ref in sync with prop to avoid stale closure
+  isMultilineRef.current = multiline;
+
   const {
     addToHistory,
     navigateHistory,
@@ -134,7 +137,7 @@ export function useEnhancedInput({
 
     // Handle Enter/Return
     if (key.return) {
-      if (multiline && key.shift) {
+      if (isMultilineRef.current && key.shift) {
         // Shift+Enter in multiline mode inserts newline
         const result = insertText(input, cursorPosition, "\n");
         setInputState(result.text);

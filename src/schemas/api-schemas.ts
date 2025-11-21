@@ -113,7 +113,7 @@ export type StreamingChunk = z.infer<typeof StreamingChunkSchema>;
 export const ChatEntrySchema: z.ZodType<any> = z.object({
   type: z.enum(['user', 'assistant', 'tool_result', 'tool_call']),
   content: z.string(),
-  timestamp: z.date(),
+  timestamp: z.coerce.date().refine(d => !isNaN(d.getTime()), { message: "Invalid date" }),
   toolCalls: z.array(LLMToolCallSchema).optional(),
   toolCall: LLMToolCallSchema.optional(),
   toolResult: z
