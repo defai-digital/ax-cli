@@ -20,6 +20,10 @@ interface StatusBarProps {
   isProcessing?: boolean;
   processingTime?: number;
   tokenCount?: number;
+  terminalWidth?: number;  // Terminal width for responsive layout
+  // Enhanced context info (Phase 3)
+  currentTokens?: number;
+  maxTokens?: number;
   // Flash state for mode toggles (visual feedback)
   flashAutoEdit?: boolean;
   flashVerbose?: boolean;
@@ -37,11 +41,31 @@ function getStatusSymbol(percentage: number): string {
 }
 
 /**
+ * Format token count for human-readable display
+ */
+function formatTokenCount(tokens: number): string {
+  if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
+  if (tokens >= 1000) return `${(tokens / 1000).toFixed(0)}k`;
+  return tokens.toString();
+}
+
+/**
  * Renders a visual progress bar for context usage
  * Uses block characters for smooth visualization
  * Includes accessibility symbols for colorblind users
+ * Phase 3: Enhanced with token count display
  */
-function ContextBar({ percentage, showAutoPrune }: { percentage: number; showAutoPrune: boolean }) {
+function ContextBar({
+  percentage,
+  showAutoPrune,
+  currentTokens,
+  maxTokens
+}: {
+  percentage: number;
+  showAutoPrune: boolean;
+  currentTokens?: number;
+  maxTokens?: number;
+}) {
   const barWidth = 15;
   const filledWidth = Math.round((percentage / 100) * barWidth);
   const emptyWidth = barWidth - filledWidth;
@@ -75,6 +99,10 @@ function ContextBar({ percentage, showAutoPrune }: { percentage: number; showAut
         {"░".repeat(emptyWidth)}
       </Text>
       <Text color={getColor()}> {getStatusSymbol(percentage)} {percentage.toFixed(0)}%</Text>
+      {/* Phase 3: Show detailed token count if available */}
+      {currentTokens !== undefined && maxTokens !== undefined && (
+        <Text color="gray" dimColor> ({formatTokenCount(currentTokens)}/{formatTokenCount(maxTokens)})</Text>
+      )}
       {showWarning && (
         <Text color="red" bold> LOW!</Text>
       )}
@@ -130,23 +158,133 @@ function formatTokens(count: number): string {
   return count.toString();
 }
 
-export function StatusBar({
-  projectName,
-  version,
-  model,
-  contextPercentage,
-  showAutoPrune,
-  autoEditEnabled,
-  verboseMode,
-  backgroundMode = false,
-  mcpServerCount = 0,
-  backgroundTaskCount = 0,
-  isProcessing = false,
-  tokenCount = 0,
-  flashAutoEdit = false,
-  flashVerbose = false,
-  flashBackground = false,
-}: StatusBarProps) {
+/**
+ * Compact Status Bar for narrow terminals (< 100 columns)
+ * Stacks information vertically to prevent wrapping
+ */
+function CompactStatusBar(props: StatusBarProps) {
+  const {
+    projectName,
+    version,
+    model,
+    contextPercentage,
+    showAutoPrune,
+    autoEditEnabled,
+    verboseMode,
+    backgroundMode = false,
+    mcpServerCount = 0,
+    backgroundTaskCount = 0,
+    isProcessing = false,
+    currentTokens,
+    maxTokens,
+    flashAutoEdit = false,
+    flashVerbose = false,
+    flashBackground = false,
+  } = props;
+
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      {/* Row 1: Project & Model */}
+      <Box
+        borderStyle="single"
+        borderColor={isProcessing ? "yellow" : "gray"}
+        paddingX={1}
+        flexDirection="row"
+        justifyContent="space-between"
+      >
+        <Box>
+          <Text color="magenta" bold>{projectName}</Text>
+          <Text color="gray"> • </Text>
+          <Text color="white" bold>ax</Text>
+          <Text color="greenBright" bold> v{version}</Text>
+        </Box>
+        <Box>
+          <Text color="gray">🤖 </Text>
+          <Text color="yellow">{model}</Text>
+        </Box>
+      </Box>
+
+      {/* Row 2: Context, Tasks, MCP */}
+      <Box paddingX={1} flexDirection="row" justifyContent="space-between">
+        <Box>
+          <Text color="gray">ctx: </Text>
+          <ContextBar
+            percentage={contextPercentage}
+            showAutoPrune={showAutoPrune}
+            currentTokens={currentTokens}
+            maxTokens={maxTokens}
+          />
+        </Box>
+        <Box>
+          {backgroundTaskCount > 0 && (
+            <>
+              <Text color="yellow">📦 {backgroundTaskCount}</Text>
+              <Text color="gray" dimColor> (/tasks)</Text>
+              {mcpServerCount > 0 && <Text color="gray"> • </Text>}
+            </>
+          )}
+          {mcpServerCount > 0 && (
+            <Text color="blue">MCP: {mcpServerCount}</Text>
+          )}
+        </Box>
+      </Box>
+
+      {/* Row 3: Mode indicators (compact) */}
+      <Box paddingX={1}>
+        <ModePill
+          label="auto"
+          enabled={autoEditEnabled}
+          shortcut="⇧⇥"
+          enabledColor="green"
+          flash={flashAutoEdit}
+        />
+        <ModePill
+          label="verb"
+          enabled={verboseMode}
+          shortcut="^O"
+          enabledColor="yellow"
+          flash={flashVerbose}
+        />
+        <ModePill
+          label="bg"
+          enabled={backgroundMode}
+          shortcut="^B"
+          enabledColor="magenta"
+          flash={flashBackground}
+        />
+      </Box>
+    </Box>
+  );
+}
+
+export function StatusBar(props: StatusBarProps) {
+  const {
+    projectName,
+    version,
+    model,
+    contextPercentage,
+    showAutoPrune,
+    autoEditEnabled,
+    verboseMode,
+    backgroundMode = false,
+    mcpServerCount = 0,
+    backgroundTaskCount = 0,
+    isProcessing = false,
+    tokenCount = 0,
+    terminalWidth = 120,  // Default to wide layout
+    currentTokens,
+    maxTokens,
+    flashAutoEdit = false,
+    flashVerbose = false,
+    flashBackground = false,
+  } = props;
+
+  // Use compact layout for narrow terminals (< 100 columns)
+  if (terminalWidth < 100) {
+    return <CompactStatusBar {...props} />;
+  }
+
+  // Full layout for wide terminals
   return (
     <Box flexDirection="column" marginTop={1}>
       {/* Primary status row */}
@@ -176,10 +314,15 @@ export function StatusBar({
           )}
         </Box>
 
-        {/* Right section: Context (remaining), MCP, Background Tasks */}
+        {/* Right section: Context (available), MCP, Background Tasks */}
         <Box>
-          <Text color="gray">ctx remaining: </Text>
-          <ContextBar percentage={contextPercentage} showAutoPrune={showAutoPrune} />
+          <Text color="gray">ctx available: </Text>
+          <ContextBar
+            percentage={contextPercentage}
+            showAutoPrune={showAutoPrune}
+            currentTokens={currentTokens}
+            maxTokens={maxTokens}
+          />
           {backgroundTaskCount > 0 && (
             <>
               <Text color="gray"> • </Text>

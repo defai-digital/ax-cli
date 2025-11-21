@@ -173,6 +173,20 @@ export class SubagentOrchestrator extends EventEmitter {
     handlers.set('tool-executed', toolExecutedHandler);
     subagent.on('tool-executed', toolExecutedHandler);
 
+    // Forward tool-call events for real-time UI updates
+    const toolCallHandler = (data: any) => {
+      this.emit('subagent-tool-call', { subagentId: id, ...data });
+    };
+    handlers.set('tool-call', toolCallHandler);
+    subagent.on('tool-call', toolCallHandler);
+
+    // Forward tool-result events
+    const toolResultHandler = (data: any) => {
+      this.emit('subagent-tool-result', { subagentId: id, ...data });
+    };
+    handlers.set('tool-result', toolResultHandler);
+    subagent.on('tool-result', toolResultHandler);
+
     // Store handlers for cleanup
     this.subagentListeners.set(id, handlers);
   }

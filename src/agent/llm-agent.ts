@@ -83,6 +83,8 @@ export class LLMAgent extends EventEmitter {
   private abortController: AbortController | null = null;
   private maxToolRounds: number;
   private recentToolCalls: Map<string, number> = new Map(); // Track recent tool calls to detect loops
+  private toolCallIndexMap: Map<string, number> = new Map(); // O(1) lookup for tool call entries in chat history
+  private toolCallArgsCache: Map<string, Record<string, unknown>> = new Map(); // Cache parsed tool arguments
   private checkpointManager: CheckpointManager;
   private subagentOrchestrator: SubagentOrchestrator;
   private taskPlanner: TaskPlanner;
@@ -268,6 +270,22 @@ export class LLMAgent extends EventEmitter {
   }
 
   /**
+   * Parse tool call arguments with caching for loop detection
+   * Returns cached result if available, otherwise parses and caches
+   * Used specifically for isRepetitiveToolCall to avoid redundant parsing
+   */
+  private parseToolArgumentsCached(toolCall: LLMToolCall): Record<string, unknown> {
+    const cached = this.toolCallArgsCache.get(toolCall.id);
+    if (cached) {
+      return cached;
+    }
+
+    const args = JSON.parse(toolCall.function.arguments || '{}');
+    this.toolCallArgsCache.set(toolCall.id, args);
+    return args;
+  }
+
+  /**
    * Detect if a tool call is repetitive (likely causing a loop)
    * Returns true if the same tool with similar arguments was called multiple times recently
    */
@@ -283,28 +301,28 @@ export class LLMAgent extends EventEmitter {
     }
 
     try {
-      const args = JSON.parse(toolCall.function.arguments || '{}');
+      const args = this.parseToolArgumentsCached(toolCall);
 
       // Create a detailed signature that includes key arguments
       // This allows multiple different commands but catches true repetitions
       let signature = toolCall.function.name;
 
-      if (toolCall.function.name === 'bash' && args.command) {
+      if (toolCall.function.name === 'bash' && args.command && typeof args.command === 'string') {
         // Normalize command: trim whitespace, collapse multiple spaces
         const normalizedCommand = args.command.trim().replace(/\s+/g, ' ');
         // Use full command for exact matching (catches true duplicates)
         signature = `bash:${normalizedCommand}`;
-      } else if (toolCall.function.name === 'search' && args.query) {
+      } else if (toolCall.function.name === 'search' && args.query && typeof args.query === 'string') {
         // For search, include the normalized query
         const normalizedQuery = args.query.trim().toLowerCase().replace(/\s+/g, ' ');
         signature = `search:${normalizedQuery}`;
-      } else if (toolCall.function.name === 'view_file' && args.path) {
+      } else if (toolCall.function.name === 'view_file' && args.path && typeof args.path === 'string') {
         // For file reads, include the path
         signature = `view:${args.path}`;
-      } else if (toolCall.function.name === 'create_file' && args.path) {
+      } else if (toolCall.function.name === 'create_file' && args.path && typeof args.path === 'string') {
         // For file writes, include the path
         signature = `create:${args.path}`;
-      } else if (toolCall.function.name === 'str_replace_editor' && args.path) {
+      } else if (toolCall.function.name === 'str_replace_editor' && args.path && typeof args.path === 'string') {
         // For text editor, include the path
         signature = `edit:${args.path}`;
       }
@@ -340,10 +358,14 @@ export class LLMAgent extends EventEmitter {
       }
 
       // Clean up old entries (keep only last N unique calls)
+      // Batch cleanup when exceeding threshold to prevent unbounded growth
       if (this.recentToolCalls.size > AGENT_CONFIG.MAX_RECENT_TOOL_CALLS) {
-        const firstKey = this.recentToolCalls.keys().next().value;
-        if (firstKey !== undefined) {
-          this.recentToolCalls.delete(firstKey);
+        const excessCount = this.recentToolCalls.size - AGENT_CONFIG.MAX_RECENT_TOOL_CALLS + 10;
+        let removed = 0;
+        for (const key of this.recentToolCalls.keys()) {
+          if (removed >= excessCount) break;
+          this.recentToolCalls.delete(key);
+          removed++;
         }
       }
 
@@ -1094,7 +1116,9 @@ export class LLMAgent extends EventEmitter {
               timestamp: new Date(),
               toolCall: toolCall,
             };
+            const index = this.chatHistory.length;
             this.chatHistory.push(toolCallEntry);
+            this.toolCallIndexMap.set(toolCall.id, index); // O(1) lookup for later updates
             newEntries.push(toolCallEntry);
           });
 
@@ -1102,13 +1126,10 @@ export class LLMAgent extends EventEmitter {
           for (const toolCall of assistantMessage.tool_calls) {
             const result = await this.executeTool(toolCall);
 
-            // Update the existing tool_call entry with the result
-            const entryIndex = this.chatHistory.findIndex(
-              (entry) =>
-                entry.type === "tool_call" && entry.toolCall?.id === toolCall.id
-            );
+            // Update the existing tool_call entry with the result (O(1) lookup)
+            const entryIndex = this.toolCallIndexMap.get(toolCall.id);
 
-            if (entryIndex !== -1) {
+            if (entryIndex !== undefined) {
               const updatedEntry: ChatEntry = {
                 ...this.chatHistory[entryIndex],
                 type: "tool_result",
@@ -1620,48 +1641,23 @@ export class LLMAgent extends EventEmitter {
           }
         }
 
-        if (process.env.DEBUG_LOOP_DETECTION === '1') {
-          console.error(`[LOOP DEBUG] After chunk processing, streamResult exists: ${!!streamResult}`);
-        }
-
         if (!streamResult) {
-          if (process.env.DEBUG_LOOP_DETECTION === '1') {
-            console.error(`[LOOP DEBUG] No streamResult, continuing...`);
-          }
           continue;
         }
 
         // Add assistant message to history
         this.addAssistantMessage(streamResult.accumulated);
 
-        // Debug: Log what we received
-        if (process.env.DEBUG_LOOP_DETECTION === '1') {
-          console.error(`\n[LOOP DEBUG] Stream result received`);
-          console.error(`[LOOP DEBUG] Has tool_calls: ${!!streamResult.accumulated.tool_calls}`);
-          console.error(`[LOOP DEBUG] Tool calls length: ${streamResult.accumulated.tool_calls?.length || 0}`);
-        }
-
         // Handle tool calls if present
         if (streamResult.accumulated.tool_calls?.length > 0) {
           toolRounds++;
 
           // Check for repetitive tool calls (loop detection)
-          if (process.env.DEBUG_LOOP_DETECTION === '1') {
-            console.error(`\n[LOOP CHECK STREAM] Checking ${streamResult.accumulated.tool_calls.length} tool calls...`);
-          }
-
           const hasRepetitiveCall = (streamResult.accumulated.tool_calls as LLMToolCall[]).some(
             (tc: LLMToolCall) => this.isRepetitiveToolCall(tc)
           );
 
-          if (process.env.DEBUG_LOOP_DETECTION === '1') {
-            console.error(`[LOOP CHECK STREAM] hasRepetitiveCall: ${hasRepetitiveCall}\n`);
-          }
-
           if (hasRepetitiveCall) {
-            if (process.env.DEBUG_LOOP_DETECTION === '1') {
-              console.error(`[LOOP CHECK STREAM] 🛑 Breaking loop!`);
-            }
             yield {
               type: "content",
               content: "\n\n⚠️ Detected repetitive tool calls. Stopping to prevent infinite loop.\n\nI apologize, but I seem to be stuck in a loop trying to answer your question. Let me provide what I can without further tool use.",

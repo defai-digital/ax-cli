@@ -74,7 +74,8 @@ export class ContextStore {
     if (!parseResult.success) {
       return {
         success: false,
-        error: `Failed to parse memory.json: ${parseResult.error}`,
+        error: `Failed to parse memory.json: ${parseResult.error}\n` +
+               `💡 The file may be corrupted. Try: ax memory warmup --force`,
       };
     }
 
@@ -83,8 +84,25 @@ export class ContextStore {
     if (!validation.success) {
       return {
         success: false,
-        error: `Invalid memory.json schema: ${validation.error}`,
+        error: `Invalid memory.json schema: ${validation.error}\n` +
+               `💡 The file format is outdated or corrupted. Run: ax memory warmup`,
       };
+    }
+
+    // Validate memory size (warn if too large)
+    const memory = validation.data;
+    const tokenEstimate = memory.context.token_estimate;
+    const MAX_RECOMMENDED_TOKENS = 10000;
+
+    if (tokenEstimate > MAX_RECOMMENDED_TOKENS) {
+      // Log warning but don't fail - this is just a recommendation
+      if (process.env.NODE_ENV !== 'test') {
+        console.warn(
+          `⚠️  Large context detected (${tokenEstimate.toLocaleString()} tokens)\n` +
+          `   Recommended: <${MAX_RECOMMENDED_TOKENS.toLocaleString()} tokens for optimal caching\n` +
+          `   Consider reducing --max-tokens in ax memory warmup`
+        );
+      }
     }
 
     return { success: true, data: validation.data };
@@ -105,8 +123,23 @@ export class ContextStore {
       if (!validation.success) {
         return {
           success: false,
-          error: `Invalid memory data: ${validation.error}`,
+          error: `Invalid memory data: ${validation.error}\n` +
+                 `💡 Memory structure is invalid. Please report this bug.`,
         };
+      }
+
+      // Size validation
+      const tokenEstimate = memory.context.token_estimate;
+      const MAX_RECOMMENDED_TOKENS = 10000;
+
+      if (tokenEstimate > MAX_RECOMMENDED_TOKENS) {
+        // Warn but don't fail - user might intentionally want large context
+        if (process.env.NODE_ENV !== 'test') {
+          console.warn(
+            `⚠️  Saving large context (${tokenEstimate.toLocaleString()} tokens)\n` +
+            `   This may reduce cache efficiency. Consider using --max-tokens ${MAX_RECOMMENDED_TOKENS}`
+          );
+        }
       }
 
       // Atomic write: write to temp file then rename
@@ -161,12 +194,22 @@ export class ContextStore {
 
   /**
    * Increment usage count and record cache hit
+   *
+   * ⚠️ KNOWN LIMITATION: Race condition if multiple API calls happen simultaneously.
+   * Stats recording uses load-modify-save pattern without locking. In rare cases
+   * where multiple API calls overlap, some cache hit stats may be lost.
+   * This is acceptable as stats are informational, not critical to operation.
+   *
+   * For production use requiring perfect accuracy, consider:
+   * - File-level locking (complex, platform-dependent)
+   * - Separate stats database (overengineering for most use cases)
+   * - Async queue with single writer (adds complexity)
    */
   recordUsage(promptTokens: number, cachedTokens: number): StoreResult<void> {
     const loadResult = this.load();
     if (!loadResult.success) {
-      // Don't fail if memory doesn't exist - just skip recording
-      return { success: true, data: undefined };
+      // Memory doesn't exist - return actual failure so caller knows stats weren't recorded
+      return { success: false, error: 'No memory found - stats not recorded' };
     }
 
     const memory = loadResult.data;
@@ -233,15 +276,34 @@ export class ContextStore {
 
 /**
  * Singleton instance for convenience
- * Use this when you don't need to specify a custom project root
+ * NOTE: Singleton uses process.cwd() as projectRoot
  */
 let defaultStore: ContextStore | null = null;
 
+/**
+ * Get a context store instance
+ *
+ * IMPORTANT: Singleton behavior
+ * - Without projectRoot: Returns singleton instance (uses process.cwd())
+ * - With projectRoot: Returns NEW instance for that specific project
+ *
+ * Example:
+ * ```typescript
+ * const store1 = getContextStore();           // Singleton
+ * const store2 = getContextStore();           // Same instance
+ * const store3 = getContextStore('/custom'); // New instance
+ * ```
+ *
+ * @param projectRoot - Optional custom project root. If provided, returns a new instance.
+ * @returns ContextStore instance
+ */
 export function getContextStore(projectRoot?: string): ContextStore {
   if (projectRoot) {
+    // Custom project root - always return new instance
     return new ContextStore(projectRoot);
   }
 
+  // Default behavior - return singleton
   if (!defaultStore) {
     defaultStore = new ContextStore();
   }

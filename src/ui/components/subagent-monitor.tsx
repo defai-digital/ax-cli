@@ -7,8 +7,14 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import Spinner from 'ink-spinner';
 import { SubagentResult, SubagentStatus, SubagentState } from '../../agent/subagent-types.js';
+
+interface ToolCallInfo {
+  name: string;
+  id: string;
+  status: 'running' | 'completed' | 'failed';
+  output?: string;
+}
 
 interface SubagentMonitorProps {
   /** Currently active subagents */
@@ -17,6 +23,8 @@ interface SubagentMonitorProps {
   results: SubagentResult[];
   /** Show detailed progress information */
   verbose?: boolean;
+  /** Tool calls by subagent ID for real-time updates */
+  toolCallsBySubagent?: Map<string, ToolCallInfo[]>;
 }
 
 /**
@@ -26,25 +34,24 @@ export const SubagentMonitor: React.FC<SubagentMonitorProps> = ({
   activeSubagents,
   results,
   verbose = false,
+  toolCallsBySubagent = new Map(),
 }) => {
   if (activeSubagents.length === 0 && results.length === 0) {
     return null; // Don't render if nothing to show
   }
 
-  const getStateIcon = (state: SubagentState): string => {
-    switch (state) {
-      case SubagentState.PENDING:
-        return '⏸️';
-      case SubagentState.RUNNING:
-        return '▶️';
-      case SubagentState.COMPLETED:
-        return '✅';
-      case SubagentState.FAILED:
-        return '❌';
-      case SubagentState.CANCELLED:
-        return '🚫';
+  const getToolActionName = (toolName: string): string => {
+    switch (toolName) {
+      case 'view_file':
+        return 'Read';
+      case 'text_editor':
+        return 'Edit';
+      case 'bash':
+        return 'Bash';
+      case 'search':
+        return 'Search';
       default:
-        return '❓';
+        return toolName;
     }
   };
 
@@ -58,12 +65,6 @@ export const SubagentMonitor: React.FC<SubagentMonitorProps> = ({
     }
   };
 
-  const getProgressBar = (progress: number, width: number = 20): string => {
-    const filled = Math.round((progress / 100) * width);
-    const empty = width - filled;
-    return '█'.repeat(filled) + '░'.repeat(empty);
-  };
-
   return (
     <Box flexDirection="column" marginY={1} borderStyle="round" borderColor="cyan" paddingX={1}>
       <Box marginBottom={1}>
@@ -72,56 +73,52 @@ export const SubagentMonitor: React.FC<SubagentMonitorProps> = ({
         </Text>
       </Box>
 
-      {/* Active Subagents */}
+      {/* Active Subagents - Claude Code Style */}
       {activeSubagents.length > 0 && (
         <Box flexDirection="column" marginBottom={1}>
-          <Text bold color="yellow">
-            Active ({activeSubagents.length}):
-          </Text>
-          {activeSubagents.map((subagent, _index) => (
-            <Box key={subagent.id} marginLeft={2} flexDirection="column">
-              <Box>
-                <Text color="cyan">
-                  {subagent.state === SubagentState.RUNNING && <Spinner type="dots" />}
-                  {' '}
-                  {getStateIcon(subagent.state)} {subagent.role}
-                  {verbose && ` (${subagent.id.slice(0, 8)})`}
-                </Text>
+          {activeSubagents.map((subagent) => {
+            const toolCalls = toolCallsBySubagent.get(subagent.id) || [];
+            const visibleTools = toolCalls.slice(0, 3);
+            const hiddenCount = Math.max(0, toolCalls.length - 3);
+
+            return (
+              <Box key={subagent.id} flexDirection="column" marginBottom={1}>
+                {/* Main task line */}
+                <Box>
+                  <Text color="white">
+                    {subagent.state === SubagentState.RUNNING && '● '}
+                    {subagent.state === SubagentState.COMPLETED && '○ '}
+                    {subagent.role}
+                  </Text>
+                  {subagent.currentAction && (
+                    <Text color="gray">({subagent.currentAction})</Text>
+                  )}
+                </Box>
+
+                {/* Tool calls - Claude Code style with indentation */}
+                {visibleTools.map((tool: ToolCallInfo, idx: number) => (
+                  <Box key={`${tool.id}-${idx}`} marginLeft={2}>
+                    <Text color="gray">└ </Text>
+                    <Text color={tool.status === 'completed' ? 'green' : tool.status === 'failed' ? 'red' : 'cyan'}>
+                      {getToolActionName(tool.name)}
+                    </Text>
+                    {tool.output && (
+                      <Text color="gray" dimColor> {tool.output}</Text>
+                    )}
+                  </Box>
+                ))}
+
+                {/* Show collapsed count like Claude Code */}
+                {hiddenCount > 0 && (
+                  <Box marginLeft={2}>
+                    <Text color="gray" dimColor>
+                      +{hiddenCount} more tool uses (ctrl+o to expand)
+                    </Text>
+                  </Box>
+                )}
               </Box>
-
-              {verbose && subagent.currentAction && (
-                <Box marginLeft={2}>
-                  <Text dimColor>
-                    → {subagent.currentAction}
-                  </Text>
-                </Box>
-              )}
-
-              {subagent.progress > 0 && (
-                <Box marginLeft={2}>
-                  <Text dimColor>
-                    {getProgressBar(subagent.progress)} {subagent.progress}%
-                  </Text>
-                </Box>
-              )}
-
-              {verbose && subagent.toolsUsed && subagent.toolsUsed.length > 0 && (
-                <Box marginLeft={2}>
-                  <Text dimColor>
-                    Tools: {subagent.toolsUsed.join(', ')}
-                  </Text>
-                </Box>
-              )}
-
-              {verbose && subagent.toolRoundsUsed !== undefined && (
-                <Box marginLeft={2}>
-                  <Text dimColor>
-                    Rounds: {subagent.toolRoundsUsed}
-                  </Text>
-                </Box>
-              )}
-            </Box>
-          ))}
+            );
+          })}
         </Box>
       )}
 

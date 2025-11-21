@@ -68,7 +68,7 @@ const MemoizedChatEntry = React.memo(
           <Box key={index} flexDirection="column" marginTop={1}>
             <Box>
               <Text color="gray">
-                {">"} {entry.content}
+                {">"} {entry.content ?? ""}
               </Text>
             </Box>
           </Box>
@@ -91,10 +91,10 @@ const MemoizedChatEntry = React.memo(
               <Box flexDirection="column" flexGrow={1}>
                 {entry.toolCalls ? (
                   // If there are tool calls, just show plain text
-                  <Text color="white">{entry.content.trim()}</Text>
+                  <Text color="white">{entry.content?.trim() ?? ""}</Text>
                 ) : (
                   // If no tool calls, render as markdown
-                  <MarkdownRenderer content={entry.content.trim()} />
+                  <MarkdownRenderer content={entry.content?.trim() ?? ""} />
                 )}
                 {entry.isStreaming && <Text color="cyan">█</Text>}
               </Box>
@@ -180,9 +180,9 @@ const MemoizedChatEntry = React.memo(
         const shouldShowDiff =
           entry.toolCall?.function?.name === "str_replace_editor" &&
           entry.toolResult?.success &&
-          entry.content.includes("Updated") &&
-          entry.content.includes("---") &&
-          entry.content.includes("+++");
+          entry.content?.includes("Updated") &&
+          entry.content?.includes("---") &&
+          entry.content?.includes("+++");
 
         const shouldShowFileContent =
           (entry.toolCall?.function?.name === "view_file" ||
@@ -206,19 +206,19 @@ const MemoizedChatEntry = React.memo(
                 <Box flexDirection="column">
                   <Text color="gray">⎿ File contents:</Text>
                   <Box marginLeft={2} flexDirection="column">
-                    {renderFileContent(entry.content)}
+                    {renderFileContent(entry.content ?? "")}
                   </Box>
                 </Box>
               ) : shouldShowDiff ? (
                 // For diff results, show only the summary line, not the raw content
-                <Text color="gray">⎿ {entry.content.split("\n")[0]}</Text>
+                <Text color="gray">⎿ {(entry.content ?? "").split("\n")[0]}</Text>
               ) : (
-                <Text color="gray">⎿ {formatToolContent(entry.content, toolName)}</Text>
+                <Text color="gray">⎿ {formatToolContent(entry.content ?? "", toolName)}</Text>
               )}
             </Box>
             {shouldShowDiff && !isExecuting && (
               <Box marginLeft={4} flexDirection="column">
-                {renderDiff(entry.content, filePath)}
+                {renderDiff(entry.content ?? "", filePath)}
               </Box>
             )}
           </Box>

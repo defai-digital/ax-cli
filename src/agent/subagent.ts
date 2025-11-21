@@ -268,7 +268,27 @@ export class Subagent extends EventEmitter {
           });
 
           for (const toolCall of message.tool_calls) {
+            // Emit tool call event for real-time UI updates
+            this.emit('tool-call', {
+              taskId: task.id,
+              toolCall: {
+                name: toolCall.function.name,
+                id: toolCall.id,
+              },
+            });
+
             const toolResult = await this.executeToolCall(toolCall);
+
+            // Emit tool result event
+            this.emit('tool-result', {
+              taskId: task.id,
+              toolCall: {
+                name: toolCall.function.name,
+                id: toolCall.id,
+              },
+              success: toolResult.success,
+              output: toolResult.output?.slice(0, 100), // Truncate for UI
+            });
 
             // Track tool usage in status
             if (!this.status.toolsUsed) {

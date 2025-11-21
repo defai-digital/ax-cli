@@ -154,17 +154,34 @@ export class ContextInjector {
 
 /**
  * Singleton instance for convenience
+ * NOTE: Singleton uses process.cwd() as projectRoot
  */
 let defaultInjector: ContextInjector | null = null;
 
 /**
- * Get the default context injector instance
+ * Get a context injector instance
+ *
+ * IMPORTANT: Singleton behavior
+ * - Without projectRoot: Returns singleton instance (uses process.cwd())
+ * - With projectRoot: Returns NEW instance for that specific project
+ *
+ * Example:
+ * ```typescript
+ * const injector1 = getContextInjector();           // Singleton
+ * const injector2 = getContextInjector();           // Same instance
+ * const injector3 = getContextInjector('/custom'); // New instance
+ * ```
+ *
+ * @param projectRoot - Optional custom project root. If provided, returns a new instance.
+ * @returns ContextInjector instance
  */
 export function getContextInjector(projectRoot?: string): ContextInjector {
   if (projectRoot) {
+    // Custom project root - always return new instance
     return new ContextInjector(projectRoot);
   }
 
+  // Default behavior - return singleton
   if (!defaultInjector) {
     defaultInjector = new ContextInjector();
   }

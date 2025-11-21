@@ -103,16 +103,25 @@ export default function ConfirmationDialog({
           </Box>
         )}
 
-        {/* Show content preview if provided */}
+        {/* Show content preview if provided (limited to 10 lines) */}
         {content && (
           <>
             <Text color="gray">⎿ {content.split('\n')[0]}</Text>
             <Box marginLeft={4} flexDirection="column">
-              <DiffRenderer
-                diffContent={content}
-                filename={filename}
-                terminalWidth={80}
-              />
+              {(() => {
+                const lines = content.split('\n');
+                const MAX_PREVIEW_LINES = 10;
+                const limitedContent = lines.length > MAX_PREVIEW_LINES
+                  ? lines.slice(0, MAX_PREVIEW_LINES).join('\n') + `\n... (${lines.length - MAX_PREVIEW_LINES} more lines)`
+                  : content;
+                return (
+                  <DiffRenderer
+                    diffContent={limitedContent}
+                    filename={filename}
+                    terminalWidth={80}
+                  />
+                );
+              })()}
             </Box>
           </>
         )}

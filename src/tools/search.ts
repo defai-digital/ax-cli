@@ -369,17 +369,18 @@ export class SearchTool {
     const searchPattern = pattern.toLowerCase(); // Cache once for all comparisons
 
     const walkDir = async (dir: string, depth: number = 0): Promise<void> => {
-      if (depth > SearchTool.MAX_RECURSION_DEPTH || files.length >= maxResults) return;
+      // Early exit if we've found enough results or exceeded depth
+      if (files.length >= maxResults) return;
+      if (depth > SearchTool.MAX_RECURSION_DEPTH) return;
 
       try {
         const entries = await fs.readdir(dir, { withFileTypes: true });
 
+        // Separate files and directories for better search ordering
+        const fileEntries: typeof entries = [];
+        const dirEntries: typeof entries = [];
+
         for (const entry of entries) {
-          if (files.length >= maxResults) break;
-
-          const fullPath = path.join(dir, entry.name);
-          const relativePath = path.relative(this.currentDirectory, fullPath);
-
           // Skip hidden files unless explicitly included
           if (!options.includeHidden && entry.name.startsWith(".")) {
             continue;
@@ -390,6 +391,20 @@ export class SearchTool {
             continue;
           }
 
+          if (entry.isFile()) {
+            fileEntries.push(entry);
+          } else if (entry.isDirectory()) {
+            dirEntries.push(entry);
+          }
+        }
+
+        // Process files first (better for finding matches quickly)
+        for (const entry of fileEntries) {
+          if (files.length >= maxResults) return; // Early exit
+
+          const fullPath = path.join(dir, entry.name);
+          const relativePath = path.relative(this.currentDirectory, fullPath);
+
           // Apply exclude pattern
           if (
             options.excludePattern &&
@@ -398,22 +413,36 @@ export class SearchTool {
             continue;
           }
 
-          if (entry.isFile()) {
-            const score = this.calculateFileScore(
-              entry.name,
-              relativePath,
-              searchPattern
-            );
-            if (score > 0) {
-              files.push({
-                path: relativePath,
-                name: entry.name,
-                score,
-              });
-            }
-          } else if (entry.isDirectory()) {
-            await walkDir(fullPath, depth + 1);
+          const score = this.calculateFileScore(
+            entry.name,
+            relativePath,
+            searchPattern
+          );
+          if (score > 0) {
+            files.push({
+              path: relativePath,
+              name: entry.name,
+              score,
+            });
           }
+        }
+
+        // Process directories last
+        for (const entry of dirEntries) {
+          if (files.length >= maxResults) return; // Early exit before recursion
+
+          const fullPath = path.join(dir, entry.name);
+          const relativePath = path.relative(this.currentDirectory, fullPath);
+
+          // Apply exclude pattern
+          if (
+            options.excludePattern &&
+            relativePath.includes(options.excludePattern)
+          ) {
+            continue;
+          }
+
+          await walkDir(fullPath, depth + 1);
         }
       } catch {
         // Skip directories we can't read

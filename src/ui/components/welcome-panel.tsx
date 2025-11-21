@@ -50,13 +50,13 @@ interface WelcomePanelProps {
   projectName: string;
 }
 
-export function WelcomePanel({ projectName }: WelcomePanelProps) {
+export function WelcomePanel({ projectName: _projectName }: WelcomePanelProps) {
   return (
     <Box flexDirection="column" marginBottom={2}>
       {/* Welcome message */}
       <Box marginBottom={1}>
         <Text color="cyan" bold>
-          Welcome to {projectName}
+          Welcome to DEFAI ax-cli
         </Text>
       </Box>
 

@@ -7,6 +7,7 @@ import * as crypto from 'crypto';
 export class TokenCounter {
   private encoder: Tiktoken;
   private cache: LRUCache<string, number>;
+  private fingerprintToHashCache: Map<string, string> = new Map();
 
   constructor(model: string = TOKEN_CONFIG.DEFAULT_MODEL) {
     try {
@@ -21,6 +22,14 @@ export class TokenCounter {
   }
 
   /**
+   * Create quick fingerprint to avoid redundant hashing
+   * Uses length and first/last chars for fast identity check
+   */
+  private quickFingerprint(text: string): string {
+    return `${text.length}:${text.charCodeAt(0)}:${text.charCodeAt(text.length - 1)}`;
+  }
+
+  /**
    * Create cache key from text
    * For long texts, use hash to avoid storing large keys in memory
    */
@@ -30,9 +39,26 @@ export class TokenCounter {
       return text;
     }
 
+    // Use fingerprint to check if we've already hashed this text
+    const fingerprint = this.quickFingerprint(text);
+    const cached = this.fingerprintToHashCache.get(fingerprint);
+    if (cached) {
+      return cached;
+    }
+
     // For longer texts, use SHA-256 hash to reduce memory footprint
     // A 10KB text becomes a 64-char hash, saving ~9.9KB per cache entry
-    return crypto.createHash('sha256').update(text).digest('hex');
+    const hash = crypto.createHash('sha256').update(text).digest('hex');
+
+    // Limit fingerprint cache size to prevent unbounded growth
+    if (this.fingerprintToHashCache.size > 1000) {
+      // Clear oldest entries (Map iteration order is insertion order)
+      const keysToDelete = Array.from(this.fingerprintToHashCache.keys()).slice(0, 100);
+      keysToDelete.forEach(k => this.fingerprintToHashCache.delete(k));
+    }
+
+    this.fingerprintToHashCache.set(fingerprint, hash);
+    return hash;
   }
 
   /**
@@ -110,6 +136,7 @@ export class TokenCounter {
    */
   dispose(): void {
     this.cache.clear();
+    this.fingerprintToHashCache.clear();
     this.encoder.free();
   }
 

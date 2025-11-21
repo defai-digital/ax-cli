@@ -3,12 +3,26 @@
  * Now loaded from YAML configuration files for better maintainability
  */
 
+import { homedir } from 'os';
+import { join } from 'path';
 import { loadModelsConfig, loadSettingsConfig, loadMessagesConfig, formatMessage } from './utils/config-loader.js';
 
 // Load configurations from YAML files
 const modelsYaml = loadModelsConfig();
 const settingsYaml = loadSettingsConfig();
 const messagesYaml = loadMessagesConfig();
+
+// Configuration Paths
+export const CONFIG_PATHS = {
+  /** User-level settings directory */
+  USER_DIR: join(homedir(), '.ax-cli'),
+  /** User-level configuration file */
+  USER_CONFIG: join(homedir(), '.ax-cli', 'config.json'),
+  /** Project-level settings directory */
+  PROJECT_DIR: join(process.cwd(), '.ax-cli'),
+  /** Project-level settings file */
+  PROJECT_SETTINGS: join(process.cwd(), '.ax-cli', 'settings.json'),
+} as const;
 
 // Agent Configuration
 export const AGENT_CONFIG = {
@@ -116,8 +130,8 @@ export const PLANNER_CONFIG = {
   /** Enable multi-phase planning */
   ENABLED: true,
 
-  /** Minimum expected tool calls to trigger auto-planning */
-  AUTO_PLAN_THRESHOLD: 3,
+  /** Minimum expected tool calls to trigger auto-planning (lowered for more parallelization) */
+  AUTO_PLAN_THRESHOLD: 2,
 
   /** Maximum phases per plan */
   MAX_PHASES: 10,

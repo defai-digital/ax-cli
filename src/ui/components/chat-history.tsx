@@ -53,9 +53,13 @@ const MemoizedChatEntry = React.memo(
       case "user":
         return (
           <Box key={index} flexDirection="column" marginTop={1}>
+            {/* Add subtle separator before user messages for better visual hierarchy */}
+            {index > 0 && (
+              <Box borderStyle="single" borderColor="gray" borderTop={false} borderLeft={false} borderRight={false} marginBottom={1} />
+            )}
             <Box>
               <Text color="gray">
-                {">"} {entry.content}
+                {">"} {entry.content ?? ""}
               </Text>
             </Box>
           </Box>
@@ -86,7 +90,7 @@ const MemoizedChatEntry = React.memo(
                 {entry.isStreaming && <Text color="cyan">█</Text>}
                 {/* Show response duration if available */}
                 {!entry.isStreaming && entry.durationMs && (
-                  <Text color="gray" dimColor>
+                  <Text color="gray">
                     ⏱ {entry.durationMs >= 1000
                       ? `${(entry.durationMs / 1000).toFixed(1)}s`
                       : `${entry.durationMs}ms`}
@@ -164,6 +168,7 @@ const MemoizedChatEntry = React.memo(
         };
 
         // Get a brief summary of the result for concise mode
+        // Phase 3: Enhanced with more contextual feedback
         const getBriefSummary = (content: string, toolName: string): string => {
           if (!content) return "";
 
@@ -172,7 +177,11 @@ const MemoizedChatEntry = React.memo(
 
           switch (toolName) {
             case "view_file":
-              return `${lineCount} lines`;
+              // More descriptive for files
+              if (lineCount === 1) return "1 line read";
+              if (lineCount < 10) return `${lineCount} lines read`;
+              if (lineCount < 100) return `${lineCount} lines read`;
+              return `${lineCount} lines (large file)`;
             case "create_file":
               return `${lineCount} lines written`;
             case "str_replace_editor":
@@ -181,10 +190,26 @@ const MemoizedChatEntry = React.memo(
               if (firstLine.includes("Updated")) {
                 return firstLine.replace(/^Updated\s+/, "").trim();
               }
+              // Count replacements for better feedback
+              const replacements = (content.match(/replaced/gi) || []).length;
+              if (replacements > 0) return `${replacements} change${replacements > 1 ? 's' : ''}`;
               return "updated";
             case "bash":
               if (content.includes("Background task started")) {
-                return "→ background";
+                return "→ background task started";
+              }
+              // Detect common command patterns for better feedback
+              if (content.includes("npm install") || content.includes("npm i ")) {
+                return "packages installed";
+              }
+              if (content.includes("git commit")) {
+                return "committed";
+              }
+              if (content.includes("git push")) {
+                return "pushed";
+              }
+              if (content.includes("Test passed") || content.includes("✓")) {
+                return "tests passed";
               }
               if (lineCount <= 1) {
                 // Short output, show it
@@ -192,10 +217,18 @@ const MemoizedChatEntry = React.memo(
               }
               return `${lineCount} lines output`;
             case "search":
-              // Try to count matches
-              const matches = content.match(/Found \d+ match/);
-              if (matches) return matches[0];
-              return `${lineCount} lines`;
+              // Try to count matches with better formatting
+              const matches = content.match(/Found (\d+) match/);
+              if (matches) {
+                const count = parseInt(matches[1]);
+                return `${count} match${count !== 1 ? 'es' : ''} found`;
+              }
+              return `${lineCount} result${lineCount !== 1 ? 's' : ''}`;
+            case "create_todo_list":
+            case "update_todo_list":
+              // Count todos for better feedback
+              const todos = (content.match(/\[.*?\]/g) || []).length;
+              return `${todos} task${todos !== 1 ? 's' : ''}`;
             default:
               if (lineCount <= 1 && content.length < 60) {
                 return content.trim();
@@ -208,7 +241,7 @@ const MemoizedChatEntry = React.memo(
         const toolArgs = getToolArguments(entry.toolCall);
         const isExecuting = entry.type === "tool_call" || !entry.toolResult;
         const isSuccess = entry.toolResult?.success ?? true;
-        const briefSummary = !isExecuting ? getBriefSummary(entry.content, toolName) : "";
+        const briefSummary = !isExecuting ? getBriefSummary(entry.content ?? "", toolName) : "";
 
         // Auto-verbose for errors: always show full details when a tool fails
         // This helps users debug without needing to toggle verbose mode
@@ -218,8 +251,8 @@ const MemoizedChatEntry = React.memo(
           effectiveVerbose &&
           entry.toolCall?.function?.name === "str_replace_editor" &&
           entry.toolResult?.success &&
-          entry.content.includes("---") &&
-          entry.content.includes("+++");
+          entry.content?.includes("---") &&
+          entry.content?.includes("+++");
 
         const shouldShowFileContent =
           effectiveVerbose &&
@@ -292,7 +325,7 @@ const MemoizedChatEntry = React.memo(
                 <Text color="yellow"> {formatDuration(entry.executionDurationMs)}</Text>
               )}
               {entry.toolCall?.id && (
-                <Text color="gray" dimColor> [{entry.toolCall.id.slice(0, 8)}]</Text>
+                <Text color="gray"> [{entry.toolCall.id.slice(0, 8)}]</Text>
               )}
               {!isExecuting && (
                 <Text color={isSuccess ? "green" : "red"}>
@@ -304,7 +337,7 @@ const MemoizedChatEntry = React.memo(
             {/* Tool arguments */}
             {toolArgs && (
               <Box marginLeft={2} flexDirection="column">
-                <Text color="blue" dimColor>Args: {toolArgs.length > 100 ? toolArgs.slice(0, 100) + "..." : toolArgs}</Text>
+                <Text color="blue">Args: {toolArgs.length > 100 ? toolArgs.slice(0, 100) + "..." : toolArgs}</Text>
               </Box>
             )}
 
@@ -314,20 +347,20 @@ const MemoizedChatEntry = React.memo(
                 <Text color="cyan">⎿ Executing...</Text>
               ) : shouldShowFileContent ? (
                 <Box flexDirection="column">
-                  <Text color="gray">⎿ File contents ({entry.content.split("\n").length} lines):</Text>
+                  <Text color="gray">⎿ File contents ({(entry.content ?? "").split("\n").length} lines):</Text>
                   <Box marginLeft={2} flexDirection="column">
-                    {renderFileContent(entry.content)}
+                    {renderFileContent(entry.content ?? "")}
                   </Box>
                 </Box>
               ) : shouldShowDiff ? (
                 <Box flexDirection="column">
-                  <Text color="gray">⎿ {entry.content.split("\n")[0]}</Text>
+                  <Text color="gray">⎿ {(entry.content ?? "").split("\n")[0]}</Text>
                   <Box marginLeft={2} flexDirection="column">
-                    {renderDiff(entry.content, filePath)}
+                    {renderDiff(entry.content ?? "", filePath)}
                   </Box>
                 </Box>
               ) : shouldShowFullOutput ? (
-                <Text color="gray">⎿ {entry.content}</Text>
+                <Text color="gray">⎿ {entry.content ?? ""}</Text>
               ) : null}
             </Box>
           </Box>

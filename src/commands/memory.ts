@@ -15,6 +15,7 @@ import {
   ContextGenerator,
   ContextStore,
   StatsCollector,
+  resetDefaultInjector,
   type WarmupOptions,
   type RefreshOptions,
   type StatusOptions,
@@ -123,6 +124,9 @@ export function createMemoryCommand(): Command {
           process.exit(1);
         }
 
+        // Clear cached memory in any active sessions
+        resetDefaultInjector();
+
         console.log(`\n✅ Saved to .ax-cli/memory.json`);
         console.log('\n💡 This context will be automatically included in ax plan/think/spec');
         console.log('   z.ai will cache identical content for faster responses\n');
@@ -185,6 +189,9 @@ export function createMemoryCommand(): Command {
           console.error(`❌ Failed to save: ${saveResult.error}`);
           process.exit(1);
         }
+
+        // Clear cached memory in any active sessions
+        resetDefaultInjector();
 
         const diff = newMemory.context.token_estimate - previousTokens;
         const diffStr = diff >= 0 ? `+${diff}` : `${diff}`;

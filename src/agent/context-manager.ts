@@ -71,16 +71,22 @@ export class ContextManager {
       }
     }
 
-    // Perform full cache cleanup if cache is getting too large
+    // Perform incremental cache cleanup if cache is getting too large
+    // Instead of sorting all entries, just remove oldest 10-20% incrementally
     if (this.tokenCache.size > this.MAX_CACHE_SIZE) {
       this.cleanupCache();
-      // If still over limit after cleanup, evict oldest entries (LRU-style)
+      // If still over limit after cleanup, evict oldest entries incrementally
       if (this.tokenCache.size > this.MAX_CACHE_SIZE) {
-        const entriesToRemove = this.tokenCache.size - this.MAX_CACHE_SIZE + 10; // Remove 10 extra for headroom
-        const sortedEntries = Array.from(this.tokenCache.entries())
-          .sort((a, b) => a[1].timestamp - b[1].timestamp);
-        for (let i = 0; i < entriesToRemove && i < sortedEntries.length; i++) {
-          this.tokenCache.delete(sortedEntries[i][0]);
+        const entriesToRemove = Math.min(
+          this.tokenCache.size - this.MAX_CACHE_SIZE + 10, // Remove excess + 10 for headroom
+          Math.ceil(this.tokenCache.size * 0.1) // Or 10% of cache, whichever is smaller
+        );
+        let removed = 0;
+        // Map iteration order is insertion order, so oldest are first
+        for (const [key] of this.tokenCache.entries()) {
+          if (removed >= entriesToRemove) break;
+          this.tokenCache.delete(key);
+          removed++;
         }
       }
     }
@@ -193,7 +199,8 @@ export class ContextManager {
       return messages;
     }
 
-    if (messages[0].role !== 'system') {
+    // Bounds check: ensure array is not empty before accessing first element
+    if (messages.length === 0 || messages[0].role !== 'system') {
       // Missing system message - log warning but continue with defensive handling
       console.warn('[ContextManager] First message is not system message, proceeding with caution');
       // Don't prune if system message is missing to avoid breaking conversation state
@@ -328,6 +335,11 @@ export class ContextManager {
    * Apply sliding window: keep first few + last many messages
    */
   private applySlidingWindow(messages: LLMMessage[], tokenCounter: TokenCounter): LLMMessage[] {
+    // Bounds check: ensure array has at least a system message
+    if (messages.length === 0) {
+      return messages;
+    }
+
     const systemMessage = messages[0];
     const workingMessages = messages.slice(1);
 

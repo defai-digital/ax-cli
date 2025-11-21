@@ -68,6 +68,10 @@ export function LoadingSpinner({
   // Get the appropriate loading texts for current action
   const loadingTexts = loadingTextsByAction[currentAction] || defaultLoadingTexts;
 
+  // Phase 3: Determine if this is a long-running operation
+  const isLongRunning = processingTime > 10; // More than 10 seconds
+  const isVeryLong = processingTime > 30; // More than 30 seconds
+
   useEffect(() => {
     if (!isActive) return;
 
@@ -117,9 +121,13 @@ export function LoadingSpinner({
           {spinnerFrames[spinnerFrame]}
         </Text>
         <Text color="cyan"> {loadingTexts[loadingTextIndex % loadingTexts.length] || loadingTexts[0]} </Text>
+        {/* Phase 3: Show warning for long-running operations */}
+        {isVeryLong && (
+          <Text color="yellow" bold> (taking longer than usual)</Text>
+        )}
       </Box>
       <Box marginLeft={2}>
-        <Text color="gray" dimColor>
+        <Text color={isLongRunning ? "yellow" : "gray"} dimColor={!isLongRunning}>
           {formatTime(processingTime)} elapsed
         </Text>
         {tokenCount > 0 && (
@@ -131,6 +139,14 @@ export function LoadingSpinner({
           {" "}• <Text color="yellow">esc</Text> to interrupt
         </Text>
       </Box>
+      {/* Phase 3: Show helpful hint for very long operations */}
+      {isVeryLong && (
+        <Box marginLeft={2} marginTop={1}>
+          <Text color="yellow">
+            💡 Complex task - this may take a while. You can press <Text bold>esc</Text> to interrupt.
+          </Text>
+        </Box>
+      )}
     </Box>
   );
 }
