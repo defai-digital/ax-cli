@@ -21,6 +21,7 @@ export class MCPManager extends EventEmitter {
   private transports: Map<string, MCPTransport> = new Map();
   private tools: Map<string, MCPTool> = new Map();
   private pendingConnections: Map<string, Promise<void>> = new Map();
+  private initializationPromise: Promise<void> | null = null;
 
   async addServer(config: MCPServerConfig): Promise<void> {
     // Check if already connected
@@ -212,23 +213,38 @@ export class MCPManager extends EventEmitter {
   }
 
   async ensureServersInitialized(): Promise<void> {
+    // Prevent race condition with concurrent calls
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
+
     if (this.clients.size > 0) {
       return; // Already initialized
     }
 
-    const { loadMCPConfig } = await import('../mcp/config');
-    const config = loadMCPConfig();
-    
-    // Initialize servers in parallel to avoid blocking
-    const initPromises = config.servers.map(async (serverConfig) => {
-      try {
-        await this.addServer(serverConfig);
-      } catch (error) {
-        console.warn(`Failed to initialize MCP server ${serverConfig.name}:`, error);
-      }
-    });
-    
-    await Promise.all(initPromises);
+    // Create initialization promise to prevent concurrent initialization
+    this.initializationPromise = (async () => {
+      const { loadMCPConfig } = await import('../mcp/config');
+      const config = loadMCPConfig();
+
+      // Initialize servers in parallel to avoid blocking
+      const initPromises = config.servers.map(async (serverConfig) => {
+        try {
+          await this.addServer(serverConfig);
+        } catch (error) {
+          console.warn(`Failed to initialize MCP server ${serverConfig.name}:`, error);
+        }
+      });
+
+      await Promise.all(initPromises);
+    })();
+
+    try {
+      await this.initializationPromise;
+    } finally {
+      // Clear the promise after completion (success or failure)
+      this.initializationPromise = null;
+    }
   }
 
   /**

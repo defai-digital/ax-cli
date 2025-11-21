@@ -1,0 +1,44 @@
+{
+  "id": "77673706-18d0-4862-873e-edb5f9da99d9",
+  "timestamp": "2025-11-21T03:08:29.385Z",
+  "description": "Test checkpoint",
+  "files": [
+    {
+      "path": "/test/file-1763694509385.ts",
+      "content": "test content",
+      "hash": "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72",
+      "size": 12
+    }
+  ],
+  "conversationState": [
+    {
+      "type": "user",
+      "content": "Message 0",
+      "timestamp": "2025-11-21T03:08:29.385Z"
+    },
+    {
+      "type": "user",
+      "content": "Message 1",
+      "timestamp": "2025-11-21T03:08:29.385Z"
+    },
+    {
+      "type": "user",
+      "content": "Message 2",
+      "timestamp": "2025-11-21T03:08:29.385Z"
+    },
+    {
+      "type": "user",
+      "content": "Message 3",
+      "timestamp": "2025-11-21T03:08:29.385Z"
+    },
+    {
+      "type": "user",
+      "content": "Message 4",
+      "timestamp": "2025-11-21T03:08:29.385Z"
+    }
+  ],
+  "metadata": {
+    "model": "glm-4.6",
+    "triggeredBy": "test"
+  }
+}

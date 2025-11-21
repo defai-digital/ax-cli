@@ -1,0 +1,69 @@
+{
+  "id": "1985be07-8a64-4901-a5b7-c09f604b11c8",
+  "timestamp": "2025-11-21T03:08:29.381Z",
+  "description": "Test checkpoint",
+  "files": [
+    {
+      "path": "/test/file-1763694509381.ts",
+      "content": "test content",
+      "hash": "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72",
+      "size": 12
+    }
+  ],
+  "conversationState": [
+    {
+      "type": "user",
+      "content": "Message 40",
+      "timestamp": "2025-11-21T03:08:29.381Z"
+    },
+    {
+      "type": "user",
+      "content": "Message 41",
+      "timestamp": "2025-11-21T03:08:29.381Z"
+    },
+    {
+      "type": "user",
+      "content": "Message 42",
+      "timestamp": "2025-11-21T03:08:29.381Z"
+    },
+    {
+      "type": "user",
+      "content": "Message 43",
+      "timestamp": "2025-11-21T03:08:29.381Z"
+    },
+    {
+      "type": "user",
+      "content": "Message 44",
+      "timestamp": "2025-11-21T03:08:29.381Z"
+    },
+    {
+      "type": "user",
+      "content": "Message 45",
+      "timestamp": "2025-11-21T03:08:29.381Z"
+    },
+    {
+      "type": "user",
+      "content": "Message 46",
+      "timestamp": "2025-11-21T03:08:29.381Z"
+    },
+    {
+      "type": "user",
+      "content": "Message 47",
+      "timestamp": "2025-11-21T03:08:29.381Z"
+    },
+    {
+      "type": "user",
+      "content": "Message 48",
+      "timestamp": "2025-11-21T03:08:29.381Z"
+    },
+    {
+      "type": "user",
+      "content": "Message 49",
+      "timestamp": "2025-11-21T03:08:29.381Z"
+    }
+  ],
+  "metadata": {
+    "model": "glm-4.6",
+    "triggeredBy": "test"
+  }
+}

@@ -2,6 +2,7 @@ import type { ChatCompletionMessageParam } from 'openai/resources/chat.js';
 import { get_encoding, encoding_for_model, Tiktoken } from 'tiktoken';
 import { TOKEN_CONFIG } from '../constants.js';
 import { LRUCache } from './cache.js';
+import * as crypto from 'crypto';
 
 export class TokenCounter {
   private encoder: Tiktoken;
@@ -20,13 +21,29 @@ export class TokenCounter {
   }
 
   /**
+   * Create cache key from text
+   * For long texts, use hash to avoid storing large keys in memory
+   */
+  private createCacheKey(text: string): string {
+    // For short texts (< 1KB), use text directly as key
+    if (text.length < 1024) {
+      return text;
+    }
+
+    // For longer texts, use SHA-256 hash to reduce memory footprint
+    // A 10KB text becomes a 64-char hash, saving ~9.9KB per cache entry
+    return crypto.createHash('sha256').update(text).digest('hex');
+  }
+
+  /**
    * Count tokens in a string with LRU caching for performance
    */
   countTokens(text: string): number {
     if (!text) return 0;
 
-    // Check cache first
-    const cached = this.cache.get(text);
+    // Check cache first using efficient key
+    const cacheKey = this.createCacheKey(text);
+    const cached = this.cache.get(cacheKey);
     if (cached !== undefined) {
       return cached;
     }
@@ -35,7 +52,7 @@ export class TokenCounter {
     const count = this.encoder.encode(text).length;
 
     // Add to cache (LRU eviction handled automatically)
-    this.cache.set(text, count);
+    this.cache.set(cacheKey, count);
 
     return count;
   }

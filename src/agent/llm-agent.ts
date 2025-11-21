@@ -744,6 +744,12 @@ export class LLMAgent extends EventEmitter {
       content: (accumulatedMessage.content as string) || "",
       tool_calls: accumulatedMessage.tool_calls as LLMToolCall[],
     } as LLMMessage);
+
+    // Apply context pruning after adding message to prevent overflow
+    // Critical for long assistant responses and tool results
+    if (this.contextManager.shouldPrune(this.messages, this.tokenCounter)) {
+      this.messages = this.contextManager.pruneMessages(this.messages, this.tokenCounter);
+    }
   }
 
   /**

@@ -178,8 +178,17 @@ export class ContextManager {
    */
   pruneMessages(messages: LLMMessage[], tokenCounter: TokenCounter): LLMMessage[] {
     // Always keep system message - validate first
-    if (messages.length === 0 || messages[0].role !== 'system') {
-      throw new Error('First message must be system message');
+    if (messages.length === 0) {
+      // Empty messages array - return as-is (edge case protection)
+      console.warn('[ContextManager] Cannot prune empty messages array');
+      return messages;
+    }
+
+    if (messages[0].role !== 'system') {
+      // Missing system message - log warning but continue with defensive handling
+      console.warn('[ContextManager] First message is not system message, proceeding with caution');
+      // Don't prune if system message is missing to avoid breaking conversation state
+      return messages;
     }
 
     // If under threshold, no pruning needed

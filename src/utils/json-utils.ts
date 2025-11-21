@@ -3,7 +3,7 @@
  * Centralized JSON operations with validation and error handling
  */
 
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, renameSync, unlinkSync, existsSync } from 'fs';
 import { z } from 'zod';
 
 /**
@@ -74,6 +74,7 @@ export function stringifyJson(
 
 /**
  * Write JSON file with validation and formatting
+ * Uses atomic write pattern (temp file + rename) to prevent corruption
  */
 export function writeJsonFile<T>(
   filePath: string,
@@ -98,9 +99,26 @@ export function writeJsonFile<T>(
       return stringifyResult;
     }
 
-    writeFileSync(filePath, stringifyResult.json, 'utf8');
+    // Atomic write pattern: write to temp file, then rename
+    // This prevents corruption if process crashes during write
+    const tempFile = `${filePath}.tmp`;
+    writeFileSync(tempFile, stringifyResult.json, 'utf8');
+
+    // Atomic rename - if this succeeds, we know the write was complete
+    renameSync(tempFile, filePath);
+
     return { success: true };
   } catch (error) {
+    // Clean up temp file if it exists
+    try {
+      const tempFile = `${filePath}.tmp`;
+      if (existsSync(tempFile)) {
+        unlinkSync(tempFile);
+      }
+    } catch {
+      // Ignore cleanup errors
+    }
+
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to write file',

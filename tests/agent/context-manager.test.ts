@@ -151,14 +151,14 @@ describe('ContextManager', () => {
       expect(pruned.length).toBe(messages.length);
     });
 
-    it('should throw error if first message is not system', () => {
+    it('should handle gracefully if first message is not system', () => {
       const messages: LLMMessage[] = [
         { role: 'user', content: 'Hello' },
       ];
 
-      expect(() => {
-        contextManager.pruneMessages(messages, tokenCounter);
-      }).toThrow('First message must be system message');
+      // Should return original messages instead of throwing
+      const result = contextManager.pruneMessages(messages, tokenCounter);
+      expect(result).toEqual(messages);
     });
   });
 
