@@ -131,6 +131,11 @@ export class SubagentOrchestrator extends EventEmitter {
    * Stores listeners for proper cleanup to prevent memory leaks
    */
   private forwardSubagentEvents(id: string, subagent: Subagent): void {
+    // Guard against duplicate listener registration
+    if (this.subagentListeners.has(id)) {
+      return; // Already registered, avoid duplicates
+    }
+
     // Create named handlers so we can remove them later
     const handlers = new Map<string, (...args: any[]) => void>();
 

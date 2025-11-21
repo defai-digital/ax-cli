@@ -215,9 +215,7 @@ export class BackgroundTaskManager extends EventEmitter {
   ): string {
     const taskId = this.generateTaskId();
 
-    // Remove existing listeners to prevent duplicate handlers
-    this.removeExistingProcessListeners(childProcess);
-
+    // Add task to map FIRST to ensure it's tracked even if events fire immediately
     const task: BackgroundTask = {
       id: taskId,
       command,
@@ -228,6 +226,11 @@ export class BackgroundTaskManager extends EventEmitter {
       stderr: [],
       process: childProcess,
     };
+    this.tasks.set(taskId, task);
+
+    // Remove existing listeners to prevent duplicate handlers
+    // Do this AFTER adding to map so any events during transition still have a task to update
+    this.removeExistingProcessListeners(childProcess);
 
     // Re-attach stdout listener
     childProcess.stdout?.on('data', (data: Buffer) => {
@@ -267,7 +270,6 @@ export class BackgroundTaskManager extends EventEmitter {
       this.emit('taskError', { taskId, error: error.message });
     });
 
-    this.tasks.set(taskId, task);
     this.emit('taskAdopted', { taskId, command });
 
     return taskId;
@@ -294,13 +296,24 @@ export class BackgroundTaskManager extends EventEmitter {
     }
 
     try {
+      const processRef = task.process;
       task.process.kill('SIGTERM');
+
       // Give it a moment, then force kill if needed
-      setTimeout(() => {
-        if (task.process && task.status === 'running') {
-          task.process.kill('SIGKILL');
+      // Check both task status AND process reference to avoid stale operations
+      const forceKillTimeout = setTimeout(() => {
+        // Verify this is still the same process and it hasn't terminated
+        if (task.process === processRef && task.status === 'running') {
+          try {
+            processRef.kill('SIGKILL');
+          } catch {
+            // Process may have already exited, ignore
+          }
         }
       }, 1000);
+
+      // Unref the timeout so it doesn't keep the process alive
+      forceKillTimeout.unref();
 
       task.status = 'killed';
       task.endTime = new Date();
