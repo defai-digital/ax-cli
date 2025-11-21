@@ -9,6 +9,7 @@
  */
 
 import type { LLMTool, LLMToolCall, SearchOptions } from "./client.js";
+import { DEFAULT_MODEL } from "../constants.js";
 
 /**
  * Thinking/Reasoning configuration for GLM-4.6
@@ -330,7 +331,8 @@ export type SupportedModel = keyof typeof GLM_MODELS;
  * Get model configuration by name
  */
 export function getModelConfig(model: string) {
-  return GLM_MODELS[model as SupportedModel] || GLM_MODELS["glm-4.6"];
+  // Use the configured default model as fallback, not hardcoded "glm-4.6"
+  return GLM_MODELS[model as SupportedModel] || GLM_MODELS[DEFAULT_MODEL as SupportedModel];
 }
 
 /**
@@ -394,7 +396,8 @@ export function validateThinking(
  * Create default chat options with sensible defaults
  */
 export function createDefaultChatOptions(model?: string): Required<Omit<ChatOptions, 'thinking' | 'searchOptions' | 'tools' | 'responseFormat' | 'sampling'>> {
-  const modelName = model || "glm-4.6";
+  // Use the configured default model as fallback, not hardcoded "glm-4.6"
+  const modelName = model || DEFAULT_MODEL;
   const config = getModelConfig(modelName);
 
   return {

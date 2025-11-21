@@ -22,6 +22,8 @@ import { SubagentRole, SubagentState } from './subagent-types.js';
 import { BashTool } from '../tools/bash.js';
 import { TextEditorTool } from '../tools/text-editor.js';
 import { SearchTool } from '../tools/search.js';
+import { getSettingsManager } from '../utils/settings-manager.js';
+import { DEFAULT_MODEL } from '../constants.js';
 
 /**
  * Base Subagent class
@@ -65,11 +67,13 @@ export class Subagent extends EventEmitter {
     };
 
     // Initialize LLM client with same settings as main agent
-    this.llmClient = new LLMClient(
-      process.env.YOUR_API_KEY || '',
-      process.env.GROK_MODEL || 'glm-4.6',
-      process.env.GROK_BASE_URL
-    );
+    // Use SettingsManager for proper model/baseURL resolution with user preferences
+    const settingsManager = getSettingsManager();
+    const apiKey = settingsManager.getApiKey() || '';
+    const model = settingsManager.getCurrentModel() || DEFAULT_MODEL;
+    const baseURL = settingsManager.getBaseURL();
+
+    this.llmClient = new LLMClient(apiKey, model, baseURL);
 
     // Initialize allowed tools
     this.initializeTools();

@@ -1,7 +1,7 @@
 # AI Model Configuration
 # Defines available models and their capabilities
 
-default_model: grok-code-fast-1
+default_model: glm-4.6
 
 models:
   glm-4.6:
