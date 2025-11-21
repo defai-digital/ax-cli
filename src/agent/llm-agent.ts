@@ -579,9 +579,15 @@ export class LLMAgent extends EventEmitter {
           id: `phase-${index}`,
           content: phase.name,
           status: index === 0 ? "in_progress" as const : "pending" as const,
-          priority: phase.riskLevel === "high" ? "high" as const : "medium" as const,
+          priority: phase.riskLevel === "high" ? "high" as const :
+                   phase.riskLevel === "low" ? "low" as const : "medium" as const,
         }));
-        await this.todoTool.createTodoList(todoItems);
+        try {
+          await this.todoTool.createTodoList(todoItems);
+        } catch (todoError) {
+          // TodoWrite failure is non-critical, continue execution
+          console.warn("TodoWrite create failed:", extractErrorMessage(todoError));
+        }
       } else {
         // Display explicit plan summary
         yield {
@@ -601,10 +607,12 @@ export class LLMAgent extends EventEmitter {
 
         if (PLANNER_CONFIG.SILENT_MODE) {
           // Update TodoWrite: mark current phase as in_progress
-          await this.todoTool.updateTodoList([{
-            id: `phase-${i}`,
-            status: "in_progress",
-          }]);
+          try {
+            await this.todoTool.updateTodoList([{
+              id: `phase-${i}`,
+              status: "in_progress",
+            }]);
+          } catch { /* TodoWrite update is non-critical */ }
         } else {
           // Show explicit phase starting banner
           yield {
@@ -628,10 +636,12 @@ export class LLMAgent extends EventEmitter {
         if (result.success) {
           if (PLANNER_CONFIG.SILENT_MODE) {
             // Update TodoWrite: mark phase as completed
-            await this.todoTool.updateTodoList([{
-              id: `phase-${i}`,
-              status: "completed",
-            }]);
+            try {
+              await this.todoTool.updateTodoList([{
+                id: `phase-${i}`,
+                status: "completed",
+              }]);
+            } catch { /* TodoWrite update is non-critical */ }
           } else {
             yield {
               type: "content",
@@ -647,11 +657,13 @@ export class LLMAgent extends EventEmitter {
         } else {
           if (PLANNER_CONFIG.SILENT_MODE) {
             // Update TodoWrite: mark phase as failed (update content to show failure)
-            await this.todoTool.updateTodoList([{
-              id: `phase-${i}`,
-              status: "completed", // Mark as done even if failed
-              content: `${phase.name} (failed)`,
-            }]);
+            try {
+              await this.todoTool.updateTodoList([{
+                id: `phase-${i}`,
+                status: "completed", // Mark as done even if failed
+                content: `${phase.name} (failed)`,
+              }]);
+            } catch { /* TodoWrite update is non-critical */ }
           } else {
             yield {
               type: "content",
@@ -725,26 +737,139 @@ export class LLMAgent extends EventEmitter {
       this.currentPlan = null;
 
     } catch (error) {
+      // Defensive error extraction to prevent nested failures
+      let errorMsg: string;
+      try {
+        errorMsg = extractErrorMessage(error);
+      } catch {
+        errorMsg = String(error) || "Unknown error";
+      }
+
       yield {
         type: "content",
-        content: `\n⚠️ Plan execution error: ${extractErrorMessage(error)}\n`,
+        content: `\n⚠️ Plan execution error: ${errorMsg}\n`,
       };
-      this.emit("plan:failed", { error: extractErrorMessage(error) });
+      this.emit("plan:failed", { error: errorMsg });
       this.currentPlan = null;
     }
   }
 
   /**
    * Internal streaming processor (used when planning falls back)
+   * Executes the core message processing loop without planning
    */
   private async *processUserMessageStreamInternal(
-    _message: string
+    message: string
   ): AsyncGenerator<StreamingChunk, void, unknown> {
-    // Simplified fallback - just yield a message
+    // Reset tool call tracking for new message
+    this.resetToolCallTracking();
+
+    // Prepare user message and get input tokens
+    const inputTokensRef = { value: this.prepareUserMessageForStreaming(message) };
     yield {
-      type: "content",
-      content: "Processing request without planning...\n",
+      type: "token_count",
+      tokenCount: inputTokensRef.value,
     };
+
+    // Yield context warnings if needed
+    yield* this.yieldContextWarnings();
+
+    const maxToolRounds = this.maxToolRounds;
+    let toolRounds = 0;
+    const totalOutputTokensRef = { value: 0 };
+    const lastTokenUpdateRef = { value: 0 };
+
+    try {
+      // Agent loop - continue until no more tool calls or max rounds reached
+      while (toolRounds < maxToolRounds) {
+        // Check if operation was cancelled
+        if (this.isCancelled()) {
+          yield* this.yieldCancellation();
+          return;
+        }
+
+        // Load tools safely
+        const tools = await this.loadToolsSafely();
+
+        // Create chat stream
+        const stream = this.llmClient.chatStream(
+          this.messages,
+          tools,
+          {
+            searchOptions: this.isGrokModel() && this.shouldUseSearchFor(message)
+              ? { search_parameters: { mode: "auto" } }
+              : { search_parameters: { mode: "off" } }
+          }
+        );
+
+        // Process streaming chunks
+        const chunkGen = this.processStreamingChunks(
+          stream,
+          inputTokensRef.value,
+          lastTokenUpdateRef,
+          totalOutputTokensRef
+        );
+
+        let streamResult: { accumulated: any; content: string; yielded: boolean } | undefined;
+        for await (const chunk of chunkGen) {
+          if ('accumulated' in chunk) {
+            streamResult = chunk;
+          } else {
+            yield chunk;
+          }
+        }
+
+        if (!streamResult) {
+          continue;
+        }
+
+        // Add assistant message to history
+        this.addAssistantMessage(streamResult.accumulated);
+
+        // Handle tool calls if present
+        if (streamResult.accumulated.tool_calls?.length > 0) {
+          toolRounds++;
+
+          // Check for repetitive tool calls (loop detection)
+          const hasRepetitiveCall = (streamResult.accumulated.tool_calls as LLMToolCall[]).some(
+            (tc: LLMToolCall) => this.isRepetitiveToolCall(tc)
+          );
+
+          if (hasRepetitiveCall) {
+            yield {
+              type: "content",
+              content: "\n\n⚠️ Detected repetitive tool calls. Stopping to prevent infinite loop.\n",
+            };
+            break;
+          }
+
+          yield* this.executeToolCalls(
+            streamResult.accumulated.tool_calls as LLMToolCall[],
+            streamResult.yielded,
+            inputTokensRef,
+            totalOutputTokensRef
+          );
+          // Continue loop to get next response
+        } else {
+          // No tool calls, we're done
+          break;
+        }
+      }
+    } catch (error) {
+      const errorMsg = extractErrorMessage(error);
+      yield {
+        type: "content",
+        content: `\n⚠️ Error processing message: ${errorMsg}\n`,
+      };
+    }
+
+    // Final token count
+    yield {
+      type: "token_count",
+      tokenCount: inputTokensRef.value + totalOutputTokensRef.value,
+    };
+
+    yield { type: "done" };
   }
 
   /**
