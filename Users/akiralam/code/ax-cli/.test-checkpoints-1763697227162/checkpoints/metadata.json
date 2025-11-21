@@ -1,0 +1,22 @@
+{
+  "checkpoints": [
+    {
+      "id": "test-1763697227163-rtxesxa5t",
+      "timestamp": "2025-11-21T03:53:47.163Z",
+      "description": "Test checkpoint",
+      "filesChanged": [
+        "/test/file.ts"
+      ],
+      "size": 558,
+      "compressed": false
+    }
+  ],
+  "stats": {
+    "totalCount": 1,
+    "totalSize": 558,
+    "compressedCount": 0,
+    "oldestDate": "2025-11-21T03:53:47.163Z",
+    "newestDate": "2025-11-21T03:53:47.163Z"
+  },
+  "lastUpdated": "2025-11-21T03:53:47.164Z"
+}

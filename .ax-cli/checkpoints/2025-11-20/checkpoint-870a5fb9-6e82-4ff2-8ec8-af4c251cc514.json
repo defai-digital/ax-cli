@@ -1,10 +1,10 @@
 {
-  "id": "59e2eafe-1f2e-469f-8bc5-224742ad0bd6",
-  "timestamp": "2025-11-21T03:49:11.841Z",
+  "id": "870a5fb9-6e82-4ff2-8ec8-af4c251cc514",
+  "timestamp": "2025-11-21T03:53:47.540Z",
   "description": "Test checkpoint",
   "files": [
     {
-      "path": "/test/file-1763696951841.ts",
+      "path": "/test/file-1763697227540.ts",
       "content": "test content",
       "hash": "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72",
       "size": 12
@@ -14,27 +14,27 @@
     {
       "type": "user",
       "content": "Message 0",
-      "timestamp": "2025-11-21T03:49:11.841Z"
+      "timestamp": "2025-11-21T03:53:47.540Z"
     },
     {
       "type": "user",
       "content": "Message 1",
-      "timestamp": "2025-11-21T03:49:11.841Z"
+      "timestamp": "2025-11-21T03:53:47.540Z"
     },
     {
       "type": "user",
       "content": "Message 2",
-      "timestamp": "2025-11-21T03:49:11.841Z"
+      "timestamp": "2025-11-21T03:53:47.540Z"
     },
     {
       "type": "user",
       "content": "Message 3",
-      "timestamp": "2025-11-21T03:49:11.841Z"
+      "timestamp": "2025-11-21T03:53:47.540Z"
     },
     {
       "type": "user",
       "content": "Message 4",
-      "timestamp": "2025-11-21T03:49:11.841Z"
+      "timestamp": "2025-11-21T03:53:47.540Z"
     }
   ],
   "metadata": {

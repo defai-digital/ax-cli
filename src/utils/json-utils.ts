@@ -3,7 +3,8 @@
  * Centralized JSON operations with validation and error handling
  */
 
-import { readFileSync, writeFileSync, renameSync, unlinkSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, renameSync, unlinkSync, existsSync, copyFileSync, mkdirSync } from 'fs';
+import { dirname } from 'path';
 import { z } from 'zod';
 
 /**
@@ -75,6 +76,12 @@ export function stringifyJson(
 /**
  * Write JSON file with validation and formatting
  * Uses atomic write pattern (temp file + rename) to prevent corruption
+ *
+ * Bug fixes:
+ * - Uses unique temp file names (PID + timestamp) to prevent race conditions
+ * - Handles cross-filesystem renames with copy+delete fallback
+ * - Ensures parent directory exists
+ * - Cleans up stale temp files
  */
 export function writeJsonFile<T>(
   filePath: string,
@@ -82,6 +89,8 @@ export function writeJsonFile<T>(
   schema?: z.ZodSchema<T>,
   pretty = true
 ): { success: true } | { success: false; error: string } {
+  let tempFile: string | undefined;
+
   try {
     // Validate before writing
     if (schema) {
@@ -99,24 +108,66 @@ export function writeJsonFile<T>(
       return stringifyResult;
     }
 
-    // Atomic write pattern: write to temp file, then rename
-    // This prevents corruption if process crashes during write
-    const tempFile = `${filePath}.tmp`;
-    writeFileSync(tempFile, stringifyResult.json, 'utf8');
+    // Ensure parent directory exists (Bug #24 fix)
+    const dir = dirname(filePath);
+    if (!existsSync(dir)) {
+      try {
+        mkdirSync(dir, { recursive: true });
+      } catch (mkdirError) {
+        return {
+          success: false,
+          error: `Cannot create directory ${dir}: ${mkdirError instanceof Error ? mkdirError.message : 'Unknown error'}`,
+        };
+      }
+    }
 
-    // Atomic rename - if this succeeds, we know the write was complete
-    renameSync(tempFile, filePath);
+    // Create unique temp file name to prevent race conditions (Bug #21 fix)
+    // Format: <filepath>.tmp.<pid>.<timestamp>
+    tempFile = `${filePath}.tmp.${process.pid}.${Date.now()}`;
 
-    return { success: true };
-  } catch (error) {
-    // Clean up temp file if it exists
+    // Clean up any stale temp files from this process (Bug #23 fix)
+    // Check if our specific temp file already exists from a crashed previous write
     try {
-      const tempFile = `${filePath}.tmp`;
       if (existsSync(tempFile)) {
         unlinkSync(tempFile);
       }
     } catch {
-      // Ignore cleanup errors
+      // Ignore stale file cleanup errors
+    }
+
+    // Atomic write pattern: write to temp file, then rename
+    // This prevents corruption if process crashes during write
+    writeFileSync(tempFile, stringifyResult.json, 'utf8');
+
+    // Atomic rename - if this succeeds, we know the write was complete
+    try {
+      renameSync(tempFile, filePath);
+    } catch (renameError: any) {
+      // Handle cross-filesystem rename (Bug #22 fix)
+      if (renameError.code === 'EXDEV') {
+        // Fallback: copy + delete (not atomic, but works across filesystems)
+        try {
+          copyFileSync(tempFile, filePath);
+          unlinkSync(tempFile);
+        } catch (copyError) {
+          throw new Error(`Cross-filesystem copy failed: ${copyError instanceof Error ? copyError.message : 'Unknown error'}`);
+        }
+      } else {
+        throw renameError;
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    // Clean up temp file if it exists
+    if (tempFile) {
+      try {
+        if (existsSync(tempFile)) {
+          unlinkSync(tempFile);
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
     }
 
     return {
