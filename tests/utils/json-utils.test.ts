@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, renameSync, existsSync, unlinkSync } from 'fs';
 import { z } from 'zod';
 import { parseJson, parseJsonFile, writeJsonFile } from '../../src/utils/json-utils.js';
 
@@ -7,11 +7,18 @@ import { parseJson, parseJsonFile, writeJsonFile } from '../../src/utils/json-ut
 vi.mock('fs', () => ({
   readFileSync: vi.fn(),
   writeFileSync: vi.fn(),
+  renameSync: vi.fn(),
+  existsSync: vi.fn(),
+  unlinkSync: vi.fn(),
 }));
 
 describe('json-utils', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Ensure mocks don't throw by default
+    vi.mocked(writeFileSync).mockImplementation(() => {});
+    vi.mocked(renameSync).mockImplementation(() => {});
+    vi.mocked(existsSync).mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -218,10 +225,16 @@ describe('json-utils', () => {
       const data = { name: 'test', value: 123 };
       const result = writeJsonFile('/path/to/file.json', data);
 
+      // Atomic write: writes to .tmp file first
       expect(writeFileSync).toHaveBeenCalledWith(
-        '/path/to/file.json',
+        '/path/to/file.json.tmp',
         JSON.stringify(data, null, 2),
         'utf8'
+      );
+      // Then renames to actual file (atomic operation)
+      expect(renameSync).toHaveBeenCalledWith(
+        '/path/to/file.json.tmp',
+        '/path/to/file.json'
       );
       expect(result.success).toBe(true);
     });
@@ -230,6 +243,7 @@ describe('json-utils', () => {
       vi.mocked(writeFileSync).mockImplementation(() => {
         throw new Error('Permission denied');
       });
+      vi.mocked(existsSync).mockReturnValue(true);
 
       const data = { name: 'test' };
       const result = writeJsonFile('/path/to/file.json', data);
@@ -238,6 +252,8 @@ describe('json-utils', () => {
       if (!result.success) {
         expect(result.error).toContain('Permission denied');
       }
+      // Should attempt cleanup of temp file on error
+      expect(unlinkSync).toHaveBeenCalledWith('/path/to/file.json.tmp');
     });
 
     it('should format with 2 spaces indentation', () => {
@@ -249,10 +265,15 @@ describe('json-utils', () => {
       writeJsonFile('/path/to/file.json', data);
 
       const expected = JSON.stringify(data, null, 2);
+      // Atomic write: writes to .tmp file with proper formatting
       expect(writeFileSync).toHaveBeenCalledWith(
-        '/path/to/file.json',
+        '/path/to/file.json.tmp',
         expected,
         'utf8'
+      );
+      expect(renameSync).toHaveBeenCalledWith(
+        '/path/to/file.json.tmp',
+        '/path/to/file.json'
       );
     });
 

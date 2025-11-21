@@ -1,0 +1,22 @@
+{
+  "checkpoints": [
+    {
+      "id": "test-1763696945226-anyhrx98s",
+      "timestamp": "2025-11-21T03:49:05.226Z",
+      "description": "Test checkpoint",
+      "filesChanged": [
+        "/test/file.ts"
+      ],
+      "size": 558,
+      "compressed": false
+    }
+  ],
+  "stats": {
+    "totalCount": 1,
+    "totalSize": 558,
+    "compressedCount": 0,
+    "oldestDate": "2025-11-21T03:49:05.226Z",
+    "newestDate": "2025-11-21T03:49:05.226Z"
+  },
+  "lastUpdated": "2025-11-21T03:49:05.230Z"
+}
