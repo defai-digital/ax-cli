@@ -90,7 +90,7 @@ export class LLMAgent extends EventEmitter {
     this.tokenCounter = createTokenCounter(modelToUse);
     this.contextManager = new ContextManager({ model: modelToUse });
     this.checkpointManager = getCheckpointManager();
-    this.subagentOrchestrator = new SubagentOrchestrator(5);
+    this.subagentOrchestrator = new SubagentOrchestrator({ maxConcurrentAgents: 5 });
 
     // Wire up checkpoint callback for automatic checkpoint creation
     this.textEditor.setCheckpointCallback(async (files, description) => {
@@ -1208,7 +1208,7 @@ export class LLMAgent extends EventEmitter {
     // For now, we don't capture file state automatically
     // This can be enhanced to capture modified files from tool calls
 
-    const checkpointId = await this.checkpointManager.createCheckpoint({
+    const checkpoint = await this.checkpointManager.createCheckpoint({
       files,
       conversationState: this.chatHistory,
       description: description || 'Manual checkpoint',
@@ -1218,7 +1218,7 @@ export class LLMAgent extends EventEmitter {
       },
     });
 
-    return checkpointId;
+    return checkpoint.id;
   }
 
   /**

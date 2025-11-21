@@ -24,59 +24,78 @@ export class CheckpointStorage {
   private index: CheckpointIndex | null = null;
 
   constructor(baseDir: string = '.ax-cli') {
-    this.storageDir = path.join(process.cwd(), baseDir, 'checkpoints');
+    // If baseDir is absolute, use it directly. Otherwise, resolve relative to cwd
+    const resolvedBase = path.isAbsolute(baseDir) ? baseDir : path.join(process.cwd(), baseDir);
+    this.storageDir = path.join(resolvedBase, 'checkpoints');
     this.indexPath = path.join(this.storageDir, 'metadata.json');
   }
 
   async initialize(): Promise<void> {
-    await fs.mkdir(this.storageDir, { recursive: true });
-    await this.loadIndex();
+    try {
+      await fs.mkdir(this.storageDir, { recursive: true });
+      const indexExisted = await this.loadIndex();
+
+      // If index was created in-memory (file didn't exist), persist it
+      if (!indexExisted) {
+        await this.saveIndex();
+      }
+    } catch (error) {
+      throw new Error(`Failed to initialize checkpoint storage: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   async save(checkpoint: Checkpoint): Promise<void> {
-    const dateDir = this.getDateDir(checkpoint.timestamp);
-    await fs.mkdir(dateDir, { recursive: true });
+    try {
+      const dateDir = this.getDateDir(checkpoint.timestamp);
+      await fs.mkdir(dateDir, { recursive: true });
 
-    const filepath = path.join(dateDir, `checkpoint-${checkpoint.id}.json`);
-    const content = JSON.stringify(checkpoint, null, 2);
+      const filepath = path.join(dateDir, `checkpoint-${checkpoint.id}.json`);
+      const content = JSON.stringify(checkpoint, null, 2);
 
-    // Atomic write
-    const tempPath = `${filepath}.tmp`;
-    await fs.writeFile(tempPath, content, 'utf-8');
-    await fs.rename(tempPath, filepath);
+      // Atomic write
+      const tempPath = `${filepath}.tmp`;
+      await fs.writeFile(tempPath, content, 'utf-8');
+      await fs.rename(tempPath, filepath);
 
-    // Update index
-    await this.addToIndex(checkpoint, filepath);
+      // Update index
+      await this.addToIndex(checkpoint, filepath);
+    } catch (error) {
+      throw new Error(`Failed to save checkpoint: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   async load(checkpointId: string): Promise<Checkpoint | null> {
-    const info = await this.getCheckpointInfo(checkpointId);
-    if (!info) return null;
+    try {
+      const info = await this.getCheckpointInfo(checkpointId);
+      if (!info) return null;
 
-    const filepath = await this.findCheckpointFile(checkpointId);
-    if (!filepath) return null;
+      const filepath = await this.findCheckpointFile(checkpointId);
+      if (!filepath) return null;
 
-    let content: string;
-    if (info.compressed) {
-      const compressed = await fs.readFile(filepath);
-      const decompressed = await gunzip(compressed);
-      content = decompressed.toString('utf-8');
-    } else {
-      content = await fs.readFile(filepath, 'utf-8');
+      let content: string;
+      if (info.compressed) {
+        const compressed = await fs.readFile(filepath);
+        const decompressed = await gunzip(compressed);
+        content = decompressed.toString('utf-8');
+      } else {
+        content = await fs.readFile(filepath, 'utf-8');
+      }
+
+      const checkpoint = JSON.parse(content);
+      checkpoint.timestamp = new Date(checkpoint.timestamp);
+
+      // Convert conversation state timestamps
+      if (checkpoint.conversationState) {
+        checkpoint.conversationState = checkpoint.conversationState.map((entry: any) => ({
+          ...entry,
+          timestamp: new Date(entry.timestamp),
+        }));
+      }
+
+      return checkpoint;
+    } catch (error) {
+      throw new Error(`Failed to load checkpoint: ${error instanceof Error ? error.message : String(error)}`);
     }
-
-    const checkpoint = JSON.parse(content);
-    checkpoint.timestamp = new Date(checkpoint.timestamp);
-
-    // Convert conversation state timestamps
-    if (checkpoint.conversationState) {
-      checkpoint.conversationState = checkpoint.conversationState.map((entry: any) => ({
-        ...entry,
-        timestamp: new Date(entry.timestamp),
-      }));
-    }
-
-    return checkpoint;
   }
 
   async delete(checkpointId: string): Promise<void> {
@@ -132,7 +151,7 @@ export class CheckpointStorage {
     return stats.totalSize;
   }
 
-  private async loadIndex(): Promise<void> {
+  private async loadIndex(): Promise<boolean> {
     try {
       const content = await fs.readFile(this.indexPath, 'utf-8');
       const data = JSON.parse(content);
@@ -149,6 +168,7 @@ export class CheckpointStorage {
         },
         lastUpdated: new Date(data.lastUpdated),
       };
+      return true; // File existed
     } catch {
       this.index = {
         checkpoints: [],
@@ -161,6 +181,7 @@ export class CheckpointStorage {
         },
         lastUpdated: new Date(),
       };
+      return false; // File didn't exist, created new index
     }
   }
 
@@ -230,9 +251,10 @@ export class CheckpointStorage {
   }
 
   private getDateDir(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    // Use UTC to match toISOString() format used in tests
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
     return path.join(this.storageDir, `${year}-${month}-${day}`);
   }
 

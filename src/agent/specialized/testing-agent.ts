@@ -5,19 +5,11 @@
  */
 
 import { Subagent } from '../subagent.js';
-import { SubagentRole, DEFAULT_SUBAGENT_CONFIG, SubagentConfig } from '../subagent-types.js';
+import { SubagentRole, type SubagentConfig } from '../subagent-types.js';
 
 export class TestingAgent extends Subagent {
-  constructor() {
-    const config: SubagentConfig = {
-      role: SubagentRole.TESTING,
-      allowedTools: DEFAULT_SUBAGENT_CONFIG[SubagentRole.TESTING].allowedTools || [],
-      maxToolRounds: DEFAULT_SUBAGENT_CONFIG[SubagentRole.TESTING].maxToolRounds || 20,
-      contextDepth: DEFAULT_SUBAGENT_CONFIG[SubagentRole.TESTING].contextDepth || 15,
-      timeout: 300000, // 5 minutes
-      priority: DEFAULT_SUBAGENT_CONFIG[SubagentRole.TESTING].priority || 2,
-    };
-    super(config);
+  constructor(configOverrides?: Partial<SubagentConfig>) {
+    super(SubagentRole.TESTING, configOverrides);
   }
 
   protected buildSystemPrompt(): string {

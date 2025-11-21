@@ -31,7 +31,9 @@ export class CheckpointManager {
 
   constructor(config?: Partial<CheckpointConfig>, baseDir?: string) {
     this.config = { ...DEFAULT_CHECKPOINT_CONFIG, ...config };
-    this.storage = new CheckpointStorage(baseDir);
+    // Use config.storageDir if provided, otherwise use baseDir parameter
+    const storageDir = this.config.storageDir || baseDir;
+    this.storage = new CheckpointStorage(storageDir);
   }
 
   async initialize(): Promise<void> {
@@ -41,9 +43,9 @@ export class CheckpointManager {
   /**
    * Create a new checkpoint
    */
-  async createCheckpoint(options: CheckpointOptions): Promise<string> {
+  async createCheckpoint(options: CheckpointOptions): Promise<Checkpoint> {
     if (!this.config.enabled) {
-      throw new Error('Checkpointing is disabled');
+      throw new Error('Checkpoint system is disabled');
     }
 
     const checkpointId = crypto.randomUUID();
@@ -66,10 +68,15 @@ export class CheckpointManager {
       -this.config.conversationDepth
     );
 
+    // Generate default description if not provided
+    const defaultDescription = options.files.length > 0
+      ? `Before modifying ${options.files.length === 1 ? options.files[0].path : `${options.files.length} files`}`
+      : 'Auto-generated checkpoint';
+
     const checkpoint: Checkpoint = {
       id: checkpointId,
       timestamp,
-      description: options.description || 'Auto-generated checkpoint',
+      description: options.description || defaultDescription,
       files: fileSnapshots,
       conversationState,
       metadata: {
@@ -84,7 +91,7 @@ export class CheckpointManager {
     // Run maintenance
     await this.runMaintenance();
 
-    return checkpointId;
+    return checkpoint;
   }
 
   /**
@@ -142,17 +149,23 @@ export class CheckpointManager {
     let checkpoints = await this.storage.listInfo();
 
     // Apply filters
-    if (filter?.beforeDate) {
-      checkpoints = checkpoints.filter(c => c.timestamp < filter.beforeDate!);
+    // Support both beforeDate/until (before this date, i.e., <=)
+    const beforeDate = filter?.beforeDate || filter?.until;
+    if (beforeDate) {
+      checkpoints = checkpoints.filter(c => c.timestamp <= beforeDate);
     }
 
-    if (filter?.afterDate) {
-      checkpoints = checkpoints.filter(c => c.timestamp > filter.afterDate!);
+    // Support both afterDate/since (after this date, i.e., >=)
+    const afterDate = filter?.afterDate || filter?.since;
+    if (afterDate) {
+      checkpoints = checkpoints.filter(c => c.timestamp >= afterDate);
     }
 
     if (filter?.filesChanged) {
       checkpoints = checkpoints.filter(c =>
-        filter.filesChanged!.some(path => c.filesChanged.includes(path))
+        filter.filesChanged!.some(searchPath =>
+          c.filesChanged.some(filePath => filePath.includes(searchPath))
+        )
       );
     }
 
@@ -322,6 +335,17 @@ export function getCheckpointManager(
   if (!checkpointManagerInstance) {
     checkpointManagerInstance = new CheckpointManager(config, baseDir);
   }
+  return checkpointManagerInstance;
+}
+
+/**
+ * Initialize a new checkpoint manager instance (creates new singleton)
+ */
+export function initCheckpointManager(
+  config?: Partial<CheckpointConfig>,
+  baseDir?: string
+): CheckpointManager {
+  checkpointManagerInstance = new CheckpointManager(config, baseDir);
   return checkpointManagerInstance;
 }
 

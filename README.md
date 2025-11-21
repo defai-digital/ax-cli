@@ -1,6 +1,6 @@
 # AX CLI - Enterprise-Class AI CLI
 
-[![Tests](https://img.shields.io/badge/tests-306%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
+[![Tests](https://img.shields.io/badge/tests-562%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
 [![Coverage](https://img.shields.io/badge/coverage-98.29%25-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli)
 [![npm](https://img.shields.io/npm/dt/@defai.digital/ax-cli?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D24.0.0-blue?style=flat-square)](https://nodejs.org/)
@@ -306,7 +306,7 @@ AX CLI implements enterprise-grade architecture with:
 
 - **Single Source of Truth (SSOT)** type system via `@ax-cli/schemas`
 - **TypeScript strict mode** with Zod runtime validation
-- **98%+ test coverage** (306 tests)
+- **98%+ test coverage** (562 tests)
 - **Modular design** with clean separation of concerns
 
 [Architecture Documentation →](docs/architecture.md)

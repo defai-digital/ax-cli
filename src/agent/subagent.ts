@@ -14,10 +14,9 @@ import type {
   SubagentConfig,
   SubagentTask,
   SubagentResult,
-  SubagentRole,
   SubagentStatus,
 } from './subagent-types.js';
-import { SubagentState } from './subagent-types.js';
+import { SubagentRole, SubagentState } from './subagent-types.js';
 
 // Import tools
 import { BashTool } from '../tools/bash.js';
@@ -28,25 +27,42 @@ import { SearchTool } from '../tools/search.js';
  * Base Subagent class
  */
 export class Subagent extends EventEmitter {
-  protected role: SubagentRole;
-  protected config: SubagentConfig;
+  public readonly id: string;
+  public readonly role: SubagentRole;
+  public readonly config: SubagentConfig;
   protected llmClient: LLMClient;
   protected chatHistory: ChatEntry[];
   protected messages: LLMMessage[];
   protected tools: Map<string, any>;
   protected isActive: boolean;
   protected currentTaskId: string | null;
+  protected status: SubagentStatus;
 
-  constructor(config: SubagentConfig) {
+  constructor(role: SubagentRole, configOverrides?: Partial<SubagentConfig>) {
     super();
 
-    this.role = config.role;
-    this.config = config;
+    this.id = `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    this.role = role;
+
+    // Merge with default config for this role
+    const defaultConfig = this.getDefaultConfig(role);
+    this.config = { ...defaultConfig, ...configOverrides, role };
+
     this.chatHistory = [];
     this.messages = [];
     this.tools = new Map();
     this.isActive = false;
     this.currentTaskId = null;
+
+    // Initialize status
+    this.status = {
+      id: this.id,
+      taskId: '',
+      role: this.role,
+      state: SubagentState.PENDING,
+      progress: 0,
+      startTime: new Date(),
+    };
 
     // Initialize LLM client with same settings as main agent
     this.llmClient = new LLMClient(
@@ -63,6 +79,66 @@ export class Subagent extends EventEmitter {
       role: 'system',
       content: this.buildSystemPrompt(),
     });
+  }
+
+  /**
+   * Get default configuration for a role
+   */
+  private getDefaultConfig(role: SubagentRole): SubagentConfig {
+    // Default tools and settings based on role
+    const roleDefaults: Record<SubagentRole, Partial<SubagentConfig>> = {
+      [SubagentRole.GENERAL]: {
+        allowedTools: ['bash', 'text_editor', 'search'],
+        maxToolRounds: 30,
+        contextDepth: 20,
+        priority: 1,
+      },
+      [SubagentRole.TESTING]: {
+        allowedTools: ['bash', 'text_editor', 'search'],
+        maxToolRounds: 20,
+        contextDepth: 10,
+        priority: 2,
+      },
+      [SubagentRole.DOCUMENTATION]: {
+        allowedTools: ['text_editor', 'search'],
+        maxToolRounds: 15,
+        contextDepth: 20,
+        priority: 1,
+      },
+      [SubagentRole.REFACTORING]: {
+        allowedTools: ['bash', 'text_editor', 'search'],
+        maxToolRounds: 25,
+        contextDepth: 20,
+        priority: 2,
+      },
+      [SubagentRole.ANALYSIS]: {
+        allowedTools: ['bash', 'text_editor', 'search'],
+        maxToolRounds: 15,
+        contextDepth: 15,
+        priority: 3,
+      },
+      [SubagentRole.DEBUG]: {
+        allowedTools: ['bash', 'text_editor', 'search'],
+        maxToolRounds: 30,
+        contextDepth: 15,
+        priority: 3,
+      },
+      [SubagentRole.PERFORMANCE]: {
+        allowedTools: ['bash', 'search'],
+        maxToolRounds: 25,
+        contextDepth: 10,
+        priority: 2,
+      },
+    };
+
+    return {
+      role,
+      allowedTools: [],
+      maxToolRounds: 20,
+      contextDepth: 10,
+      priority: 1,
+      ...roleDefaults[role],
+    } as SubagentConfig;
   }
 
   /**
@@ -102,9 +178,9 @@ export class Subagent extends EventEmitter {
 
     const startTime = Date.now();
 
-    // Initialize status
-    const status: SubagentStatus = {
-      id: `subagent-${Date.now()}`,
+    // Update status
+    this.status = {
+      id: this.id,
       taskId: task.id,
       role: this.role,
       state: SubagentState.RUNNING,
@@ -115,19 +191,21 @@ export class Subagent extends EventEmitter {
     };
 
     const result: SubagentResult = {
-      id: status.id,
+      id: this.id,
       taskId: task.id,
       role: this.role,
       success: false,
       output: '',
       executionTime: 0,
-      status: status,
+      status: this.status,
       filesModified: [],
       filesCreated: [],
       toolCalls: [],
     };
 
     try {
+      // Emit both 'start' and 'task-started' for compatibility
+      this.emit('start', { taskId: task.id, role: this.role });
       this.emit('task-started', { taskId: task.id, role: this.role });
 
       // Add task context to messages
@@ -189,8 +267,8 @@ export class Subagent extends EventEmitter {
             const toolResult = await this.executeToolCall(toolCall);
 
             // Track tool usage in status
-            if (!status.toolsUsed!.includes(toolCall.function.name)) {
-              status.toolsUsed!.push(toolCall.function.name);
+            if (!this.status.toolsUsed!.includes(toolCall.function.name)) {
+              this.status.toolsUsed!.push(toolCall.function.name);
             }
 
             // Track tool calls
@@ -238,7 +316,7 @@ export class Subagent extends EventEmitter {
           }
 
           toolRounds++;
-          status.toolRoundsUsed = toolRounds;
+          this.status.toolRoundsUsed = toolRounds;
         } else {
           // No more tool calls, task complete
           isComplete = true;
@@ -253,18 +331,20 @@ export class Subagent extends EventEmitter {
 
       result.success = true;
       result.executionTime = Date.now() - startTime;
-      result.status.state = SubagentState.COMPLETED;
-      result.status.endTime = new Date();
-      result.status.progress = 100;
+      this.status.state = SubagentState.COMPLETED;
+      this.status.endTime = new Date();
+      this.status.progress = 100;
+      result.status = { ...this.status };
       this.emit('task-completed', { taskId: task.id, result });
 
     } catch (error: any) {
       result.success = false;
       result.error = error.message;
       result.executionTime = Date.now() - startTime;
-      result.status.state = SubagentState.FAILED;
-      result.status.endTime = new Date();
-      result.status.error = error.message;
+      this.status.state = SubagentState.FAILED;
+      this.status.endTime = new Date();
+      this.status.error = error.message;
+      result.status = { ...this.status };
       this.emit('task-failed', { taskId: task.id, error: error.message });
     } finally {
       this.isActive = false;
@@ -340,18 +420,18 @@ export class Subagent extends EventEmitter {
   /**
    * Get current status
    */
-  getStatus(): {
-    role: SubagentRole;
-    isActive: boolean;
-    currentTaskId: string | null;
-    messageCount: number;
-  } {
-    return {
-      role: this.role,
-      isActive: this.isActive,
-      currentTaskId: this.currentTaskId,
-      messageCount: this.messages.length,
-    };
+  getStatus(): SubagentStatus {
+    return { ...this.status };
+  }
+
+  /**
+   * Abort execution
+   */
+  abort(): void {
+    this.isActive = false;
+    this.status.state = SubagentState.CANCELLED;
+    this.status.endTime = new Date();
+    this.emit('cancel', { role: this.role });
   }
 
   /**
@@ -369,5 +449,30 @@ export class Subagent extends EventEmitter {
    */
   getChatHistory(): ChatEntry[] {
     return [...this.chatHistory];
+  }
+
+  /**
+   * Get logs (alias for getChatHistory for test compatibility)
+   */
+  getLogs(): ChatEntry[] {
+    return [...this.chatHistory];
+  }
+
+  /**
+   * Receive a message from parent/orchestrator
+   */
+  async receiveMessage(message: {
+    from: 'parent' | 'orchestrator';
+    to: 'subagent';
+    type: 'instruction' | 'cancellation' | 'query';
+    content: string;
+    timestamp: Date;
+  }): Promise<void> {
+    this.emit('message', message);
+
+    // Handle cancellation messages
+    if (message.type === 'cancellation') {
+      this.abort();
+    }
   }
 }

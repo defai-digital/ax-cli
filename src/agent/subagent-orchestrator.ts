@@ -6,14 +6,13 @@
  */
 
 import { EventEmitter } from 'events';
-import crypto from 'crypto';
 import { Subagent } from './subagent.js';
 import type {
   SubagentConfig,
   SubagentTask,
   SubagentResult,
 } from './subagent-types.js';
-import { SubagentRole, SubagentState, DEFAULT_SUBAGENT_CONFIG } from './subagent-types.js';
+import { SubagentRole, SubagentState } from './subagent-types.js';
 import { DependencyResolver } from './dependency-resolver.js';
 
 // Import specialized agents
@@ -25,6 +24,16 @@ import { DebugAgent } from './specialized/debug-agent.js';
 import { PerformanceAgent } from './specialized/performance-agent.js';
 
 /**
+ * Orchestrator configuration
+ */
+export interface OrchestratorConfig {
+  maxConcurrentAgents?: number;
+  defaultTimeout?: number;
+  autoCheckpoint?: boolean;
+  verbose?: boolean;
+}
+
+/**
  * SubagentOrchestrator manages multiple subagents
  */
 export class SubagentOrchestrator extends EventEmitter {
@@ -33,9 +42,18 @@ export class SubagentOrchestrator extends EventEmitter {
   private results: Map<string, SubagentResult>;
   private dependencyResolver: DependencyResolver;
   private activeCount: number;
+  private config: OrchestratorConfig;
 
-  constructor(_maxConcurrent: number = 5) {
+  constructor(config?: OrchestratorConfig) {
     super();
+
+    this.config = {
+      maxConcurrentAgents: 5,
+      defaultTimeout: 300000,
+      autoCheckpoint: false,
+      verbose: false,
+      ...config,
+    };
 
     this.subagents = new Map();
     this.taskQueue = [];
@@ -47,59 +65,62 @@ export class SubagentOrchestrator extends EventEmitter {
   /**
    * Spawn a new subagent with the specified role
    */
-  async spawnSubagent(
+  async spawn(
     role: SubagentRole,
     config?: Partial<SubagentConfig>
   ): Promise<Subagent> {
-    const subagentId = `${role}-${crypto.randomUUID()}`;
+    // Check max concurrent agents limit
+    if (this.subagents.size >= this.config.maxConcurrentAgents!) {
+      throw new Error(`Maximum concurrent agents limit (${this.config.maxConcurrentAgents}) reached`);
+    }
 
     let subagent: Subagent;
 
     // Create specialized subagent based on role
     switch (role) {
       case SubagentRole.TESTING:
-        subagent = new TestingAgent();
+        subagent = new TestingAgent(config);
         break;
       case SubagentRole.DOCUMENTATION:
-        subagent = new DocumentationAgent();
+        subagent = new DocumentationAgent(config);
         break;
       case SubagentRole.REFACTORING:
-        subagent = new RefactoringAgent();
+        subagent = new RefactoringAgent(config);
         break;
       case SubagentRole.ANALYSIS:
-        subagent = new AnalysisAgent();
+        subagent = new AnalysisAgent(config);
         break;
       case SubagentRole.DEBUG:
-        subagent = new DebugAgent();
+        subagent = new DebugAgent(config);
         break;
       case SubagentRole.PERFORMANCE:
-        subagent = new PerformanceAgent();
+        subagent = new PerformanceAgent(config);
         break;
       case SubagentRole.GENERAL:
       default:
-        // Create general subagent with merged config
-        const baseConfig = DEFAULT_SUBAGENT_CONFIG[SubagentRole.GENERAL];
-        const fullConfig: SubagentConfig = {
-          role: SubagentRole.GENERAL,
-          allowedTools: config?.allowedTools || baseConfig.allowedTools || [],
-          maxToolRounds: config?.maxToolRounds || baseConfig.maxToolRounds || 30,
-          contextDepth: config?.contextDepth || baseConfig.contextDepth || 20,
-          timeout: config?.timeout || 300000,
-          priority: config?.priority || baseConfig.priority || 1,
-        };
-        subagent = new Subagent(fullConfig);
+        subagent = new Subagent(SubagentRole.GENERAL, config);
         break;
     }
 
-    // Register subagent
-    this.subagents.set(subagentId, subagent);
+    // Register subagent using its own ID
+    this.subagents.set(subagent.id, subagent);
 
     // Forward subagent events
-    this.forwardSubagentEvents(subagentId, subagent);
+    this.forwardSubagentEvents(subagent.id, subagent);
 
-    this.emit('subagent-spawned', { id: subagentId, role });
+    this.emit('spawn', { id: subagent.id, role });
 
     return subagent;
+  }
+
+  /**
+   * Alias for spawn() for backward compatibility
+   */
+  async spawnSubagent(
+    role: SubagentRole,
+    config?: Partial<SubagentConfig>
+  ): Promise<Subagent> {
+    return this.spawn(role, config);
   }
 
   /**
@@ -108,26 +129,26 @@ export class SubagentOrchestrator extends EventEmitter {
   private forwardSubagentEvents(id: string, subagent: Subagent): void {
     subagent.on('task-started', (data) => {
       this.activeCount++;
-      this.emit('task-started', { subagentId: id, ...data });
+      this.emit('subagent-start', { subagentId: id, ...data });
     });
 
     subagent.on('task-completed', (data) => {
       this.activeCount--;
       this.results.set(data.taskId, data.result);
-      this.emit('task-completed', { subagentId: id, ...data });
+      this.emit('subagent-complete', { subagentId: id, ...data });
     });
 
     subagent.on('task-failed', (data) => {
       this.activeCount--;
-      this.emit('task-failed', { subagentId: id, ...data });
+      this.emit('subagent-error', { subagentId: id, ...data });
     });
 
     subagent.on('progress', (data) => {
-      this.emit('progress', { subagentId: id, ...data });
+      this.emit('subagent-progress', { subagentId: id, ...data });
     });
 
     subagent.on('tool-executed', (data) => {
-      this.emit('tool-executed', { subagentId: id, ...data });
+      this.emit('subagent-tool', { subagentId: id, ...data });
     });
   }
 
@@ -154,7 +175,7 @@ export class SubagentOrchestrator extends EventEmitter {
       return result;
     } finally {
       // Clean up subagent after task completion
-      await this.terminateSubagent(subagent);
+      await this.terminateSubagent(subagent.id);
     }
   }
 
@@ -202,7 +223,7 @@ export class SubagentOrchestrator extends EventEmitter {
         this.results.set(task.id, result);
         return result;
       } finally {
-        await this.terminateSubagent(subagent);
+        await this.terminateSubagent(subagent.id);
       }
     });
 
@@ -268,19 +289,17 @@ export class SubagentOrchestrator extends EventEmitter {
   }
 
   /**
-   * Terminate a specific subagent
+   * Terminate a specific subagent by ID
    */
-  private async terminateSubagent(subagent: Subagent): Promise<void> {
-    await subagent.terminate();
-
-    // Remove from registry
-    for (const [id, agent] of this.subagents) {
-      if (agent === subagent) {
-        this.subagents.delete(id);
-        this.emit('subagent-terminated', { id });
-        break;
-      }
+  async terminateSubagent(subagentId: string): Promise<void> {
+    const subagent = this.subagents.get(subagentId);
+    if (!subagent) {
+      return; // Gracefully handle non-existent subagent
     }
+
+    await subagent.terminate();
+    this.subagents.delete(subagentId);
+    this.emit('terminate', { id: subagentId });
   }
 
   /**
@@ -340,11 +359,13 @@ export class SubagentOrchestrator extends EventEmitter {
     const active: Array<{ id: string; role: SubagentRole; status: any }> = [];
 
     for (const [id, subagent] of this.subagents) {
-      if (subagent.getStatus().isActive) {
+      const status = subagent.getStatus();
+      // Check if state is RUNNING (active)
+      if (status.state === SubagentState.RUNNING) {
         active.push({
           id,
-          role: subagent.getStatus().role,
-          status: subagent.getStatus(),
+          role: status.role,
+          status: status,
         });
       }
     }
@@ -357,5 +378,61 @@ export class SubagentOrchestrator extends EventEmitter {
    */
   clearResults(): void {
     this.results.clear();
+  }
+
+  /**
+   * Get all active subagents (alias for tests)
+   */
+  getActive(): Subagent[] {
+    return Array.from(this.subagents.values());
+  }
+
+  /**
+   * Monitor a specific subagent's status
+   */
+  monitor(subagentId: string): any {
+    const subagent = this.subagents.get(subagentId);
+    if (!subagent) {
+      return null;
+    }
+    return subagent.getStatus();
+  }
+
+  /**
+   * Get orchestrator statistics
+   */
+  getStats(): {
+    activeAgents: number;
+    totalResults: number;
+    successfulTasks: number;
+    failedTasks: number;
+  } {
+    const results = Array.from(this.results.values());
+    return {
+      activeAgents: this.subagents.size,
+      totalResults: results.length,
+      successfulTasks: results.filter(r => r.success).length,
+      failedTasks: results.filter(r => !r.success).length,
+    };
+  }
+
+  /**
+   * Spawn multiple subagents in parallel
+   */
+  async spawnParallel(configs: Array<{ role: SubagentRole; config?: Partial<SubagentConfig> }>): Promise<Subagent[]> {
+    return Promise.all(configs.map(({ role, config }) => this.spawn(role, config)));
+  }
+
+  /**
+   * Send a message to a subagent
+   */
+  async sendMessage(subagentId: string, message: string): Promise<void> {
+    const subagent = this.subagents.get(subagentId);
+    if (!subagent) {
+      throw new Error(`Subagent ${subagentId} not found`);
+    }
+    // Subagent will handle the message via receiveMessage method
+    // For now, just emit an event
+    this.emit('message-sent', { subagentId, message });
   }
 }

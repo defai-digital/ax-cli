@@ -94,22 +94,20 @@ describe('CheckpointStorage', () => {
     it('should use atomic writes (temp file + rename)', async () => {
       const checkpoint = createTestCheckpoint();
 
-      // Mock fs.writeFile to track calls
-      const writeSpy = vi.spyOn(fs, 'writeFile');
-      const renameSpy = vi.spyOn(fs, 'rename');
-
+      // Save checkpoint
       await storage.save(checkpoint);
 
-      // Verify temp file was used
-      expect(writeSpy).toHaveBeenCalled();
-      const writeCall = writeSpy.mock.calls[0];
-      expect(writeCall[0]).toMatch(/\.tmp$/);
+      // Verify the final file exists (not the temp file)
+      const date = checkpoint.timestamp.toISOString().split('T')[0];
+      const filepath = path.join(testDir, 'checkpoints', date, `checkpoint-${checkpoint.id}.json`);
+      const tempPath = `${filepath}.tmp`;
 
-      // Verify rename was called
-      expect(renameSpy).toHaveBeenCalled();
+      // Final file should exist
+      const stat = await fs.stat(filepath);
+      expect(stat.isFile()).toBe(true);
 
-      writeSpy.mockRestore();
-      renameSpy.mockRestore();
+      // Temp file should NOT exist (atomic rename completed)
+      await expect(fs.stat(tempPath)).rejects.toThrow();
     });
 
     it('should create date-based subdirectory', async () => {

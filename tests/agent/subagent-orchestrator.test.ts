@@ -13,6 +13,7 @@ describe('SubagentOrchestrator', () => {
     // Mock environment variables
     process.env.GROK_API_KEY = 'test-api-key';
     process.env.GROK_MODEL = 'glm-4.6';
+    process.env.AI_BASE_URL = 'http://localhost:11434/v1';
 
     orchestrator = new SubagentOrchestrator({
       maxConcurrentAgents: 5,

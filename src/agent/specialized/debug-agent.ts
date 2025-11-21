@@ -5,19 +5,11 @@
  */
 
 import { Subagent } from '../subagent.js';
-import { SubagentRole, DEFAULT_SUBAGENT_CONFIG, SubagentConfig } from '../subagent-types.js';
+import { SubagentRole, type SubagentConfig } from '../subagent-types.js';
 
 export class DebugAgent extends Subagent {
-  constructor() {
-    const config: SubagentConfig = {
-      role: SubagentRole.DEBUG,
-      allowedTools: DEFAULT_SUBAGENT_CONFIG[SubagentRole.DEBUG].allowedTools || [],
-      maxToolRounds: DEFAULT_SUBAGENT_CONFIG[SubagentRole.DEBUG].maxToolRounds || 25,
-      contextDepth: DEFAULT_SUBAGENT_CONFIG[SubagentRole.DEBUG].contextDepth || 20,
-      timeout: 300000, // 5 minutes
-      priority: DEFAULT_SUBAGENT_CONFIG[SubagentRole.DEBUG].priority || 3,
-    };
-    super(config);
+  constructor(configOverrides?: Partial<SubagentConfig>) {
+    super(SubagentRole.DEBUG, configOverrides);
   }
 
   protected buildSystemPrompt(): string {

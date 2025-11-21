@@ -5,19 +5,11 @@
  */
 
 import { Subagent } from '../subagent.js';
-import { SubagentRole, DEFAULT_SUBAGENT_CONFIG, SubagentConfig } from '../subagent-types.js';
+import { SubagentRole, type SubagentConfig } from '../subagent-types.js';
 
 export class DocumentationAgent extends Subagent {
-  constructor() {
-    const config: SubagentConfig = {
-      role: SubagentRole.DOCUMENTATION,
-      allowedTools: DEFAULT_SUBAGENT_CONFIG[SubagentRole.DOCUMENTATION].allowedTools || [],
-      maxToolRounds: DEFAULT_SUBAGENT_CONFIG[SubagentRole.DOCUMENTATION].maxToolRounds || 15,
-      contextDepth: DEFAULT_SUBAGENT_CONFIG[SubagentRole.DOCUMENTATION].contextDepth || 10,
-      timeout: 300000, // 5 minutes
-      priority: DEFAULT_SUBAGENT_CONFIG[SubagentRole.DOCUMENTATION].priority || 2,
-    };
-    super(config);
+  constructor(configOverrides?: Partial<SubagentConfig>) {
+    super(SubagentRole.DOCUMENTATION, configOverrides);
   }
 
   protected buildSystemPrompt(): string {

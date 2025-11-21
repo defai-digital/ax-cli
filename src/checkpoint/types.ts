@@ -79,6 +79,8 @@ export interface CheckpointFilter {
   limit?: number;
   beforeDate?: Date;
   afterDate?: Date;
+  until?: Date; // Alias for beforeDate
+  since?: Date; // Alias for afterDate
   filesChanged?: string[];
 }
 

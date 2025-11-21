@@ -170,16 +170,18 @@ describe('CheckpointManager', () => {
     it('should handle empty file list', async () => {
       const options = createTestOptions();
       options.files = [];
+      delete options.description; // Use auto-generated description
 
       const checkpoint = await manager.createCheckpoint(options);
 
       expect(checkpoint.files).toHaveLength(0);
-      expect(checkpoint.description).toContain('Empty');
+      expect(checkpoint.description).toContain('Auto-generated');
     });
 
     it('should handle single file', async () => {
       const options = createTestOptions();
       options.files = [{ path: '/test/single.ts', content: 'content' }];
+      delete options.description; // Use auto-generated description
 
       const checkpoint = await manager.createCheckpoint(options);
 
@@ -193,6 +195,7 @@ describe('CheckpointManager', () => {
         { path: '/test/file2.ts', content: 'content 2' },
         { path: '/test/file3.ts', content: 'content 3' },
       ];
+      delete options.description; // Use auto-generated description
 
       const checkpoint = await manager.createCheckpoint(options);
 

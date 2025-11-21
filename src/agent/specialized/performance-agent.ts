@@ -5,19 +5,11 @@
  */
 
 import { Subagent } from '../subagent.js';
-import { SubagentRole, DEFAULT_SUBAGENT_CONFIG, SubagentConfig } from '../subagent-types.js';
+import { SubagentRole, type SubagentConfig } from '../subagent-types.js';
 
 export class PerformanceAgent extends Subagent {
-  constructor() {
-    const config: SubagentConfig = {
-      role: SubagentRole.PERFORMANCE,
-      allowedTools: DEFAULT_SUBAGENT_CONFIG[SubagentRole.PERFORMANCE].allowedTools || [],
-      maxToolRounds: DEFAULT_SUBAGENT_CONFIG[SubagentRole.PERFORMANCE].maxToolRounds || 20,
-      contextDepth: DEFAULT_SUBAGENT_CONFIG[SubagentRole.PERFORMANCE].contextDepth || 15,
-      timeout: 300000, // 5 minutes
-      priority: DEFAULT_SUBAGENT_CONFIG[SubagentRole.PERFORMANCE].priority || 2,
-    };
-    super(config);
+  constructor(configOverrides?: Partial<SubagentConfig>) {
+    super(SubagentRole.PERFORMANCE, configOverrides);
   }
 
   protected buildSystemPrompt(): string {
