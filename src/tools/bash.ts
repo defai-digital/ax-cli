@@ -274,8 +274,10 @@ export class BashTool extends EventEmitter {
       }, timeout);
 
       // Handle abort signal (for Ctrl+B background transfer)
+      // Store handler reference for cleanup to prevent memory leaks
+      let abortHandler: (() => void) | null = null;
       if (signal) {
-        signal.addEventListener('abort', () => {
+        abortHandler = () => {
           if (this.currentProcess === childProcess) {
             movedToBackground = true;
             clearTimeout(timeoutId);
@@ -289,8 +291,17 @@ export class BashTool extends EventEmitter {
               });
             }
           }
-        }, { once: true });
+        };
+        signal.addEventListener('abort', abortHandler, { once: true });
       }
+
+      // Helper to cleanup abort listener when process completes
+      const cleanupAbortListener = () => {
+        if (signal && abortHandler) {
+          signal.removeEventListener('abort', abortHandler);
+          abortHandler = null;
+        }
+      };
 
       // Collect stdout
       childProcess.stdout?.on('data', (data: Buffer) => {
@@ -321,6 +332,7 @@ export class BashTool extends EventEmitter {
       // Handle process completion
       childProcess.on('close', (code: number | null) => {
         clearTimeout(timeoutId);
+        cleanupAbortListener(); // Remove abort listener to prevent memory leaks
 
         // Clear current process state
         if (this.currentProcess === childProcess) {

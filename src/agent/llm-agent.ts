@@ -1413,7 +1413,7 @@ export class LLMAgent extends EventEmitter {
       type: "assistant",
       content: (accumulatedMessage.content as string) || "Using tools to help you...",
       timestamp: new Date(),
-      toolCalls: accumulatedMessage.tool_calls as LLMToolCall[] || undefined,
+      toolCalls: accumulatedMessage.tool_calls as LLMToolCall[] ?? undefined,
     };
     this.chatHistory.push(assistantEntry);
 
@@ -1688,7 +1688,8 @@ export class LLMAgent extends EventEmitter {
     toolCall: LLMToolCall,
     toolType: string = 'Tool'
   ): { success: true; args: Record<string, unknown> } | { success: false; error: string } {
-    if (!toolCall.function.arguments || toolCall.function.arguments.trim() === '') {
+    const argsString = toolCall.function.arguments;
+    if (!argsString || typeof argsString !== 'string' || argsString.trim() === '') {
       return {
         success: false,
         error: `${toolType} ${toolCall.function.name} called with empty arguments`,
@@ -1696,7 +1697,7 @@ export class LLMAgent extends EventEmitter {
     }
 
     try {
-      const args = JSON.parse(toolCall.function.arguments);
+      const args = JSON.parse(argsString);
 
       // Validate that args is an object (not null, array, or primitive)
       if (typeof args !== 'object' || args === null || Array.isArray(args)) {
