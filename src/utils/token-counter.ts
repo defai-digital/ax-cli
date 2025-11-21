@@ -76,6 +76,9 @@ export class TokenCounter {
               totalTokens += this.countTokens(part.text);
             }
           }
+        } else {
+          // Fallback for unexpected content types - stringify and count
+          totalTokens += this.countTokens(String(message.content));
         }
       }
 

@@ -12,7 +12,17 @@ export function loadCustomInstructions(workingDirectory: string = process.cwd())
     const customInstructions = fs.readFileSync(instructionsPath, 'utf-8');
     return customInstructions.trim();
   } catch (error) {
-    console.warn('Failed to load custom instructions:', error);
+    // Distinguish between expected (file not found) and unexpected errors
+    const isNodeError = error instanceof Error && 'code' in error;
+    const errorCode = isNodeError ? (error as NodeJS.ErrnoException).code : null;
+
+    if (errorCode === 'ENOENT') {
+      // File doesn't exist - expected, return silently
+      return null;
+    }
+
+    // Permission denied, corrupted file, or other read errors - log as error
+    console.error('Failed to load custom instructions:', error);
     return null;
   }
 }
