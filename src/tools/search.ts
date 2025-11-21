@@ -228,9 +228,20 @@ export class SearchTool {
         errorOutput += data.toString();
       });
 
+      const cleanup = () => {
+        // Remove all listeners to prevent memory leaks
+        rg.stdout.removeAllListeners();
+        rg.stderr.removeAllListeners();
+        rg.removeAllListeners();
+      };
+
       rg.on("close", (code) => {
-        if (isResolved) return;
+        if (isResolved) {
+          cleanup();
+          return;
+        }
         isResolved = true;
+        cleanup();
 
         if (code === 0 || code === 1) {
           // 0 = found, 1 = not found
@@ -242,17 +253,21 @@ export class SearchTool {
       });
 
       rg.on("error", (error) => {
-        if (isResolved) return;
+        if (isResolved) {
+          cleanup();
+          return;
+        }
         isResolved = true;
+        cleanup();
 
-        // Kill process if it's still running
-        // Wrap in try-catch as process might already be dead
-        if (!rg.killed) {
-          try {
+        // Try to kill process if it hasn't exited yet
+        // Use a safer check: only kill if process hasn't exited
+        try {
+          if (rg.exitCode === null && rg.signalCode === null) {
             rg.kill('SIGTERM');
-          } catch {
-            // Process already terminated, ignore
           }
+        } catch {
+          // Process already terminated or can't be killed, ignore
         }
         reject(error);
       });

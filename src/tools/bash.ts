@@ -48,7 +48,7 @@ export class BashTool {
       }
 
       if (command.startsWith('cd ')) {
-        const newDir = command.substring(3).trim();
+        let newDir = command.substring(3).trim();
 
         // Validate directory path is not empty
         if (newDir === '') {
@@ -56,6 +56,32 @@ export class BashTool {
             success: false,
             error: 'Cannot change directory: no directory specified'
           };
+        }
+
+        // Remove surrounding quotes if present (handles both single and double quotes)
+        if ((newDir.startsWith('"') && newDir.endsWith('"')) ||
+            (newDir.startsWith("'") && newDir.endsWith("'"))) {
+          newDir = newDir.slice(1, -1);
+        }
+
+        // Expand ~ to home directory
+        if (newDir.startsWith('~/')) {
+          const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+          if (!homeDir) {
+            return {
+              success: false,
+              error: 'Cannot expand ~: HOME directory not found'
+            };
+          }
+          newDir = newDir.replace(/^~/, homeDir);
+        } else if (newDir === '~') {
+          newDir = process.env.HOME || process.env.USERPROFILE || '';
+          if (!newDir) {
+            return {
+              success: false,
+              error: 'Cannot expand ~: HOME directory not found'
+            };
+          }
         }
 
         try {
