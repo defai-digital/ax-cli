@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
+import * as os from "os";
 import { ChatEntry } from "../agent/llm-agent.js";
 
 /**
@@ -14,7 +15,7 @@ export class HistoryManager {
   private currentProjectDir?: string;
 
   constructor(
-    baseDir: string = path.join(process.env.HOME || "~", ".ax-cli"),
+    baseDir: string = path.join(os.homedir(), ".ax-cli"),
     maxEntries: number = 50,
     projectDir?: string
   ) {
@@ -63,6 +64,7 @@ export class HistoryManager {
   /**
    * Save chat history to disk
    * Only keeps the most recent entries up to maxHistoryEntries
+   * Uses atomic write pattern (temp file + rename) to prevent corruption
    */
   saveHistory(chatHistory: ChatEntry[]): void {
     try {
@@ -85,13 +87,28 @@ export class HistoryManager {
         history: serialized,
       } : serialized;
 
+      // Atomic write pattern: write to temp file, then rename
+      // This prevents corruption if process crashes mid-write
+      const tempFile = `${this.historyFile}.tmp`;
       fs.writeFileSync(
-        this.historyFile,
+        tempFile,
         JSON.stringify(data, null, 2),
         "utf-8"
       );
+
+      // Atomic rename - if this succeeds, we know the write was complete
+      fs.renameSync(tempFile, this.historyFile);
     } catch (error) {
       console.error("Failed to save chat history:", error);
+      // Clean up temp file if it exists
+      try {
+        const tempFile = `${this.historyFile}.tmp`;
+        if (fs.existsSync(tempFile)) {
+          fs.unlinkSync(tempFile);
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
     }
   }
 
@@ -148,7 +165,15 @@ export class HistoryManager {
 
       const content = fs.readFileSync(this.historyFile, "utf-8");
       const parsed = JSON.parse(content);
-      return Array.isArray(parsed) ? parsed.length : 0;
+
+      // Handle both old format (array) and new format (object with metadata)
+      if (Array.isArray(parsed)) {
+        return parsed.length;
+      } else if (parsed.history && Array.isArray(parsed.history)) {
+        return parsed.history.length;
+      }
+
+      return 0;
     } catch {
       return 0;
     }
@@ -166,7 +191,7 @@ let historyManagerInstance: HistoryManager | null = null;
 export function getHistoryManager(projectDir?: string, force = false): HistoryManager {
   if (force || !historyManagerInstance) {
     historyManagerInstance = new HistoryManager(
-      path.join(process.env.HOME || "~", ".ax-cli"),
+      path.join(os.homedir(), ".ax-cli"),
       50,
       projectDir
     );

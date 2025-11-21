@@ -1,0 +1,62 @@
+{
+  "checkpoints": [
+    {
+      "id": "498225ff-dde3-47e8-a6f6-5b9556de95c5",
+      "timestamp": "2025-11-21T02:51:25.719Z",
+      "description": "Test checkpoint",
+      "filesChanged": [
+        "/test/file-1763693485719.ts"
+      ],
+      "size": 991,
+      "compressed": false
+    },
+    {
+      "id": "54fb82d7-2bc8-48ed-ba07-621c23494755",
+      "timestamp": "2025-11-21T02:51:25.717Z",
+      "description": "Test checkpoint",
+      "filesChanged": [
+        "/test/file-1763693485717.ts"
+      ],
+      "size": 1556,
+      "compressed": false
+    },
+    {
+      "id": "5b07cb85-d45d-4ef5-97b5-8ed8264badee",
+      "timestamp": "2025-11-21T02:51:25.715Z",
+      "description": "Test checkpoint",
+      "filesChanged": [
+        "/test/file-1763693485715.ts"
+      ],
+      "size": 1556,
+      "compressed": false
+    },
+    {
+      "id": "2f8bc7ba-c608-44b4-b3ff-d4646ad964da",
+      "timestamp": "2025-11-21T02:51:25.713Z",
+      "description": "Test checkpoint",
+      "filesChanged": [
+        "/test/file-1763693485713.ts"
+      ],
+      "size": 550,
+      "compressed": false
+    },
+    {
+      "id": "b2ad9d11-2c00-4dfd-8d29-67676008c472",
+      "timestamp": "2025-11-21T02:51:25.711Z",
+      "description": "Test checkpoint",
+      "filesChanged": [
+        "/test/file-1763693485711.ts"
+      ],
+      "size": 550,
+      "compressed": false
+    }
+  ],
+  "stats": {
+    "totalCount": 5,
+    "totalSize": 5203,
+    "compressedCount": 0,
+    "oldestDate": "2025-11-21T02:51:25.711Z",
+    "newestDate": "2025-11-21T02:51:25.719Z"
+  },
+  "lastUpdated": "2025-11-21T02:51:25.721Z"
+}

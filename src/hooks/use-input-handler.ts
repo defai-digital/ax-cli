@@ -10,6 +10,7 @@ import { ProjectAnalyzer } from "../utils/project-analyzer.js";
 import { InstructionGenerator } from "../utils/instruction-generator.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
 import { getHistoryManager } from "../utils/history-manager.js";
+import { handleRewindCommand, handleCheckpointsCommand, handleCheckpointCleanCommand } from "../commands/rewind.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -200,6 +201,9 @@ export function useInputHandler({
     { command: "/clear", description: "Clear chat history" },
     { command: "/init", description: "Initialize project with smart analysis" },
     { command: "/usage", description: "Show API usage statistics" },
+    { command: "/rewind", description: "Rewind to previous checkpoint" },
+    { command: "/checkpoints", description: "List checkpoint statistics" },
+    { command: "/checkpoint-clean", description: "Clean old checkpoints" },
     { command: "/commit-and-push", description: "AI commit & push to remote" },
     { command: "/exit", description: "Exit the application" },
   ];
@@ -545,6 +549,11 @@ Built-in Commands:
   /exit       - Exit application
   exit, quit  - Exit application
 
+Checkpoint Commands:
+  /rewind            - Rewind to a previous checkpoint (interactive)
+  /checkpoints       - Show checkpoint statistics
+  /checkpoint-clean  - Clean old checkpoints (compress and prune)
+
 Git Commands:
   /commit-and-push - AI-generated commit + push to remote
 
@@ -649,6 +658,24 @@ Examples:
 
     if (trimmedInput === "/exit") {
       process.exit(0);
+      return true;
+    }
+
+    if (trimmedInput === "/rewind") {
+      await handleRewindCommand(agent);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/checkpoints") {
+      await handleCheckpointsCommand();
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/checkpoint-clean") {
+      await handleCheckpointCleanCommand();
+      clearInput();
       return true;
     }
 

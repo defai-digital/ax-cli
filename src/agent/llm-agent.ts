@@ -22,6 +22,8 @@ import { ContextManager } from "./context-manager.js";
 import { buildSystemPrompt } from "../utils/prompt-builder.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
 import { extractErrorMessage } from "../utils/error-handler.js";
+import { getCheckpointManager, CheckpointManager } from "../checkpoint/index.js";
+import { SubagentOrchestrator } from "./subagent-orchestrator.js";
 
 export interface ChatEntry {
   type: "user" | "assistant" | "tool_result" | "tool_call";
@@ -61,6 +63,8 @@ export class LLMAgent extends EventEmitter {
   private abortController: AbortController | null = null;
   private maxToolRounds: number;
   private recentToolCalls: Map<string, number> = new Map(); // Track recent tool calls to detect loops
+  private checkpointManager: CheckpointManager;
+  private subagentOrchestrator: SubagentOrchestrator;
 
   constructor(
     apiKey: string,
@@ -85,6 +89,24 @@ export class LLMAgent extends EventEmitter {
     this.search = new SearchTool();
     this.tokenCounter = createTokenCounter(modelToUse);
     this.contextManager = new ContextManager({ model: modelToUse });
+    this.checkpointManager = getCheckpointManager();
+    this.subagentOrchestrator = new SubagentOrchestrator(5);
+
+    // Wire up checkpoint callback for automatic checkpoint creation
+    this.textEditor.setCheckpointCallback(async (files, description) => {
+      await this.checkpointManager.createCheckpoint({
+        files,
+        conversationState: this.chatHistory,
+        description,
+        metadata: {
+          model: this.llmClient.getCurrentModel(),
+          triggeredBy: 'auto',
+        },
+      });
+    });
+
+    // Initialize checkpoint manager
+    this.initializeCheckpointManager();
 
     // Initialize MCP servers if configured
     this.initializeMCP();
@@ -99,6 +121,23 @@ export class LLMAgent extends EventEmitter {
     this.messages.push({
       role: "system",
       content: `${systemPrompt}\n\nCurrent working directory: ${process.cwd()}`,
+    });
+  }
+
+  private initializeCheckpointManager(): void {
+    // Initialize checkpoint manager in the background
+    Promise.resolve().then(async () => {
+      try {
+        await this.checkpointManager.initialize();
+        this.emit('system', 'Checkpoint system initialized');
+      } catch (error) {
+        const errorMsg = extractErrorMessage(error);
+        console.warn("Checkpoint initialization failed:", errorMsg);
+        this.emit('system', `Checkpoint initialization failed: ${errorMsg}`);
+      }
+    }).catch((error) => {
+      const errorMsg = extractErrorMessage(error);
+      console.warn("Unexpected error during checkpoint initialization:", errorMsg);
     });
   }
 
@@ -1143,6 +1182,244 @@ export class LLMAgent extends EventEmitter {
   }
 
   /**
+   * Create a checkpoint of current state
+   */
+  async createCheckpoint(description?: string): Promise<string> {
+    const files: Array<{ path: string; content: string }> = [];
+
+    // For now, we don't capture file state automatically
+    // This can be enhanced to capture modified files from tool calls
+
+    const checkpointId = await this.checkpointManager.createCheckpoint({
+      files,
+      conversationState: this.chatHistory,
+      description: description || 'Manual checkpoint',
+      metadata: {
+        model: this.llmClient.getCurrentModel(),
+        triggeredBy: 'user',
+      },
+    });
+
+    return checkpointId;
+  }
+
+  /**
+   * Rewind conversation to a checkpoint
+   */
+  async rewindConversation(checkpointId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const conversationState = await this.checkpointManager.getConversationState(checkpointId);
+
+      if (!conversationState) {
+        return {
+          success: false,
+          error: `Checkpoint ${checkpointId} not found`,
+        };
+      }
+
+      // Restore conversation state
+      this.chatHistory = [...conversationState];
+
+      // Rebuild messages array from chat history
+      this.messages = [this.messages[0]]; // Keep system message
+
+      for (const entry of conversationState) {
+        if (entry.type === 'user') {
+          this.messages.push({
+            role: 'user',
+            content: entry.content,
+          });
+        } else if (entry.type === 'assistant') {
+          this.messages.push({
+            role: 'assistant',
+            content: entry.content,
+            tool_calls: entry.toolCalls,
+          } as LLMMessage);
+        } else if (entry.type === 'tool_result' && entry.toolCall) {
+          this.messages.push({
+            role: 'tool',
+            content: entry.content,
+            tool_call_id: entry.toolCall.id,
+          });
+        }
+      }
+
+      this.emit('system', `Conversation rewound to checkpoint ${checkpointId}`);
+
+      return { success: true };
+    } catch (error: unknown) {
+      const errorMsg = extractErrorMessage(error);
+      return {
+        success: false,
+        error: `Failed to rewind: ${errorMsg}`,
+      };
+    }
+  }
+
+  /**
+   * Get checkpoint manager instance
+   */
+  getCheckpointManager(): CheckpointManager {
+    return this.checkpointManager;
+  }
+
+  /**
+   * Get subagent orchestrator instance
+   */
+  getSubagentOrchestrator(): SubagentOrchestrator {
+    return this.subagentOrchestrator;
+  }
+
+  /**
+   * Spawn a specialized subagent for a specific task
+   * This is a user-facing method that simplifies subagent usage
+   *
+   * @param role - The role/specialization of the subagent
+   * @param description - Task description
+   * @param context - Optional additional context
+   * @returns The result of the subagent execution
+   */
+  async spawnSubagent(
+    role: string,
+    description: string,
+    context?: {
+      files?: string[];
+      additionalContext?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    output: string;
+    filesModified?: string[];
+    filesCreated?: string[];
+    error?: string;
+  }> {
+    try {
+      // Import SubagentRole from subagent-types
+      const { SubagentRole } = await import('./subagent-types.js');
+
+      // Convert string role to SubagentRole enum
+      const roleMap: Record<string, any> = {
+        'testing': SubagentRole.TESTING,
+        'documentation': SubagentRole.DOCUMENTATION,
+        'refactoring': SubagentRole.REFACTORING,
+        'analysis': SubagentRole.ANALYSIS,
+        'debug': SubagentRole.DEBUG,
+        'performance': SubagentRole.PERFORMANCE,
+        'general': SubagentRole.GENERAL,
+      };
+
+      const subagentRole = roleMap[role.toLowerCase()] || SubagentRole.GENERAL;
+
+      // Spawn the subagent
+      const subagent = await this.subagentOrchestrator.spawnSubagent(subagentRole);
+
+      // Execute the task
+      const result = await subagent.executeTask({
+        id: `task-${Date.now()}`,
+        description,
+        role: subagentRole,
+        priority: 1,
+        context: {
+          files: context?.files || [],
+          conversationHistory: this.chatHistory.slice(-10), // Last 10 messages
+          metadata: {
+            workingDirectory: process.cwd(),
+            additionalContext: context?.additionalContext,
+          },
+        },
+      });
+
+      return {
+        success: result.success,
+        output: result.output,
+        filesModified: result.filesModified,
+        filesCreated: result.filesCreated,
+        error: result.error,
+      };
+    } catch (error: unknown) {
+      const errorMsg = extractErrorMessage(error);
+      return {
+        success: false,
+        output: '',
+        error: `Failed to spawn subagent: ${errorMsg}`,
+      };
+    }
+  }
+
+  /**
+   * Execute multiple tasks in parallel using subagents
+   * This automatically handles dependency resolution and parallel execution
+   *
+   * @param tasks - Array of tasks with role and description
+   * @returns Array of results from all tasks
+   */
+  async executeParallelTasks(tasks: Array<{
+    role: string;
+    description: string;
+    dependencies?: string[];
+    id?: string;
+  }>): Promise<Array<{
+    taskId: string;
+    success: boolean;
+    output: string;
+    filesModified?: string[];
+    filesCreated?: string[];
+    error?: string;
+  }>> {
+    try {
+      // Import SubagentRole and SubagentTask
+      const { SubagentRole } = await import('./subagent-types.js');
+
+      const roleMap: Record<string, any> = {
+        'testing': SubagentRole.TESTING,
+        'documentation': SubagentRole.DOCUMENTATION,
+        'refactoring': SubagentRole.REFACTORING,
+        'analysis': SubagentRole.ANALYSIS,
+        'debug': SubagentRole.DEBUG,
+        'performance': SubagentRole.PERFORMANCE,
+        'general': SubagentRole.GENERAL,
+      };
+
+      // Convert tasks to SubagentTask format
+      const subagentTasks = tasks.map((task, index) => ({
+        id: task.id || `task-${index}-${Date.now()}`,
+        description: task.description,
+        role: roleMap[task.role.toLowerCase()] || SubagentRole.GENERAL,
+        priority: 1,
+        context: {
+          files: [],
+          conversationHistory: this.chatHistory.slice(-10),
+          metadata: {
+            workingDirectory: process.cwd(),
+          },
+        },
+        dependencies: task.dependencies || [],
+      }));
+
+      // Execute all tasks in parallel with dependency resolution
+      const results = await this.subagentOrchestrator.executeParallel(subagentTasks);
+
+      // Convert results to simpler format
+      return results.map(result => ({
+        taskId: result.taskId,
+        success: result.success,
+        output: result.output,
+        filesModified: result.filesModified,
+        filesCreated: result.filesCreated,
+        error: result.error,
+      }));
+    } catch (error: unknown) {
+      const errorMsg = extractErrorMessage(error);
+      return [{
+        taskId: 'error',
+        success: false,
+        output: '',
+        error: `Failed to execute parallel tasks: ${errorMsg}`,
+      }];
+    }
+  }
+
+  /**
    * Dispose of resources and remove event listeners
    * Call this when the agent is no longer needed
    */
@@ -1154,5 +1431,9 @@ export class LLMAgent extends EventEmitter {
       this.abortController.abort();
       this.abortController = null;
     }
+    // Terminate all subagents
+    this.subagentOrchestrator.terminateAll().catch((error) => {
+      console.warn('Error terminating subagents:', error);
+    });
   }
 }

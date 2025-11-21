@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Box, Text } from "ink";
 import { LLMAgent, ChatEntry } from "../../agent/llm-agent.js";
 import { useInputHandler } from "../../hooks/use-input-handler.js";
@@ -39,7 +39,8 @@ function ChatInterfaceWithAgent({
   initialMessage?: string;
   loadPreviousHistory?: boolean;
 }) {
-  const historyManager = getHistoryManager();
+  // Memoize history manager to avoid unnecessary function calls on every render
+  const historyManager = useMemo(() => getHistoryManager(), []);
   const [chatHistory, setChatHistory] = useState<ChatEntry[]>(() => {
     // Load saved history on mount (for --continue flag)
     return loadPreviousHistory ? historyManager.loadHistory() : [];

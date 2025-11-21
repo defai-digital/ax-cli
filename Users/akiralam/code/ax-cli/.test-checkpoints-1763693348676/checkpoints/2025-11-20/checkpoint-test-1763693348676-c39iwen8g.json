@@ -1,0 +1,25 @@
+{
+  "id": "test-1763693348676-c39iwen8g",
+  "timestamp": "2025-11-21T02:49:08.676Z",
+  "description": "Test checkpoint",
+  "files": [
+    {
+      "path": "/test/file.ts",
+      "content": "test file content",
+      "hash": "60f5237ed4049f0382661ef009d2bc42e48c3ceb3edb6600f7024e7ab3b838f3",
+      "size": 17
+    }
+  ],
+  "conversationState": [
+    {
+      "type": "user",
+      "content": "Test message",
+      "timestamp": "2025-11-21T02:49:08.676Z"
+    }
+  ],
+  "metadata": {
+    "model": "glm-4.6",
+    "triggeredBy": "test",
+    "compressed": false
+  }
+}

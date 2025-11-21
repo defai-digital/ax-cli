@@ -20,9 +20,15 @@ async function checkFileExists(filePath: string): Promise<ToolResult | null> {
   return null;
 }
 
+/**
+ * Callback for creating checkpoints before file modifications
+ */
+export type CheckpointCallback = (files: Array<{ path: string; content: string }>, description: string) => Promise<void>;
+
 export class TextEditorTool {
   private editHistory: EditorCommand[] = [];
   private confirmationService = ConfirmationService.getInstance();
+  private checkpointCallback?: CheckpointCallback;
 
   async view(
     filePath: string,
@@ -178,6 +184,9 @@ export class TextEditorTool {
         };
       }
 
+      // Create checkpoint before modification
+      await this.createCheckpointIfNeeded(filePath, 'str_replace');
+
       // Write the new content to file
       await writeFilePromise(resolvedPath, newContent, "utf-8");
 
@@ -227,6 +236,9 @@ export class TextEditorTool {
           error: "File creation cancelled by user",
         };
       }
+
+      // Create checkpoint before modification (will skip if file doesn't exist)
+      await this.createCheckpointIfNeeded(filePath, 'create');
 
       const dir = path.dirname(resolvedPath);
       await fs.ensureDir(dir);
@@ -312,6 +324,9 @@ export class TextEditorTool {
           };
         }
       }
+
+      // Create checkpoint before modification
+      await this.createCheckpointIfNeeded(filePath, 'replace_lines');
 
       const replacementLines = newContent.split("\n");
       lines.splice(startLine - 1, endLine - startLine + 1, ...replacementLines);
@@ -716,5 +731,37 @@ export class TextEditorTool {
 
   getEditHistory(): EditorCommand[] {
     return [...this.editHistory];
+  }
+
+  /**
+   * Set checkpoint callback for automatic checkpoint creation before file modifications
+   */
+  setCheckpointCallback(callback: CheckpointCallback): void {
+    this.checkpointCallback = callback;
+  }
+
+  /**
+   * Create checkpoint before modifying a file
+   */
+  private async createCheckpointIfNeeded(filePath: string, operation: string): Promise<void> {
+    if (!this.checkpointCallback) {
+      return;
+    }
+
+    try {
+      const resolvedPath = path.resolve(filePath);
+
+      // Read current file content if it exists
+      if (await fs.pathExists(resolvedPath)) {
+        const content = await fs.readFile(resolvedPath, "utf-8");
+        await this.checkpointCallback(
+          [{ path: filePath, content }],
+          `Before ${operation}: ${filePath}`
+        );
+      }
+    } catch (error) {
+      // Don't fail the operation if checkpoint creation fails
+      console.warn(`Failed to create checkpoint: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 }

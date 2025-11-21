@@ -1,0 +1,22 @@
+{
+  "checkpoints": [
+    {
+      "id": "test-1763676490850-g94r87wgb",
+      "timestamp": "2025-11-20T22:08:10.850Z",
+      "description": "Test checkpoint",
+      "filesChanged": [
+        "/test/file.ts"
+      ],
+      "compressed": false,
+      "size": 558
+    }
+  ],
+  "stats": {
+    "totalCount": 1,
+    "totalSize": 558,
+    "compressedCount": 0,
+    "oldestDate": "2025-11-20T22:08:10.850Z",
+    "newestDate": "2025-11-20T22:08:10.850Z"
+  },
+  "lastUpdated": "2025-11-20T22:08:10.850Z"
+}
