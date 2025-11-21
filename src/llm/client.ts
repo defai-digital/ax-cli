@@ -202,7 +202,7 @@ export class LLMClient {
    * Consolidates duplicate payload building logic
    */
   private buildRequestPayload(
-    model: SupportedModel,
+    model: string, // Accept string to support custom models (e.g., Ollama)
     messages: LLMMessage[],
     tools: LLMTool[] | undefined,
     temperature: number,

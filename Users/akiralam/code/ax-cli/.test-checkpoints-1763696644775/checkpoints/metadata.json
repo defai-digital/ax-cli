@@ -1,0 +1,32 @@
+{
+  "checkpoints": [
+    {
+      "id": "test-1763696644775-m9vrwdztz",
+      "timestamp": "2025-11-21T03:44:04.775Z",
+      "description": "Test checkpoint",
+      "filesChanged": [
+        "/test/file.ts"
+      ],
+      "size": 558,
+      "compressed": false
+    },
+    {
+      "id": "test-1763696644775-p9llfya2l",
+      "timestamp": "2025-11-21T03:44:04.775Z",
+      "description": "Test checkpoint",
+      "filesChanged": [
+        "/test/file.ts"
+      ],
+      "size": 558,
+      "compressed": false
+    }
+  ],
+  "stats": {
+    "totalCount": 2,
+    "totalSize": 1116,
+    "compressedCount": 0,
+    "oldestDate": "2025-11-21T03:44:04.775Z",
+    "newestDate": "2025-11-21T03:44:04.775Z"
+  },
+  "lastUpdated": "2025-11-21T03:44:04.778Z"
+}

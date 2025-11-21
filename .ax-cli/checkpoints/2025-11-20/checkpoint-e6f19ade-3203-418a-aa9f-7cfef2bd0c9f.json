@@ -1,10 +1,10 @@
 {
-  "id": "9e317301-fea3-4d5c-a272-f6b1d1b977be",
-  "timestamp": "2025-11-21T03:08:29.383Z",
+  "id": "e6f19ade-3203-418a-aa9f-7cfef2bd0c9f",
+  "timestamp": "2025-11-21T03:44:04.935Z",
   "description": "Test checkpoint",
   "files": [
     {
-      "path": "/test/file-1763694509383.ts",
+      "path": "/test/file-1763696644935.ts",
       "content": "test content",
       "hash": "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72",
       "size": 12
@@ -14,52 +14,52 @@
     {
       "type": "user",
       "content": "Message 10",
-      "timestamp": "2025-11-21T03:08:29.383Z"
+      "timestamp": "2025-11-21T03:44:04.935Z"
     },
     {
       "type": "user",
       "content": "Message 11",
-      "timestamp": "2025-11-21T03:08:29.383Z"
+      "timestamp": "2025-11-21T03:44:04.935Z"
     },
     {
       "type": "user",
       "content": "Message 12",
-      "timestamp": "2025-11-21T03:08:29.383Z"
+      "timestamp": "2025-11-21T03:44:04.935Z"
     },
     {
       "type": "user",
       "content": "Message 13",
-      "timestamp": "2025-11-21T03:08:29.383Z"
+      "timestamp": "2025-11-21T03:44:04.935Z"
     },
     {
       "type": "user",
       "content": "Message 14",
-      "timestamp": "2025-11-21T03:08:29.383Z"
+      "timestamp": "2025-11-21T03:44:04.935Z"
     },
     {
       "type": "user",
       "content": "Message 15",
-      "timestamp": "2025-11-21T03:08:29.383Z"
+      "timestamp": "2025-11-21T03:44:04.935Z"
     },
     {
       "type": "user",
       "content": "Message 16",
-      "timestamp": "2025-11-21T03:08:29.383Z"
+      "timestamp": "2025-11-21T03:44:04.935Z"
     },
     {
       "type": "user",
       "content": "Message 17",
-      "timestamp": "2025-11-21T03:08:29.383Z"
+      "timestamp": "2025-11-21T03:44:04.935Z"
     },
     {
       "type": "user",
       "content": "Message 18",
-      "timestamp": "2025-11-21T03:08:29.383Z"
+      "timestamp": "2025-11-21T03:44:04.935Z"
     },
     {
       "type": "user",
       "content": "Message 19",
-      "timestamp": "2025-11-21T03:08:29.383Z"
+      "timestamp": "2025-11-21T03:44:04.935Z"
     }
   ],
   "metadata": {

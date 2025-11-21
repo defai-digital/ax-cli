@@ -148,11 +148,11 @@ export class SettingsManager {
 
       const mergedSettings = { ...existingSettings, ...settings };
 
-      // Use json-utils for consistent writing
+      // Use json-utils for consistent writing with schema validation
       const writeResult = writeJsonFile(
         this.userSettingsPath,
         mergedSettings,
-        undefined, // no schema
+        UserSettingsSchema, // validate before writing
         true // pretty
       );
 
@@ -272,11 +272,11 @@ export class SettingsManager {
 
       const mergedSettings = { ...existingSettings, ...settings };
 
-      // Use json-utils for consistent writing
+      // Use json-utils for consistent writing with schema validation
       const writeResult = writeJsonFile(
         this.projectSettingsPath,
         mergedSettings,
-        undefined, // no schema
+        ProjectSettingsSchema, // validate before writing
         true // pretty
       );
 

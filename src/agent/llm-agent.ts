@@ -440,6 +440,12 @@ export class LLMAgent extends EventEmitter {
             });
           }
 
+          // Apply context pruning after adding tool results to prevent overflow
+          // Tool results can be very large (file reads, grep output, etc.)
+          if (this.contextManager.shouldPrune(this.messages, this.tokenCounter)) {
+            this.messages = this.contextManager.pruneMessages(this.messages, this.tokenCounter);
+          }
+
           // Get next response - this might contain more tool calls
           currentResponse = await this.llmClient.chat(
             this.messages,
@@ -804,6 +810,12 @@ export class LLMAgent extends EventEmitter {
           : result.error || "Error",
         tool_call_id: toolCall.id,
       });
+    }
+
+    // Apply context pruning after adding tool results to prevent overflow
+    // Tool results can be very large (file reads, grep output, etc.)
+    if (this.contextManager.shouldPrune(this.messages, this.tokenCounter)) {
+      this.messages = this.contextManager.pruneMessages(this.messages, this.tokenCounter);
     }
 
     // Update token count after processing all tool calls

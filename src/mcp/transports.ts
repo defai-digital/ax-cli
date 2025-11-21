@@ -1,6 +1,5 @@
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { ChildProcess } from "child_process";
 import { EventEmitter } from "events";
 import axios, { AxiosInstance } from "axios";
 
@@ -23,7 +22,6 @@ export interface MCPTransport {
 
 export class StdioTransport implements MCPTransport {
   private transport?: StdioClientTransport;
-  private process?: ChildProcess;
   private command: string;
   private args: string[];
   private env?: Record<string, string>;
@@ -59,14 +57,15 @@ export class StdioTransport implements MCPTransport {
   }
 
   async disconnect(): Promise<void> {
+    // Handle transport cleanup with error handling to ensure process cleanup runs
     if (this.transport) {
-      await this.transport.close();
-      this.transport = undefined;
-    }
-
-    if (this.process) {
-      this.process.kill();
-      this.process = undefined;
+      try {
+        await this.transport.close();
+      } catch (error) {
+        console.warn('Error closing stdio transport:', error);
+      } finally {
+        this.transport = undefined;
+      }
     }
   }
 

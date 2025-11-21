@@ -128,11 +128,23 @@ export class HistoryManager {
       // Handle both old format (array) and new format (object with metadata)
       const historyData = Array.isArray(parsed) ? parsed : parsed.history || [];
 
+      // Validate that historyData is actually an array
+      if (!Array.isArray(historyData)) {
+        console.warn("Invalid history file format: history data is not an array");
+        return [];
+      }
+
       // Deserialize (convert ISO strings back to Date objects)
-      const history: ChatEntry[] = historyData.map((entry: any) => ({
-        ...entry,
-        timestamp: new Date(entry.timestamp),
-      }));
+      // Filter out any invalid entries instead of crashing
+      const history: ChatEntry[] = historyData
+        .filter((entry: any) => {
+          // Basic validation: must be object with required fields
+          return entry && typeof entry === 'object' && entry.type && entry.timestamp;
+        })
+        .map((entry: any) => ({
+          ...entry,
+          timestamp: new Date(entry.timestamp),
+        }));
 
       return history;
     } catch (error) {
