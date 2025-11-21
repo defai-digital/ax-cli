@@ -14,6 +14,11 @@ export class HistoryManager {
   private maxHistoryEntries: number;
   private currentProjectDir?: string;
 
+  /** Expose projectDir for singleton management */
+  get projectDir(): string | undefined {
+    return this.currentProjectDir;
+  }
+
   constructor(
     baseDir: string = path.join(os.homedir(), ".ax-cli"),
     maxEntries: number = 50,
@@ -201,14 +206,18 @@ let historyManagerInstance: HistoryManager | null = null;
  * @param force Force create new instance (useful for --continue flag)
  */
 export function getHistoryManager(projectDir?: string, force = false): HistoryManager {
-  if (force || !historyManagerInstance) {
+  // Check if projectDir changed - need to create new instance for different project
+  const needsNewInstance = force || !historyManagerInstance ||
+    (projectDir && historyManagerInstance.projectDir !== projectDir);
+
+  if (needsNewInstance) {
     historyManagerInstance = new HistoryManager(
       path.join(os.homedir(), ".ax-cli"),
       50,
       projectDir
     );
   }
-  return historyManagerInstance;
+  return historyManagerInstance!;
 }
 
 /**

@@ -131,14 +131,14 @@ export const PLANNER_CONFIG = {
   /** Create checkpoints before each phase */
   AUTO_CHECKPOINT: true,
 
-  /** Require plan approval before executing */
-  REQUIRE_PLAN_APPROVAL: true,
+  /** Require plan approval before executing - false for Claude Code-style seamless execution */
+  REQUIRE_PLAN_APPROVAL: false,
 
   /** Require approval for high-risk phases */
   REQUIRE_HIGH_RISK_APPROVAL: true,
 
-  /** Auto-approve low-risk phases */
-  AUTO_APPROVE_LOW_RISK: false,
+  /** Auto-approve low-risk phases - true for Claude Code-style seamless execution */
+  AUTO_APPROVE_LOW_RISK: true,
 
   /** Prune context between phases */
   PRUNE_AFTER_PHASE: true,
@@ -151,4 +151,10 @@ export const PLANNER_CONFIG = {
 
   /** Auto-cleanup old plans */
   AUTO_CLEANUP: true,
+
+  /** Silent mode - use TodoWrite instead of explicit phase announcements */
+  SILENT_MODE: true,
+
+  /** Show detailed phase info only in verbose mode */
+  VERBOSE_PHASES: false,
 } as const;

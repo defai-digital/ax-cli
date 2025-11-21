@@ -135,17 +135,26 @@ export async function getChangedFiles(
         continue;
       }
 
-      // Apply filters
+      // Apply filters - convert glob patterns to proper regex
+      const globToRegex = (pattern: string): RegExp => {
+        // Escape special regex chars except * and ?, then convert glob wildcards
+        const escaped = pattern
+          .replace(/[.+^${}()|[\]\\]/g, '\\$&')  // Escape regex special chars
+          .replace(/\*/g, '.*')                   // * -> .*
+          .replace(/\?/g, '.');                   // ? -> .
+        return new RegExp(`^${escaped}$`);
+      };
+
       if (config.include && config.include.length > 0) {
         const matches = config.include.some((pattern) =>
-          new RegExp(pattern.replace(/\*/g, '.*')).test(filePath)
+          globToRegex(pattern).test(filePath)
         );
         if (!matches) continue;
       }
 
       if (config.exclude && config.exclude.length > 0) {
         const excluded = config.exclude.some((pattern) =>
-          new RegExp(pattern.replace(/\*/g, '.*')).test(filePath)
+          globToRegex(pattern).test(filePath)
         );
         if (excluded) continue;
       }

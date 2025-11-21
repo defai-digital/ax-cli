@@ -82,8 +82,10 @@ export function QuickActions({ isVisible, onSelect, onClose }: QuickActionsProps
       }
 
       if (key.return) {
-        if (filteredActions.length > 0) {
-          onSelect(filteredActions[selectedIndex].command);
+        // Bounds check to prevent crash if selectedIndex is stale
+        const safeIndex = Math.min(selectedIndex, filteredActions.length - 1);
+        if (filteredActions.length > 0 && safeIndex >= 0) {
+          onSelect(filteredActions[safeIndex].command);
         }
         return;
       }

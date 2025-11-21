@@ -516,6 +516,7 @@ export class LLMAgent extends EventEmitter {
 
   /**
    * Generate and execute a plan for a complex request
+   * Uses TodoWrite for Claude Code-style seamless progress display
    */
   async *processWithPlanning(
     message: string
@@ -529,11 +530,13 @@ export class LLMAgent extends EventEmitter {
     this.chatHistory.push(userEntry);
     this.messages.push({ role: "user", content: message });
 
-    // Generate plan
-    yield {
-      type: "content",
-      content: "📋 **Analyzing request and creating execution plan...**\n\n",
-    };
+    // Silent mode: no explicit banner, just start working
+    if (!PLANNER_CONFIG.SILENT_MODE) {
+      yield {
+        type: "content",
+        content: "📋 **Analyzing request and creating execution plan...**\n\n",
+      };
+    }
 
     try {
       // Generate plan using LLM
@@ -569,11 +572,23 @@ export class LLMAgent extends EventEmitter {
       // Emit plan created event
       this.emit("plan:created", { plan });
 
-      // Display plan summary
-      yield {
-        type: "content",
-        content: this.formatPlanSummary(plan),
-      };
+      // Create TodoWrite items for phases (Claude Code-style progress)
+      if (PLANNER_CONFIG.SILENT_MODE) {
+        // Use TodoWrite to show phases as natural todo items
+        const todoItems = plan.phases.map((phase, index) => ({
+          id: `phase-${index}`,
+          content: phase.name,
+          status: index === 0 ? "in_progress" as const : "pending" as const,
+          priority: phase.riskLevel === "high" ? "high" as const : "medium" as const,
+        }));
+        await this.todoTool.createTodoList(todoItems);
+      } else {
+        // Display explicit plan summary
+        yield {
+          type: "content",
+          content: this.formatPlanSummary(plan),
+        };
+      }
 
       // Execute phases one by one with progress updates
       const phaseResults: PhaseResult[] = [];
@@ -584,11 +599,19 @@ export class LLMAgent extends EventEmitter {
         const phase = plan.phases[i];
         plan.currentPhaseIndex = i;
 
-        // Show phase starting
-        yield {
-          type: "content",
-          content: `\n**⏳ Phase ${i + 1}/${plan.phases.length}: ${phase.name}**\n`,
-        };
+        if (PLANNER_CONFIG.SILENT_MODE) {
+          // Update TodoWrite: mark current phase as in_progress
+          await this.todoTool.updateTodoList([{
+            id: `phase-${i}`,
+            status: "in_progress",
+          }]);
+        } else {
+          // Show explicit phase starting banner
+          yield {
+            type: "content",
+            content: `\n**⏳ Phase ${i + 1}/${plan.phases.length}: ${phase.name}**\n`,
+          };
+        }
 
         // Execute the phase
         const context = {
@@ -603,27 +626,46 @@ export class LLMAgent extends EventEmitter {
 
         // Report phase result
         if (result.success) {
-          yield {
-            type: "content",
-            content: `✓ Phase ${i + 1} completed (${Math.ceil(result.duration / 1000)}s)\n`,
-          };
-          if (result.filesModified.length > 0) {
+          if (PLANNER_CONFIG.SILENT_MODE) {
+            // Update TodoWrite: mark phase as completed
+            await this.todoTool.updateTodoList([{
+              id: `phase-${i}`,
+              status: "completed",
+            }]);
+          } else {
             yield {
               type: "content",
-              content: `  Files modified: ${result.filesModified.join(", ")}\n`,
+              content: `✓ Phase ${i + 1} completed (${Math.ceil(result.duration / 1000)}s)\n`,
             };
+            if (result.filesModified.length > 0) {
+              yield {
+                type: "content",
+                content: `  Files modified: ${result.filesModified.join(", ")}\n`,
+              };
+            }
           }
         } else {
-          yield {
-            type: "content",
-            content: `✕ Phase ${i + 1} failed: ${result.error}\n`,
-          };
-          // Continue with next phase unless abort strategy
-          if (phase.fallbackStrategy === "abort") {
+          if (PLANNER_CONFIG.SILENT_MODE) {
+            // Update TodoWrite: mark phase as failed (update content to show failure)
+            await this.todoTool.updateTodoList([{
+              id: `phase-${i}`,
+              status: "completed", // Mark as done even if failed
+              content: `${phase.name} (failed)`,
+            }]);
+          } else {
             yield {
               type: "content",
-              content: `\n⚠️ Plan aborted due to phase failure.\n`,
+              content: `✕ Phase ${i + 1} failed: ${result.error}\n`,
             };
+          }
+          // Continue with next phase unless abort strategy
+          if (phase.fallbackStrategy === "abort") {
+            if (!PLANNER_CONFIG.SILENT_MODE) {
+              yield {
+                type: "content",
+                content: `\n⚠️ Plan aborted due to phase failure.\n`,
+              };
+            }
             break;
           }
         }
@@ -655,11 +697,27 @@ export class LLMAgent extends EventEmitter {
         warnings,
       };
 
-      // Report final results
-      yield {
-        type: "content",
-        content: this.formatPlanResult(planResult),
-      };
+      // Report final results (silent mode shows minimal output)
+      if (!PLANNER_CONFIG.SILENT_MODE) {
+        yield {
+          type: "content",
+          content: this.formatPlanResult(planResult),
+        };
+      } else {
+        // Brief completion message in silent mode
+        const successCount = phaseResults.filter(r => r.success).length;
+        if (successCount === phaseResults.length) {
+          yield {
+            type: "content",
+            content: `\n✓ All ${phaseResults.length} tasks completed successfully.\n`,
+          };
+        } else {
+          yield {
+            type: "content",
+            content: `\n⚠️ ${successCount}/${phaseResults.length} tasks completed. Check todo list for details.\n`,
+          };
+        }
+      }
 
       // Emit plan completed event
       this.emit("plan:completed", { plan, result: planResult });

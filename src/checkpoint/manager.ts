@@ -11,6 +11,7 @@
 
 import crypto from 'crypto';
 import * as fs from 'fs/promises';
+import path from 'path';
 import { CheckpointStorage, calculateHash } from './storage.js';
 import type {
   Checkpoint,
@@ -115,6 +116,9 @@ export class CheckpointManager {
     // Restore files
     for (const snapshot of checkpoint.files) {
       try {
+        // Ensure parent directory exists before writing
+        const parentDir = path.dirname(snapshot.path);
+        await fs.mkdir(parentDir, { recursive: true });
         await fs.writeFile(snapshot.path, snapshot.content, 'utf-8');
         filesRestored.push(snapshot.path);
       } catch (error: any) {
