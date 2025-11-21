@@ -106,20 +106,26 @@ export class ConfirmationService extends EventEmitter {
 
     // Create a promise that will be resolved by the UI component
     // Add a timeout to prevent hanging indefinitely
+    // Use resolved flag to prevent race condition between timeout and user action
+    const resolvedState = { resolved: false };
     this.pendingConfirmation = new Promise<ConfirmationResult>((resolve) => {
-      this.resolveConfirmation = resolve;
+      const safeResolve = (result: ConfirmationResult) => {
+        if (resolvedState.resolved) return; // Already resolved, ignore
+        resolvedState.resolved = true;
+        resolve(result);
+      };
+
+      this.resolveConfirmation = safeResolve;
 
       // Set a timeout of 60 seconds for confirmation
       this.confirmationTimeoutId = setTimeout(() => {
-        if (this.resolveConfirmation) {
-          this.resolveConfirmation({
-            confirmed: false,
-            feedback: 'Confirmation timeout - auto-rejected after 60 seconds'
-          });
-          this.resolveConfirmation = null;
-          this.pendingConfirmation = null;
-          this.confirmationTimeoutId = null;
-        }
+        safeResolve({
+          confirmed: false,
+          feedback: 'Confirmation timeout - auto-rejected after 60 seconds'
+        });
+        this.resolveConfirmation = null;
+        this.pendingConfirmation = null;
+        this.confirmationTimeoutId = null;
       }, 60000); // 60 second timeout
     });
 

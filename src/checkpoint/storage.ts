@@ -22,6 +22,8 @@ export class CheckpointStorage {
   private storageDir: string;
   private indexPath: string;
   private index: CheckpointIndex | null = null;
+  /** Lock to prevent concurrent index operations */
+  private indexLock: Promise<void> | null = null;
 
   constructor(baseDir: string = '.ax-cli') {
     // If baseDir is absolute, use it directly. Otherwise, resolve relative to cwd
@@ -152,6 +154,20 @@ export class CheckpointStorage {
   }
 
   private async loadIndex(): Promise<boolean> {
+    // Wait for any pending index operation to complete
+    if (this.indexLock) {
+      await this.indexLock;
+    }
+
+    // If index is already loaded, return true
+    if (this.index) {
+      return true;
+    }
+
+    // Create lock for this load operation
+    let unlock: () => void = () => {};
+    this.indexLock = new Promise<void>(resolve => { unlock = resolve; });
+
     try {
       const content = await fs.readFile(this.indexPath, 'utf-8');
       const data = JSON.parse(content);
@@ -182,6 +198,9 @@ export class CheckpointStorage {
         lastUpdated: new Date(),
       };
       return false; // File didn't exist, created new index
+    } finally {
+      unlock();
+      this.indexLock = null;
     }
   }
 

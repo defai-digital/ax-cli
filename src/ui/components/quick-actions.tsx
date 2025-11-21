@@ -31,6 +31,8 @@ const QUICK_ACTIONS: QuickAction[] = [
   { command: "/commit-and-push", label: "Commit", description: "AI commit & push to remote", category: "tools" },
   { command: "/rewind", label: "Rewind", description: "Rewind to previous checkpoint", category: "tools" },
   { command: "/checkpoints", label: "Checkpoints", description: "Show checkpoint statistics", category: "tools" },
+  { command: "/memory", label: "Memory", description: "Show project memory status", category: "tools" },
+  { command: "/memory warmup", label: "Memory Warmup", description: "Generate project memory", category: "tools" },
 
   // Help
   { command: "/help", label: "Help", description: "Show all available commands", category: "help" },

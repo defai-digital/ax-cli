@@ -23,6 +23,11 @@ import {
 } from "../commands/plan.js";
 import { BashOutputTool } from "../tools/bash-output.js";
 import { getKeyboardShortcutGuideText } from "../ui/components/keyboard-hints.js";
+import {
+  getContextStore,
+  ContextGenerator,
+  getStatsCollector,
+} from "../memory/index.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -295,6 +300,9 @@ export function useInputHandler({
     { command: "/resume", description: "Resume paused plan" },
     { command: "/skip", description: "Skip current phase" },
     { command: "/abandon", description: "Abandon current plan" },
+    { command: "/memory", description: "Show project memory status" },
+    { command: "/memory warmup", description: "Generate project memory" },
+    { command: "/memory refresh", description: "Update project memory" },
     { command: "/exit", description: "Exit the application" },
   ];
 
@@ -703,6 +711,11 @@ Plan Commands (Multi-Phase Task Planning):
 Git Commands:
   /commit-and-push - AI-generated commit + push to remote
 
+Memory Commands (z.ai GLM-4.6 caching):
+  /memory          - Show project memory status
+  /memory warmup   - Generate project memory context
+  /memory refresh  - Update memory after changes
+
 Enhanced Input Features:
   ↑/↓ Arrow   - Navigate command history
   Ctrl+C      - Clear input (press twice to exit)
@@ -819,6 +832,184 @@ Examples:
 
     if (trimmedInput === "/exit") {
       process.exit(0);
+      return true;
+    }
+
+    // Memory commands
+    if (trimmedInput === "/memory" || trimmedInput === "/memory status") {
+      const store = getContextStore();
+      const metadata = store.getMetadata();
+
+      let memoryContent = "🧠 **Project Memory Status**\n\n";
+
+      if (!metadata.exists) {
+        memoryContent += "❌ No project memory found.\n\n";
+        memoryContent += "Run `/memory warmup` to generate project memory for z.ai caching.\n";
+      } else {
+        memoryContent += `✅ Memory initialized\n\n`;
+        memoryContent += `**Token Estimate:** ${metadata.tokenEstimate?.toLocaleString() || 'N/A'} tokens\n`;
+        memoryContent += `**Last Updated:** ${metadata.updatedAt ? new Date(metadata.updatedAt).toLocaleString() : 'N/A'}\n`;
+        memoryContent += `**Usage Count:** ${metadata.usageCount || 0}\n`;
+
+        // Try to get section breakdown
+        const loadResult = store.load();
+        if (loadResult.success) {
+          const sections = loadResult.data.context.sections;
+          memoryContent += `\n**📊 Token Distribution:**\n`;
+          const total = Object.values(sections).reduce((a, b) => a + b, 0);
+          for (const [name, tokens] of Object.entries(sections)) {
+            const pct = total > 0 ? Math.round((tokens / total) * 100) : 0;
+            const bar = '█'.repeat(Math.round(pct / 5)) + '░'.repeat(20 - Math.round(pct / 5));
+            memoryContent += `   ${bar}  ${name.charAt(0).toUpperCase() + name.slice(1)}  (${pct}%)\n`;
+          }
+        }
+
+        // Show cache stats if available
+        const statsCollector = getStatsCollector();
+        const formattedStats = statsCollector.getFormattedStats();
+        if (formattedStats && formattedStats.usageCount > 0) {
+          memoryContent += `\n**💾 Cache Statistics:**\n`;
+          memoryContent += `   • Usage Count: ${formattedStats.usageCount}\n`;
+          memoryContent += `   • Tokens Saved: ${formattedStats.tokensSaved.toLocaleString()}\n`;
+          memoryContent += `   • Cache Rate: ${formattedStats.cacheRate}%\n`;
+          memoryContent += `   • Est. Savings: $${formattedStats.estimatedSavings.toFixed(4)}\n`;
+        }
+      }
+
+      const memoryEntry: ChatEntry = {
+        type: "assistant",
+        content: memoryContent,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, memoryEntry]);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/memory warmup") {
+      setIsProcessing(true);
+
+      const warmupEntry: ChatEntry = {
+        type: "assistant",
+        content: "🔄 Generating project memory...",
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, warmupEntry]);
+
+      try {
+        const generator = new ContextGenerator();
+        const result = await generator.generate();
+
+        if (result.success) {
+          const store = getContextStore();
+          const saveResult = store.save(result.memory!);
+
+          if (saveResult.success) {
+            const sections = result.memory!.context.sections;
+            let resultContent = `✅ Project memory generated (${result.memory!.context.token_estimate.toLocaleString()} tokens)\n\n`;
+            resultContent += `**📊 Context breakdown:**\n`;
+            for (const [name, tokens] of Object.entries(sections)) {
+              const tokenCount = tokens as number;
+              const pct = Math.round((tokenCount / result.memory!.context.token_estimate) * 100);
+              resultContent += `   ${name.charAt(0).toUpperCase() + name.slice(1)}: ${tokenCount.toLocaleString()} tokens (${pct}%)\n`;
+            }
+            resultContent += `\n💾 Saved to .ax-cli/memory.json`;
+
+            setChatHistory((prev) => {
+              const updated = [...prev];
+              updated[updated.length - 1] = {
+                type: "assistant",
+                content: resultContent,
+                timestamp: new Date(),
+              };
+              return updated;
+            });
+          } else {
+            throw new Error(saveResult.error);
+          }
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (error: any) {
+        setChatHistory((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            type: "assistant",
+            content: `❌ Failed to generate memory: ${error.message}`,
+            timestamp: new Date(),
+          };
+          return updated;
+        });
+      }
+
+      setIsProcessing(false);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/memory refresh") {
+      setIsProcessing(true);
+
+      const refreshEntry: ChatEntry = {
+        type: "assistant",
+        content: "🔄 Refreshing project memory...",
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, refreshEntry]);
+
+      try {
+        const store = getContextStore();
+        const existing = store.load();
+        const generator = new ContextGenerator();
+        const result = await generator.generate();
+
+        if (result.success) {
+          const hasChanges = !existing.success ||
+            existing.data.content_hash !== result.memory!.content_hash;
+
+          if (hasChanges) {
+            const saveResult = store.save(result.memory!);
+            if (saveResult.success) {
+              setChatHistory((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                  type: "assistant",
+                  content: `✅ Memory updated (${result.memory!.context.token_estimate.toLocaleString()} tokens)`,
+                  timestamp: new Date(),
+                };
+                return updated;
+              });
+            } else {
+              throw new Error(saveResult.error);
+            }
+          } else {
+            setChatHistory((prev) => {
+              const updated = [...prev];
+              updated[updated.length - 1] = {
+                type: "assistant",
+                content: `✅ No changes detected - memory is up to date`,
+                timestamp: new Date(),
+              };
+              return updated;
+            });
+          }
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (error: any) {
+        setChatHistory((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            type: "assistant",
+            content: `❌ Failed to refresh memory: ${error.message}`,
+            timestamp: new Date(),
+          };
+          return updated;
+        });
+      }
+
+      setIsProcessing(false);
+      clearInput();
       return true;
     }
 

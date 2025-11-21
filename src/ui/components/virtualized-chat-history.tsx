@@ -286,10 +286,12 @@ export const VirtualizedChatHistory = React.memo(
         {/* Render visible entries */}
         {visibleEntries.map((entry, index) => {
           // Use original index for key stability
+          // Include content hash to ensure uniqueness even for entries created in same millisecond
           const originalIndex = filteredEntries.length - visibleEntries.length + index;
+          const contentHash = entry.content?.slice(0, 20) || entry.type;
           return (
             <MemoizedChatEntry
-              key={`${entry.timestamp.getTime()}-${originalIndex}`}
+              key={`${entry.timestamp?.getTime?.() || Date.now()}-${originalIndex}-${contentHash}`}
               entry={entry}
               index={originalIndex}
             />
