@@ -78,10 +78,10 @@ const MemoizedChatEntry = React.memo(
               <Box flexDirection="column" flexGrow={1}>
                 {entry.toolCalls ? (
                   // If there are tool calls, just show plain text
-                  <Text color="white">{entry.content.trim()}</Text>
+                  <Text color="white">{entry.content?.trim() ?? ""}</Text>
                 ) : (
                   // If no tool calls, render as markdown
-                  <MarkdownRenderer content={entry.content.trim()} />
+                  <MarkdownRenderer content={entry.content?.trim() ?? ""} />
                 )}
                 {entry.isStreaming && <Text color="cyan">█</Text>}
                 {/* Show response duration if available */}
