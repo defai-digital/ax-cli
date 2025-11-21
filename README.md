@@ -56,6 +56,10 @@ ax-cli
 - **✅ Production-Ready**: 98%+ test coverage, TypeScript strict mode, Zod validation
 - **🎯 Interactive & Headless**: Chat interface or one-shot commands
 - **📝 Smart Project Init**: Automatic project analysis and custom instructions
+- **🧠 Project Memory** (NEW): Intelligent context caching for z.ai GLM-4.6
+  - Automatic project scanning and context generation
+  - z.ai implicit caching support (50% token savings on repeated context)
+  - Cache statistics tracking and efficiency monitoring
 - **🔄 Auto-Update**: Built-in update checker and installer
 
 ### Max Tokens Configuration
@@ -122,6 +126,7 @@ ax-cli  # Will prompt for API key on first run
 - **User Settings**: `~/.ax-cli/config.json`
 - **Project Settings**: `.ax-cli/settings.json`
 - **Custom Instructions**: `.ax-cli/CUSTOM.md`
+- **Project Memory**: `.ax-cli/memory.json` (auto-generated)
 
 [Configuration Guide →](docs/configuration.md)
 
@@ -340,6 +345,74 @@ ax-cli mcp remove linear
 
 [MCP Integration Guide →](docs/mcp.md)
 
+## 🧠 Project Memory (NEW)
+
+Project Memory enables intelligent context caching for z.ai GLM-4.6, reducing token costs and improving response consistency:
+
+```bash
+# Initialize project memory (scans codebase)
+ax-cli memory warmup
+
+# Output:
+# ✓ Project memory generated (3,305 tokens)
+#
+# 📊 Context breakdown:
+#    Structure:  1,252 tokens (38%)
+#    README:     1,111 tokens (34%)
+#    Config:       835 tokens (25%)
+#    Patterns:      99 tokens (3%)
+```
+
+### How It Works
+
+1. **Warmup**: Scans your project structure, README, configs, and detects architecture patterns
+2. **Auto-Injection**: Memory context is automatically prepended to system prompts
+3. **z.ai Caching**: Identical prompt prefixes are automatically cached by z.ai (50% token savings)
+4. **Statistics**: Track cache efficiency with `ax-cli memory cache-stats`
+
+### Memory Commands
+
+```bash
+ax-cli memory warmup        # Create project memory
+ax-cli memory refresh       # Update after changes
+ax-cli memory status        # Show memory status & token distribution
+ax-cli memory clear         # Remove project memory
+ax-cli memory cache-stats   # Show cache efficiency statistics
+
+# Options
+ax-cli memory warmup -d 5           # Custom scan depth (1-10)
+ax-cli memory warmup -m 12000       # Custom max tokens
+ax-cli memory warmup --dry-run      # Preview without saving
+ax-cli memory status --verbose      # Show full context
+ax-cli memory status --json         # JSON output
+```
+
+### Token Distribution Visualization
+
+```
+📊 Token Distribution:
+   ████████░░░░░░░░░░░░  Structure  (38%)
+   ███████░░░░░░░░░░░░░  README     (34%)
+   █████░░░░░░░░░░░░░░░  Config     (25%)
+   █░░░░░░░░░░░░░░░░░░░  Patterns   (3%)
+```
+
+### Recommended Workflow
+
+```bash
+# 1. Initialize project (if not done)
+ax-cli init
+
+# 2. Create project memory
+ax-cli memory warmup
+
+# 3. Use ax-cli normally - memory is auto-injected
+ax-cli -p "refactor authentication module"
+
+# 4. After major changes, refresh memory
+ax-cli memory refresh
+```
+
 ## 🎯 Multi-Phase Task Planner (v3.0.0)
 
 AX CLI now includes an intelligent multi-phase task planner that automatically decomposes complex requests:
@@ -404,6 +477,7 @@ AX CLI implements enterprise-grade architecture with:
 - [Usage](docs/usage.md) - Comprehensive usage guide
 - [CLI Reference](docs/cli-reference.md) - Command-line interface reference
 - [MCP Integration](docs/mcp.md) - Model Context Protocol guide
+- [Project Memory](automatosx/prd/project-memory-prd.md) - Project memory feature specification
 - [Architecture](docs/architecture.md) - Technical architecture details
 - [Development](docs/development.md) - Development and contribution guide
 - [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions

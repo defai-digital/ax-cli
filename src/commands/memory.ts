@@ -1,5 +1,6 @@
 /**
  * Memory command for managing custom instructions (CUSTOM.md)
+ * and project memory (memory.json) for z.ai GLM-4.6 caching
  */
 
 import { Command } from 'commander';
@@ -10,6 +11,14 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { parseJsonFile } from '../utils/json-utils.js';
 import { TOKEN_CONFIG } from '../constants.js';
+import {
+  ContextGenerator,
+  ContextStore,
+  StatsCollector,
+  type WarmupOptions,
+  type RefreshOptions,
+  type StatusOptions,
+} from '../memory/index.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -20,8 +29,342 @@ const VALID_EDITOR_PATTERN = /^[a-zA-Z0-9._-]+$/;
 
 export function createMemoryCommand(): Command {
   const memoryCommand = new Command('memory')
-    .description('Manage custom instructions (CUSTOM.md)')
+    .description('Manage project memory and custom instructions')
     .alias('mem');
+
+  // ============================================
+  // PROJECT MEMORY COMMANDS (NEW)
+  // ============================================
+
+  // Warmup - Create project memory
+  memoryCommand
+    .command('warmup')
+    .description('Scan project and create reusable context for GLM caching')
+    .option('-d, --depth <n>', 'Directory scan depth (1-10)', '3')
+    .option('-m, --max-tokens <n>', 'Maximum context tokens', '8000')
+    .option('-v, --verbose', 'Show detailed scan progress', false)
+    .option('--dry-run', 'Preview without saving', false)
+    .action(async (options: {
+      depth?: string;
+      maxTokens?: string;
+      verbose?: boolean;
+      dryRun?: boolean;
+    }) => {
+      try {
+        const warmupOptions: WarmupOptions = {
+          depth: Math.min(10, Math.max(1, parseInt(options.depth || '3', 10))),
+          maxTokens: parseInt(options.maxTokens || '8000', 10),
+          verbose: options.verbose,
+          dryRun: options.dryRun,
+        };
+
+        console.log('🔄 Scanning project...\n');
+
+        const generator = new ContextGenerator(process.cwd());
+        const result = await generator.generate(warmupOptions);
+
+        if (!result.success || !result.memory) {
+          console.error(`❌ Failed to generate context: ${result.error}`);
+          if (result.warnings && result.warnings.length > 0) {
+            console.error('\n⚠️  Warnings:');
+            result.warnings.forEach(w => console.error(`   - ${w}`));
+          }
+          process.exit(1);
+        }
+
+        const memory = result.memory;
+
+        // Display results
+        console.log(`✓ Project memory generated (${memory.context.token_estimate.toLocaleString()} tokens)\n`);
+
+        console.log('📊 Context breakdown:');
+        const sections = memory.context.sections;
+        const total = memory.context.token_estimate;
+
+        if (sections.structure) {
+          const pct = Math.round((sections.structure / total) * 100);
+          console.log(`   Structure:  ${sections.structure.toLocaleString().padStart(5)} tokens (${pct}%)`);
+        }
+        if (sections.readme) {
+          const pct = Math.round((sections.readme / total) * 100);
+          console.log(`   README:     ${sections.readme.toLocaleString().padStart(5)} tokens (${pct}%)`);
+        }
+        if (sections.config) {
+          const pct = Math.round((sections.config / total) * 100);
+          console.log(`   Config:     ${sections.config.toLocaleString().padStart(5)} tokens (${pct}%)`);
+        }
+        if (sections.patterns) {
+          const pct = Math.round((sections.patterns / total) * 100);
+          console.log(`   Patterns:   ${sections.patterns.toLocaleString().padStart(5)} tokens (${pct}%)`);
+        }
+
+        // Show warnings
+        if (result.warnings && result.warnings.length > 0) {
+          console.log('\n⚠️  Warnings:');
+          result.warnings.forEach(w => console.log(`   - ${w}`));
+        }
+
+        if (options.dryRun) {
+          console.log('\n📝 Dry-run mode - no files written');
+          if (options.verbose) {
+            console.log('\n--- Generated Context ---');
+            console.log(memory.context.formatted);
+            console.log('--- End Context ---');
+          }
+          return;
+        }
+
+        // Save to disk
+        const store = new ContextStore(process.cwd());
+        const saveResult = store.save(memory);
+
+        if (!saveResult.success) {
+          console.error(`\n❌ Failed to save: ${saveResult.error}`);
+          process.exit(1);
+        }
+
+        console.log(`\n✅ Saved to .ax-cli/memory.json`);
+        console.log('\n💡 This context will be automatically included in ax plan/think/spec');
+        console.log('   z.ai will cache identical content for faster responses\n');
+      } catch (error) {
+        console.error('❌ Error during warmup:', error instanceof Error ? error.message : 'Unknown error');
+        process.exit(1);
+      }
+    });
+
+  // Refresh - Update project memory
+  memoryCommand
+    .command('refresh')
+    .description('Update project memory with latest changes')
+    .option('-v, --verbose', 'Show change details', false)
+    .option('-f, --force', 'Force refresh even if unchanged', false)
+    .action(async (options: RefreshOptions) => {
+      try {
+        const store = new ContextStore(process.cwd());
+
+        if (!store.exists()) {
+          console.error('❌ No project memory found');
+          console.error('   Run: ax memory warmup');
+          process.exit(1);
+        }
+
+        const previousResult = store.load();
+        if (!previousResult.success) {
+          console.error(`❌ Failed to load existing memory: ${previousResult.error}`);
+          process.exit(1);
+        }
+
+        const previousMemory = previousResult.data;
+        const previousTokens = previousMemory.context.token_estimate;
+
+        console.log('🔄 Refreshing project memory...\n');
+
+        const generator = new ContextGenerator(process.cwd());
+        const result = await generator.generate({ verbose: options.verbose });
+
+        if (!result.success || !result.memory) {
+          console.error(`❌ Failed to regenerate: ${result.error}`);
+          process.exit(1);
+        }
+
+        const newMemory = result.memory;
+
+        // Check if changed
+        if (newMemory.content_hash === previousMemory.content_hash && !options.force) {
+          console.log('✓ No changes detected');
+          console.log(`   Current: ${previousTokens.toLocaleString()} tokens`);
+          console.log('\n💡 Use --force to regenerate anyway\n');
+          return;
+        }
+
+        // Preserve stats from previous memory
+        newMemory.stats = previousMemory.stats;
+
+        const saveResult = store.save(newMemory);
+        if (!saveResult.success) {
+          console.error(`❌ Failed to save: ${saveResult.error}`);
+          process.exit(1);
+        }
+
+        const diff = newMemory.context.token_estimate - previousTokens;
+        const diffStr = diff >= 0 ? `+${diff}` : `${diff}`;
+
+        console.log('✓ Project memory updated');
+        console.log(`   Previous: ${previousTokens.toLocaleString()} tokens`);
+        console.log(`   Current:  ${newMemory.context.token_estimate.toLocaleString()} tokens (${diffStr})\n`);
+      } catch (error) {
+        console.error('❌ Error during refresh:', error instanceof Error ? error.message : 'Unknown error');
+        process.exit(1);
+      }
+    });
+
+  // Status - Show project memory status
+  memoryCommand
+    .command('status')
+    .description('Show project memory status and statistics')
+    .option('-v, --verbose', 'Show full context content', false)
+    .option('--json', 'Output as JSON', false)
+    .action(async (options: StatusOptions) => {
+      try {
+        const store = new ContextStore(process.cwd());
+
+        if (!store.exists()) {
+          console.log('📦 Project Memory: Not initialized\n');
+          console.log('💡 Run: ax memory warmup\n');
+          return;
+        }
+
+        const result = store.load();
+        if (!result.success) {
+          console.error(`❌ Failed to load: ${result.error}`);
+          process.exit(1);
+        }
+
+        const memory = result.data;
+
+        if (options.json) {
+          console.log(JSON.stringify(memory, null, 2));
+          return;
+        }
+
+        console.log('📦 Project Memory Status\n');
+        console.log(`   Created:  ${new Date(memory.created_at).toLocaleString()}`);
+        console.log(`   Updated:  ${new Date(memory.updated_at).toLocaleString()}`);
+        console.log(`   Context:  ${memory.context.token_estimate.toLocaleString()} tokens`);
+        console.log(`   Hash:     ${memory.content_hash.slice(0, 20)}...`);
+
+        // Show section breakdown
+        console.log('\n📊 Token Distribution:');
+        const sections = memory.context.sections;
+        const total = memory.context.token_estimate;
+
+        const formatBar = (tokens: number | undefined, label: string) => {
+          if (!tokens) return;
+          const pct = Math.round((tokens / total) * 100);
+          const barLen = Math.round(pct / 5);
+          const bar = '█'.repeat(barLen) + '░'.repeat(20 - barLen);
+          console.log(`   ${bar}  ${label.padEnd(10)} (${pct}%)`);
+        };
+
+        formatBar(sections.structure, 'Structure');
+        formatBar(sections.readme, 'README');
+        formatBar(sections.config, 'Config');
+        formatBar(sections.patterns, 'Patterns');
+
+        // Show stats if available
+        if (memory.stats) {
+          const statsCollector = new StatsCollector(process.cwd());
+          const formatted = statsCollector.getFormattedStats();
+          if (formatted) {
+            console.log('\n' + formatted.text);
+          }
+        }
+
+        if (options.verbose) {
+          console.log('\n--- Full Context ---');
+          console.log(memory.context.formatted);
+          console.log('--- End Context ---');
+        }
+
+        console.log('');
+      } catch (error) {
+        console.error('❌ Error getting status:', error instanceof Error ? error.message : 'Unknown error');
+        process.exit(1);
+      }
+    });
+
+  // Clear - Remove project memory
+  memoryCommand
+    .command('clear')
+    .description('Remove project memory')
+    .option('-y, --yes', 'Skip confirmation', false)
+    .action(async (options: { yes?: boolean }) => {
+      try {
+        const store = new ContextStore(process.cwd());
+
+        if (!store.exists()) {
+          console.log('✓ No project memory to clear\n');
+          return;
+        }
+
+        if (!options.yes) {
+          const confirmed = await prompts.confirm({
+            message: 'Remove project memory? (This does not affect custom instructions)',
+            initialValue: false,
+          });
+
+          if (prompts.isCancel(confirmed) || !confirmed) {
+            console.log('Operation cancelled.');
+            return;
+          }
+        }
+
+        const result = store.clear();
+        if (!result.success) {
+          console.error(`❌ Failed to clear: ${result.error}`);
+          process.exit(1);
+        }
+
+        console.log('✓ Project memory cleared\n');
+      } catch (error) {
+        console.error('❌ Error clearing memory:', error instanceof Error ? error.message : 'Unknown error');
+        process.exit(1);
+      }
+    });
+
+  // Cache stats - Show cache efficiency
+  memoryCommand
+    .command('cache-stats')
+    .description('Show GLM cache efficiency statistics')
+    .option('--reset', 'Reset statistics', false)
+    .action(async (options: { reset?: boolean }) => {
+      try {
+        const store = new ContextStore(process.cwd());
+
+        if (!store.exists()) {
+          console.log('📦 No project memory found\n');
+          console.log('💡 Run: ax memory warmup\n');
+          return;
+        }
+
+        const statsCollector = new StatsCollector(process.cwd());
+
+        if (options.reset) {
+          const success = statsCollector.resetStats();
+          if (success) {
+            console.log('✓ Cache statistics reset\n');
+          } else {
+            console.error('❌ Failed to reset statistics');
+            process.exit(1);
+          }
+          return;
+        }
+
+        const formatted = statsCollector.getFormattedStats();
+        if (!formatted) {
+          console.log('📊 No cache statistics available yet\n');
+          console.log('💡 Statistics are collected when using ax plan/think/spec\n');
+          return;
+        }
+
+        console.log(formatted.text);
+
+        // Check cache health
+        const healthWarning = statsCollector.checkCacheHealth();
+        if (healthWarning) {
+          console.log(`\n⚠️  ${healthWarning}`);
+        }
+
+        console.log('');
+      } catch (error) {
+        console.error('❌ Error getting cache stats:', error instanceof Error ? error.message : 'Unknown error');
+        process.exit(1);
+      }
+    });
+
+  // ============================================
+  // CUSTOM INSTRUCTIONS COMMANDS (EXISTING)
+  // ============================================
 
   // Show current custom instructions
   memoryCommand

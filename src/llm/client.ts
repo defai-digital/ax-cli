@@ -350,6 +350,25 @@ export class LLMClient {
       if (llmResponse.usage) {
         const tracker = getUsageTracker();
         tracker.trackUsage(model, llmResponse.usage);
+
+        // Track memory cache stats if cached_tokens available
+        const cachedTokens = (llmResponse.usage as any).prompt_tokens_details?.cached_tokens;
+        if (cachedTokens !== undefined && cachedTokens > 0 && llmResponse.usage) {
+          // Lazy import to avoid circular dependencies - fire and forget but safe
+          const promptTokens = llmResponse.usage.prompt_tokens;
+          import('../memory/index.js')
+            .then(({ getStatsCollector }) => {
+              try {
+                const statsCollector = getStatsCollector();
+                statsCollector.recordResponse(promptTokens, cachedTokens);
+              } catch {
+                // Silently ignore stats recording errors
+              }
+            })
+            .catch(() => {
+              // Silently ignore if memory module not available
+            });
+        }
       }
 
       return llmResponse;

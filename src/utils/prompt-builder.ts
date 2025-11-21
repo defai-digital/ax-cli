@@ -1,18 +1,35 @@
 /**
  * System Prompt Builder
  * Builds AI assistant prompts from YAML configuration
+ * Integrates project memory for z.ai GLM-4.6 caching
  */
 
 import { loadPromptsConfig, type PromptSection } from './config-loader.js';
+import { getContextInjector } from '../memory/index.js';
 
 /**
  * Build the system prompt for the AI assistant
+ * @param options.customInstructions - Custom instructions from CUSTOM.md
+ * @param options.includeMemory - Whether to include project memory (default: true)
  */
 export function buildSystemPrompt(options: {
   customInstructions?: string;
+  includeMemory?: boolean;
 }): string {
   const config = loadPromptsConfig();
   const sections: string[] = [];
+
+  // Project Memory Context (prepended for z.ai caching)
+  // This should be first and consistent to maximize cache hits
+  const includeMemory = options.includeMemory !== false;
+  if (includeMemory) {
+    const injector = getContextInjector();
+    const memoryContext = injector.getContext();
+    if (memoryContext) {
+      sections.push(memoryContext);
+      sections.push('\n---\n');
+    }
+  }
 
   // Identity
   sections.push(config.system_prompt.identity);

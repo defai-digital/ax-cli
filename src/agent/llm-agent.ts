@@ -1409,18 +1409,23 @@ export class LLMAgent extends EventEmitter {
    * Add assistant message to history and conversation
    */
   private addAssistantMessage(accumulatedMessage: any): void {
+    // Safely extract tool_calls with proper validation
+    const toolCalls = Array.isArray(accumulatedMessage.tool_calls)
+      ? (accumulatedMessage.tool_calls as LLMToolCall[])
+      : undefined;
+
     const assistantEntry: ChatEntry = {
       type: "assistant",
       content: (accumulatedMessage.content as string) || "Using tools to help you...",
       timestamp: new Date(),
-      toolCalls: accumulatedMessage.tool_calls as LLMToolCall[] ?? undefined,
+      toolCalls,
     };
     this.chatHistory.push(assistantEntry);
 
     this.messages.push({
       role: "assistant",
       content: (accumulatedMessage.content as string) || "",
-      tool_calls: accumulatedMessage.tool_calls as LLMToolCall[],
+      tool_calls: toolCalls,
     } as LLMMessage);
 
     // Apply context pruning after adding message to prevent overflow
