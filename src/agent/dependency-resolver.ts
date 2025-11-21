@@ -137,12 +137,15 @@ export class DependencyResolver {
 
     // Process queue
     const result: string[] = [];
+    // Create task lookup map for O(1) access
+    const taskMap = new Map(tasks.map(t => [t.id, t]));
     while (queue.length > 0) {
       // Sort by priority before processing
       queue.sort((a, b) => {
-        const taskA = tasks.find(t => t.id === a);
-        const taskB = tasks.find(t => t.id === b);
-        return (taskB?.priority || 0) - (taskA?.priority || 0);
+        const taskA = taskMap.get(a);
+        const taskB = taskMap.get(b);
+        // Default to 0 priority if task not found (shouldn't happen in valid input)
+        return (taskB?.priority ?? 0) - (taskA?.priority ?? 0);
       });
 
       const nodeId = queue.shift()!;

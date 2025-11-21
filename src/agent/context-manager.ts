@@ -74,6 +74,15 @@ export class ContextManager {
     // Perform full cache cleanup if cache is getting too large
     if (this.tokenCache.size > this.MAX_CACHE_SIZE) {
       this.cleanupCache();
+      // If still over limit after cleanup, evict oldest entries (LRU-style)
+      if (this.tokenCache.size > this.MAX_CACHE_SIZE) {
+        const entriesToRemove = this.tokenCache.size - this.MAX_CACHE_SIZE + 10; // Remove 10 extra for headroom
+        const sortedEntries = Array.from(this.tokenCache.entries())
+          .sort((a, b) => a[1].timestamp - b[1].timestamp);
+        for (let i = 0; i < entriesToRemove && i < sortedEntries.length; i++) {
+          this.tokenCache.delete(sortedEntries[i][0]);
+        }
+      }
     }
 
     // Count tokens and cache result

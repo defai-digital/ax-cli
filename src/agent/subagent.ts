@@ -279,17 +279,21 @@ export class Subagent extends EventEmitter {
 
             // Track files created/modified
             if (toolCall.function.name === 'text_editor' && toolResult.success) {
-              const args = JSON.parse(toolCall.function.arguments);
-              if (args.path) {
-                if (args.command === 'create') {
-                  if (!result.filesCreated!.includes(args.path)) {
-                    result.filesCreated!.push(args.path);
-                  }
-                } else {
-                  if (!result.filesModified!.includes(args.path)) {
-                    result.filesModified!.push(args.path);
+              try {
+                const args = JSON.parse(toolCall.function.arguments);
+                if (args.path) {
+                  if (args.command === 'create') {
+                    if (!result.filesCreated!.includes(args.path)) {
+                      result.filesCreated!.push(args.path);
+                    }
+                  } else {
+                    if (!result.filesModified!.includes(args.path)) {
+                      result.filesModified!.push(args.path);
+                    }
                   }
                 }
+              } catch {
+                // Ignore JSON parse errors for file tracking - non-critical
               }
             }
 
@@ -390,14 +394,31 @@ export class Subagent extends EventEmitter {
       };
     }
 
+    // Validate arguments exist before parsing
+    if (!toolCall.function.arguments || toolCall.function.arguments.trim() === '') {
+      return {
+        success: false,
+        error: `Tool '${toolName}' called with empty arguments`,
+      };
+    }
+
+    let args: any;
     try {
-      const args = JSON.parse(toolCall.function.arguments);
+      args = JSON.parse(toolCall.function.arguments);
+    } catch (parseError: any) {
+      return {
+        success: false,
+        error: `Failed to parse ${toolName} arguments: ${parseError.message}`,
+      };
+    }
+
+    try {
       const result = await tool.execute(args);
       return result;
     } catch (error: any) {
       return {
         success: false,
-        error: `Tool execution error: ${error.message}`,
+        error: `Tool execution error in ${toolName}: ${error.message}`,
       };
     }
   }

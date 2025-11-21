@@ -43,6 +43,8 @@ export class SubagentOrchestrator extends EventEmitter {
   private dependencyResolver: DependencyResolver;
   private activeCount: number;
   private config: OrchestratorConfig;
+  // Track event listeners for cleanup to prevent memory leaks
+  private subagentListeners: Map<string, Map<string, (...args: any[]) => void>>;
 
   constructor(config?: OrchestratorConfig) {
     super();
@@ -60,6 +62,7 @@ export class SubagentOrchestrator extends EventEmitter {
     this.results = new Map();
     this.dependencyResolver = new DependencyResolver();
     this.activeCount = 0;
+    this.subagentListeners = new Map();
   }
 
   /**
@@ -125,31 +128,48 @@ export class SubagentOrchestrator extends EventEmitter {
 
   /**
    * Forward events from subagent to orchestrator
+   * Stores listeners for proper cleanup to prevent memory leaks
    */
   private forwardSubagentEvents(id: string, subagent: Subagent): void {
-    subagent.on('task-started', (data) => {
+    // Create named handlers so we can remove them later
+    const handlers = new Map<string, (...args: any[]) => void>();
+
+    const taskStartedHandler = (data: any) => {
       this.activeCount++;
       this.emit('subagent-start', { subagentId: id, ...data });
-    });
+    };
+    handlers.set('task-started', taskStartedHandler);
+    subagent.on('task-started', taskStartedHandler);
 
-    subagent.on('task-completed', (data) => {
+    const taskCompletedHandler = (data: any) => {
       this.activeCount--;
       this.results.set(data.taskId, data.result);
       this.emit('subagent-complete', { subagentId: id, ...data });
-    });
+    };
+    handlers.set('task-completed', taskCompletedHandler);
+    subagent.on('task-completed', taskCompletedHandler);
 
-    subagent.on('task-failed', (data) => {
+    const taskFailedHandler = (data: any) => {
       this.activeCount--;
       this.emit('subagent-error', { subagentId: id, ...data });
-    });
+    };
+    handlers.set('task-failed', taskFailedHandler);
+    subagent.on('task-failed', taskFailedHandler);
 
-    subagent.on('progress', (data) => {
+    const progressHandler = (data: any) => {
       this.emit('subagent-progress', { subagentId: id, ...data });
-    });
+    };
+    handlers.set('progress', progressHandler);
+    subagent.on('progress', progressHandler);
 
-    subagent.on('tool-executed', (data) => {
+    const toolExecutedHandler = (data: any) => {
       this.emit('subagent-tool', { subagentId: id, ...data });
-    });
+    };
+    handlers.set('tool-executed', toolExecutedHandler);
+    subagent.on('tool-executed', toolExecutedHandler);
+
+    // Store handlers for cleanup
+    this.subagentListeners.set(id, handlers);
   }
 
   /**
@@ -290,11 +310,21 @@ export class SubagentOrchestrator extends EventEmitter {
 
   /**
    * Terminate a specific subagent by ID
+   * Properly removes event listeners to prevent memory leaks
    */
   async terminateSubagent(subagentId: string): Promise<void> {
     const subagent = this.subagents.get(subagentId);
     if (!subagent) {
       return; // Gracefully handle non-existent subagent
+    }
+
+    // Remove event listeners to prevent memory leaks
+    const handlers = this.subagentListeners.get(subagentId);
+    if (handlers) {
+      for (const [event, handler] of handlers) {
+        subagent.off(event, handler);
+      }
+      this.subagentListeners.delete(subagentId);
     }
 
     await subagent.terminate();
@@ -304,8 +334,20 @@ export class SubagentOrchestrator extends EventEmitter {
 
   /**
    * Terminate all subagents
+   * Properly removes all event listeners to prevent memory leaks
    */
   async terminateAll(): Promise<void> {
+    // Remove all event listeners before terminating
+    for (const [subagentId, subagent] of this.subagents) {
+      const handlers = this.subagentListeners.get(subagentId);
+      if (handlers) {
+        for (const [event, handler] of handlers) {
+          subagent.off(event, handler);
+        }
+      }
+    }
+    this.subagentListeners.clear();
+
     const terminatePromises = Array.from(this.subagents.values()).map(
       (subagent) => subagent.terminate()
     );

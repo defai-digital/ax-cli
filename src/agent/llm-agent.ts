@@ -243,8 +243,7 @@ export class LLMAgent extends EventEmitter {
       // Clean up old entries (keep only last N unique calls)
       if (this.recentToolCalls.size > AGENT_CONFIG.MAX_RECENT_TOOL_CALLS) {
         const firstKey = this.recentToolCalls.keys().next().value;
-        // Map.keys().next().value is guaranteed to exist when size > 0, but TypeScript doesn't know this
-        if (firstKey) {
+        if (firstKey !== undefined) {
           this.recentToolCalls.delete(firstKey);
         }
       }
