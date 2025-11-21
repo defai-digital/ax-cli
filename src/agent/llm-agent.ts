@@ -1,5 +1,5 @@
 import { LLMClient, LLMMessage, LLMToolCall, LLMTool } from "../llm/client.js";
-import type { GLM46StreamChunk, SamplingConfig, ChatOptions } from "../llm/types.js";
+import type { GLM46StreamChunk, SamplingConfig, ChatOptions, ThinkingConfig } from "../llm/types.js";
 import {
   getAllGrokTools,
   getMCPManager,
@@ -90,6 +90,8 @@ export class LLMAgent extends EventEmitter {
   private planningEnabled: boolean = PLANNER_CONFIG.ENABLED;
   /** Sampling configuration for deterministic/reproducible mode */
   private samplingConfig: SamplingConfig | undefined;
+  /** Thinking/reasoning mode configuration */
+  private thinkingConfig: ThinkingConfig | undefined;
 
   constructor(
     apiKey: string,
@@ -209,8 +211,8 @@ export class LLMAgent extends EventEmitter {
   }
 
   /**
-   * Build chat options with sampling configuration included
-   * Merges provided options with the agent's sampling config
+   * Build chat options with sampling and thinking configuration included
+   * Merges provided options with the agent's configurations
    */
   private buildChatOptions(options?: Partial<ChatOptions>): ChatOptions {
     const result: ChatOptions = { ...options };
@@ -218,6 +220,11 @@ export class LLMAgent extends EventEmitter {
     // Include sampling configuration if set and not overridden
     if (this.samplingConfig && !result.sampling) {
       result.sampling = this.samplingConfig;
+    }
+
+    // Include thinking configuration if set and not overridden
+    if (this.thinkingConfig && !result.thinking) {
+      result.thinking = this.thinkingConfig;
     }
 
     return result;
@@ -229,6 +236,21 @@ export class LLMAgent extends EventEmitter {
    */
   public setSamplingConfig(config: SamplingConfig | undefined): void {
     this.samplingConfig = config;
+  }
+
+  /**
+   * Set thinking/reasoning mode configuration for this agent session
+   * @param config Thinking configuration to apply (enabled/disabled)
+   */
+  public setThinkingConfig(config: ThinkingConfig | undefined): void {
+    this.thinkingConfig = config;
+  }
+
+  /**
+   * Get current thinking configuration
+   */
+  public getThinkingConfig(): ThinkingConfig | undefined {
+    return this.thinkingConfig;
   }
 
   /**

@@ -13,6 +13,11 @@ export const SamplingSettingsSchema = z.object({
   topP: z.number().min(0).max(1).optional(),
 }).optional();
 
+// Thinking Settings Schema (for GLM-4.6 reasoning mode)
+export const ThinkingSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+}).optional();
+
 // User Settings Schema
 export const UserSettingsSchema: z.ZodType<any> = z.object({
   apiKey: z.string().optional(),
@@ -28,6 +33,8 @@ export const UserSettingsSchema: z.ZodType<any> = z.object({
   }).optional(),
   // Sampling settings for deterministic/reproducible mode
   sampling: SamplingSettingsSchema,
+  // Thinking settings for GLM-4.6 reasoning mode
+  thinking: ThinkingSettingsSchema,
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Project Settings Schema

@@ -383,11 +383,19 @@ async function processPromptHeadless(
     lineRange?: string;
     gitDiff?: boolean;
     vscode?: boolean;
+    think?: boolean;
   }
 ): Promise<void> {
   let agent: LLMAgent | null = null;
   try {
     agent = new LLMAgent(apiKey, baseURL, model, maxToolRounds);
+
+    // Configure thinking mode if specified via CLI flag
+    if (options?.think === true) {
+      agent.setThinkingConfig({ type: "enabled" });
+    } else if (options?.think === false) {
+      agent.setThinkingConfig({ type: "disabled" });
+    }
 
     // Configure confirmation service for headless mode (auto-approve all operations)
     const confirmationService = ConfirmationService.getInstance();
@@ -525,6 +533,15 @@ program
     "-c, --continue",
     "continue the most recent conversation from the current directory"
   )
+  // Thinking/Reasoning Options
+  .option(
+    "--think",
+    "enable thinking/reasoning mode for complex tasks (GLM-4.6)"
+  )
+  .option(
+    "--no-think",
+    "disable thinking mode (use standard responses)"
+  )
   // Sampling/Reproducibility Options
   .option(
     "--deterministic",
@@ -617,6 +634,7 @@ program
             lineRange: options.lineRange,
             gitDiff: options.gitDiff,
             vscode: options.vscode,
+            think: options.think,
           }
         );
         return;
@@ -625,6 +643,13 @@ program
       // Interactive mode: launch UI
       const agent = new LLMAgent(apiKey, baseURL, model, maxToolRounds);
       activeAgent = agent; // Track for cleanup on exit
+
+      // Configure thinking mode if specified via CLI flag
+      if (options.think === true) {
+        agent.setThinkingConfig({ type: "enabled" });
+      } else if (options.think === false) {
+        agent.setThinkingConfig({ type: "disabled" });
+      }
 
       // Handle --continue flag: load directory-specific session
       if (options.continue) {
