@@ -5,6 +5,8 @@ import { homedir } from 'os';
 import enquirer from 'enquirer';
 import chalk from 'chalk';
 import { validateProviderSetup } from '../utils/setup-validator.js';
+import { parseJsonFile } from '../utils/json-utils.js';
+import type { UserSettings } from '../schemas/settings-schemas.js';
 
 /**
  * Provider configurations
@@ -68,6 +70,18 @@ const PROVIDERS: Record<string, ProviderConfig> = {
 };
 
 /**
+ * Determine provider key from baseURL
+ */
+function getProviderFromBaseURL(baseURL: string): string | null {
+  for (const [key, provider] of Object.entries(PROVIDERS)) {
+    if (provider.baseURL === baseURL) {
+      return key;
+    }
+  }
+  return null;
+}
+
+/**
  * Setup command - Initialize ~/.ax-cli/config.json with provider selection
  */
 export function createSetupCommand(): Command {
@@ -126,23 +140,81 @@ export function createSetupCommand(): Command {
 
         const selectedProvider = PROVIDERS[providerResponse.provider];
 
+        // Load existing config to check for existing API key
+        let existingConfig: UserSettings | null = null;
+        let existingProviderKey: string | null = null;
+
+        if (existsSync(configPath)) {
+          const parseResult = parseJsonFile<UserSettings>(configPath);
+          if (parseResult.success) {
+            existingConfig = parseResult.data;
+            // Determine which provider the existing config is using
+            if (existingConfig.baseURL) {
+              existingProviderKey = getProviderFromBaseURL(existingConfig.baseURL);
+            }
+          }
+        }
+
         // API Key prompt (if required)
         let apiKey = '';
         if (selectedProvider.requiresApiKey) {
-          console.log(chalk.dim(`\nGet your API key from: ${selectedProvider.website}\n`));
+          const isSameProvider = existingProviderKey === providerResponse.provider;
+          const hasExistingKey = existingConfig?.apiKey && existingConfig.apiKey.trim().length > 0;
 
-          const apiKeyResponse = await enquirer.prompt<{ apiKey: string }>({
-            type: 'password',
-            name: 'apiKey',
-            message: `Enter your ${selectedProvider.displayName} API key:`,
-            validate: (value: string) => {
-              if (!value || value.trim().length === 0) {
-                return 'API key is required';
-              }
-              return true;
+          // Same provider with existing API key - ask if they want to reuse it
+          if (isSameProvider && hasExistingKey) {
+            console.log(chalk.green(`\n✓ Found existing API key for ${selectedProvider.displayName}`));
+            console.log(chalk.dim(`   Key: ${existingConfig!.apiKey.substring(0, 8)}...${existingConfig!.apiKey.substring(existingConfig!.apiKey.length - 4)}\n`));
+
+            const reuseKeyResponse = await enquirer.prompt<{ reuseKey: boolean }>({
+              type: 'confirm',
+              name: 'reuseKey',
+              message: 'Use existing API key?',
+              initial: true
+            });
+
+            if (reuseKeyResponse.reuseKey) {
+              apiKey = existingConfig!.apiKey;
+              console.log(chalk.green('✓ Using existing API key'));
+            } else {
+              // Ask for new key
+              console.log(chalk.dim(`\nGet your API key from: ${selectedProvider.website}\n`));
+              const apiKeyResponse = await enquirer.prompt<{ apiKey: string }>({
+                type: 'password',
+                name: 'apiKey',
+                message: `Enter your new ${selectedProvider.displayName} API key:`,
+                validate: (value: string) => {
+                  if (!value || value.trim().length === 0) {
+                    return 'API key is required';
+                  }
+                  return true;
+                }
+              });
+              apiKey = apiKeyResponse.apiKey.trim();
             }
-          });
-          apiKey = apiKeyResponse.apiKey.trim();
+          }
+          // Different provider or no existing key - just ask for new key
+          else {
+            if (hasExistingKey && !isSameProvider && existingProviderKey) {
+              const previousProvider = PROVIDERS[existingProviderKey];
+              console.log(chalk.yellow(`\n⚠️  Switching from ${previousProvider?.displayName || 'previous provider'} to ${selectedProvider.displayName}`));
+            }
+
+            console.log(chalk.dim(`\nGet your API key from: ${selectedProvider.website}\n`));
+
+            const apiKeyResponse = await enquirer.prompt<{ apiKey: string }>({
+              type: 'password',
+              name: 'apiKey',
+              message: `Enter your ${selectedProvider.displayName} API key:`,
+              validate: (value: string) => {
+                if (!value || value.trim().length === 0) {
+                  return 'API key is required';
+                }
+                return true;
+              }
+            });
+            apiKey = apiKeyResponse.apiKey.trim();
+          }
         } else {
           console.log(chalk.green(`\n✓ ${selectedProvider.displayName} doesn't require an API key`));
         }
