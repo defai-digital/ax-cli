@@ -174,13 +174,18 @@ export class ConfirmationService extends EventEmitter {
   private async openInVSCode(filename: string): Promise<void> {
     // Try different VS Code commands
     const commands = ["code", "code-insiders", "codium"];
+    const isWindows = process.platform === "win32";
+    const whichCmd = isWindows ? "where" : "which";
 
     for (const cmd of commands) {
       try {
-        await execAsync(`which ${cmd}`);
+        await execAsync(`${whichCmd} ${cmd}`);
         // Properly escape filename to prevent command injection
-        // Replace single quotes with '\'' and wrap in single quotes
-        const escapedFilename = `'${filename.replace(/'/g, "'\\''")}'`;
+        // Replace single quotes with '\'' and wrap in single quotes (Unix)
+        // On Windows, use double quotes
+        const escapedFilename = isWindows
+          ? `"${filename.replace(/"/g, '\\"')}"`
+          : `'${filename.replace(/'/g, "'\\''")}'`;
         await execAsync(`${cmd} ${escapedFilename}`);
         return;
       } catch {

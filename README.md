@@ -42,6 +42,12 @@ ax-cli
   - 200K context window, 128K max output capability
   - 30% more token efficient than GLM 4.5
   - Optimized for complex code generation and refactoring
+- **🎯 Multi-Phase Task Planner** (NEW in v3.0.0): Intelligent task decomposition for complex requests
+  - Automatic complexity detection (57 keyword patterns)
+  - LLM-based plan generation with phases and dependencies
+  - Phase-by-phase execution with progress tracking
+  - File modification tracking and context pruning between phases
+  - Plan management commands: `/plans`, `/plan`, `/phases`, `/pause`, `/resume`, `/skip`, `/abandon`
 - **🔄 Session Continuity**: Directory-specific conversation history with `--continue` flag
   - Preserve context across sessions for multi-day development
   - Each project maintains its own independent history
@@ -139,9 +145,56 @@ ax-cli -c
 /clear             # Clear chat history
 /models            # Switch AI model
 /usage             # Show API usage statistics
+/tasks             # List background tasks
+/task <id>         # View background task output
+/kill <id>         # Kill a background task
 /version           # Show AX CLI version
 /commit-and-push   # AI-powered git commit
 /exit              # Exit application
+
+# Multi-Phase Planner commands (NEW in v3.0.0):
+/plans             # List all execution plans
+/plan              # Show current plan details
+/phases            # Show phase progress
+/pause             # Pause current plan execution
+/resume            # Resume paused plan
+/skip              # Skip current phase
+/abandon           # Abandon current plan
+```
+
+### ⌨️ Keyboard Shortcuts (Claude Code-style)
+
+AX CLI supports powerful keyboard shortcuts for enhanced productivity:
+
+| Shortcut | Action | Description |
+|----------|--------|-------------|
+| **Ctrl+O** | Toggle verbose mode | Default: concise single-line output. Verbose: full details, diffs, file contents |
+| **Ctrl+B** | Background mode | Move running command to background, or toggle "always background" mode |
+| **Ctrl+K** | Quick actions | Open quick actions menu |
+| **Shift+Tab** | Auto-edit mode | Toggle automatic approval for all operations |
+| **Ctrl+C** | Clear/Exit | Clear input (press twice to exit) |
+| **↑/↓** | History | Navigate command history |
+| **Ctrl+A/E** | Cursor | Move to line start/end |
+| **Ctrl+W** | Delete word | Delete word before cursor |
+
+### 🔄 Background Tasks
+
+Run long-running commands in the background (like Claude Code's Ctrl+B):
+
+```bash
+# Method 1: Append ' &' to any command
+> npm run dev &
+🔄 Background task started
+Task ID: bg_abc123
+
+# Method 2: Press Ctrl+B during execution to move to background
+
+# Method 3: Toggle "always background" mode with Ctrl+B when idle
+
+# Manage background tasks:
+/tasks              # List all background tasks
+/task bg_abc123     # View task output
+/kill bg_abc123     # Kill a running task
 ```
 
 ### Headless Mode
@@ -287,6 +340,38 @@ ax-cli mcp remove linear
 
 [MCP Integration Guide →](docs/mcp.md)
 
+## 🎯 Multi-Phase Task Planner (v3.0.0)
+
+AX CLI now includes an intelligent multi-phase task planner that automatically decomposes complex requests:
+
+```bash
+# Complex requests are automatically detected and planned
+> "Refactor the authentication system, add tests, and update documentation"
+
+📋 Plan Generated: 4 phases
+├── Phase 1: Analysis (low risk)
+├── Phase 2: Implementation (medium risk)
+├── Phase 3: Testing (low risk)
+└── Phase 4: Documentation (low risk)
+
+Executing Phase 1/4: Analysis...
+```
+
+**Features:**
+- **Automatic Complexity Detection**: 57 keyword patterns detect when planning is needed
+- **LLM-Based Decomposition**: Intelligent breakdown into logical phases
+- **Dependency Management**: Phases execute in proper order
+- **Progress Tracking**: Real-time updates on phase completion
+- **File Tracking**: Monitors which files are modified per phase
+- **Context Pruning**: Automatically manages token limits between phases
+
+**Complexity Triggers:**
+- Refactoring, migration, or restructuring tasks
+- Multi-file changes or feature implementations
+- Testing and documentation requests
+- Architecture or design tasks
+- Multi-step instructions (first...then...finally)
+
 ## 🤖 Advanced Multi-Agent Orchestration
 
 **AX CLI** is designed as a focused, single-agent CLI tool for direct AI-powered development tasks. For advanced multi-agent orchestration, collaborative AI workflows, and complex task automation, we recommend **[AutomatosX](https://automatosx.com)**.
@@ -322,15 +407,6 @@ AX CLI implements enterprise-grade architecture with:
 - [Architecture](docs/architecture.md) - Technical architecture details
 - [Development](docs/development.md) - Development and contribution guide
 - [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Development Guide](docs/development.md) for details on:
-
-- Setting up your development environment
-- Running tests
-- Code style guidelines
-- Submitting pull requests
 
 ## 📄 License
 

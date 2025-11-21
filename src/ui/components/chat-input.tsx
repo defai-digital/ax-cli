@@ -92,6 +92,9 @@ export function ChatInput({
   const cursorChar = input.slice(cursorPosition, cursorPosition + 1) || " ";
   const afterCursorText = input.slice(cursorPosition + 1);
 
+  // Show character count when input has content (subtle indicator)
+  const showCharCount = input.length > 0;
+
   return (
     <Box
       borderStyle="round"
@@ -99,8 +102,9 @@ export function ChatInput({
       paddingX={1}
       paddingY={0}
       marginTop={1}
+      justifyContent="space-between"
     >
-      <Box>
+      <Box flexGrow={1}>
         <Text color={promptColor}>❯ </Text>
         {isPlaceholder ? (
           <>
@@ -126,6 +130,14 @@ export function ChatInput({
           </Text>
         )}
       </Box>
+      {/* Character count indicator */}
+      {showCharCount && !isProcessing && !isStreaming && (
+        <Box marginLeft={1}>
+          <Text color="gray" dimColor>
+            [{input.length}]
+          </Text>
+        </Box>
+      )}
     </Box>
   );
 }

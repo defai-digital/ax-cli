@@ -274,8 +274,8 @@ export function createCacheCommand(): Command {
     });
 
   // Default action (show cache)
-  cacheCommand.action(() => {
-    cacheCommand.commands.find(cmd => cmd.name() === 'show')?.parseAsync(['node', 'ax', 'cache', 'show'], { from: 'user' });
+  cacheCommand.action(async () => {
+    await cacheCommand.commands.find(cmd => cmd.name() === 'show')?.parseAsync(['node', 'ax', 'cache', 'show'], { from: 'user' });
   });
 
   return cacheCommand;
@@ -286,10 +286,11 @@ export function createCacheCommand(): Command {
  */
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
+  if (bytes < 0) return '-' + formatBytes(-bytes);
 
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
 
   return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
 }

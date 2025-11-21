@@ -31,12 +31,13 @@ export function CommandSuggestions({
   selectedIndex,
   isVisible,
 }: CommandSuggestionsProps) {
-  if (!isVisible) return null;
-
+  // useMemo must be called unconditionally (React hooks rule)
   const filteredSuggestions = useMemo(
     () => filterCommandSuggestions(suggestions, input),
     [suggestions, input]
   );
+
+  if (!isVisible) return null;
 
   return (
     <Box marginTop={1} flexDirection="column">

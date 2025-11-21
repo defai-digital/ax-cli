@@ -86,16 +86,49 @@ const BASE_GROK_TOOLS: LLMTool[] = [
     type: "function",
     function: {
       name: "bash",
-      description: "Execute a bash command",
+      description: "Execute a bash command. Append ' &' to run in background.",
       parameters: {
         type: "object",
         properties: {
           command: {
             type: "string",
-            description: "The bash command to execute",
+            description: "The bash command to execute. Append ' &' to run in background (e.g., 'npm run dev &')",
+          },
+          background: {
+            type: "boolean",
+            description: "Run command in background (alternative to appending ' &'). Useful for long-running processes like dev servers.",
+          },
+          timeout: {
+            type: "number",
+            description: "Timeout in milliseconds (default: 30000). Ignored for background commands.",
           },
         },
         required: ["command"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bash_output",
+      description: "Get output from a background task. Use after running a command with ' &' or background:true",
+      parameters: {
+        type: "object",
+        properties: {
+          task_id: {
+            type: "string",
+            description: "The background task ID (returned when starting a background command)",
+          },
+          wait: {
+            type: "boolean",
+            description: "Wait for task to complete before returning output (default: false)",
+          },
+          timeout: {
+            type: "number",
+            description: "Maximum time to wait in milliseconds if wait is true (default: 30000)",
+          },
+        },
+        required: ["task_id"],
       },
     },
   },
@@ -259,6 +292,17 @@ export function getMCPManager(): MCPManager {
     mcpManager = new MCPManager();
   }
   return mcpManager;
+}
+
+/**
+ * Get the count of connected MCP servers
+ * Safe to call even if MCP manager is not initialized
+ */
+export function getMcpConnectionCount(): number {
+  if (!mcpManager) {
+    return 0;
+  }
+  return mcpManager.getServers().length;
 }
 
 export async function initializeMCPServers(): Promise<void> {

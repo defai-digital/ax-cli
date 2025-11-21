@@ -226,7 +226,7 @@ export class MCPManager extends EventEmitter {
     // Wrap entire initialization in try-catch to prevent unhandled rejections
     this.initializationPromise = (async () => {
       try {
-        const { loadMCPConfig } = await import('../mcp/config');
+        const { loadMCPConfig } = await import('../mcp/config.js');
         const config = loadMCPConfig();
 
         // Initialize servers in parallel to avoid blocking

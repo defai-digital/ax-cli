@@ -8,11 +8,12 @@ import { ReasoningDisplay } from "./reasoning-display.js";
 interface ChatHistoryProps {
   entries: ChatEntry[];
   isConfirmationActive?: boolean;
+  verboseMode?: boolean;
 }
 
 // Memoized ChatEntry component to prevent unnecessary re-renders
 const MemoizedChatEntry = React.memo(
-  ({ entry, index }: { entry: ChatEntry; index: number }) => {
+  ({ entry, index, verboseMode = false }: { entry: ChatEntry; index: number; verboseMode?: boolean }) => {
     const renderDiff = (diffContent: string, filename?: string) => {
       return (
         <DiffRenderer
@@ -83,6 +84,14 @@ const MemoizedChatEntry = React.memo(
                   <MarkdownRenderer content={entry.content.trim()} />
                 )}
                 {entry.isStreaming && <Text color="cyan">█</Text>}
+                {/* Show response duration if available */}
+                {!entry.isStreaming && entry.durationMs && (
+                  <Text color="gray" dimColor>
+                    ⏱ {entry.durationMs >= 1000
+                      ? `${(entry.durationMs / 1000).toFixed(1)}s`
+                      : `${entry.durationMs}ms`}
+                  </Text>
+                )}
               </Box>
             </Box>
           </Box>
@@ -110,14 +119,16 @@ const MemoizedChatEntry = React.memo(
               return "Create";
             case "bash":
               return "Bash";
+            case "bash_output":
+              return "TaskOutput";
             case "search":
               return "Search";
             case "create_todo_list":
-              return "Created Todo";
+              return "Todo";
             case "update_todo_list":
-              return "Updated Todo";
+              return "Todo";
             default:
-              return "Tool";
+              return toolName;
           }
         };
 
@@ -139,73 +150,158 @@ const MemoizedChatEntry = React.memo(
           return "";
         };
 
-        const filePath = getFilePath(entry.toolCall);
-        const isExecuting = entry.type === "tool_call" || !entry.toolResult;
-        
-        // Format JSON content for better readability
-        const formatToolContent = (content: string, toolName: string) => {
-          if (toolName.startsWith("mcp__")) {
+        // Get full tool arguments for verbose mode
+        const getToolArguments = (toolCall: any): string => {
+          if (toolCall?.function?.arguments) {
             try {
-              // Try to parse as JSON and format it
-              const parsed = JSON.parse(content);
-              if (Array.isArray(parsed)) {
-                // For arrays, show a summary instead of full JSON
-                return `Found ${parsed.length} items`;
-              } else if (typeof parsed === 'object') {
-                // For objects, show a formatted version
-                return JSON.stringify(parsed, null, 2);
-              }
+              const args = JSON.parse(toolCall.function.arguments);
+              return JSON.stringify(args, null, 2);
             } catch {
-              // If not JSON, return as is
-              return content;
+              return toolCall.function.arguments || "";
             }
           }
-          return content;
+          return "";
         };
+
+        // Get a brief summary of the result for concise mode
+        const getBriefSummary = (content: string, toolName: string): string => {
+          if (!content) return "";
+
+          // Count lines for file content
+          const lineCount = content.split("\n").length;
+
+          switch (toolName) {
+            case "view_file":
+              return `${lineCount} lines`;
+            case "create_file":
+              return `${lineCount} lines written`;
+            case "str_replace_editor":
+              // Extract just the first line which usually has the summary
+              const firstLine = content.split("\n")[0];
+              if (firstLine.includes("Updated")) {
+                return firstLine.replace(/^Updated\s+/, "").trim();
+              }
+              return "updated";
+            case "bash":
+              if (content.includes("Background task started")) {
+                return "→ background";
+              }
+              if (lineCount <= 1) {
+                // Short output, show it
+                return content.trim().slice(0, 50) + (content.length > 50 ? "..." : "");
+              }
+              return `${lineCount} lines output`;
+            case "search":
+              // Try to count matches
+              const matches = content.match(/Found \d+ match/);
+              if (matches) return matches[0];
+              return `${lineCount} lines`;
+            default:
+              if (lineCount <= 1 && content.length < 60) {
+                return content.trim();
+              }
+              return `${lineCount} lines`;
+          }
+        };
+
+        const filePath = getFilePath(entry.toolCall);
+        const toolArgs = getToolArguments(entry.toolCall);
+        const isExecuting = entry.type === "tool_call" || !entry.toolResult;
+        const isSuccess = entry.toolResult?.success ?? true;
+        const briefSummary = !isExecuting ? getBriefSummary(entry.content, toolName) : "";
+
         const shouldShowDiff =
+          verboseMode &&
           entry.toolCall?.function?.name === "str_replace_editor" &&
           entry.toolResult?.success &&
-          entry.content.includes("Updated") &&
           entry.content.includes("---") &&
           entry.content.includes("+++");
 
         const shouldShowFileContent =
+          verboseMode &&
           (entry.toolCall?.function?.name === "view_file" ||
             entry.toolCall?.function?.name === "create_file") &&
-          entry.toolResult?.success &&
-          !shouldShowDiff;
+          entry.toolResult?.success;
 
+        const shouldShowFullOutput =
+          verboseMode &&
+          !shouldShowDiff &&
+          !shouldShowFileContent;
+
+        // CONCISE MODE (default): Single line summary
+        if (!verboseMode) {
+          return (
+            <Box key={index} flexDirection="row" marginTop={0}>
+              <Text color="magenta">⏺</Text>
+              <Text color="white">
+                {" "}
+                {filePath ? `${actionName}(${filePath})` : actionName}
+              </Text>
+              {isExecuting ? (
+                <Text color="cyan"> ...</Text>
+              ) : (
+                <>
+                  <Text color={isSuccess ? "green" : "red"}>
+                    {" "}{isSuccess ? "✓" : "✗"}
+                  </Text>
+                  {briefSummary && (
+                    <Text color="gray" dimColor> {briefSummary}</Text>
+                  )}
+                </>
+              )}
+            </Box>
+          );
+        }
+
+        // VERBOSE MODE: Full details
         return (
           <Box key={index} flexDirection="column" marginTop={1}>
+            {/* Header line */}
             <Box>
               <Text color="magenta">⏺</Text>
               <Text color="white">
                 {" "}
                 {filePath ? `${actionName}(${filePath})` : actionName}
               </Text>
+              {entry.toolCall?.id && (
+                <Text color="gray" dimColor> [{entry.toolCall.id.slice(0, 8)}]</Text>
+              )}
+              {!isExecuting && (
+                <Text color={isSuccess ? "green" : "red"}>
+                  {" "}{isSuccess ? "✓" : "✗"}
+                </Text>
+              )}
             </Box>
+
+            {/* Tool arguments */}
+            {toolArgs && (
+              <Box marginLeft={2} flexDirection="column">
+                <Text color="blue" dimColor>Args: {toolArgs.length > 100 ? toolArgs.slice(0, 100) + "..." : toolArgs}</Text>
+              </Box>
+            )}
+
+            {/* Output content */}
             <Box marginLeft={2} flexDirection="column">
               {isExecuting ? (
                 <Text color="cyan">⎿ Executing...</Text>
               ) : shouldShowFileContent ? (
                 <Box flexDirection="column">
-                  <Text color="gray">⎿ File contents:</Text>
+                  <Text color="gray">⎿ File contents ({entry.content.split("\n").length} lines):</Text>
                   <Box marginLeft={2} flexDirection="column">
                     {renderFileContent(entry.content)}
                   </Box>
                 </Box>
               ) : shouldShowDiff ? (
-                // For diff results, show only the summary line, not the raw content
-                <Text color="gray">⎿ {entry.content.split("\n")[0]}</Text>
-              ) : (
-                <Text color="gray">⎿ {formatToolContent(entry.content, toolName)}</Text>
-              )}
+                <Box flexDirection="column">
+                  <Text color="gray">⎿ {entry.content.split("\n")[0]}</Text>
+                  <Box marginLeft={2} flexDirection="column">
+                    {renderDiff(entry.content, filePath)}
+                  </Box>
+                </Box>
+              ) : shouldShowFullOutput ? (
+                <Text color="gray">⎿ {entry.content}</Text>
+              ) : null}
             </Box>
-            {shouldShowDiff && !isExecuting && (
-              <Box marginLeft={4} flexDirection="column">
-                {renderDiff(entry.content, filePath)}
-              </Box>
-            )}
           </Box>
         );
 
@@ -221,6 +317,7 @@ export const ChatHistory = React.memo(
   function ChatHistory({
     entries,
     isConfirmationActive = false,
+    verboseMode = false,
   }: ChatHistoryProps) {
     // Filter out tool_call entries with "Executing..." when confirmation is active
     const filteredEntries = isConfirmationActive
@@ -234,13 +331,20 @@ export const ChatHistory = React.memo(
     // Scrolling will be handled by the terminal's native scroll capability
     return (
       <Box flexDirection="column">
-        {filteredEntries.map((entry, index) => (
-          <MemoizedChatEntry
-            key={`${entry.timestamp.getTime()}-${index}`}
-            entry={entry}
-            index={index}
-          />
-        ))}
+        {filteredEntries.map((entry, index) => {
+          // Safely get timestamp - handle both Date objects and serialized strings
+          const timestamp = entry.timestamp instanceof Date
+            ? entry.timestamp.getTime()
+            : new Date(entry.timestamp).getTime() || index;
+          return (
+            <MemoizedChatEntry
+              key={`${timestamp}-${index}`}
+              entry={entry}
+              index={index}
+              verboseMode={verboseMode}
+            />
+          );
+        })}
       </Box>
     );
   },
@@ -248,8 +352,14 @@ export const ChatHistory = React.memo(
     // Only re-render if entries array reference changed AND last entry is different
     // This prevents re-renders when unrelated state updates happen
     if (prevProps.entries === nextProps.entries &&
-        prevProps.isConfirmationActive === nextProps.isConfirmationActive) {
+        prevProps.isConfirmationActive === nextProps.isConfirmationActive &&
+        prevProps.verboseMode === nextProps.verboseMode) {
       return true; // Props are equal, skip re-render
+    }
+
+    // Always re-render if verbose mode changed
+    if (prevProps.verboseMode !== nextProps.verboseMode) {
+      return false;
     }
 
     // If array length is same and last entry is identical, skip re-render

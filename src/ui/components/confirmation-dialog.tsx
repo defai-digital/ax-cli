@@ -20,29 +20,37 @@ export default function ConfirmationDialog({
   content,
 }: ConfirmationDialogProps) {
   const [selectedOption, setSelectedOption] = useState(0);
-  const [feedbackMode, setFeedbackMode] = useState(false);
-  const [feedback, setFeedback] = useState("");
 
+  // Simplified to 3 options - removed "No, with feedback" as it's rarely used
   const options = [
     "Yes",
     "Yes, and don't ask again this session",
     "No",
-    "No, with feedback",
   ];
 
   useInput((input, key) => {
-    if (feedbackMode) {
-      if (key.return) {
-        onReject(feedback.trim());
-        return;
+    // Quick number key selection (1-3)
+    if (input >= "1" && input <= "3") {
+      const optionIndex = parseInt(input) - 1;
+      if (optionIndex < options.length) {
+        if (optionIndex === 0) {
+          onConfirm(false);
+        } else if (optionIndex === 1) {
+          onConfirm(true);
+        } else if (optionIndex === 2) {
+          onReject("Operation cancelled by user");
+        }
       }
-      if (key.backspace || key.delete) {
-        setFeedback((prev) => prev.slice(0, -1));
-        return;
-      }
-      if (input && !key.ctrl && !key.meta) {
-        setFeedback((prev) => prev + input);
-      }
+      return;
+    }
+
+    // Y/N quick keys
+    if (input.toLowerCase() === "y") {
+      onConfirm(false);
+      return;
+    }
+    if (input.toLowerCase() === "n") {
+      onReject("Operation cancelled by user");
       return;
     }
 
@@ -63,48 +71,15 @@ export default function ConfirmationDialog({
         onConfirm(true);
       } else if (selectedOption === 2) {
         onReject("Operation cancelled by user");
-      } else {
-        setFeedbackMode(true);
       }
       return;
     }
 
     if (key.escape) {
-      if (feedbackMode) {
-        setFeedbackMode(false);
-        setFeedback("");
-      } else {
-        // Cancel the confirmation when escape is pressed from main confirmation
-        onReject("Operation cancelled by user (pressed Escape)");
-      }
+      onReject("Operation cancelled by user (pressed Escape)");
       return;
     }
   });
-
-  if (feedbackMode) {
-    return (
-      <Box flexDirection="column" padding={1}>
-        <Box flexDirection="column" marginBottom={1}>
-          <Text color="gray">
-            Type your feedback and press Enter, or press Escape to go back.
-          </Text>
-        </Box>
-
-        <Box
-          borderStyle="round"
-          borderColor="yellow"
-          paddingX={1}
-          marginTop={1}
-        >
-          <Text color="gray">❯ </Text>
-          <Text>
-            {feedback}
-            <Text color="white">█</Text>
-          </Text>
-        </Box>
-      </Box>
-    );
-  }
 
   return (
     <Box flexDirection="column">
@@ -164,7 +139,7 @@ export default function ConfirmationDialog({
 
         <Box marginTop={1}>
           <Text color="gray" dimColor>
-            ↑↓ navigate • Enter select • Esc cancel
+            y/n or 1-3 quick select • ↑↓ navigate • Enter select • Esc cancel
           </Text>
         </Box>
       </Box>

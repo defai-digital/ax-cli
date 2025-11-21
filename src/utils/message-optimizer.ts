@@ -240,7 +240,8 @@ export class MessageOptimizer {
       return output;
     }
 
-    return this.headTailTruncate(output, maxLines / 2, maxLines / 2);
+    const halfLines = Math.floor(maxLines / 2);
+    return this.headTailTruncate(output, halfLines, halfLines);
   }
 
   /**
@@ -375,9 +376,13 @@ let globalOptimizer: MessageOptimizer | null = null;
 
 /**
  * Get or create global message optimizer
+ * Note: If config is provided after initial creation, it will update the optimizer
  */
 export function getMessageOptimizer(config?: TruncationConfig): MessageOptimizer {
   if (!globalOptimizer) {
+    globalOptimizer = new MessageOptimizer(config);
+  } else if (config) {
+    // Update config if provided on subsequent calls
     globalOptimizer = new MessageOptimizer(config);
   }
   return globalOptimizer;

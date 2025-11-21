@@ -324,8 +324,9 @@ export class DependencyResolver {
    * Level 0 = no dependencies, Level N = depends on tasks at level N-1
    */
   getTaskLevel(taskId: string, tasks: SubagentTask[]): number {
-    const graph = this.buildDependencyGraph(tasks);
-    const node = graph.get(taskId);
+    // Use getDependencyGraph to get properly calculated levels
+    const { nodes } = this.getDependencyGraph(tasks);
+    const node = nodes.get(taskId);
 
     if (!node) {
       throw new Error(`Task ${taskId} not found`);

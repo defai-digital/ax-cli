@@ -447,10 +447,12 @@ export class TextEditorTool {
           break;
 
         case "insert":
-          if (lastEdit.path && lastEdit.insert_line) {
+          if (lastEdit.path && lastEdit.insert_line && lastEdit.content !== undefined) {
             const content = await fs.readFile(lastEdit.path, "utf-8");
             const lines = content.split("\n");
-            lines.splice(lastEdit.insert_line - 1, 1);
+            // Count how many lines were inserted (content may be multi-line)
+            const insertedLineCount = lastEdit.content.split("\n").length;
+            lines.splice(lastEdit.insert_line - 1, insertedLineCount);
             await writeFilePromise(lastEdit.path, lines.join("\n"), "utf-8");
           }
           break;

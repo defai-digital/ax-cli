@@ -6,7 +6,6 @@ import {
   deleteWordAfter,
   insertText,
   moveToLineStart,
-  moveToLineEnd,
   moveToPreviousWord,
   moveToNextWord,
 } from "../utils/text-utils.js";
@@ -46,6 +45,10 @@ interface UseEnhancedInputProps {
   onSubmit?: (text: string) => void;
   onEscape?: () => void;
   onSpecialKey?: (key: Key) => boolean; // Return true to prevent default handling
+  onVerboseToggle?: () => void; // Ctrl+O toggles verbose mode
+  onQuickActions?: () => void; // Ctrl+K opens quick actions
+  onBackgroundModeToggle?: () => void; // Ctrl+B toggles background mode
+  onCopyLastResponse?: () => void; // Ctrl+Y copies last response
   disabled?: boolean;
   multiline?: boolean;
 }
@@ -54,6 +57,10 @@ export function useEnhancedInput({
   onSubmit,
   onEscape,
   onSpecialKey,
+  onVerboseToggle,
+  onQuickActions,
+  onBackgroundModeToggle,
+  onCopyLastResponse,
   disabled = false,
   multiline = false,
 }: UseEnhancedInputProps = {}): EnhancedInputHook {
@@ -71,11 +78,12 @@ export function useEnhancedInput({
 
   const setInput = useCallback((text: string) => {
     setInputState(text);
-    setCursorPositionState(Math.min(text.length, cursorPosition));
+    // Use functional update to get the current cursor position, avoiding stale closure
+    setCursorPositionState((currentCursor) => Math.min(text.length, currentCursor));
     if (!isNavigatingHistory()) {
       setOriginalInput(text);
     }
-  }, [cursorPosition, isNavigatingHistory, setOriginalInput]);
+  }, [isNavigatingHistory, setOriginalInput]);
 
   const setCursorPosition = useCallback((position: number) => {
     setCursorPositionState(Math.max(0, Math.min(input.length, position)));
@@ -239,12 +247,9 @@ export function useEnhancedInput({
       return;
     }
 
-    // Handle Ctrl+K: Delete from cursor to end of line
+    // Handle Ctrl+K: Open quick actions menu
     if (key.ctrl && inputChar === "k") {
-      const lineEnd = moveToLineEnd(input, cursorPosition);
-      const newText = input.slice(0, cursorPosition) + input.slice(lineEnd);
-      setInputState(newText);
-      setOriginalInput(newText);
+      onQuickActions?.();
       return;
     }
 
@@ -267,6 +272,24 @@ export function useEnhancedInput({
       return;
     }
 
+    // Handle Ctrl+O: Toggle verbose mode
+    if (key.ctrl && inputChar === "o") {
+      onVerboseToggle?.();
+      return;
+    }
+
+    // Handle Ctrl+B: Toggle background mode
+    if (key.ctrl && inputChar === "b") {
+      onBackgroundModeToggle?.();
+      return;
+    }
+
+    // Handle Ctrl+Y: Copy last response to clipboard
+    if (key.ctrl && inputChar === "y") {
+      onCopyLastResponse?.();
+      return;
+    }
+
     // Handle Ctrl+X: Clear entire input
     if (key.ctrl && inputChar === "x") {
       setInputState("");
@@ -282,7 +305,7 @@ export function useEnhancedInput({
       setCursorPositionState(result.position);
       setOriginalInput(result.text);
     }
-  }, [disabled, onSpecialKey, input, cursorPosition, multiline, handleSubmit, navigateHistory, setOriginalInput]);
+  }, [disabled, onSpecialKey, onVerboseToggle, onQuickActions, onBackgroundModeToggle, onCopyLastResponse, input, cursorPosition, multiline, handleSubmit, navigateHistory, setOriginalInput]);
 
   return {
     input,

@@ -11,6 +11,18 @@ import { InstructionGenerator } from "../utils/instruction-generator.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
 import { getHistoryManager } from "../utils/history-manager.js";
 import { handleRewindCommand, handleCheckpointsCommand, handleCheckpointCleanCommand } from "../commands/rewind.js";
+import {
+  handlePlansCommand,
+  handlePlanCommand,
+  handlePhasesCommand,
+  handlePauseCommand,
+  handleResumeCommand,
+  handleSkipPhaseCommand,
+  handleAbandonCommand,
+  handleResumableCommand,
+} from "../commands/plan.js";
+import { BashOutputTool } from "../tools/bash-output.js";
+import { getKeyboardShortcutGuideText } from "../ui/components/keyboard-hints.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -26,6 +38,15 @@ interface UseInputHandlerProps {
   isProcessing: boolean;
   isStreaming: boolean;
   isConfirmationActive?: boolean;
+  onQuickActionsToggle?: () => void;
+  // Callbacks for mode toggle events (for toast/flash UI feedback)
+  onVerboseModeChange?: (enabled: boolean) => void;
+  onBackgroundModeChange?: (enabled: boolean) => void;
+  onAutoEditModeChange?: (enabled: boolean) => void;
+  onTaskMovedToBackground?: (taskId: string) => void;
+  onOperationInterrupted?: () => void;
+  onChatCleared?: () => void;
+  onCopyLastResponse?: () => void;
 }
 
 interface CommandSuggestion {
@@ -39,6 +60,7 @@ interface ModelOption {
 
 export function useInputHandler({
   agent,
+  chatHistory,
   setChatHistory,
   setIsProcessing,
   setIsStreaming,
@@ -48,6 +70,14 @@ export function useInputHandler({
   isProcessing,
   isStreaming,
   isConfirmationActive = false,
+  onQuickActionsToggle,
+  onVerboseModeChange,
+  onBackgroundModeChange,
+  onAutoEditModeChange,
+  onTaskMovedToBackground,
+  onOperationInterrupted,
+  onChatCleared,
+  onCopyLastResponse,
 }: UseInputHandlerProps) {
   const [showCommandSuggestions, setShowCommandSuggestions] = useState(false);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
@@ -56,6 +86,8 @@ export function useInputHandler({
     const sessionFlags = confirmationService.getSessionFlags();
     return sessionFlags.allOperations;
   });
+  const [verboseMode, setVerboseMode] = useState(false);
+  const [backgroundMode, setBackgroundMode] = useState(false);
 
   const handleSpecialKey = (key: Key): boolean => {
     // Don't handle input if confirmation dialog is active
@@ -76,6 +108,8 @@ export function useInputHandler({
         // Disable auto-edit: reset session flags
         confirmationService.resetSession();
       }
+      // Notify parent for toast/flash feedback
+      onAutoEditModeChange?.(newAutoEditState);
       return true; // Handled
     }
 
@@ -93,6 +127,8 @@ export function useInputHandler({
         setTokenCount(0);
         setProcessingTime(0);
         processingStartTime.current = 0;
+        // Notify parent for toast feedback
+        onOperationInterrupted?.();
         return true;
       }
       return false; // Let default escape handling work
@@ -171,6 +207,34 @@ export function useInputHandler({
     }
   }, []);
 
+  const handleVerboseToggle = useCallback(() => {
+    setVerboseMode((prev) => {
+      const newState = !prev;
+      // Notify parent for toast/flash feedback instead of polluting chat history
+      onVerboseModeChange?.(newState);
+      return newState;
+    });
+  }, [onVerboseModeChange]);
+
+  const handleBackgroundModeToggle = useCallback(() => {
+    // Check if a bash command is currently executing
+    if (agent.isBashExecuting()) {
+      const taskId = agent.moveBashToBackground();
+      if (taskId) {
+        // Notify parent for toast feedback
+        onTaskMovedToBackground?.(taskId);
+        return;
+      }
+    }
+    // Otherwise toggle background mode preference
+    setBackgroundMode((prev) => {
+      const newState = !prev;
+      // Notify parent for toast/flash feedback instead of polluting chat history
+      onBackgroundModeChange?.(newState);
+      return newState;
+    });
+  }, [agent, onBackgroundModeChange, onTaskMovedToBackground]);
+
   const {
     input,
     cursorPosition,
@@ -182,6 +246,10 @@ export function useInputHandler({
   } = useEnhancedInput({
     onSubmit: handleInputSubmit,
     onSpecialKey: handleSpecialKey,
+    onVerboseToggle: handleVerboseToggle,
+    onQuickActions: onQuickActionsToggle,
+    onBackgroundModeToggle: handleBackgroundModeToggle,
+    onCopyLastResponse,
     disabled: isConfirmationActive,
   });
 
@@ -197,14 +265,26 @@ export function useInputHandler({
 
   const commandSuggestions: CommandSuggestion[] = [
     { command: "/help", description: "Show help information" },
+    { command: "/shortcuts", description: "Show keyboard shortcuts guide" },
     { command: "/continue", description: "Continue incomplete response" },
+    { command: "/retry", description: "Re-send the last message" },
     { command: "/clear", description: "Clear chat history" },
     { command: "/init", description: "Initialize project with smart analysis" },
     { command: "/usage", description: "Show API usage statistics" },
+    { command: "/tasks", description: "List background tasks" },
+    { command: "/task", description: "View output of a background task" },
+    { command: "/kill", description: "Kill a background task" },
     { command: "/rewind", description: "Rewind to previous checkpoint" },
     { command: "/checkpoints", description: "List checkpoint statistics" },
     { command: "/checkpoint-clean", description: "Clean old checkpoints" },
     { command: "/commit-and-push", description: "AI commit & push to remote" },
+    { command: "/plans", description: "List all task plans" },
+    { command: "/plan", description: "Show current plan details" },
+    { command: "/phases", description: "Show phases of current plan" },
+    { command: "/pause", description: "Pause current plan execution" },
+    { command: "/resume", description: "Resume paused plan" },
+    { command: "/skip", description: "Skip current phase" },
+    { command: "/abandon", description: "Abandon current plan" },
     { command: "/exit", description: "Exit the application" },
   ];
 
@@ -362,9 +442,14 @@ export function useInputHandler({
 
               case "done":
                 if (streamingEntry) {
+                  // Calculate response duration
+                  const durationMs = processingStartTime.current > 0
+                    ? Date.now() - processingStartTime.current
+                    : undefined;
+
                   setChatHistory((prev) =>
                     prev.map((entry) =>
-                      entry.isStreaming ? { ...entry, isStreaming: false } : entry
+                      entry.isStreaming ? { ...entry, isStreaming: false, durationMs } : entry
                     )
                   );
                 }
@@ -401,6 +486,34 @@ export function useInputHandler({
       return true;
     }
 
+    if (trimmedInput === "/retry") {
+      // Find the last user message and re-send it
+      const lastUserEntry = [...chatHistory].reverse().find(entry => entry.type === "user");
+      if (lastUserEntry && lastUserEntry.content) {
+        // Store the message content and history state before clearing
+        const messageToRetry = lastUserEntry.content;
+        const lastUserIndex = chatHistory.lastIndexOf(lastUserEntry);
+        const historyBackup = [...chatHistory];
+
+        // Remove the last user message and any assistant responses after it
+        setChatHistory(prev => prev.slice(0, lastUserIndex));
+        clearInput();
+
+        // Trigger submit after a brief delay to allow state update
+        setTimeout(() => {
+          try {
+            handleInputSubmit(messageToRetry);
+          } catch {
+            // Restore history if retry fails
+            setChatHistory(historyBackup);
+          }
+        }, 50);
+      } else {
+        clearInput();
+      }
+      return true;
+    }
+
     if (trimmedInput === "/clear") {
       // Reset chat history
       setChatHistory([]);
@@ -419,6 +532,9 @@ export function useInputHandler({
       // Reset confirmation service session flags
       const confirmationService = ConfirmationService.getInstance();
       confirmationService.resetSession();
+
+      // Notify parent for toast feedback
+      onChatCleared?.();
 
       clearInput();
       resetHistory();
@@ -545,14 +661,32 @@ Built-in Commands:
   /clear      - Clear chat history
   /init       - Initialize project with smart analysis
   /help       - Show this help
+  /shortcuts  - Show keyboard shortcuts guide
   /usage      - Show API usage statistics
   /exit       - Exit application
   exit, quit  - Exit application
+
+Background Task Commands:
+  /tasks             - List all background tasks
+  /task <id>         - View output of a background task
+  /kill <id>         - Kill a running background task
+
+  Tip: Append ' &' to any bash command to run it in background
+       Example: npm run dev &
 
 Checkpoint Commands:
   /rewind            - Rewind to a previous checkpoint (interactive)
   /checkpoints       - Show checkpoint statistics
   /checkpoint-clean  - Clean old checkpoints (compress and prune)
+
+Plan Commands (Multi-Phase Task Planning):
+  /plans             - List all task plans
+  /plan [id]         - Show current or specific plan details
+  /phases            - Show phases of current plan
+  /pause             - Pause current plan execution
+  /resume [id]       - Resume current or specific plan
+  /skip              - Skip current phase
+  /abandon           - Abandon current plan
 
 Git Commands:
   /commit-and-push - AI-generated commit + push to remote
@@ -560,12 +694,16 @@ Git Commands:
 Enhanced Input Features:
   ↑/↓ Arrow   - Navigate command history
   Ctrl+C      - Clear input (press twice to exit)
+  Ctrl+X      - Clear entire input line
   Ctrl+←/→    - Move by word
   Ctrl+A/E    - Move to line start/end
   Ctrl+W      - Delete word before cursor
   Ctrl+K      - Delete to end of line
   Ctrl+U      - Delete to start of line
+  Ctrl+O      - Toggle verbose mode (show full output, default: concise)
+  Ctrl+B      - Toggle background mode (run all commands in background)
   Shift+Tab   - Toggle auto-edit mode (bypass confirmations)
+  1-4 keys    - Quick select in confirmation dialogs
 
 Direct Commands (executed immediately):
   ls [path]   - List directory contents
@@ -586,6 +724,17 @@ Examples:
         timestamp: new Date(),
       };
       setChatHistory((prev) => [...prev, helpEntry]);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/shortcuts") {
+      const shortcutsEntry: ChatEntry = {
+        type: "assistant",
+        content: getKeyboardShortcutGuideText(),
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, shortcutsEntry]);
       clearInput();
       return true;
     }
@@ -661,6 +810,70 @@ Examples:
       return true;
     }
 
+    // Background task commands
+    if (trimmedInput === "/tasks") {
+      const bashOutputTool = new BashOutputTool();
+      const result = bashOutputTool.listTasks();
+      const tasksEntry: ChatEntry = {
+        type: "assistant",
+        content: result.output || "No background tasks",
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, tasksEntry]);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput.startsWith("/task ")) {
+      const taskId = trimmedInput.substring(6).trim();
+      if (!taskId) {
+        const errorEntry: ChatEntry = {
+          type: "assistant",
+          content: "Usage: /task <task_id>",
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, errorEntry]);
+        clearInput();
+        return true;
+      }
+
+      const bashOutputTool = new BashOutputTool();
+      const result = await bashOutputTool.execute(taskId);
+      const taskEntry: ChatEntry = {
+        type: "assistant",
+        content: result.success ? result.output || "No output" : result.error || "Task not found",
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, taskEntry]);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput.startsWith("/kill ")) {
+      const taskId = trimmedInput.substring(6).trim();
+      if (!taskId) {
+        const errorEntry: ChatEntry = {
+          type: "assistant",
+          content: "Usage: /kill <task_id>",
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, errorEntry]);
+        clearInput();
+        return true;
+      }
+
+      const bashOutputTool = new BashOutputTool();
+      const result = bashOutputTool.killTask(taskId);
+      const killEntry: ChatEntry = {
+        type: "assistant",
+        content: result.success ? result.output || "Task killed" : result.error || "Failed to kill task",
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, killEntry]);
+      clearInput();
+      return true;
+    }
+
     if (trimmedInput === "/rewind") {
       await handleRewindCommand(agent);
       clearInput();
@@ -675,6 +888,105 @@ Examples:
 
     if (trimmedInput === "/checkpoint-clean") {
       await handleCheckpointCleanCommand();
+      clearInput();
+      return true;
+    }
+
+    // Plan commands
+    if (trimmedInput === "/plans") {
+      const result = await handlePlansCommand();
+      const plansEntry: ChatEntry = {
+        type: "assistant",
+        content: result.output,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, plansEntry]);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/plan" || trimmedInput.startsWith("/plan ")) {
+      const planId = trimmedInput === "/plan" ? undefined : trimmedInput.substring(6).trim();
+      const result = await handlePlanCommand(planId || undefined);
+      const planEntry: ChatEntry = {
+        type: "assistant",
+        content: result.output,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, planEntry]);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/phases") {
+      const result = await handlePhasesCommand();
+      const phasesEntry: ChatEntry = {
+        type: "assistant",
+        content: result.output,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, phasesEntry]);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/pause") {
+      const result = await handlePauseCommand();
+      const pauseEntry: ChatEntry = {
+        type: "assistant",
+        content: result.output,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, pauseEntry]);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/resume" || trimmedInput.startsWith("/resume ")) {
+      const planId = trimmedInput === "/resume" ? undefined : trimmedInput.substring(8).trim();
+      const result = await handleResumeCommand(planId || undefined);
+      const resumeEntry: ChatEntry = {
+        type: "assistant",
+        content: result.output,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, resumeEntry]);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/skip") {
+      const result = await handleSkipPhaseCommand();
+      const skipEntry: ChatEntry = {
+        type: "assistant",
+        content: result.output,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, skipEntry]);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/abandon") {
+      const result = await handleAbandonCommand();
+      const abandonEntry: ChatEntry = {
+        type: "assistant",
+        content: result.output,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, abandonEntry]);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/resumable") {
+      const result = await handleResumableCommand();
+      const resumableEntry: ChatEntry = {
+        type: "assistant",
+        content: result.output,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, resumableEntry]);
       clearInput();
       return true;
     }
@@ -1081,5 +1393,7 @@ Respond with ONLY the commit message, no additional text.`;
     availableModels,
     agent,
     autoEditEnabled,
+    verboseMode,
+    backgroundMode,
   };
 }

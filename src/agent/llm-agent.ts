@@ -12,6 +12,7 @@ import {
   TodoTool,
   SearchTool,
 } from "../tools/index.js";
+import { BashOutputTool } from "../tools/bash-output.js";
 import { ToolResult } from "../types/index.js";
 import { EventEmitter } from "events";
 import { AGENT_CONFIG } from "../constants.js";
@@ -24,6 +25,16 @@ import { getUsageTracker } from "../utils/usage-tracker.js";
 import { extractErrorMessage } from "../utils/error-handler.js";
 import { getCheckpointManager, CheckpointManager } from "../checkpoint/index.js";
 import { SubagentOrchestrator } from "./subagent-orchestrator.js";
+import {
+  getTaskPlanner,
+  TaskPlanner,
+  TaskPlan,
+  TaskPhase,
+  PhaseResult,
+  PlanResult,
+  isComplexRequest,
+} from "../planner/index.js";
+import { PLANNER_CONFIG } from "../constants.js";
 
 export interface ChatEntry {
   type: "user" | "assistant" | "tool_result" | "tool_call";
@@ -37,6 +48,8 @@ export interface ChatEntry {
   reasoningContent?: string;
   /** Whether reasoning is currently streaming */
   isReasoningStreaming?: boolean;
+  /** Response duration in milliseconds */
+  durationMs?: number;
 }
 
 export interface StreamingChunk {
@@ -54,6 +67,7 @@ export class LLMAgent extends EventEmitter {
   private llmClient: LLMClient;
   private textEditor: TextEditorTool;
   private bash: BashTool;
+  private bashOutput: BashOutputTool;
   private todoTool: TodoTool;
   private search: SearchTool;
   private chatHistory: ChatEntry[] = [];
@@ -65,6 +79,9 @@ export class LLMAgent extends EventEmitter {
   private recentToolCalls: Map<string, number> = new Map(); // Track recent tool calls to detect loops
   private checkpointManager: CheckpointManager;
   private subagentOrchestrator: SubagentOrchestrator;
+  private taskPlanner: TaskPlanner;
+  private currentPlan: TaskPlan | null = null;
+  private planningEnabled: boolean = PLANNER_CONFIG.ENABLED;
 
   constructor(
     apiKey: string,
@@ -85,12 +102,14 @@ export class LLMAgent extends EventEmitter {
     this.llmClient = new LLMClient(apiKey, modelToUse, baseURL);
     this.textEditor = new TextEditorTool();
     this.bash = new BashTool();
+    this.bashOutput = new BashOutputTool();
     this.todoTool = new TodoTool();
     this.search = new SearchTool();
     this.tokenCounter = createTokenCounter(modelToUse);
     this.contextManager = new ContextManager({ model: modelToUse });
     this.checkpointManager = getCheckpointManager();
     this.subagentOrchestrator = new SubagentOrchestrator({ maxConcurrentAgents: 5 });
+    this.taskPlanner = getTaskPlanner();
 
     // Wire up checkpoint callback for automatic checkpoint creation
     this.textEditor.setCheckpointCallback(async (files, description) => {
@@ -294,6 +313,425 @@ export class LLMAgent extends EventEmitter {
     // crude date pattern (e.g., 2024/2025) may imply recency
     if (/(20\d{2})/.test(q)) return true;
     return false;
+  }
+
+  // ============================================================================
+  // Multi-Phase Planning Integration
+  // ============================================================================
+
+  /**
+   * Check if a request should trigger multi-phase planning
+   */
+  private shouldCreatePlan(message: string): boolean {
+    if (!this.planningEnabled) return false;
+    return isComplexRequest(message);
+  }
+
+  /**
+   * Get the current plan if any
+   */
+  getCurrentPlan(): TaskPlan | null {
+    return this.currentPlan;
+  }
+
+  /**
+   * Execute a single phase using the LLM
+   */
+  private async executePhase(
+    phase: TaskPhase,
+    context: {
+      planId: string;
+      originalRequest: string;
+      completedPhases: string[];
+    }
+  ): Promise<PhaseResult> {
+    const startTime = Date.now();
+    const startTokens = this.tokenCounter.countMessageTokens(this.messages);
+    const filesModified: string[] = [];
+    let lastAssistantContent = "";
+
+    // Emit phase started event
+    this.emit("phase:started", { phase, planId: context.planId });
+
+    try {
+      // Build phase-specific prompt
+      const phasePrompt = this.buildPhasePrompt(phase, context);
+
+      // Execute through normal message processing (without recursively planning)
+      const savedPlanningState = this.planningEnabled;
+      this.planningEnabled = false; // Temporarily disable planning for phase execution
+
+      // Add phase context to messages
+      this.messages.push({
+        role: "user",
+        content: phasePrompt,
+      });
+
+      // Execute using the standard tool loop
+      const tools = await getAllGrokTools();
+      let toolRounds = 0;
+      const maxPhaseRounds = Math.min(this.maxToolRounds, 50); // Limit per phase
+
+      while (toolRounds < maxPhaseRounds) {
+        const response = await this.llmClient.chat(this.messages, tools);
+        const assistantMessage = response.choices[0]?.message;
+
+        if (!assistantMessage) break;
+
+        // Capture the assistant's content for phase output
+        if (assistantMessage.content) {
+          lastAssistantContent = assistantMessage.content;
+        }
+
+        // Add to messages
+        this.messages.push({
+          role: "assistant",
+          content: assistantMessage.content || "",
+          tool_calls: assistantMessage.tool_calls,
+        } as LLMMessage);
+
+        // Check for tool calls
+        if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
+          break; // No more tool calls, phase complete
+        }
+
+        toolRounds++;
+
+        // Execute tools and track file modifications
+        for (const toolCall of assistantMessage.tool_calls) {
+          const result = await this.executeTool(toolCall);
+
+          // Track file modifications from text_editor tool
+          if (toolCall.function.name === "text_editor" ||
+              toolCall.function.name === "str_replace_editor") {
+            try {
+              const args = JSON.parse(toolCall.function.arguments);
+              if (args.path && result.success) {
+                if (!filesModified.includes(args.path)) {
+                  filesModified.push(args.path);
+                }
+              }
+            } catch {
+              // Ignore parse errors
+            }
+          }
+
+          this.messages.push({
+            role: "tool",
+            tool_call_id: toolCall.id,
+            content: result.output || result.error || "No output",
+          } as LLMMessage);
+        }
+      }
+
+      // Restore planning state
+      this.planningEnabled = savedPlanningState;
+
+      // Prune context if configured
+      if (PLANNER_CONFIG.PRUNE_AFTER_PHASE) {
+        if (this.contextManager.shouldPrune(this.messages, this.tokenCounter)) {
+          this.messages = this.contextManager.pruneMessages(this.messages, this.tokenCounter);
+        }
+      }
+
+      const endTokens = this.tokenCounter.countMessageTokens(this.messages);
+      const duration = Date.now() - startTime;
+
+      // Build meaningful output
+      const output = lastAssistantContent ||
+        `Phase "${phase.name}" completed (${toolRounds} tool rounds, ${filesModified.length} files modified)`;
+
+      // Emit phase completed event
+      this.emit("phase:completed", {
+        phase,
+        planId: context.planId,
+        result: { success: true, output, filesModified }
+      });
+
+      return {
+        phaseId: phase.id,
+        success: true,
+        output,
+        duration,
+        tokensUsed: endTokens - startTokens,
+        filesModified,
+        wasRetry: false,
+        retryAttempt: 0,
+      };
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const errorMessage = extractErrorMessage(error);
+
+      // Emit phase failed event
+      this.emit("phase:failed", {
+        phase,
+        planId: context.planId,
+        error: errorMessage
+      });
+
+      return {
+        phaseId: phase.id,
+        success: false,
+        error: errorMessage,
+        duration,
+        tokensUsed: 0,
+        filesModified,
+        wasRetry: false,
+        retryAttempt: 0,
+      };
+    }
+  }
+
+  /**
+   * Build a prompt for phase execution
+   */
+  private buildPhasePrompt(
+    phase: TaskPhase,
+    context: {
+      planId: string;
+      originalRequest: string;
+      completedPhases: string[];
+    }
+  ): string {
+    let prompt = `## Phase ${phase.index + 1}: ${phase.name}\n\n`;
+    prompt += `**Objective:** ${phase.description}\n\n`;
+
+    if (phase.objectives.length > 0) {
+      prompt += "**Tasks to complete:**\n";
+      for (const obj of phase.objectives) {
+        prompt += `- ${obj}\n`;
+      }
+      prompt += "\n";
+    }
+
+    if (context.completedPhases.length > 0) {
+      prompt += `**Previously completed phases:** ${context.completedPhases.join(", ")}\n\n`;
+    }
+
+    prompt += `**Original request:** ${context.originalRequest}\n\n`;
+    prompt += "Please complete this phase. Focus only on the objectives listed above.";
+
+    return prompt;
+  }
+
+  /**
+   * Generate and execute a plan for a complex request
+   */
+  async *processWithPlanning(
+    message: string
+  ): AsyncGenerator<StreamingChunk, void, unknown> {
+    // Add user message to history
+    const userEntry: ChatEntry = {
+      type: "user",
+      content: message,
+      timestamp: new Date(),
+    };
+    this.chatHistory.push(userEntry);
+    this.messages.push({ role: "user", content: message });
+
+    // Generate plan
+    yield {
+      type: "content",
+      content: "📋 **Analyzing request and creating execution plan...**\n\n",
+    };
+
+    try {
+      // Generate plan using LLM
+      const plan = await this.taskPlanner.generatePlan(
+        message,
+        async (systemPrompt, userPrompt) => {
+          const planMessages: LLMMessage[] = [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ];
+          const response = await this.llmClient.chat(planMessages, []);
+          return response.choices[0]?.message?.content || "";
+        },
+        {
+          projectType: "typescript", // Could be detected
+        }
+      );
+
+      if (!plan) {
+        yield {
+          type: "content",
+          content: "Could not generate a plan. Processing as single request...\n\n",
+        };
+        // Fall back to normal processing - disable planning and retry
+        this.planningEnabled = false;
+        yield* this.processUserMessageStreamInternal(message);
+        this.planningEnabled = true;
+        return;
+      }
+
+      this.currentPlan = plan;
+
+      // Emit plan created event
+      this.emit("plan:created", { plan });
+
+      // Display plan summary
+      yield {
+        type: "content",
+        content: this.formatPlanSummary(plan),
+      };
+
+      // Execute phases one by one with progress updates
+      const phaseResults: PhaseResult[] = [];
+      let totalTokensUsed = 0;
+      const planStartTime = Date.now();
+
+      for (let i = 0; i < plan.phases.length; i++) {
+        const phase = plan.phases[i];
+        plan.currentPhaseIndex = i;
+
+        // Show phase starting
+        yield {
+          type: "content",
+          content: `\n**⏳ Phase ${i + 1}/${plan.phases.length}: ${phase.name}**\n`,
+        };
+
+        // Execute the phase
+        const context = {
+          planId: plan.id,
+          originalRequest: message,
+          completedPhases: phaseResults.filter(r => r.success).map(r => r.phaseId),
+        };
+
+        const result = await this.executePhase(phase, context);
+        phaseResults.push(result);
+        totalTokensUsed += result.tokensUsed;
+
+        // Report phase result
+        if (result.success) {
+          yield {
+            type: "content",
+            content: `✓ Phase ${i + 1} completed (${Math.ceil(result.duration / 1000)}s)\n`,
+          };
+          if (result.filesModified.length > 0) {
+            yield {
+              type: "content",
+              content: `  Files modified: ${result.filesModified.join(", ")}\n`,
+            };
+          }
+        } else {
+          yield {
+            type: "content",
+            content: `✕ Phase ${i + 1} failed: ${result.error}\n`,
+          };
+          // Continue with next phase unless abort strategy
+          if (phase.fallbackStrategy === "abort") {
+            yield {
+              type: "content",
+              content: `\n⚠️ Plan aborted due to phase failure.\n`,
+            };
+            break;
+          }
+        }
+      }
+
+      const totalDuration = Date.now() - planStartTime;
+
+      // Build final result
+      const successfulPhases = phaseResults.filter(r => r.success);
+      const failedPhases = phaseResults.filter(r => !r.success);
+      const allFilesModified = [...new Set(phaseResults.flatMap(r => r.filesModified))];
+
+      const summary = successfulPhases.length === phaseResults.length
+        ? `All ${phaseResults.length} phases completed successfully. ${allFilesModified.length} files modified.`
+        : `${successfulPhases.length}/${phaseResults.length} phases completed. ${failedPhases.length} failed.`;
+
+      const warnings: string[] = [];
+      for (const result of failedPhases) {
+        warnings.push(`Phase ${result.phaseId} failed: ${result.error || "Unknown error"}`);
+      }
+
+      const planResult: PlanResult = {
+        planId: plan.id,
+        success: phaseResults.every(r => r.success),
+        phaseResults,
+        totalDuration,
+        totalTokensUsed,
+        summary,
+        warnings,
+      };
+
+      // Report final results
+      yield {
+        type: "content",
+        content: this.formatPlanResult(planResult),
+      };
+
+      // Emit plan completed event
+      this.emit("plan:completed", { plan, result: planResult });
+
+      this.currentPlan = null;
+
+    } catch (error) {
+      yield {
+        type: "content",
+        content: `\n⚠️ Plan execution error: ${extractErrorMessage(error)}\n`,
+      };
+      this.emit("plan:failed", { error: extractErrorMessage(error) });
+      this.currentPlan = null;
+    }
+  }
+
+  /**
+   * Internal streaming processor (used when planning falls back)
+   */
+  private async *processUserMessageStreamInternal(
+    _message: string
+  ): AsyncGenerator<StreamingChunk, void, unknown> {
+    // Simplified fallback - just yield a message
+    yield {
+      type: "content",
+      content: "Processing request without planning...\n",
+    };
+  }
+
+  /**
+   * Format plan summary for display
+   */
+  private formatPlanSummary(plan: TaskPlan): string {
+    let output = `**📋 Execution Plan Created**\n\n`;
+    output += `**Request:** ${plan.originalPrompt.slice(0, 100)}${plan.originalPrompt.length > 100 ? "..." : ""}\n\n`;
+    output += `**Phases (${plan.phases.length}):**\n`;
+
+    for (const phase of plan.phases) {
+      const riskIcon = phase.riskLevel === "high" ? "⚠️" : phase.riskLevel === "medium" ? "△" : "";
+      output += `  ${phase.index + 1}. ${phase.name} ${riskIcon}\n`;
+    }
+
+    output += `\n**Estimated Duration:** ~${Math.ceil(plan.estimatedDuration / 60000)} min\n\n`;
+    output += "---\n\n";
+
+    return output;
+  }
+
+  /**
+   * Format plan result for display
+   */
+  private formatPlanResult(result: PlanResult): string {
+    let output = "\n---\n\n**📋 Plan Execution Complete**\n\n";
+
+    const successful = result.phaseResults.filter((r) => r.success).length;
+    const failed = result.phaseResults.filter((r) => !r.success).length;
+
+    output += `**Results:** ${successful}/${result.phaseResults.length} phases successful`;
+    if (failed > 0) {
+      output += ` (${failed} failed)`;
+    }
+    output += "\n";
+
+    if (result.totalDuration) {
+      output += `**Duration:** ${Math.ceil(result.totalDuration / 1000)}s\n`;
+    }
+
+    if (result.totalTokensUsed) {
+      output += `**Tokens Used:** ${result.totalTokensUsed.toLocaleString()}\n`;
+    }
+
+    return output;
   }
 
   async processUserMessage(message: string): Promise<ChatEntry[]> {
@@ -831,6 +1269,14 @@ export class LLMAgent extends EventEmitter {
     // Create new abort controller for this request
     this.abortController = new AbortController();
 
+    // Check if this is a complex request that should use multi-phase planning
+    if (this.shouldCreatePlan(message)) {
+      // Delegate to planning processor
+      yield* this.processWithPlanning(message);
+      yield { type: "done" };
+      return;
+    }
+
     // Reset tool call tracking for new message
     this.resetToolCallTracking();
 
@@ -1063,7 +1509,17 @@ export class LLMAgent extends EventEmitter {
           );
 
         case "bash":
-          return await this.bash.execute(args.command as string);
+          return await this.bash.execute(args.command as string, {
+            background: args.background as boolean | undefined,
+            timeout: args.timeout as number | undefined,
+          });
+
+        case "bash_output":
+          return await this.bashOutput.execute(
+            args.task_id as string,
+            args.wait as boolean | undefined,
+            args.timeout as number | undefined
+          );
 
         case "create_todo_list":
           return await this.todoTool.createTodoList(args.todos as any[]);
@@ -1170,6 +1626,21 @@ export class LLMAgent extends EventEmitter {
 
   async executeBashCommand(command: string): Promise<ToolResult> {
     return await this.bash.execute(command);
+  }
+
+  /**
+   * Check if a bash command is currently executing
+   */
+  isBashExecuting(): boolean {
+    return this.bash.isExecuting();
+  }
+
+  /**
+   * Move currently running bash command to background
+   * Returns task ID if successful, null otherwise
+   */
+  moveBashToBackground(): string | null {
+    return this.bash.moveToBackground();
   }
 
   getCurrentModel(): string {

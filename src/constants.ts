@@ -110,3 +110,45 @@ export const ERROR_MESSAGES = {
   FILE_NOT_FOUND: (filePath: string) => formatMessage(messagesYaml.errors.file_not_found, { filePath }),
   DIRECTORY_NOT_FOUND: (dirPath: string) => formatMessage(messagesYaml.errors.directory_not_found, { dirPath }),
 } as const;
+
+// Multi-Phase Task Planner Configuration
+export const PLANNER_CONFIG = {
+  /** Enable multi-phase planning */
+  ENABLED: true,
+
+  /** Minimum expected tool calls to trigger auto-planning */
+  AUTO_PLAN_THRESHOLD: 3,
+
+  /** Maximum phases per plan */
+  MAX_PHASES: 10,
+
+  /** Phase timeout in milliseconds (10 minutes) */
+  PHASE_TIMEOUT_MS: 600000,
+
+  /** Maximum parallel phases */
+  MAX_PARALLEL_PHASES: 5,
+
+  /** Create checkpoints before each phase */
+  AUTO_CHECKPOINT: true,
+
+  /** Require plan approval before executing */
+  REQUIRE_PLAN_APPROVAL: true,
+
+  /** Require approval for high-risk phases */
+  REQUIRE_HIGH_RISK_APPROVAL: true,
+
+  /** Auto-approve low-risk phases */
+  AUTO_APPROVE_LOW_RISK: false,
+
+  /** Prune context between phases */
+  PRUNE_AFTER_PHASE: true,
+
+  /** Target context percentage after pruning */
+  TARGET_CONTEXT_PERCENTAGE: 50,
+
+  /** Plan retention period in days */
+  PLAN_RETENTION_DAYS: 30,
+
+  /** Auto-cleanup old plans */
+  AUTO_CLEANUP: true,
+} as const;

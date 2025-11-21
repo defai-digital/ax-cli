@@ -1,0 +1,188 @@
+/**
+ * Welcome Panel Component
+ * Shows helpful tips and example prompts when chat is empty
+ */
+
+import React from "react";
+import { Box, Text } from "ink";
+
+interface ExamplePrompt {
+  category: string;
+  examples: string[];
+}
+
+const EXAMPLE_PROMPTS: ExamplePrompt[] = [
+  {
+    category: "Explore",
+    examples: [
+      "What does this codebase do?",
+      "Find all TODO comments",
+      "Show me the main entry point",
+    ],
+  },
+  {
+    category: "Edit",
+    examples: [
+      "Add error handling to the login function",
+      "Refactor this component to use hooks",
+      "Fix the TypeScript errors in utils.ts",
+    ],
+  },
+  {
+    category: "Create",
+    examples: [
+      "Create a new React component for user profile",
+      "Add unit tests for the auth module",
+      "Generate a README for this project",
+    ],
+  },
+  {
+    category: "Execute",
+    examples: [
+      "Run the test suite",
+      "Install lodash as a dependency",
+      "Show git status",
+    ],
+  },
+];
+
+interface WelcomePanelProps {
+  projectName: string;
+}
+
+export function WelcomePanel({ projectName }: WelcomePanelProps) {
+  return (
+    <Box flexDirection="column" marginBottom={2}>
+      {/* Welcome message */}
+      <Box marginBottom={1}>
+        <Text color="cyan" bold>
+          Welcome to {projectName}
+        </Text>
+      </Box>
+
+      {/* Keyboard shortcuts - prominent display */}
+      <Box
+        flexDirection="column"
+        borderStyle="round"
+        borderColor="cyan"
+        paddingX={2}
+        paddingY={1}
+        marginBottom={1}
+      >
+        <Box marginBottom={1}>
+          <Text color="cyan" bold>
+            ⌨️  Essential Shortcuts
+          </Text>
+        </Box>
+
+        <Box flexDirection="row" flexWrap="wrap">
+          {/* Column 1: Mode toggles */}
+          <Box flexDirection="column" marginRight={4} minWidth={28}>
+            <Text color="yellow" bold>Modes</Text>
+            <Box>
+              <Text color="green" bold>⇧⇥</Text>
+              <Text color="gray"> Shift+Tab  </Text>
+              <Text>auto-edit</Text>
+            </Box>
+            <Box>
+              <Text color="yellow" bold>^O</Text>
+              <Text color="gray"> Ctrl+O     </Text>
+              <Text>verbose output</Text>
+            </Box>
+            <Box>
+              <Text color="magenta" bold>^B</Text>
+              <Text color="gray"> Ctrl+B     </Text>
+              <Text>background mode</Text>
+            </Box>
+          </Box>
+
+          {/* Column 2: Actions */}
+          <Box flexDirection="column" minWidth={28}>
+            <Text color="yellow" bold>Actions</Text>
+            <Box>
+              <Text color="cyan" bold>^K</Text>
+              <Text color="gray"> Ctrl+K     </Text>
+              <Text>quick actions</Text>
+            </Box>
+            <Box>
+              <Text color="white" bold>?</Text>
+              <Text color="gray">  or /help  </Text>
+              <Text>all shortcuts</Text>
+            </Box>
+            <Box>
+              <Text color="red" bold>Esc</Text>
+              <Text color="gray">           </Text>
+              <Text>interrupt/cancel</Text>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Quick start tips */}
+      <Box
+        flexDirection="column"
+        paddingX={1}
+        marginBottom={1}
+      >
+        <Box marginBottom={1}>
+          <Text color="white" bold>
+            Quick Start
+          </Text>
+        </Box>
+
+        <Box flexDirection="column">
+          <Box>
+            <Text color="gray">• </Text>
+            <Text>Type naturally to ask questions or request changes</Text>
+          </Box>
+          <Box>
+            <Text color="gray">• </Text>
+            <Text>Use </Text>
+            <Text color="cyan">/init</Text>
+            <Text> to generate project context (CUSTOM.md)</Text>
+          </Box>
+          <Box>
+            <Text color="gray">• </Text>
+            <Text>Append </Text>
+            <Text color="cyan">&</Text>
+            <Text> to bash commands for background execution</Text>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Example prompts */}
+      <Box flexDirection="column">
+        <Box marginBottom={1}>
+          <Text color="gray" dimColor>
+            Try asking:
+          </Text>
+        </Box>
+
+        <Box flexDirection="row" flexWrap="wrap">
+          {EXAMPLE_PROMPTS.map((group) => (
+            <Box
+              key={group.category}
+              flexDirection="column"
+              marginRight={3}
+              marginBottom={1}
+              width="45%"
+            >
+              <Text color="magenta" dimColor>
+                {group.category}
+              </Text>
+              {group.examples.slice(0, 2).map((example, i) => (
+                <Box key={i} marginLeft={1}>
+                  <Text color="gray" dimColor>
+                    › {example}
+                  </Text>
+                </Box>
+              ))}
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
+export default WelcomePanel;

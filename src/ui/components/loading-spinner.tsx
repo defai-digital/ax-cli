@@ -6,41 +6,76 @@ interface LoadingSpinnerProps {
   isActive: boolean;
   processingTime: number;
   tokenCount: number;
+  currentAction?: "thinking" | "searching" | "editing" | "executing" | "reading" | "writing";
 }
 
-const loadingTexts = [
+// Contextual loading messages based on current action
+const loadingTextsByAction = {
+  thinking: [
+    "Thinking...",
+    "Analyzing...",
+    "Reasoning...",
+    "Considering...",
+    "Processing...",
+  ],
+  searching: [
+    "Searching codebase...",
+    "Scanning files...",
+    "Finding matches...",
+    "Looking for patterns...",
+  ],
+  editing: [
+    "Editing file...",
+    "Making changes...",
+    "Updating code...",
+    "Applying edits...",
+  ],
+  executing: [
+    "Running command...",
+    "Executing...",
+    "Processing command...",
+    "Working...",
+  ],
+  reading: [
+    "Reading file...",
+    "Loading content...",
+    "Fetching data...",
+  ],
+  writing: [
+    "Writing file...",
+    "Saving changes...",
+    "Creating file...",
+  ],
+};
+
+// Default messages when no specific action
+const defaultLoadingTexts = [
   "Thinking...",
-  "Computing...",
-  "Analyzing...",
   "Processing...",
-  "Calculating...",
-  "Interfacing...",
-  "Optimizing...",
-  "Synthesizing...",
-  "Decrypting...",
-  "Calibrating...",
-  "Bootstrapping...",
-  "Synchronizing...",
-  "Compiling...",
-  "Downloading...",
+  "Analyzing...",
+  "Working...",
 ];
 
 export function LoadingSpinner({
   isActive,
   processingTime,
   tokenCount,
+  currentAction = "thinking",
 }: LoadingSpinnerProps) {
   const [spinnerFrame, setSpinnerFrame] = useState(0);
   const [loadingTextIndex, setLoadingTextIndex] = useState(0);
 
+  // Get the appropriate loading texts for current action
+  const loadingTexts = loadingTextsByAction[currentAction] || defaultLoadingTexts;
+
   useEffect(() => {
     if (!isActive) return;
 
-    const spinnerFrames = ["/", "-", "\\", "|"];
-    // Reduced frequency: 500ms instead of 250ms to reduce flickering on Windows
+    const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    // Smooth animation at 80ms intervals
     const interval = setInterval(() => {
       setSpinnerFrame((prev) => (prev + 1) % spinnerFrames.length);
-    }, 500);
+    }, 80);
 
     return () => clearInterval(interval);
   }, [isActive]);
@@ -50,27 +85,52 @@ export function LoadingSpinner({
 
     setLoadingTextIndex(Math.floor(Math.random() * loadingTexts.length));
 
-    // Increased interval: 4s instead of 2s to reduce state changes
+    // Rotate messages every 3 seconds
     const interval = setInterval(() => {
-      setLoadingTextIndex(Math.floor(Math.random() * loadingTexts.length));
-    }, 4000);
+      setLoadingTextIndex((prev) => (prev + 1) % loadingTexts.length);
+    }, 3000);
 
     return () => clearInterval(interval);
-  }, [isActive]);
+  }, [isActive, loadingTexts.length]);
+
+  // Reset loading text index when action changes
+  useEffect(() => {
+    setLoadingTextIndex(0);
+  }, [currentAction]);
 
   if (!isActive) return null;
 
-  const spinnerFrames = ["/", "-", "\\", "|"];
+  const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+  // Format time display
+  const formatTime = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs}s`;
+  };
 
   return (
-    <Box marginTop={1}>
-      <Text color="cyan">
-        {spinnerFrames[spinnerFrame]} {loadingTexts[loadingTextIndex]}{" "}
-      </Text>
-      <Text color="gray">
-        ({processingTime}s · ↑ {formatTokenCount(tokenCount)} tokens · esc to
-        interrupt)
-      </Text>
+    <Box marginTop={1} flexDirection="column">
+      <Box>
+        <Text color="cyan" bold>
+          {spinnerFrames[spinnerFrame]}
+        </Text>
+        <Text color="cyan"> {loadingTexts[loadingTextIndex % loadingTexts.length] || loadingTexts[0]} </Text>
+      </Box>
+      <Box marginLeft={2}>
+        <Text color="gray" dimColor>
+          {formatTime(processingTime)} elapsed
+        </Text>
+        {tokenCount > 0 && (
+          <Text color="gray" dimColor>
+            {" "}• {formatTokenCount(tokenCount)} tokens
+          </Text>
+        )}
+        <Text color="gray" dimColor>
+          {" "}• <Text color="yellow">esc</Text> to interrupt
+        </Text>
+      </Box>
     </Box>
   );
 }

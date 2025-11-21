@@ -1,13 +1,16 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Box, Text } from "ink";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { Box } from "ink";
 import { LLMAgent, ChatEntry } from "../../agent/llm-agent.js";
 import { useInputHandler } from "../../hooks/use-input-handler.js";
 import { LoadingSpinner } from "./loading-spinner.js";
 import { CommandSuggestions } from "./command-suggestions.js";
 import { ChatHistory } from "./chat-history.js";
 import { ChatInput } from "./chat-input.js";
-import { MCPStatus } from "./mcp-status.js";
+import { StatusBar } from "./status-bar.js";
+import { QuickActions } from "./quick-actions.js";
+import { WelcomePanel } from "./welcome-panel.js";
 import ConfirmationDialog from "./confirmation-dialog.js";
+import { ToastContainer, useToasts, TOAST_MESSAGES } from "./toast-notification.js";
 import {
   ConfirmationService,
   ConfirmationOptions,
@@ -16,6 +19,9 @@ import ApiKeyInput from "./api-key-input.js";
 import cfonts from "cfonts";
 import { getVersion } from "../../utils/version.js";
 import { getHistoryManager } from "../../utils/history-manager.js";
+import { getMcpConnectionCount } from "../../llm/tools.js";
+import { BackgroundTaskManager } from "../../utils/background-task-manager.js";
+import clipboardy from "clipboardy";
 import path from "path";
 
 interface ChatInterfaceProps {
@@ -54,12 +60,72 @@ function ChatInterfaceWithAgent({
   const [showAutoPrune, setShowAutoPrune] = useState(false);
   const [confirmationOptions, setConfirmationOptions] =
     useState<ConfirmationOptions | null>(null);
+  const [showQuickActions, setShowQuickActions] = useState(false);
+  // Flash states for mode toggle visual feedback
+  const [flashAutoEdit, setFlashAutoEdit] = useState(false);
+  const [flashVerbose, setFlashVerbose] = useState(false);
+  const [flashBackground, setFlashBackground] = useState(false);
   const scrollRef = useRef<any>();
   const processingStartTime = useRef<number>(0);
   const lastPercentageRef = useRef<number>(0); // Store last percentage value
   const lastPercentageUpdateTime = useRef<number>(0); // Store last update timestamp
+  const contextLowWarningShown = useRef<boolean>(false); // Track if low context warning was shown
+
+  // Toast notification system
+  const { toasts, removeToast, addToast } = useToasts();
 
   const confirmationService = ConfirmationService.getInstance();
+  const projectName = getCurrentProjectName();
+  const version = getVersion();
+
+  // Flash effect helper - triggers a brief highlight then clears
+  const triggerFlash = useCallback((setter: React.Dispatch<React.SetStateAction<boolean>>) => {
+    setter(true);
+    setTimeout(() => setter(false), 300);
+  }, []);
+
+  // Mode toggle handlers with toast feedback
+  const handleVerboseModeChange = useCallback((enabled: boolean) => {
+    triggerFlash(setFlashVerbose);
+    addToast(enabled ? TOAST_MESSAGES.verboseOn : TOAST_MESSAGES.verboseOff);
+  }, [triggerFlash, addToast]);
+
+  const handleBackgroundModeChange = useCallback((enabled: boolean) => {
+    triggerFlash(setFlashBackground);
+    addToast(enabled ? TOAST_MESSAGES.backgroundOn : TOAST_MESSAGES.backgroundOff);
+  }, [triggerFlash, addToast]);
+
+  const handleAutoEditModeChange = useCallback((enabled: boolean) => {
+    triggerFlash(setFlashAutoEdit);
+    addToast(enabled ? TOAST_MESSAGES.autoEditOn : TOAST_MESSAGES.autoEditOff);
+  }, [triggerFlash, addToast]);
+
+  const handleTaskMovedToBackground = useCallback((taskId: string) => {
+    addToast(TOAST_MESSAGES.taskMoved(taskId));
+  }, [addToast]);
+
+  const handleOperationInterrupted = useCallback(() => {
+    addToast(TOAST_MESSAGES.interrupted);
+  }, [addToast]);
+
+  const handleChatCleared = useCallback(() => {
+    addToast(TOAST_MESSAGES.cleared);
+  }, [addToast]);
+
+  const handleCopyLastResponse = useCallback(() => {
+    // Find the last assistant message
+    const lastAssistantEntry = [...chatHistory].reverse().find(entry => entry.type === "assistant");
+    if (lastAssistantEntry && lastAssistantEntry.content) {
+      try {
+        clipboardy.writeSync(lastAssistantEntry.content);
+        addToast(TOAST_MESSAGES.copied);
+      } catch {
+        addToast({ message: "Failed to copy to clipboard", type: "error", icon: "❌" });
+      }
+    } else {
+      addToast({ message: "No response to copy", type: "info", icon: "ℹ" });
+    }
+  }, [chatHistory, addToast]);
 
   const {
     input,
@@ -69,6 +135,7 @@ function ChatInterfaceWithAgent({
     commandSuggestions,
     autoEditEnabled,
     verboseMode,
+    backgroundMode,
   } = useInputHandler({
     agent,
     chatHistory,
@@ -81,6 +148,14 @@ function ChatInterfaceWithAgent({
     isProcessing,
     isStreaming,
     isConfirmationActive: !!confirmationOptions,
+    onQuickActionsToggle: () => setShowQuickActions((prev) => !prev),
+    onVerboseModeChange: handleVerboseModeChange,
+    onBackgroundModeChange: handleBackgroundModeChange,
+    onAutoEditModeChange: handleAutoEditModeChange,
+    onTaskMovedToBackground: handleTaskMovedToBackground,
+    onOperationInterrupted: handleOperationInterrupted,
+    onChatCleared: handleChatCleared,
+    onCopyLastResponse: handleCopyLastResponse,
   });
 
   useEffect(() => {
@@ -359,6 +434,14 @@ function ChatInterfaceWithAgent({
         setShowAutoPrune(true);
         // Hide "auto-prune" after 3 seconds
         autoPruneTimeoutId = setTimeout(() => setShowAutoPrune(false), 3000);
+        // Reset low warning flag after prune (context recovered)
+        contextLowWarningShown.current = false;
+      }
+
+      // Show one-time warning when context drops below 20%
+      if (percentage <= 20 && !contextLowWarningShown.current && lastPercentageRef.current > 20) {
+        addToast(TOAST_MESSAGES.contextLow);
+        contextLowWarningShown.current = true;
       }
 
       lastPercentageRef.current = percentage; // Store percentage value
@@ -371,7 +454,7 @@ function ChatInterfaceWithAgent({
       // Clean up auto-prune timeout to prevent memory leaks on unmount
       if (autoPruneTimeoutId) clearTimeout(autoPruneTimeoutId);
     };
-  }, [agent, chatHistory.length, isStreaming]); // Only when length changes and not streaming
+  }, [agent, chatHistory.length, isStreaming, addToast]); // Only when length changes and not streaming
 
   // Save history whenever it changes (debounced)
   // Only save when NOT streaming to avoid constant disk I/O during active conversation
@@ -403,37 +486,82 @@ function ChatInterfaceWithAgent({
     processingStartTime.current = 0;
   };
 
+  // Get MCP server count safely
+  const mcpServerCount = useMemo(() => {
+    try {
+      return getMcpConnectionCount();
+    } catch {
+      return 0;
+    }
+  }, [chatHistory.length]); // Recalculate when chat changes (MCP servers might connect)
+
+  // Get background task count (running tasks)
+  const [backgroundTaskCount, setBackgroundTaskCount] = useState(0);
+
+  // Listen for background task events
+  useEffect(() => {
+    const manager = BackgroundTaskManager.getInstance();
+
+    // Initial count
+    setBackgroundTaskCount(manager.listTasks().filter(t => t.status === 'running').length);
+
+    // Task completed handler
+    const handleTaskComplete = ({ taskId, status }: { taskId: string; exitCode: number | null; status: string }) => {
+      const taskInfo = manager.getTaskInfo(taskId);
+      const command = taskInfo?.command || taskId;
+
+      if (status === 'completed') {
+        addToast(TOAST_MESSAGES.taskCompleted(taskId, command));
+      } else {
+        addToast(TOAST_MESSAGES.taskFailed(taskId, command));
+      }
+
+      // Update running count
+      setBackgroundTaskCount(manager.listTasks().filter(t => t.status === 'running').length);
+    };
+
+    // Task started handler
+    const handleTaskStarted = () => {
+      setBackgroundTaskCount(manager.listTasks().filter(t => t.status === 'running').length);
+    };
+
+    // Task killed handler
+    const handleTaskKilled = () => {
+      setBackgroundTaskCount(manager.listTasks().filter(t => t.status === 'running').length);
+    };
+
+    manager.on('taskComplete', handleTaskComplete);
+    manager.on('taskStarted', handleTaskStarted);
+    manager.on('taskAdopted', handleTaskStarted);
+    manager.on('taskKilled', handleTaskKilled);
+
+    return () => {
+      manager.off('taskComplete', handleTaskComplete);
+      manager.off('taskStarted', handleTaskStarted);
+      manager.off('taskAdopted', handleTaskStarted);
+      manager.off('taskKilled', handleTaskKilled);
+    };
+  }, [addToast]);
+
+  // Handler for quick action selection
+  const handleQuickActionSelect = (command: string) => {
+    setShowQuickActions(false);
+    // Process the command by simulating user input
+    if (command === "exit") {
+      process.exit(0);
+    }
+    // For slash commands, we'll need to trigger processing
+    // This can be done by directly calling the input handler or agent
+  };
+
   return (
     <Box flexDirection="column" paddingX={2}>
-      {/* Show tips only when no chat history and no confirmation dialog */}
-      {chatHistory.length === 0 && !confirmationOptions && (
-        <Box flexDirection="column" marginBottom={2}>
-          <Text color="cyan" bold>
-            Tips for getting started:
-          </Text>
-          <Box marginTop={1} flexDirection="column">
-            <Text color="gray">
-              1. Ask questions, edit files, or run commands.
-            </Text>
-            <Text color="gray">2. Be specific for the best results.</Text>
-            <Text color="gray">
-              3. use /init and CUSTOM.md to improve your ax-cli.
-            </Text>
-            <Text color="gray">
-              4. Press Shift+Tab to toggle auto-edit mode.
-            </Text>
-            <Text color="gray">5. /help for more information.</Text>
-          </Box>
-        </Box>
+      {/* Show welcome panel when no chat history */}
+      {chatHistory.length === 0 && !confirmationOptions && !showQuickActions && (
+        <WelcomePanel projectName={projectName} />
       )}
 
-      <Box flexDirection="column" marginBottom={1}>
-        <Text color="gray">
-          Type your request in natural language. Ctrl+C to clear, 'exit' to
-          quit.
-        </Text>
-      </Box>
-
+      {/* Chat history */}
       <Box flexDirection="column" ref={scrollRef}>
         <ChatHistory
           entries={chatHistory}
@@ -442,7 +570,16 @@ function ChatInterfaceWithAgent({
         />
       </Box>
 
-      {/* Show confirmation dialog if one is pending */}
+      {/* Quick Actions Menu (Ctrl+K) */}
+      {showQuickActions && (
+        <QuickActions
+          isVisible={showQuickActions}
+          onSelect={handleQuickActionSelect}
+          onClose={() => setShowQuickActions(false)}
+        />
+      )}
+
+      {/* Confirmation dialog */}
       {confirmationOptions && (
         <ConfirmationDialog
           operation={confirmationOptions.operation}
@@ -454,7 +591,8 @@ function ChatInterfaceWithAgent({
         />
       )}
 
-      {!confirmationOptions && (
+      {/* Main interface when no dialogs are open */}
+      {!confirmationOptions && !showQuickActions && (
         <>
           <LoadingSpinner
             isActive={isProcessing || isStreaming}
@@ -469,46 +607,34 @@ function ChatInterfaceWithAgent({
             isStreaming={isStreaming}
           />
 
-          <Box flexDirection="row" marginTop={1}>
-            <Box marginRight={2}>
-              <Text color="cyan">
-                {autoEditEnabled ? "▶" : "⏸"} auto-edit:{" "}
-                {autoEditEnabled ? "on" : "off"}
-              </Text>
-              <Text color="gray" dimColor>
-                {" "}
-                (shift + tab)
-              </Text>
-            </Box>
-            <Box marginRight={2}>
-              <Text color={verboseMode ? "yellow" : "gray"}>
-                {verboseMode ? "📋" : "📄"} verbose:{" "}
-                {verboseMode ? "on" : "off"}
-              </Text>
-              <Text color="gray" dimColor>
-                {" "}
-                (ctrl + o)
-              </Text>
-            </Box>
-            <Box marginRight={2}>
-              <Text color="gray" dimColor>project: </Text>
-              <Text color="magenta">{getCurrentProjectName()}</Text>
-              <Text color="gray" dimColor> | ax-cli: </Text>
-              <Text color="cyan">v{getVersion()}</Text>
-              <Text color="gray" dimColor> by DEFAI</Text>
-              <Text color="gray" dimColor> | model: </Text>
-              <Text color="yellow">{agent.getCurrentModel()}</Text>
-              <Text color="gray" dimColor> | context: </Text>
-              {showAutoPrune ? (
-                <Text color="cyan">auto-prune</Text>
-              ) : (
-                <Text color={contextPercentage < 25 ? "red" : contextPercentage < 50 ? "yellow" : "green"}>
-                  {contextPercentage.toFixed(1)}%
-                </Text>
-              )}
-            </Box>
-            <MCPStatus />
-          </Box>
+          {/* Toast notifications for mode toggles */}
+          {toasts.length > 0 && (
+            <ToastContainer
+              toasts={toasts}
+              onDismiss={removeToast}
+              maxVisible={2}
+            />
+          )}
+
+          {/* New StatusBar component */}
+          <StatusBar
+            projectName={projectName}
+            version={version}
+            model={agent.getCurrentModel()}
+            contextPercentage={contextPercentage}
+            showAutoPrune={showAutoPrune}
+            autoEditEnabled={autoEditEnabled}
+            verboseMode={verboseMode}
+            backgroundMode={backgroundMode}
+            mcpServerCount={mcpServerCount}
+            backgroundTaskCount={backgroundTaskCount}
+            isProcessing={isProcessing || isStreaming}
+            processingTime={processingTime}
+            tokenCount={tokenCount}
+            flashAutoEdit={flashAutoEdit}
+            flashVerbose={flashVerbose}
+            flashBackground={flashBackground}
+          />
 
           <CommandSuggestions
             suggestions={commandSuggestions}

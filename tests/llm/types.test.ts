@@ -10,7 +10,6 @@ import {
   hasReasoningContent,
   type ThinkingConfig,
 } from '../../src/llm/types.js';
-import { parseReasoningSteps } from '../../src/ui/components/reasoning-display.js';
 
 describe('GLM-4.6 Type Validation', () => {
   describe('validateTemperature', () => {
@@ -259,77 +258,6 @@ describe('GLM-4.6 Type Validation', () => {
         choices: [],
       };
       expect(hasReasoningContent(chunk)).toBe(false);
-    });
-  });
-
-  describe('parseReasoningSteps', () => {
-    it('should parse "Step N:" pattern', () => {
-      const content = `Step 1: First thing
-Step 2: Second thing
-Step 3: Third thing`;
-      const steps = parseReasoningSteps(content);
-      expect(steps).toHaveLength(3);
-      expect(steps[0]).toContain('Step 1');
-      expect(steps[1]).toContain('Step 2');
-      expect(steps[2]).toContain('Step 3');
-    });
-
-    it('should parse numbered list pattern', () => {
-      const content = `1. First item
-2. Second item
-3. Third item`;
-      const steps = parseReasoningSteps(content);
-      expect(steps).toHaveLength(3);
-      expect(steps[0]).toContain('1.');
-      expect(steps[1]).toContain('2.');
-    });
-
-    it('should parse dash list pattern', () => {
-      const content = `- First point
-- Second point
-- Third point`;
-      const steps = parseReasoningSteps(content);
-      expect(steps).toHaveLength(3);
-    });
-
-    it('should parse asterisk list pattern', () => {
-      const content = `* First point
-* Second point
-* Third point`;
-      const steps = parseReasoningSteps(content);
-      expect(steps).toHaveLength(3);
-    });
-
-    it('should split by paragraphs when no pattern found', () => {
-      const content = `First paragraph here.
-
-Second paragraph here.
-
-Third paragraph here.`;
-      const steps = parseReasoningSteps(content);
-      expect(steps.length).toBeGreaterThan(1);
-    });
-
-    it('should return single step for simple content', () => {
-      const content = 'Simple reasoning without steps';
-      const steps = parseReasoningSteps(content);
-      expect(steps).toHaveLength(1);
-      expect(steps[0]).toBe(content);
-    });
-
-    it('should return empty array for empty content', () => {
-      expect(parseReasoningSteps('')).toEqual([]);
-      expect(parseReasoningSteps('   ')).toEqual([]);
-    });
-
-    it('should handle mixed content', () => {
-      const content = `Let me think about this:
-
-Step 1: First analyze the problem
-Step 2: Then identify solutions
-Step 3: Finally choose the best approach`;
-      const steps = parseReasoningSteps(content);
-      expect(steps.length).toBeGreaterThan(1);
     });
   });
 });

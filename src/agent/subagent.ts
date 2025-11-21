@@ -267,8 +267,11 @@ export class Subagent extends EventEmitter {
             const toolResult = await this.executeToolCall(toolCall);
 
             // Track tool usage in status
-            if (!this.status.toolsUsed!.includes(toolCall.function.name)) {
-              this.status.toolsUsed!.push(toolCall.function.name);
+            if (!this.status.toolsUsed) {
+              this.status.toolsUsed = [];
+            }
+            if (!this.status.toolsUsed.includes(toolCall.function.name)) {
+              this.status.toolsUsed.push(toolCall.function.name);
             }
 
             // Track tool calls
