@@ -380,11 +380,17 @@ export async function getAllGrokTools(): Promise<LLMTool[]> {
   // Try to initialize servers if not already done
   // Log errors but continue without MCP tools rather than blocking
   try {
+    // Create timeout with cleanup to prevent memory leak
+    let timeoutId: NodeJS.Timeout | undefined;
+    const timeoutPromise = new Promise<void>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('MCP init timeout')), 5000);
+    });
+
     await Promise.race([
-      manager.ensureServersInitialized(),
-      new Promise<void>((_, reject) =>
-        setTimeout(() => reject(new Error('MCP init timeout')), 5000)
-      ),
+      manager.ensureServersInitialized().finally(() => {
+        if (timeoutId) clearTimeout(timeoutId);
+      }),
+      timeoutPromise,
     ]);
   } catch (error) {
     console.warn('MCP server initialization failed:', error instanceof Error ? error.message : String(error));

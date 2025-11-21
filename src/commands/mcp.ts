@@ -58,22 +58,26 @@ export function createMCPCommand(): Command {
           process.exit(1);
         }
 
-        // Parse environment variables
+        // Parse environment variables (handle values with = in them)
         const env: Record<string, string> = {};
         for (const envVar of options.env || []) {
-          const [key, value] = envVar.split('=', 2);
-          if (key && value !== undefined) {
+          const eqIndex = envVar.indexOf('=');
+          if (eqIndex > 0) {
+            const key = envVar.slice(0, eqIndex);
+            const value = envVar.slice(eqIndex + 1);
             env[key] = value;
           } else {
             ConsoleMessenger.warning('mcp_commands.warning_invalid_env', { envVar });
           }
         }
 
-        // Parse headers
+        // Parse headers (handle values with = in them)
         const headers: Record<string, string> = {};
         for (const header of options.headers || []) {
-          const [key, value] = header.split('=', 2);
-          if (key && value !== undefined) {
+          const eqIndex = header.indexOf('=');
+          if (eqIndex > 0) {
+            const key = header.slice(0, eqIndex);
+            const value = header.slice(eqIndex + 1);
             headers[key] = value;
           } else {
             ConsoleMessenger.warning('mcp_commands.warning_invalid_header', { header });
