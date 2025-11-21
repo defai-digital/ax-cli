@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, chmodSync } from "fs";
 import { dirname, join } from "path";
 import { homedir } from "os";
 import { UserSettingsSchema, ProjectSettingsSchema } from "../schemas/settings-schemas.js";
-import type { UserSettings, ProjectSettings, SamplingSettings, ThinkingSettings } from "../schemas/settings-schemas.js";
+import type { UserSettings, ProjectSettings, SamplingSettings, ThinkingSettings, DualModelSettings } from "../schemas/settings-schemas.js";
 import { ModelIdSchema } from '@ax-cli/schemas';
 import { parseJsonFile, writeJsonFile } from "./json-utils.js";
 
@@ -477,6 +477,82 @@ export class SettingsManager {
     }
 
     return result;
+  }
+
+  /**
+   * Get dual-model settings with proper fallback logic:
+   * 1. Environment variables (AI_DUAL_MODEL_ENABLED, AI_CHAT_MODEL, AI_CODING_MODEL)
+   * 2. Project-specific dual-model settings
+   * 3. User's default dual-model settings
+   * 4. Undefined (default behavior - dual-model disabled)
+   *
+   * @returns Dual-model settings or undefined for default behavior
+   */
+  public getDualModelSettings(): DualModelSettings | undefined {
+    // Start with user settings as base
+    const userDualModel = this.getUserSetting("dualModel");
+    const projectDualModel = this.getProjectSetting("dualModel");
+
+    // Merge project settings over user settings
+    const baseDualModel = { ...(userDualModel || {}), ...(projectDualModel || {}) };
+
+    // Environment variables take highest priority
+    const envEnabled = process.env.AI_DUAL_MODEL_ENABLED;
+    const envChatModel = process.env.AI_CHAT_MODEL;
+    const envCodingModel = process.env.AI_CODING_MODEL;
+
+    let result: DualModelSettings = { ...baseDualModel };
+
+    if (envEnabled !== undefined) {
+      if (!result) result = {};
+      result.enabled = envEnabled.toLowerCase() === "true";
+    }
+
+    if (envChatModel !== undefined) {
+      if (!result) result = {};
+      result.chatModel = envChatModel as any;
+    }
+
+    if (envCodingModel !== undefined) {
+      if (!result) result = {};
+      result.codingModel = envCodingModel as any;
+    }
+
+    // Return undefined if no settings were configured (use defaults)
+    if (!result || Object.keys(result).length === 0) {
+      return undefined;
+    }
+
+    return result;
+  }
+
+  /**
+   * Check if dual-model mode is enabled
+   */
+  public isDualModelEnabled(): boolean {
+    const dualModel = this.getDualModelSettings();
+    return dualModel?.enabled === true;
+  }
+
+  /**
+   * Get the appropriate model based on chat mode
+   * @param isChatMode - Whether to use chat model (true) or coding model (false)
+   * @returns Model to use, or undefined to use default
+   */
+  public getModelForMode(isChatMode: boolean): string | undefined {
+    const dualModel = this.getDualModelSettings();
+
+    // If dual-model is not enabled, return undefined (use default)
+    if (!dualModel?.enabled) {
+      return undefined;
+    }
+
+    // Return appropriate model based on mode
+    if (isChatMode) {
+      return dualModel.chatModel || this.getCurrentModel();
+    } else {
+      return dualModel.codingModel || this.getCurrentModel();
+    }
   }
 
   /**

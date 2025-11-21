@@ -1,4 +1,4 @@
-# AX CLI - Enterprise-Class AI CLI
+# AX CLI - Enterprise-Class GLM AI CLI
 
 [![Tests](https://img.shields.io/badge/tests-562%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
 [![Coverage](https://img.shields.io/badge/coverage-98.29%25-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli)
@@ -13,7 +13,7 @@
 ![AX CLI Logo](.github/assets/ax-cli.png)
 
 <p align="center">
-  <strong>Enterprise-Grade Architecture • 98%+ Test Coverage • TypeScript & Zod Validation</strong>
+  <strong>GLM-Optimized CLI • Enterprise Architecture • 98%+ Test Coverage • TypeScript & Zod</strong>
 </p>
 
 ---
@@ -36,7 +36,9 @@ ax-cli
 
 ## ✨ Features
 
-- **🤖 Multi-Provider Support**: Z.AI (GLM), xAI (Grok), OpenAI, Anthropic (Claude), Ollama (local)
+- **🤖 GLM-Focused AI CLI**: Optimized for Z.AI's GLM models (glm-4.6, glm-4-air, glm-4-airx)
+  - **Note**: For xAI Grok models, use [grok-cli](https://github.com/superagent-ai/grok-cli)
+  - **Note**: For Anthropic Claude models, use [claude-code](https://claude.ai/code)
 - **🧠 GLM 4.6 Optimized**: Primary support for General Language Model with advanced reasoning
   - **32K max tokens** (industry-standard, matches Claude Code CLI)
   - 200K context window, 128K max output capability
@@ -60,6 +62,13 @@ ax-cli
   - Automatic project scanning and context generation
   - z.ai implicit caching support (50% token savings on repeated context)
   - Cache statistics tracking and efficiency monitoring
+- **🏥 Health Check** (NEW): Comprehensive diagnostics with `ax-cli doctor`
+  - Verify configuration, API connectivity, and dependencies
+  - Detailed error messages with actionable suggestions
+- **💬 Dual-Model Mode** (NEW): Use different models for chat vs coding
+  - Configure chat and coding models separately
+  - Manual model switching with `--chat-mode` flag
+  - Optimize cost and performance for different task types
 - **🔄 Auto-Update**: Built-in update checker and installer
 
 ### Max Tokens Configuration
@@ -150,6 +159,7 @@ ax-cli -c
 /clear             # Clear chat history
 /models            # Switch AI model
 /usage             # Show API usage statistics
+/doctor            # Run health check diagnostics
 /tasks             # List background tasks
 /task <id>         # View background task output
 /kill <id>         # Kill a background task
@@ -328,6 +338,77 @@ ax-cli usage reset
 
 [CLI Reference →](docs/cli-reference.md) | [Usage Guide →](docs/usage.md)
 
+## 🏥 Health Check & Diagnostics (NEW)
+
+Run comprehensive diagnostics to verify your AX CLI configuration:
+
+```bash
+# Run full diagnostic check
+ax-cli doctor
+
+# Get detailed diagnostic information
+ax-cli doctor --verbose
+
+# Output results as JSON
+ax-cli doctor --json
+```
+
+The `doctor` command checks:
+- ✓ Node.js version (24+)
+- ✓ Configuration files (user and project)
+- ✓ API key and base URL
+- ✓ API connectivity and authentication
+- ✓ Model configuration
+- ✓ MCP server configuration
+- ✓ Dependencies (ripgrep, git)
+
+## 💬 Dual-Model Mode (NEW)
+
+Use different models for chat vs coding tasks to optimize performance and cost:
+
+### Configuration
+
+Add to `~/.ax-cli/config.json` or `.ax-cli/settings.json`:
+
+```json
+{
+  "dualModel": {
+    "enabled": true,
+    "chatModel": "glm-4-air",
+    "codingModel": "glm-4.6"
+  }
+}
+```
+
+### Usage
+
+```bash
+# Use faster chat model for questions
+ax-cli --chat-mode -p "explain what this project does"
+
+# Use coding model (default) for implementation
+ax-cli -p "implement user authentication"
+
+# In interactive mode, default is coding model
+ax-cli
+```
+
+### Environment Variables
+
+```bash
+# Enable dual-model mode
+export AI_DUAL_MODEL_ENABLED=true
+export AI_CHAT_MODEL=glm-4-air
+export AI_CODING_MODEL=glm-4.6
+
+ax-cli --chat-mode
+```
+
+**Benefits:**
+- 💰 **Cost savings**: Use faster/cheaper models for simple queries
+- ⚡ **Better performance**: Match model capability to task complexity
+- 🎯 **Manual control**: You decide when to use each model
+
 ## 🔌 MCP (Model Context Protocol)
 
 Extend AX CLI with MCP servers for additional capabilities:
@@ -488,7 +569,7 @@ MIT License - see [LICENSE](LICENSE) for details
 
 ## 🙏 Acknowledgments
 
-Originally forked from [grok-cli](https://github.com/superagent-ai/grok-cli), AX CLI has been extensively upgraded using **AutomatosX** multi-agent orchestration to achieve enterprise-class standards.
+Built with **AutomatosX** multi-agent orchestration to achieve enterprise-class standards.
 
 ---
 

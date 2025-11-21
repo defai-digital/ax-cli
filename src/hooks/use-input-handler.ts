@@ -53,6 +53,12 @@ interface UseInputHandlerProps {
   onOperationInterrupted?: () => void;
   onChatCleared?: () => void;
   onCopyLastResponse?: () => void;
+  // Callbacks for memory operations
+  onMemoryWarmed?: (tokens: number) => void;
+  onMemoryRefreshed?: () => void;
+  // Callbacks for checkpoint operations
+  onCheckpointCreated?: () => void;
+  onCheckpointRestored?: () => void;
 }
 
 interface CommandSuggestion {
@@ -84,6 +90,10 @@ export function useInputHandler({
   onOperationInterrupted,
   onChatCleared,
   onCopyLastResponse,
+  onMemoryWarmed,
+  onMemoryRefreshed,
+  onCheckpointCreated: _onCheckpointCreated,
+  onCheckpointRestored: _onCheckpointRestored,
 }: UseInputHandlerProps) {
   const [showCommandSuggestions, setShowCommandSuggestions] = useState(false);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
@@ -275,6 +285,7 @@ export function useInputHandler({
     return () => {
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null; // Clear ref to prevent dangling reference
       }
     };
   }, []);
@@ -287,6 +298,7 @@ export function useInputHandler({
     { command: "/clear", description: "Clear chat history" },
     { command: "/init", description: "Initialize project with smart analysis" },
     { command: "/usage", description: "Show API usage statistics" },
+    { command: "/doctor", description: "Run health check diagnostics" },
     { command: "/tasks", description: "List background tasks" },
     { command: "/task", description: "View output of a background task" },
     { command: "/kill", description: "Kill a background task" },
@@ -335,6 +347,7 @@ export function useInputHandler({
       setIsStreaming(true);
       processingStartTime.current = Date.now();
 
+      // Fire async operation with proper error handling
       (async () => {
         try {
           let streamingEntry: ChatEntry | null = null;
@@ -499,7 +512,19 @@ export function useInputHandler({
 
         setIsProcessing(false);
         processingStartTime.current = 0;
-      })();
+      })().catch((error: unknown) => {
+        // Safety net: handle any uncaught errors from the async IIFE
+        const errorObj = error instanceof Error ? error : new Error(String(error));
+        const errorEntry: ChatEntry = {
+          type: "assistant",
+          content: `Unexpected error: ${errorObj.message}`,
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, errorEntry]);
+        setIsStreaming(false);
+        setIsProcessing(false);
+        processingStartTime.current = 0;
+      });
 
       clearInput();
       resetHistory();
@@ -685,6 +710,7 @@ Built-in Commands:
   /help       - Show this help
   /shortcuts  - Show keyboard shortcuts guide
   /usage      - Show API usage statistics
+  /doctor     - Run health check diagnostics
   /exit       - Exit application
   exit, quit  - Exit application
 
@@ -832,6 +858,46 @@ Examples:
       return true;
     }
 
+    if (trimmedInput === "/doctor") {
+      // Run doctor diagnostics
+      const doctorContent = "🏥 **Running AX CLI Diagnostics...**\n\n";
+      const doctorEntry: ChatEntry = {
+        type: "assistant",
+        content: doctorContent,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, doctorEntry]);
+
+      // Execute doctor command asynchronously
+      (async () => {
+        try {
+          const { execSync } = await import("child_process");
+          const output = execSync("node dist/index.js doctor", {
+            encoding: "utf-8",
+            cwd: process.cwd(),
+            timeout: 30000, // 30 second timeout
+          });
+
+          const resultEntry: ChatEntry = {
+            type: "assistant",
+            content: `\`\`\`\n${output}\n\`\`\``,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, resultEntry]);
+        } catch (error: any) {
+          const errorEntry: ChatEntry = {
+            type: "assistant",
+            content: `❌ **Doctor diagnostics failed:**\n\n\`\`\`\n${error.message}\n\`\`\``,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, errorEntry]);
+        }
+      })();
+
+      clearInput();
+      return true;
+    }
+
     if (trimmedInput === "/exit") {
       process.exit(0);
       return true;
@@ -896,7 +962,13 @@ Examples:
         content: "🔄 Generating project memory...",
         timestamp: new Date(),
       };
-      setChatHistory((prev) => [...prev, warmupEntry]);
+
+      // Track the entry index BEFORE any async operations to prevent race conditions
+      let entryIndex = -1;
+      setChatHistory((prev) => {
+        entryIndex = prev.length; // Store index before pushing
+        return [...prev, warmupEntry];
+      });
 
       try {
         const generator = new ContextGenerator();
@@ -908,24 +980,31 @@ Examples:
 
           if (saveResult.success) {
             const sections = result.memory!.context.sections;
-            let resultContent = `✅ Project memory generated (${result.memory!.context.token_estimate.toLocaleString()} tokens)\n\n`;
+            const tokenEstimate = result.memory!.context.token_estimate;
+            let resultContent = `✅ Project memory generated (${tokenEstimate.toLocaleString()} tokens)\n\n`;
             resultContent += `**📊 Context breakdown:**\n`;
             for (const [name, tokens] of Object.entries(sections)) {
               const tokenCount = tokens as number;
-              const pct = Math.round((tokenCount / result.memory!.context.token_estimate) * 100);
+              const pct = Math.round((tokenCount / tokenEstimate) * 100);
               resultContent += `   ${name.charAt(0).toUpperCase() + name.slice(1)}: ${tokenCount.toLocaleString()} tokens (${pct}%)\n`;
             }
             resultContent += `\n💾 Saved to .ax-cli/memory.json`;
 
+            // Update the specific entry by index to avoid race conditions
             setChatHistory((prev) => {
               const updated = [...prev];
-              updated[updated.length - 1] = {
-                type: "assistant",
-                content: resultContent,
-                timestamp: new Date(),
-              };
+              if (entryIndex >= 0 && entryIndex < updated.length) {
+                updated[entryIndex] = {
+                  type: "assistant",
+                  content: resultContent,
+                  timestamp: new Date(),
+                };
+              }
               return updated;
             });
+
+            // Trigger toast notification
+            onMemoryWarmed?.(tokenEstimate);
           } else {
             throw new Error(saveResult.error);
           }
@@ -933,13 +1012,16 @@ Examples:
           throw new Error(result.error);
         }
       } catch (error: any) {
+        // Update the specific entry by index to avoid race conditions
         setChatHistory((prev) => {
           const updated = [...prev];
-          updated[updated.length - 1] = {
-            type: "assistant",
-            content: `❌ Failed to generate memory: ${error.message}`,
-            timestamp: new Date(),
-          };
+          if (entryIndex >= 0 && entryIndex < updated.length) {
+            updated[entryIndex] = {
+              type: "assistant",
+              content: `❌ Failed to generate memory: ${error.message}`,
+              timestamp: new Date(),
+            };
+          }
           return updated;
         });
       }
@@ -957,7 +1039,13 @@ Examples:
         content: "🔄 Refreshing project memory...",
         timestamp: new Date(),
       };
-      setChatHistory((prev) => [...prev, refreshEntry]);
+
+      // Track the entry index BEFORE any async operations to prevent race conditions
+      let entryIndex = -1;
+      setChatHistory((prev) => {
+        entryIndex = prev.length; // Store index before pushing
+        return [...prev, refreshEntry];
+      });
 
       try {
         const store = getContextStore();
@@ -972,26 +1060,35 @@ Examples:
           if (hasChanges) {
             const saveResult = store.save(result.memory!);
             if (saveResult.success) {
+              // Update the specific entry by index to avoid race conditions
               setChatHistory((prev) => {
                 const updated = [...prev];
-                updated[updated.length - 1] = {
-                  type: "assistant",
-                  content: `✅ Memory updated (${result.memory!.context.token_estimate.toLocaleString()} tokens)`,
-                  timestamp: new Date(),
-                };
+                if (entryIndex >= 0 && entryIndex < updated.length) {
+                  updated[entryIndex] = {
+                    type: "assistant",
+                    content: `✅ Memory updated (${result.memory!.context.token_estimate.toLocaleString()} tokens)`,
+                    timestamp: new Date(),
+                  };
+                }
                 return updated;
               });
+
+              // Trigger toast notification
+              onMemoryRefreshed?.();
             } else {
               throw new Error(saveResult.error);
             }
           } else {
+            // Update the specific entry by index to avoid race conditions
             setChatHistory((prev) => {
               const updated = [...prev];
-              updated[updated.length - 1] = {
-                type: "assistant",
-                content: `✅ No changes detected - memory is up to date`,
-                timestamp: new Date(),
-              };
+              if (entryIndex >= 0 && entryIndex < updated.length) {
+                updated[entryIndex] = {
+                  type: "assistant",
+                  content: `✅ No changes detected - memory is up to date`,
+                  timestamp: new Date(),
+                };
+              }
               return updated;
             });
           }
@@ -999,13 +1096,16 @@ Examples:
           throw new Error(result.error);
         }
       } catch (error: any) {
+        // Update the specific entry by index to avoid race conditions
         setChatHistory((prev) => {
           const updated = [...prev];
-          updated[updated.length - 1] = {
-            type: "assistant",
-            content: `❌ Failed to refresh memory: ${error.message}`,
-            timestamp: new Date(),
-          };
+          if (entryIndex >= 0 && entryIndex < updated.length) {
+            updated[entryIndex] = {
+              type: "assistant",
+              content: `❌ Failed to refresh memory: ${error.message}`,
+              timestamp: new Date(),
+            };
+          }
           return updated;
         });
       }

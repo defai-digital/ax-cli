@@ -18,6 +18,13 @@ export const ThinkingSettingsSchema = z.object({
   enabled: z.boolean().optional(),
 }).optional();
 
+// Dual-Model Settings Schema (for chat vs coding mode)
+export const DualModelSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  chatModel: ModelIdSchema.optional(),
+  codingModel: ModelIdSchema.optional(),
+}).optional();
+
 // User Settings Schema
 export const UserSettingsSchema: z.ZodType<any> = z.object({
   apiKey: z.string().optional(),
@@ -35,6 +42,8 @@ export const UserSettingsSchema: z.ZodType<any> = z.object({
   sampling: SamplingSettingsSchema,
   // Thinking settings for GLM-4.6 reasoning mode
   thinking: ThinkingSettingsSchema,
+  // Dual-model settings for chat vs coding mode
+  dualModel: DualModelSettingsSchema,
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Project Settings Schema
@@ -50,6 +59,8 @@ export const ProjectSettingsSchema: z.ZodType<any> = z.object({
   sampling: SamplingSettingsSchema,
   // Project-level thinking settings (overrides user settings)
   thinking: ThinkingSettingsSchema,
+  // Project-level dual-model settings (overrides user settings)
+  dualModel: DualModelSettingsSchema,
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Model Option Schema
@@ -85,3 +96,4 @@ export type MCPServerConfig = z.infer<typeof MCPServerConfigSchema>;
 export type MCPTransportConfig = z.infer<typeof MCPTransportConfigSchema>;
 export type SamplingSettings = z.infer<typeof SamplingSettingsSchema>;
 export type ThinkingSettings = z.infer<typeof ThinkingSettingsSchema>;
+export type DualModelSettings = z.infer<typeof DualModelSettingsSchema>;

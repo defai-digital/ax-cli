@@ -3,6 +3,7 @@ import React from "react";
 import { render } from "ink";
 import { program } from "commander";
 import * as dotenv from "dotenv";
+import chalk from "chalk";
 import { LLMAgent } from "./agent/llm-agent.js";
 import ChatInterface from "./ui/components/chat-interface.js";
 import { getSettingsManager } from "./utils/settings-manager.js";
@@ -17,6 +18,7 @@ import { createTemplatesCommand } from "./commands/templates.js";
 import { createMemoryCommand } from "./commands/memory.js";
 import { createCacheCommand } from "./commands/cache.js";
 import { createModelsCommand } from "./commands/models.js";
+import { createDoctorCommand } from "./commands/doctor.js";
 import { getVersion } from "./utils/version.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat.js";
 
@@ -527,7 +529,11 @@ program
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., glm-4.6, grok-code-fast-1, llama3.1:8b, gpt-4) (or set AI_MODEL env var)"
+    "AI model to use (e.g., glm-4.6, glm-4-air, llama3.1:8b, gpt-4) (or set AI_MODEL env var)"
+  )
+  .option(
+    "--chat-mode",
+    "use chat model for conversational tasks (requires dual-model configuration)"
   )
   .option(
     "-p, --prompt <prompt>",
@@ -612,7 +618,23 @@ program
       // Get API key from options, environment, or user settings
       const apiKey = options.apiKey || loadApiKey();
       const baseURL = options.baseUrl || loadBaseURL();
-      const model = options.model || loadModel();
+
+      // Handle dual-model mode if --chat-mode flag is set
+      let model = options.model || loadModel();
+      if (options.chatMode && !options.model) {
+        const manager = getSettingsManager();
+        const modelForMode = manager.getModelForMode(true); // true = chat mode
+        if (modelForMode) {
+          model = modelForMode;
+          console.log(chalk.cyan(`💬 Using chat model: ${model}`));
+        } else if (manager.isDualModelEnabled()) {
+          console.warn(chalk.yellow("⚠️  Dual-model mode is enabled but no chat model configured. Using default model."));
+        } else {
+          console.warn(chalk.yellow("⚠️  --chat-mode flag requires dual-model configuration. Using default model."));
+          console.warn(chalk.dim("    Configure dual-model in ~/.ax-cli/config.json or .ax-cli/settings.json"));
+        }
+      }
+
       const parsedMaxToolRounds = options.maxToolRounds ? parseInt(options.maxToolRounds.toString(), 10) : 400;
       const maxToolRounds = Number.isFinite(parsedMaxToolRounds) && parsedMaxToolRounds > 0 ? parsedMaxToolRounds : 400;
 
@@ -733,7 +755,7 @@ gitCommand
   )
   .option(
     "-m, --model <model>",
-    "AI model to use (e.g., glm-4.6, grok-code-fast-1, llama3.1:8b, gpt-4) (or set AI_MODEL env var)"
+    "AI model to use (e.g., glm-4.6, glm-4-air, llama3.1:8b, gpt-4) (or set AI_MODEL env var)"
   )
   .option(
     "--max-tool-rounds <rounds>",
@@ -806,5 +828,8 @@ program.addCommand(createCacheCommand());
 
 // Models command
 program.addCommand(createModelsCommand());
+
+// Doctor command
+program.addCommand(createDoctorCommand());
 
 program.parse();
