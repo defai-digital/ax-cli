@@ -333,9 +333,11 @@ export const ChatHistory = React.memo(
       <Box flexDirection="column">
         {filteredEntries.map((entry, index) => {
           // Safely get timestamp - handle both Date objects and serialized strings
-          const timestamp = entry.timestamp instanceof Date
+          // NaN check is critical: NaN || index still returns NaN (NaN is falsy for || but truthy for boolean)
+          const rawTimestamp = entry.timestamp instanceof Date
             ? entry.timestamp.getTime()
-            : new Date(entry.timestamp).getTime() || index;
+            : new Date(entry.timestamp).getTime();
+          const timestamp = Number.isNaN(rawTimestamp) ? index : rawTimestamp;
           return (
             <MemoizedChatEntry
               key={`${timestamp}-${index}`}

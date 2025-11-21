@@ -422,9 +422,13 @@ function ChatInterfaceWithAgent({
 
     // Use setImmediate for non-blocking, async UI updates (Node.js equivalent of RAF)
     // Track setTimeout for proper cleanup to prevent memory leaks
-    let autoPruneTimeoutId: NodeJS.Timeout | null = null;
+    // Use object to allow mutation from inside setImmediate while accessible in cleanup
+    const timeoutState = { autoPruneTimeoutId: null as NodeJS.Timeout | null, cancelled: false };
 
     const immediateId = setImmediate(() => {
+      // Check if cleanup already ran (component unmounted)
+      if (timeoutState.cancelled) return;
+
       const percentage = agent.getContextPercentage();
 
       // Detect auto-prune: if percentage increases by more than 10%, pruning happened
@@ -433,7 +437,7 @@ function ChatInterfaceWithAgent({
           percentage > lastPercentageRef.current + 10) {
         setShowAutoPrune(true);
         // Hide "auto-prune" after 3 seconds
-        autoPruneTimeoutId = setTimeout(() => setShowAutoPrune(false), 3000);
+        timeoutState.autoPruneTimeoutId = setTimeout(() => setShowAutoPrune(false), 3000);
         // Reset low warning flag after prune (context recovered)
         contextLowWarningShown.current = false;
       }
@@ -450,9 +454,10 @@ function ChatInterfaceWithAgent({
     });
 
     return () => {
+      timeoutState.cancelled = true;
       clearImmediate(immediateId);
       // Clean up auto-prune timeout to prevent memory leaks on unmount
-      if (autoPruneTimeoutId) clearTimeout(autoPruneTimeoutId);
+      if (timeoutState.autoPruneTimeoutId) clearTimeout(timeoutState.autoPruneTimeoutId);
     };
   }, [agent, chatHistory.length, isStreaming, addToast]); // Only when length changes and not streaming
 

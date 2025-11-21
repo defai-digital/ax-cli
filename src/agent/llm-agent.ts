@@ -599,7 +599,7 @@ export class LLMAgent extends EventEmitter {
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ];
-          const response = await this.llmClient.chat(planMessages, []);
+          const response = await this.llmClient.chat(planMessages, [], this.buildChatOptions());
           return response.choices[0]?.message?.content || "";
         },
         {
@@ -847,11 +847,11 @@ export class LLMAgent extends EventEmitter {
         const stream = this.llmClient.chatStream(
           this.messages,
           tools,
-          {
+          this.buildChatOptions({
             searchOptions: this.isGrokModel() && this.shouldUseSearchFor(message)
               ? { search_parameters: { mode: "auto" } }
               : { search_parameters: { mode: "off" } }
-          }
+          })
         );
 
         // Process streaming chunks
@@ -991,11 +991,11 @@ export class LLMAgent extends EventEmitter {
       let currentResponse = await this.llmClient.chat(
         this.messages,
         tools,
-        {
+        this.buildChatOptions({
           searchOptions: this.isGrokModel() && this.shouldUseSearchFor(message)
             ? { search_parameters: { mode: "auto" } }
             : { search_parameters: { mode: "off" } }
-        }
+        })
       );
 
       // Agent loop - continue until no more tool calls or max rounds reached
@@ -1122,11 +1122,11 @@ export class LLMAgent extends EventEmitter {
           currentResponse = await this.llmClient.chat(
             this.messages,
             tools,
-            {
+            this.buildChatOptions({
               searchOptions: this.isGrokModel() && this.shouldUseSearchFor(message)
                 ? { search_parameters: { mode: "auto" } }
                 : { search_parameters: { mode: "off" } }
-            }
+            })
           );
         } else {
           // No more tool calls, add final response
@@ -1558,11 +1558,11 @@ export class LLMAgent extends EventEmitter {
         const stream = this.llmClient.chatStream(
           this.messages,
           tools,
-          {
+          this.buildChatOptions({
             searchOptions: this.isGrokModel() && this.shouldUseSearchFor(message)
               ? { search_parameters: { mode: "auto" } }
               : { search_parameters: { mode: "off" } }
-          }
+          })
         );
 
         // Process streaming chunks

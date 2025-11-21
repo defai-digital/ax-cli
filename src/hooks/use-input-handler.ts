@@ -497,12 +497,12 @@ export function useInputHandler({
     }
 
     if (trimmedInput === "/retry") {
-      // Find the last user message and re-send it
-      const lastUserEntry = [...chatHistory].reverse().find(entry => entry.type === "user");
-      if (lastUserEntry && lastUserEntry.content) {
+      // Find the last user message index and re-send it
+      // Use findLastIndex instead of reverse().find() + lastIndexOf() to avoid object reference issues
+      const lastUserIndex = chatHistory.findLastIndex(entry => entry.type === "user");
+      if (lastUserIndex >= 0 && chatHistory[lastUserIndex]?.content) {
         // Store the message content and history state before clearing
-        const messageToRetry = lastUserEntry.content;
-        const lastUserIndex = chatHistory.lastIndexOf(lastUserEntry);
+        const messageToRetry = chatHistory[lastUserIndex].content;
         const historyBackup = [...chatHistory];
 
         // Remove the last user message and any assistant responses after it
