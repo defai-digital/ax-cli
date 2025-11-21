@@ -150,12 +150,19 @@ export class BashTool extends EventEmitter {
 
       return result as ToolResult;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+      // Safely extract error message and command output
+      let errorMessage = 'Unknown error';
 
-      // Extract command output from error if available
-      let errorMessage = error.message;
-      if (error.stdout || error.stderr) {
-        errorMessage = (error.stdout || '') + (error.stderr ? `\nSTDERR: ${error.stderr}` : '');
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Check for stdout/stderr on exec errors
+        const execError = error as Error & { stdout?: string; stderr?: string };
+        if (execError.stdout || execError.stderr) {
+          errorMessage = (execError.stdout || '') + (execError.stderr ? `\nSTDERR: ${execError.stderr}` : '');
+        }
+      } else if (typeof error === 'string') {
+        errorMessage = error;
       }
 
       // Optimize error output to reduce verbosity

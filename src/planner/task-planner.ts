@@ -321,12 +321,29 @@ export class TaskPlanner extends EventEmitter {
     };
 
     if (batch.canRunInParallel && batch.phases.length > 1) {
-      // Execute in parallel
+      // Execute in parallel using allSettled to allow all phases to complete
       const promises = batch.phases.map((phase) =>
         this.executePhase(plan, phase, phaseExecutor, context, options)
       );
 
-      return Promise.all(promises);
+      const settled = await Promise.allSettled(promises);
+      return settled.map((result, index) => {
+        if (result.status === 'fulfilled') {
+          return result.value;
+        }
+        // Create failed result for rejected promises
+        const phase = batch.phases[index];
+        return {
+          phaseId: phase.id,
+          success: false,
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+          duration: 0,
+          tokensUsed: 0,
+          filesModified: [],
+          wasRetry: false,
+          retryAttempt: 0,
+        };
+      });
     } else {
       // Execute sequentially
       const results: PhaseResult[] = [];
