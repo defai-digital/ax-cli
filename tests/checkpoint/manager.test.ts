@@ -580,9 +580,15 @@ describe('CheckpointManager', () => {
 
   describe('error handling', () => {
     it('should handle storage errors gracefully', async () => {
-      // Create manager with invalid storage path
+      // Create manager with invalid storage path (cross-platform)
+      // On Windows: use an invalid drive letter, on Unix: use a path that requires root
+      const isWindows = process.platform === 'win32';
+      const invalidPath = isWindows
+        ? 'Z:\\invalid\\path\\that\\cannot\\exist'
+        : '/invalid/path/that/cannot/exist';
+
       const invalidManager = new CheckpointManager({
-        storageDir: '/invalid/path/that/cannot/exist',
+        storageDir: invalidPath,
       });
 
       await expect(invalidManager.initialize()).rejects.toThrow();
