@@ -6,6 +6,7 @@
 import type { LLMMessage } from '../llm/client.js';
 import type { TokenCounter } from '../utils/token-counter.js';
 import { GLM_MODELS } from '../constants.js';
+import * as crypto from 'crypto';
 
 export interface ContextManagerOptions {
   /** Model being used */
@@ -84,23 +85,30 @@ export class ContextManager {
 
   /**
    * Create a cache key from messages
-   * Fast hashing without full serialization
-   * Includes content sample to prevent collisions
+   * Uses SHA-256 hash of full content to prevent collisions
+   * More reliable than content sampling
    */
   private createMessageCacheKey(messages: LLMMessage[]): string {
-    // Use message count + roles + content lengths + content sample as a fast hash
-    return messages.map(m => {
-      const contentLen = typeof m.content === 'string' ? m.content.length : Array.isArray(m.content) ? m.content.reduce((sum, part) => sum + (part.type === 'text' ? part.text.length : 0), 0) : 0;
-      const toolCallsLen = (m.role === 'assistant' || m.role === 'tool') && 'tool_calls' in m ? m.tool_calls?.length || 0 : 0;
-      // Include first 50 chars of content to prevent hash collisions
-      // Increased from 20 to 50 to reduce false cache hits
-      const contentSample = typeof m.content === 'string'
-        ? m.content.substring(0, 50).replace(/[|:]/g, '') // Remove delimiters
+    // Serialize messages to a stable string representation
+    const messageSignature = messages.map(m => {
+      // Get full content
+      const content = typeof m.content === 'string'
+        ? m.content
         : Array.isArray(m.content)
-          ? m.content.filter(part => part.type === 'text').map(part => part.text).join('').substring(0, 50).replace(/[|:]/g, '')
+          ? m.content.map(part => part.type === 'text' ? part.text : '').join('')
           : '';
-      return `${m.role}:${contentLen}:${toolCallsLen}:${contentSample}`;
-    }).join('|');
+
+      // Include tool calls if present
+      const toolCalls = (m.role === 'assistant' || m.role === 'tool') && 'tool_calls' in m && m.tool_calls
+        ? JSON.stringify(m.tool_calls)
+        : '';
+
+      // Create deterministic string for this message
+      return `${m.role}|${content}|${toolCalls}`;
+    }).join('||');
+
+    // Hash the signature for efficient cache lookup
+    return crypto.createHash('sha256').update(messageSignature).digest('hex').substring(0, 32);
   }
 
   /**

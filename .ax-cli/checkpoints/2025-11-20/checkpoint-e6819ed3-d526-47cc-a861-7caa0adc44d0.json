@@ -1,10 +1,10 @@
 {
-  "id": "2f8bc7ba-c608-44b4-b3ff-d4646ad964da",
-  "timestamp": "2025-11-21T02:51:25.713Z",
+  "id": "e6819ed3-d526-47cc-a861-7caa0adc44d0",
+  "timestamp": "2025-11-21T02:59:29.164Z",
   "description": "Test checkpoint",
   "files": [
     {
-      "path": "/test/file-1763693485713.ts",
+      "path": "/test/file-1763693969164.ts",
       "content": "test content",
       "hash": "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72",
       "size": 12
@@ -14,7 +14,7 @@
     {
       "type": "user",
       "content": "Test message",
-      "timestamp": "2025-11-21T02:51:25.713Z"
+      "timestamp": "2025-11-21T02:59:29.164Z"
     }
   ],
   "metadata": {

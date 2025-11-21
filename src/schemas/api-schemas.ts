@@ -82,6 +82,10 @@ export const StreamingChunkSchema: z.ZodType<any> = z.discriminatedUnion('type',
     content: z.string(),
   }),
   z.object({
+    type: z.literal('reasoning'),
+    reasoningContent: z.string(),
+  }),
+  z.object({
     type: z.literal('tool_calls'),
     toolCalls: z.array(LLMToolCallSchema),
   }),

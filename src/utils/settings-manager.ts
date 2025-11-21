@@ -163,9 +163,10 @@ export class SettingsManager {
       // Set secure permissions for API key
       chmodSync(this.userSettingsPath, 0o600);
 
-      // Invalidate cache after save
-      this.userSettingsCache = null;
-      this.cacheTimestamp.user = 0;
+      // Update cache with new settings instead of invalidating
+      // This improves performance and prevents race conditions
+      this.userSettingsCache = mergedSettings;
+      this.cacheTimestamp.user = Date.now();
     } catch (error) {
       console.error(
         "Failed to save user settings:",
@@ -283,9 +284,10 @@ export class SettingsManager {
         throw new Error(`Failed to write settings: ${writeResult.error}`);
       }
 
-      // Invalidate cache after save
-      this.projectSettingsCache = null;
-      this.cacheTimestamp.project = 0;
+      // Update cache with new settings instead of invalidating
+      // This improves performance and prevents race conditions
+      this.projectSettingsCache = mergedSettings;
+      this.cacheTimestamp.project = Date.now();
     } catch (error) {
       console.error(
         "Failed to save project settings:",
