@@ -325,21 +325,33 @@ export class BackgroundTaskManager extends EventEmitter {
     }
 
     return new Promise((resolve) => {
+      const cleanup = () => {
+        clearTimeout(timeout);
+        this.off('taskComplete', checkComplete);
+        this.off('taskError', checkComplete);
+      };
+
       const timeout = setTimeout(() => {
+        cleanup();
         resolve(this.getOutput(taskId));
       }, timeoutMs);
 
       const checkComplete = (data: { taskId: string }) => {
         if (data.taskId === taskId) {
-          clearTimeout(timeout);
-          this.off('taskComplete', checkComplete);
-          this.off('taskError', checkComplete);
+          cleanup();
           resolve(this.getOutput(taskId));
         }
       };
 
       this.on('taskComplete', checkComplete);
       this.on('taskError', checkComplete);
+
+      // Check if task already completed after attaching listeners (race condition guard)
+      const currentTask = this.tasks.get(taskId);
+      if (currentTask && currentTask.status !== 'running') {
+        cleanup();
+        resolve(this.getOutput(taskId));
+      }
     });
   }
 
