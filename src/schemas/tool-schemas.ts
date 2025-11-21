@@ -30,7 +30,15 @@ export const ReadFileSchema = z.object({
   file_path: z.string().min(1, 'File path cannot be empty'),
   start_line: z.number().int().positive().optional(),
   end_line: z.number().int().positive().optional(),
-});
+}).refine(
+  (data) => {
+    if (data.start_line !== undefined && data.end_line !== undefined) {
+      return data.start_line <= data.end_line;
+    }
+    return true;
+  },
+  { message: 'start_line must be less than or equal to end_line' }
+);
 
 export const WriteFileSchema = z.object({
   file_path: z.string().min(1, 'File path cannot be empty'),

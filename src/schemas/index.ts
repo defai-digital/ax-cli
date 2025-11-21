@@ -110,7 +110,7 @@ export const APIResponseSchema: z.ZodType<any> = z.object({
         }),
       })).optional(),
     }),
-    finish_reason: FinishReasonEnum.nullable(),
+    finish_reason: FinishReasonEnum,  // Already nullable from definition
   })),
   usage: z.object({
     prompt_tokens: z.number(),
