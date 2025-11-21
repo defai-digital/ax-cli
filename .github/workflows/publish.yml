@@ -121,8 +121,22 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Create GitHub Release
+      - name: Check if GitHub Release exists
         if: steps.check-version.outputs.exists == 'false' && github.event_name == 'push'
+        id: check-release
+        run: |
+          if gh release view ${{ github.ref_name }} >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "⚠️ GitHub Release ${{ github.ref_name }} already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "✅ GitHub Release ${{ github.ref_name }} does not exist yet"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        if: steps.check-version.outputs.exists == 'false' && github.event_name == 'push' && steps.check-release.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref }}
@@ -143,6 +157,12 @@ jobs:
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip GitHub Release (already exists)
+        if: steps.check-version.outputs.exists == 'false' && github.event_name == 'push' && steps.check-release.outputs.exists == 'true'
+        run: |
+          echo "⏭️ Skipping GitHub Release creation - release ${{ github.ref_name }} already exists"
+          exit 0
 
       - name: Notify success
         if: steps.check-version.outputs.exists == 'false'
