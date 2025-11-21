@@ -868,16 +868,21 @@ Examples:
       };
       setChatHistory((prev) => [...prev, doctorEntry]);
 
-      // Execute doctor command asynchronously
+      // Execute doctor command asynchronously (non-blocking)
       (async () => {
         try {
-          const { execSync } = await import("child_process");
-          const output = execSync("node dist/index.js doctor", {
+          const { exec } = await import("child_process");
+          const { promisify } = await import("util");
+          const execAsync = promisify(exec);
+
+          const { stdout, stderr } = await execAsync("node dist/index.js doctor", {
             encoding: "utf-8",
             cwd: process.cwd(),
             timeout: 30000, // 30 second timeout
+            maxBuffer: 10 * 1024 * 1024, // 10MB buffer
           });
 
+          const output = stdout || stderr;
           const resultEntry: ChatEntry = {
             type: "assistant",
             content: `\`\`\`\n${output}\n\`\`\``,

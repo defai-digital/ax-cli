@@ -274,18 +274,21 @@ const MemoizedChatEntry = React.memo(
           return `${mins}m ${secs}s`;
         };
 
-        // CONCISE MODE (default): Single line summary
+        // CONCISE MODE (default): Single line summary with visual hierarchy
         // Note: effectiveVerbose includes auto-verbose for errors
         if (!effectiveVerbose) {
+          // Add visual hierarchy with subtle indentation for better scannability
+          const isEven = index % 2 === 0;
+
           return (
-            <Box key={index} flexDirection="row" marginTop={0}>
+            <Box key={index} flexDirection="row" marginTop={0} paddingLeft={isEven ? 0 : 1}>
               <Text color="magenta">⏺</Text>
               <Text color="yellow" bold>
                 {" "}
                 {actionName}
               </Text>
               <Text color="gray">
-                {filePath ? `(${filePath})` : ""}
+                {filePath ? ` (${filePath})` : ""}
               </Text>
               {isExecuting ? (
                 <Text color="cyan"> ...</Text>
@@ -394,11 +397,11 @@ export const ChatHistory = React.memo(
       <Box flexDirection="column">
         {filteredEntries.map((entry, index) => {
           // Safely get timestamp - handle both Date objects and serialized strings
-          // NaN check is critical: NaN || index still returns NaN (NaN is falsy for || but truthy for boolean)
+          // Use string key for NaN fallback to avoid NaN in React keys
           const rawTimestamp = entry.timestamp instanceof Date
             ? entry.timestamp.getTime()
             : new Date(entry.timestamp).getTime();
-          const timestamp = Number.isNaN(rawTimestamp) ? index : rawTimestamp;
+          const timestamp = Number.isNaN(rawTimestamp) ? `fallback-${index}` : rawTimestamp;
           return (
             <MemoizedChatEntry
               key={`${timestamp}-${index}`}
@@ -427,8 +430,13 @@ export const ChatHistory = React.memo(
 
     // If array length is same and last entry is identical, skip re-render
     // (handles case where array is recreated but content is same)
-    const prevLast = prevProps.entries[prevProps.entries.length - 1];
-    const nextLast = nextProps.entries[nextProps.entries.length - 1];
+    // Add bounds check to prevent undefined access on empty arrays
+    const prevLast = prevProps.entries.length > 0
+      ? prevProps.entries[prevProps.entries.length - 1]
+      : null;
+    const nextLast = nextProps.entries.length > 0
+      ? nextProps.entries[nextProps.entries.length - 1]
+      : null;
 
     return (
       prevProps.entries.length === nextProps.entries.length &&

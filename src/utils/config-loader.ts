@@ -76,6 +76,7 @@ export interface ModelConfig {
   max_output_tokens: number;
   default_max_tokens: number;
   supports_thinking: boolean;
+  supports_vision?: boolean;
   default_temperature: number;
   temperature_range: {
     min: number;

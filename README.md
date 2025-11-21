@@ -10,7 +10,7 @@
 [![Windows](https://img.shields.io/badge/Windows-11-blue?style=flat-square&logo=windows)](https://www.microsoft.com/windows/)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-blue?style=flat-square&logo=ubuntu)](https://ubuntu.com/)
 
-![AX CLI Logo](.github/assets/ax-cli.png)
+![AX CLI Screenshot](.github/assets/screenshot1.png)
 
 <p align="center">
   <strong>GLM-Optimized CLI • Enterprise Architecture • 98%+ Test Coverage • TypeScript & Zod</strong>
@@ -54,7 +54,13 @@ ax-cli
   - Preserve context across sessions for multi-day development
   - Each project maintains its own independent history
   - Seamlessly resume conversations where you left off
-- **🔌 MCP Integration**: Model Context Protocol for extensible tool support
+- **🔌 Enhanced MCP Integration**: Model Context Protocol with production-ready templates
+  - **One-command setup**: `ax-cli mcp add figma --template`
+  - **12+ pre-configured templates**: Figma, GitHub, Vercel, Puppeteer, Storybook, Sentry, and more
+  - **Tool discovery**: `ax-cli mcp tools <server>` to preview capabilities
+  - **Template browser**: `ax-cli mcp browse` for quick navigation
+  - **Front-end focused**: Design-to-code workflows with Figma integration
+  - **[Complete Guide](docs/mcp-frontend-guide.md)**: Front-end developer workflows
 - **✅ Production-Ready**: 98%+ test coverage, TypeScript strict mode, Zod validation
 - **🎯 Interactive & Headless**: Chat interface or one-shot commands
 - **📝 Smart Project Init**: Automatic project analysis and custom instructions

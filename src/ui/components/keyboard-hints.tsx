@@ -82,9 +82,10 @@ export const ALL_SHORTCUTS: Record<string, Shortcut[]> = {
     { keys: "Enter", description: "Send message / confirm" },
     { keys: "Shift+Enter", description: "New line (multiline)" },
     { keys: "Ctrl+K", description: "Open quick actions menu" },
-    { keys: "Ctrl+Y", description: "Copy last response to clipboard" },
+    { keys: "Ctrl+Y", description: "Copy last response" },
     { keys: "Tab", description: "Complete command suggestion" },
-    { keys: "Esc", description: "Cancel / close menu" },
+    { keys: "Esc", description: "Cancel / close menu / interrupt" },
+    { keys: "?", description: "Show keyboard shortcuts" },
   ],
   "Confirmation Dialog": [
     { keys: "1-4", description: "Quick select option" },

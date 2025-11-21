@@ -29,14 +29,14 @@ const PROVIDERS: Record<string, ProviderConfig> = {
     website: 'https://z.ai',
     description: 'Z.AI with GLM 4.6 - Advanced reasoning and 200K context window'
   },
-  'xai': {
-    name: 'xai',
-    displayName: 'xAI (Grok)',
-    baseURL: 'https://api.x.ai/v1',
-    defaultModel: 'grok-code-fast-1',
+  'z.ai-free': {
+    name: 'z.ai-free',
+    displayName: 'Z.AI (Free Plan)',
+    baseURL: 'https://api.z.ai/api/paas/v4',
+    defaultModel: 'glm-4.6',
     requiresApiKey: true,
-    website: 'https://x.ai',
-    description: 'xAI Grok models - Fast coding assistance'
+    website: 'https://z.ai',
+    description: 'Z.AI Free Plan - Standard API endpoint for non-coding-plan users'
   },
   'openai': {
     name: 'openai',
@@ -177,7 +177,7 @@ export function createSetupCommand(): Command {
 
         // Create configuration object with comments
         // Use provider-specific max tokens (32k for GLM 4.6, others use reasonable defaults)
-        const maxTokens = selectedProvider.name === 'z.ai' ? 32768 : 8192;
+        const maxTokens = (selectedProvider.name === 'z.ai' || selectedProvider.name === 'z.ai-free') ? 32768 : 8192;
 
         const config = {
           _comment: 'AX CLI Configuration',
@@ -191,13 +191,15 @@ export function createSetupCommand(): Command {
           mcpServers: {},
           _examples: {
             _comment: 'Example configurations for different providers',
-            'z.ai': {
+            'z.ai-coding-plan': {
               baseURL: 'https://api.z.ai/api/coding/paas/v4',
-              models: ['glm-4.6', 'glm-4-air', 'glm-4-airx']
+              models: ['glm-4.6', 'glm-4-air', 'glm-4-airx'],
+              note: 'For users with GLM Coding Plan subscription'
             },
-            'xai': {
-              baseURL: 'https://api.x.ai/v1',
-              models: ['grok-code-fast-1']
+            'z.ai-free': {
+              baseURL: 'https://api.z.ai/api/paas/v4',
+              models: ['glm-4.6', 'glm-4-air', 'glm-4-airx'],
+              note: 'For free plan users'
             },
             'openai': {
               baseURL: 'https://api.openai.com/v1',

@@ -10,6 +10,7 @@ import { getSettingsManager } from "./utils/settings-manager.js";
 import { ConfirmationService } from "./utils/confirmation-service.js";
 import { extractErrorMessage } from "./utils/error-handler.js";
 import { createMCPCommand } from "./commands/mcp.js";
+import { createFrontendCommand } from "./commands/frontend.js";
 import { createInitCommand } from "./commands/init.js";
 import { createUpdateCommand } from "./commands/update.js";
 import { createSetupCommand } from "./commands/setup.js";
@@ -251,7 +252,7 @@ Respond with ONLY the commit message, no additional text.`;
 
     if (commitResult.success) {
       // Safely extract first line with proper fallback
-      const firstLine = commitResult.output?.split("\n").filter(line => line.trim())[0];
+      const firstLine = commitResult.output?.split("\n").filter(line => line.trim())?.[0];
       console.log(
         `✅ git commit: ${firstLine || "Commit successful"}`
       );
@@ -270,7 +271,7 @@ Respond with ONLY the commit message, no additional text.`;
 
       if (pushResult.success) {
         // Safely extract first line with proper fallback
-        const firstLine = pushResult.output?.split("\n").filter(line => line.trim())[0];
+        const firstLine = pushResult.output?.split("\n").filter(line => line.trim())?.[0];
         console.log(
           `✅ git push: ${firstLine || "Push successful"}`
         );
@@ -804,6 +805,9 @@ gitCommand
 
 // MCP command
 program.addCommand(createMCPCommand());
+
+// Frontend command (workflows for front-end development)
+program.addCommand(createFrontendCommand());
 
 // Init command
 program.addCommand(createInitCommand());

@@ -1,5 +1,6 @@
 import { Command } from 'commander';
-import { addMCPServer, removeMCPServer, loadMCPConfig, PREDEFINED_SERVERS } from '../mcp/config.js';
+import { addMCPServer, removeMCPServer, loadMCPConfig, PREDEFINED_SERVERS, getTemplate, generateConfigFromTemplate } from '../mcp/config.js';
+import { getTemplateNames, getTemplatesByCategory } from '../mcp/templates.js';
 import { getMCPManager } from '../llm/tools.js';
 import { MCPServerConfig } from '../mcp/client.js';
 import { MCPServerIdSchema } from '@ax-cli/schemas';
@@ -15,6 +16,8 @@ export function createMCPCommand(): Command {
   mcpCommand
     .command('add <name>')
     .description('Add an MCP server')
+    .option('--template', 'Use pre-configured template for this server')
+    .option('--interactive', 'Prompt for required environment variables')
     .option('-t, --transport <type>', 'Transport type (stdio, http, sse, streamable_http)', 'stdio')
     .option('-c, --command <command>', 'Command to run the server (for stdio transport)')
     .option('-a, --args [args...]', 'Arguments for the server command (for stdio transport)', [])
@@ -23,9 +26,94 @@ export function createMCPCommand(): Command {
     .option('-e, --env [env...]', 'Environment variables (key=value format)', [])
     .action(async (name: string, options) => {
       try {
-        // Check if it's a predefined server
+        // Check if using template
+        if (options.template) {
+          const template = getTemplate(name);
+          if (!template) {
+            console.error(chalk.red(`❌ Template "${name}" not found`));
+            console.log();
+            console.log(chalk.blue('Available templates:'));
+            const templateNames = getTemplateNames();
+            templateNames.forEach(t => {
+              const tmpl = getTemplate(t);
+              console.log(`  ${chalk.bold(t)} - ${tmpl?.description}`);
+            });
+            process.exit(1);
+          }
+
+          // Display template information
+          console.log(chalk.blue(`\n📦 Setting up ${chalk.bold(template.name)} MCP server`));
+          console.log(chalk.gray(template.description));
+          console.log();
+
+          // Check required environment variables
+          const envVars: Record<string, string> = {};
+          let missingEnvVars = false;
+
+          for (const envVar of template.requiredEnv) {
+            const value = process.env[envVar.name];
+            if (!value) {
+              console.log(chalk.yellow(`⚠️  Missing environment variable: ${chalk.bold(envVar.name)}`));
+              console.log(chalk.gray(`   ${envVar.description}`));
+              if (envVar.url) {
+                console.log(chalk.gray(`   More info: ${envVar.url}`));
+              }
+              console.log();
+              missingEnvVars = true;
+            } else {
+              envVars[envVar.name] = value;
+            }
+          }
+
+          if (missingEnvVars) {
+            console.log(chalk.red('❌ Setup cannot continue without required environment variables.'));
+            console.log();
+            console.log(chalk.blue('Setup instructions:'));
+            console.log(template.setupInstructions);
+            process.exit(1);
+          }
+
+          // Generate config from template
+          const config = generateConfigFromTemplate(name, envVars);
+
+          // Add to configuration
+          addMCPServer(config);
+          console.log(chalk.green(`✅ Configuration saved`));
+
+          // Try to connect immediately
+          console.log(chalk.blue('🔌 Connecting to server...'));
+          const manager = getMCPManager();
+          await manager.addServer(config);
+          console.log(chalk.green('✅ Connected successfully'));
+
+          // Show available tools
+          const tools = manager.getTools().filter(t => t.serverName === name);
+          console.log(chalk.blue(`\n🔧 Available tools: ${chalk.bold(tools.length.toString())}`));
+          if (tools.length > 0 && tools.length <= 10) {
+            tools.forEach(tool => {
+              const displayName = tool.name.replace(`mcp__${name}__`, '');
+              console.log(`   • ${chalk.bold(displayName)}: ${tool.description}`);
+            });
+          }
+
+          // Show usage examples
+          if (template.usageExamples.length > 0) {
+            console.log(chalk.blue('\n💡 Usage examples:'));
+            template.usageExamples.slice(0, 3).forEach(example => {
+              console.log(chalk.gray(`   • ${example}`));
+            });
+          }
+
+          console.log(chalk.green(`\n✨ ${name} MCP server is ready to use!`));
+          return;
+        }
+
+        // Check if it's a predefined server (legacy support)
         if (PREDEFINED_SERVERS[name]) {
-          const config = PREDEFINED_SERVERS[name];
+          const template = PREDEFINED_SERVERS[name];
+          console.log(chalk.yellow(`💡 Tip: Use ${chalk.bold('--template')} flag for guided setup`));
+
+          const config = template.config;
           addMCPServer(config);
           ConsoleMessenger.plain('mcp_commands.server_predefined', { name });
 
@@ -272,6 +360,396 @@ export function createMCPCommand(): Command {
 
       } catch (error: unknown) {
         console.error(chalk.red(`✗ Failed to connect to ${name}: ${extractErrorMessage(error)}`));
+        process.exit(1);
+      }
+    });
+
+  // Templates command - List available templates
+  mcpCommand
+    .command('templates')
+    .description('List available MCP server templates')
+    .option('--category <category>', 'Filter by category (design, deployment, testing, monitoring, backend, version-control)')
+    .action((options) => {
+      console.log(chalk.blue.bold('\n📦 Available MCP Server Templates\n'));
+
+      let templates = Object.values(PREDEFINED_SERVERS);
+
+      if (options.category) {
+        templates = getTemplatesByCategory(options.category as any);
+        if (templates.length === 0) {
+          console.log(chalk.yellow(`No templates found for category "${options.category}"`));
+          console.log();
+          console.log(chalk.blue('Available categories:'));
+          console.log('  • design, deployment, testing, monitoring, backend, version-control');
+          return;
+        }
+        console.log(chalk.gray(`Showing ${options.category} templates:\n`));
+      }
+
+      // Group by category
+      const categories = templates.reduce((acc, template) => {
+        if (!acc[template.category]) {
+          acc[template.category] = [];
+        }
+        acc[template.category].push(template);
+        return acc;
+      }, {} as Record<string, typeof templates>);
+
+      const categoryIcons: Record<string, string> = {
+        design: '🎨',
+        'version-control': '📦',
+        deployment: '🚀',
+        testing: '🧪',
+        monitoring: '📊',
+        backend: '🗄️'
+      };
+
+      for (const [category, categoryTemplates] of Object.entries(categories)) {
+        const icon = categoryIcons[category] || '📌';
+        console.log(chalk.bold(`${icon} ${category.toUpperCase()}`));
+        console.log();
+
+        categoryTemplates.forEach(template => {
+          const officialBadge = template.officialServer ? chalk.green('official') : chalk.gray('community');
+          console.log(`  ${chalk.bold(template.name)} [${officialBadge}]`);
+          console.log(chalk.gray(`  ${template.description}`));
+
+          if (template.requiredEnv.length > 0) {
+            const envVarNames = template.requiredEnv.map(e => e.name).join(', ');
+            console.log(chalk.gray(`  Requires: ${envVarNames}`));
+          }
+
+          console.log(chalk.blue(`  Usage: ax-cli mcp add ${template.name} --template`));
+          console.log();
+        });
+      }
+
+      console.log(chalk.gray('💡 Tip: Use --category to filter templates by type'));
+      console.log(chalk.gray(`Example: ax-cli mcp templates --category design`));
+      console.log();
+    });
+
+  // Tools command - List tools from a specific server
+  mcpCommand
+    .command('tools <server-name>')
+    .description('List available tools from an MCP server')
+    .option('--json', 'Output in JSON format')
+    .option('--verbose', 'Show detailed tool schemas')
+    .action(async (serverName: string, options) => {
+      try {
+        const manager = getMCPManager();
+
+        // Ensure server is connected
+        const isConnected = manager.getServers().includes(serverName);
+        if (!isConnected) {
+          // Try to connect
+          const config = loadMCPConfig();
+          const serverConfig = config.servers.find(s => s.name === serverName);
+
+          if (!serverConfig) {
+            console.error(chalk.red(`❌ Server "${serverName}" not found.`));
+            console.log(chalk.gray('\nAdd it first with:'));
+            console.log(chalk.blue(`  ax-cli mcp add ${serverName} --template`));
+            process.exit(1);
+          }
+
+          console.log(chalk.blue(`Connecting to ${serverName}...`));
+          await manager.addServer(serverConfig);
+          console.log(chalk.green('✓ Connected\n'));
+        }
+
+        const tools = manager.getTools().filter(t => t.serverName === serverName);
+
+        if (tools.length === 0) {
+          console.log(chalk.yellow('⚠️  No tools found for this server.'));
+          console.log(chalk.gray('The server may be disconnected or have no tools available.'));
+          return;
+        }
+
+        if (options.json) {
+          console.log(JSON.stringify(tools, null, 2));
+          return;
+        }
+
+        // Pretty-print with tree structure
+        console.log(chalk.blue.bold(`\n🔧 ${serverName} Tools (${tools.length} available)\n`));
+
+        tools.forEach((tool, i) => {
+          const isLast = i === tools.length - 1;
+          const prefix = isLast ? '└─' : '├─';
+          const displayName = tool.name.replace(`mcp__${serverName}__`, '');
+
+          console.log(chalk.bold(`${prefix} ${displayName}`));
+          console.log(`   ${chalk.gray(tool.description || 'No description available')}`);
+
+          if (options.verbose && tool.inputSchema) {
+            console.log(chalk.gray(`   Schema:`));
+            const schemaStr = JSON.stringify(tool.inputSchema, null, 2)
+              .split('\n')
+              .map(line => `   ${line}`)
+              .join('\n');
+            console.log(chalk.gray(schemaStr));
+          } else if (tool.inputSchema?.properties) {
+            const params = Object.keys(tool.inputSchema.properties);
+            if (params.length > 0) {
+              const required = tool.inputSchema.required || [];
+              const paramList = params.map(p => required.includes(p) ? `${p}*` : p).join(', ');
+              console.log(chalk.gray(`   Parameters: ${paramList}`));
+            }
+          }
+
+          if (!isLast) console.log('   │');
+        });
+
+        console.log();
+        console.log(chalk.gray('💡 Tip: Use --verbose to see full parameter schemas'));
+        console.log(chalk.gray('   Parameters marked with * are required'));
+        console.log();
+
+      } catch (error: unknown) {
+        console.error(chalk.red(`❌ Error: ${extractErrorMessage(error)}`));
+        process.exit(1);
+      }
+    });
+
+  // Search command - Search tools across all servers
+  mcpCommand
+    .command('search <query>')
+    .description('Search for tools across all MCP servers')
+    .option('--json', 'Output in JSON format')
+    .action((query: string, options) => {
+      const manager = getMCPManager();
+      const allTools = manager.getTools();
+
+      const lowerQuery = query.toLowerCase();
+      const matchingTools = allTools.filter(tool =>
+        tool.name.toLowerCase().includes(lowerQuery) ||
+        tool.description?.toLowerCase().includes(lowerQuery)
+      );
+
+      if (matchingTools.length === 0) {
+        console.log(chalk.yellow(`\n⚠️  No tools found matching "${query}"\n`));
+        console.log(chalk.gray('💡 Try searching for:'));
+        console.log(chalk.gray('   • deploy, git, database, test, file'));
+        console.log();
+        return;
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(matchingTools, null, 2));
+        return;
+      }
+
+      console.log(chalk.blue.bold(`\n🔍 Found ${matchingTools.length} tools matching "${query}"\n`));
+
+      // Group by server
+      const byServer = matchingTools.reduce((acc, tool) => {
+        if (!acc[tool.serverName]) {
+          acc[tool.serverName] = [];
+        }
+        acc[tool.serverName].push(tool);
+        return acc;
+      }, {} as Record<string, typeof matchingTools>);
+
+      for (const [serverName, serverTools] of Object.entries(byServer)) {
+        console.log(chalk.bold(`${serverName} (${serverTools.length} tools)`));
+        serverTools.forEach(tool => {
+          const displayName = tool.name.replace(`mcp__${serverName}__`, '');
+          console.log(`  • ${chalk.bold(displayName)}`);
+          if (tool.description) {
+            console.log(chalk.gray(`    ${tool.description}`));
+          }
+        });
+        console.log();
+      }
+
+      console.log(chalk.gray('💡 Tip: Use "ax-cli mcp tools <server-name>" to see all tools from a server'));
+      console.log();
+    });
+
+  // Browse command - Interactive template browser (alias for templates)
+  mcpCommand
+    .command('browse')
+    .description('Browse available MCP server templates')
+    .action(() => {
+      console.log(chalk.blue.bold('\n🌟 MCP Server Template Browser\n'));
+      console.log(chalk.gray('Popular templates for front-end development:\n'));
+
+      const popular = ['figma', 'github', 'vercel', 'puppeteer', 'storybook', 'sentry'];
+
+      popular.forEach(name => {
+        const template = getTemplate(name);
+        if (template) {
+          const icon = template.category === 'design' ? '🎨' :
+                        template.category === 'version-control' ? '📦' :
+                        template.category === 'deployment' ? '🚀' :
+                        template.category === 'testing' ? '🧪' :
+                        template.category === 'monitoring' ? '📊' : '🗄️';
+
+          console.log(`${icon} ${chalk.bold(template.name)}`);
+          console.log(chalk.gray(`   ${template.description}`));
+          console.log(chalk.blue(`   Quick start: ax-cli mcp add ${name} --template`));
+          console.log();
+        }
+      });
+
+      console.log(chalk.gray('📚 View all templates:'));
+      console.log(chalk.blue('   ax-cli mcp templates'));
+      console.log();
+      console.log(chalk.gray('🔍 Search templates:'));
+      console.log(chalk.blue('   ax-cli mcp templates --category design'));
+      console.log();
+    });
+
+  // Health command - Check MCP server health
+  mcpCommand
+    .command('health [server-name]')
+    .description('Check health status of MCP servers')
+    .option('--json', 'Output in JSON format')
+    .option('--watch', 'Continuously monitor health (updates every 60s)')
+    .action(async (serverName: string | undefined, options) => {
+      try {
+        const { MCPHealthMonitor } = await import('../mcp/health.js');
+        const manager = getMCPManager();
+        const healthMonitor = new MCPHealthMonitor(manager);
+
+        if (options.watch) {
+          // Continuous monitoring mode
+          console.log(chalk.blue.bold('\n📊 MCP Server Health Monitoring\n'));
+          console.log(chalk.gray('Press Ctrl+C to stop\n'));
+
+          // Start monitoring
+          healthMonitor.start(60000);
+
+          // Display initial report
+          const displayHealth = async () => {
+            console.clear();
+            console.log(chalk.blue.bold('📊 MCP Server Health Report\n'));
+            console.log(chalk.gray(`Last updated: ${new Date().toLocaleTimeString()}\n`));
+
+            const health = serverName
+              ? [await healthMonitor.getServerStatus(serverName)].filter(Boolean)
+              : await healthMonitor.getHealthReport();
+
+            if (health.length === 0) {
+              console.log(chalk.yellow('No servers connected'));
+              return;
+            }
+
+            for (const server of health as any[]) {
+              const statusIcon = server.connected ? '✓' : '✗';
+              const statusColor = server.connected ? chalk.green : chalk.red;
+              const statusText = server.connected ? 'Connected' : 'Disconnected';
+
+              console.log(statusColor(`${statusIcon} ${chalk.bold(server.serverName)} (${statusText})`));
+              console.log(chalk.gray(`  Transport: MCP`));
+              if (server.uptime) {
+                console.log(chalk.gray(`  Uptime: ${MCPHealthMonitor.formatUptime(server.uptime)}`));
+              }
+              console.log(chalk.gray(`  Tools: ${server.toolCount} available`));
+
+              if (server.avgLatency) {
+                console.log(chalk.gray(`  Latency: avg ${MCPHealthMonitor.formatLatency(server.avgLatency)}, p95 ${MCPHealthMonitor.formatLatency(server.p95Latency || 0)}`));
+              }
+
+              const successRateColor = server.successRate >= 95 ? chalk.green :
+                                       server.successRate >= 80 ? chalk.yellow : chalk.red;
+              console.log(chalk.gray(`  Success Rate: ${successRateColor(`${server.successRate.toFixed(1)}%`)} (${server.successCount}/${server.successCount + server.failureCount} calls)`));
+
+              if (server.lastError) {
+                console.log(chalk.red(`  Last Error: ${server.lastError}`));
+                if (server.lastErrorAt) {
+                  const timeSinceError = Date.now() - server.lastErrorAt;
+                  console.log(chalk.gray(`    ${MCPHealthMonitor.formatUptime(timeSinceError)} ago`));
+                }
+              }
+              console.log();
+            }
+
+            console.log(chalk.gray('Next update in 60 seconds...'));
+          };
+
+          // Display immediately
+          await displayHealth();
+
+          // Set up interval
+          const watchInterval = setInterval(displayHealth, 60000);
+
+          // Handle Ctrl+C
+          process.on('SIGINT', () => {
+            clearInterval(watchInterval);
+            healthMonitor.stop();
+            console.log(chalk.yellow('\n\n👋 Stopped health monitoring\n'));
+            process.exit(0);
+          });
+
+        } else {
+          // One-time health check
+          const health = serverName
+            ? [await healthMonitor.getServerStatus(serverName)].filter(Boolean)
+            : await healthMonitor.getHealthReport();
+
+          if (options.json) {
+            console.log(JSON.stringify(health, null, 2));
+            return;
+          }
+
+          if (health.length === 0) {
+            if (serverName) {
+              console.log(chalk.yellow(`\n⚠️  Server "${serverName}" not found\n`));
+            } else {
+              console.log(chalk.yellow('\n⚠️  No MCP servers connected\n'));
+              console.log(chalk.blue('To add a server:'));
+              console.log(chalk.cyan('  ax-cli mcp add figma --template'));
+              console.log();
+            }
+            return;
+          }
+
+          console.log(chalk.blue.bold('\n📊 MCP Server Health Report\n'));
+
+          for (const server of health as any[]) {
+            const statusIcon = server.connected ? '✓' : '✗';
+            const statusColor = server.connected ? chalk.green : chalk.red;
+            const statusText = server.connected ? 'Connected' : 'Disconnected';
+
+            console.log(statusColor(`${statusIcon} ${chalk.bold(server.serverName)} (${statusText})`));
+            console.log(chalk.gray(`  Transport: MCP`));
+            if (server.uptime) {
+              console.log(chalk.gray(`  Uptime: ${MCPHealthMonitor.formatUptime(server.uptime)}`));
+            }
+            console.log(chalk.gray(`  Tools: ${server.toolCount} available`));
+
+            if (server.avgLatency) {
+              console.log(chalk.gray(`  Latency: avg ${MCPHealthMonitor.formatLatency(server.avgLatency)}, p95 ${MCPHealthMonitor.formatLatency(server.p95Latency || 0)}`));
+            }
+
+            const successRateColor = server.successRate >= 95 ? chalk.green :
+                                     server.successRate >= 80 ? chalk.yellow : chalk.red;
+            console.log(chalk.gray(`  Success Rate: ${successRateColor(`${server.successRate.toFixed(1)}%`)} (${server.successCount}/${server.successCount + server.failureCount} calls)`));
+
+            if (server.lastError) {
+              console.log(chalk.red(`  Last Error: ${server.lastError}`));
+              if (server.lastErrorAt) {
+                const timeSinceError = Date.now() - server.lastErrorAt;
+                console.log(chalk.gray(`    ${MCPHealthMonitor.formatUptime(timeSinceError)} ago`));
+              }
+            }
+
+            if (server.lastSuccess) {
+              const timeSinceSuccess = Date.now() - server.lastSuccess;
+              console.log(chalk.gray(`  Last Successful Call: ${MCPHealthMonitor.formatUptime(timeSinceSuccess)} ago`));
+            }
+
+            console.log();
+          }
+
+          console.log(chalk.gray('💡 Tip: Use --watch to continuously monitor server health'));
+          console.log();
+        }
+
+      } catch (error: unknown) {
+        console.error(chalk.red(`\n❌ Error: ${extractErrorMessage(error)}\n`));
         process.exit(1);
       }
     });

@@ -310,6 +310,7 @@ async function testModel(
 function getProviderWebsite(providerName: string): string {
   const websites: Record<string, string> = {
     'z.ai': 'https://z.ai',
+    'z.ai-free': 'https://z.ai',
     'xai': 'https://x.ai',
     'openai': 'https://platform.openai.com',
     'anthropic': 'https://console.anthropic.com',

@@ -16,9 +16,21 @@ export interface TextSelection {
 
 /**
  * Check if a character is a word boundary
+ * Handles Unicode surrogate pairs correctly
  */
 export function isWordBoundary(char: string | undefined): boolean {
   if (!char) return true;
+  // Handle potential surrogate pairs - if char is a high surrogate,
+  // it's incomplete and should be treated as non-boundary
+  const code = char.charCodeAt(0);
+  if (code >= 0xD800 && code <= 0xDBFF) {
+    // High surrogate (first half of pair) - not a boundary
+    return false;
+  }
+  if (code >= 0xDC00 && code <= 0xDFFF) {
+    // Low surrogate (second half of pair) - not a boundary
+    return false;
+  }
   return /\s/.test(char) || /[^\w]/.test(char);
 }
 

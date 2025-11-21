@@ -37,6 +37,7 @@ export class ContextManager {
   private tokenCache = new Map<string, { count: number; timestamp: number }>();
   private readonly CACHE_TTL = 60000; // 1 minute TTL
   private readonly MAX_CACHE_SIZE = 100; // Maximum cache entries before cleanup
+  private cleanupTimer: NodeJS.Timeout | null = null;
 
   constructor(options: ContextManagerOptions) {
     this.model = options.model;
@@ -47,6 +48,14 @@ export class ContextManager {
     this.keepRecentToolRounds = options.keepRecentToolRounds || 8;
     this.keepFirstMessages = options.keepFirstMessages || 2;
     this.reservedTokens = options.reservedTokens || 3000;
+
+    // Periodic cleanup every 5 minutes to prevent memory leak
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupCache();
+    }, 5 * 60 * 1000);
+
+    // Don't keep process alive just for cleanup
+    this.cleanupTimer.unref();
   }
 
   /**
@@ -146,6 +155,17 @@ export class ContextManager {
   }
 
   /**
+   * Dispose of resources (cleanup timer, caches)
+   */
+  dispose(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+    this.tokenCache.clear();
+  }
+
+  /**
    * Check if context needs pruning (with caching)
    */
   shouldPrune(messages: LLMMessage[], tokenCounter: TokenCounter): boolean {
@@ -199,8 +219,8 @@ export class ContextManager {
       return messages;
     }
 
-    // Bounds check: ensure array is not empty before accessing first element
-    if (messages.length === 0 || messages[0].role !== 'system') {
+    // Check if first message is system message
+    if (messages[0].role !== 'system') {
       // Missing system message - log warning but continue with defensive handling
       console.warn('[ContextManager] First message is not system message, proceeding with caution');
       // Don't prune if system message is missing to avoid breaking conversation state
@@ -403,13 +423,6 @@ export class ContextManager {
     return result;
   }
 
-  /**
-   * Cleanup method to clear cache and prevent memory leaks
-   * Should be called when the ContextManager is no longer needed
-   */
-  dispose(): void {
-    this.tokenCache.clear();
-  }
 
   /**
    * Create a warning message for approaching limit

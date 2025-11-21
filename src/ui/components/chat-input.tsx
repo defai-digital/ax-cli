@@ -93,11 +93,13 @@ export function ChatInput({
   const afterCursorText = input.slice(cursorPosition + 1);
 
   // Always show character count with color coding for length warnings
+  const maxChars = 2000;
   const charCount = input.length;
   const getCharCountColor = () => {
-    if (charCount >= 2000) return "red";      // Over limit
-    if (charCount >= 1000) return "yellow";   // Warning
-    return "gray";                             // Normal
+    if (charCount >= maxChars) return "red";           // At/over limit
+    if (charCount >= maxChars * 0.8) return "yellow";  // 80% warning (1600+)
+    if (charCount >= maxChars * 0.5) return "cyan";    // 50% (1000+)
+    return "gray";                                      // Normal (0-999)
   };
 
   return (
@@ -135,11 +137,11 @@ export function ChatInput({
           </Text>
         )}
       </Box>
-      {/* Character count indicator with color coding */}
-      {charCount > 0 && !isProcessing && !isStreaming && (
+      {/* Character count indicator - always visible with color coding */}
+      {!isProcessing && !isStreaming && (
         <Box marginLeft={1}>
-          <Text color={getCharCountColor()}>
-            [{charCount}]
+          <Text color={getCharCountColor()} dimColor={charCount === 0}>
+            [{charCount}/{maxChars}]
           </Text>
         </Box>
       )}

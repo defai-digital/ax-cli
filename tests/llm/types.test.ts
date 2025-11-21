@@ -29,15 +29,15 @@ describe('GLM-4.6 Type Validation', () => {
       expect(() => validateTemperature(2.0, 'glm-4.6')).toThrow(/out of range/);
     });
 
-    it('should accept valid temperature for grok-code-fast-1 (0.0-2.0)', () => {
-      expect(() => validateTemperature(0.0, 'grok-code-fast-1')).not.toThrow();
-      expect(() => validateTemperature(1.0, 'grok-code-fast-1')).not.toThrow();
-      expect(() => validateTemperature(2.0, 'grok-code-fast-1')).not.toThrow();
+    it('should accept valid temperature for glm-4-air (0.6-1.0)', () => {
+      expect(() => validateTemperature(0.6, 'glm-4-air')).not.toThrow();
+      expect(() => validateTemperature(0.7, 'glm-4-air')).not.toThrow();
+      expect(() => validateTemperature(1.0, 'glm-4-air')).not.toThrow();
     });
 
-    it('should reject temperature outside grok-code-fast-1 range', () => {
-      expect(() => validateTemperature(-0.1, 'grok-code-fast-1')).toThrow(/out of range/);
-      expect(() => validateTemperature(2.1, 'grok-code-fast-1')).toThrow(/out of range/);
+    it('should reject temperature outside glm-4-air range', () => {
+      expect(() => validateTemperature(0.5, 'glm-4-air')).toThrow(/out of range/);
+      expect(() => validateTemperature(1.1, 'glm-4-air')).toThrow(/out of range/);
     });
 
     it('should use default model config for unknown model', () => {
@@ -64,13 +64,13 @@ describe('GLM-4.6 Type Validation', () => {
       expect(() => validateMaxTokens(-1, 'glm-4.6')).toThrow(/must be at least 1/);
     });
 
-    it('should accept valid max tokens for grok-code-fast-1', () => {
-      expect(() => validateMaxTokens(1, 'grok-code-fast-1')).not.toThrow();
-      expect(() => validateMaxTokens(4096, 'grok-code-fast-1')).not.toThrow();
+    it('should accept valid max tokens for glm-4-air', () => {
+      expect(() => validateMaxTokens(1, 'glm-4-air')).not.toThrow();
+      expect(() => validateMaxTokens(8192, 'glm-4-air')).not.toThrow();
     });
 
-    it('should reject max tokens exceeding grok-code-fast-1 limit', () => {
-      expect(() => validateMaxTokens(4097, 'grok-code-fast-1')).toThrow(/exceeds model limit/);
+    it('should reject max tokens exceeding glm-4-air limit', () => {
+      expect(() => validateMaxTokens(8193, 'glm-4-air')).toThrow(/exceeds model limit/);
     });
   });
 
@@ -83,17 +83,17 @@ describe('GLM-4.6 Type Validation', () => {
     it('should accept thinking disabled for any model', () => {
       const thinking: ThinkingConfig = { type: 'disabled' };
       expect(() => validateThinking(thinking, 'glm-4.6')).not.toThrow();
-      expect(() => validateThinking(thinking, 'grok-code-fast-1')).not.toThrow();
+      expect(() => validateThinking(thinking, 'glm-4-air')).not.toThrow();
     });
 
     it('should accept undefined thinking for any model', () => {
       expect(() => validateThinking(undefined, 'glm-4.6')).not.toThrow();
-      expect(() => validateThinking(undefined, 'grok-code-fast-1')).not.toThrow();
+      expect(() => validateThinking(undefined, 'glm-4-air')).not.toThrow();
     });
 
     it('should reject thinking enabled for models without support', () => {
       const thinking: ThinkingConfig = { type: 'enabled' };
-      expect(() => validateThinking(thinking, 'grok-code-fast-1')).toThrow(/not supported/);
+      expect(() => validateThinking(thinking, 'glm-4-air')).toThrow(/not supported/);
       expect(() => validateThinking(thinking, 'glm-4-air')).toThrow(/not supported/);
     });
   });
@@ -107,12 +107,12 @@ describe('GLM-4.6 Type Validation', () => {
       expect(config.temperatureRange).toEqual({ min: 0.6, max: 1.0 });
     });
 
-    it('should return correct config for grok-code-fast-1', () => {
-      const config = getModelConfig('grok-code-fast-1');
+    it('should return correct config for glm-4-air', () => {
+      const config = getModelConfig('glm-4-air');
       expect(config.contextWindow).toBe(128000);
-      expect(config.maxOutputTokens).toBe(4096);
+      expect(config.maxOutputTokens).toBe(8192);
       expect(config.supportsThinking).toBe(false);
-      expect(config.temperatureRange).toEqual({ min: 0.0, max: 2.0 });
+      expect(config.temperatureRange).toEqual({ min: 0.6, max: 1.0 });
     });
 
     it('should return default config for unknown model', () => {
@@ -130,11 +130,11 @@ describe('GLM-4.6 Type Validation', () => {
       expect(options.stream).toBe(false);
     });
 
-    it('should create default options for grok-code-fast-1', () => {
-      const options = createDefaultChatOptions('grok-code-fast-1');
-      expect(options.model).toBe('grok-code-fast-1');
+    it('should create default options for glm-4-air', () => {
+      const options = createDefaultChatOptions('glm-4-air');
+      expect(options.model).toBe('glm-4-air');
       expect(options.temperature).toBe(0.7);
-      expect(options.maxTokens).toBe(Math.min(8192, GLM_MODELS['grok-code-fast-1'].maxOutputTokens));
+      expect(options.maxTokens).toBe(Math.min(8192, GLM_MODELS['glm-4-air'].maxOutputTokens));
       expect(options.stream).toBe(false);
     });
 

@@ -90,5 +90,5 @@ export function getMCPServer(serverName: string): MCPServerConfig | undefined {
   return projectSettings.mcpServers?.[serverName];
 }
 
-// Predefined server configurations
-export const PREDEFINED_SERVERS: Record<string, MCPServerConfig> = {};
+// Import templates
+export { TEMPLATES as PREDEFINED_SERVERS, getTemplate, hasTemplate, generateConfigFromTemplate } from './templates.js';

@@ -42,15 +42,23 @@ export function ReasoningDisplay({
   isStreaming = false,
   defaultCollapsed = false,
 }: ReasoningDisplayProps) {
-  const [collapsed] = useState(defaultCollapsed);
+  // Auto-collapse if content is long (>200 words or >1000 chars) and not explicitly set
+  const wordCount = content.trim().split(/\s+/).length;
+  const charCount = content.trim().length;
+  const shouldAutoCollapse = !isStreaming && (wordCount > 200 || charCount > 1000);
+
+  // Note: setCollapsed is available for future interactive toggle feature (Ctrl+R)
+  const [collapsed] = useState(defaultCollapsed || shouldAutoCollapse);
 
   // Don't render if not visible or no content
   if (!visible || !content || content.trim().length === 0) {
     return null;
   }
 
-  // Estimate word count
-  const wordCount = content.trim().split(/\s+/).length;
+  // Show preview when collapsed (first 80 characters)
+  const preview = collapsed && content.length > 80
+    ? content.slice(0, 80) + "..."
+    : null;
 
   return (
     <Box flexDirection="column" marginBottom={1} paddingLeft={2} borderStyle="single" borderColor="gray">
@@ -59,7 +67,17 @@ export function ReasoningDisplay({
           💭 Thinking {collapsed ? "▸" : "▾"}
           {isStreaming ? "..." : ` (${wordCount} words)`}
         </Text>
+        {!isStreaming && (
+          <Text color="gray" dimColor> [Ctrl+R to toggle]</Text>
+        )}
       </Box>
+      {collapsed && preview && (
+        <Box flexDirection="column" paddingLeft={1} marginTop={0}>
+          <Text color="gray" dimColor italic>
+            {preview}
+          </Text>
+        </Box>
+      )}
       {!collapsed && (
         <Box flexDirection="column" paddingLeft={1}>
           <Text color="white" dimColor italic>

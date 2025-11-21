@@ -80,7 +80,7 @@ export function createDoctorCommand(): Command {
  */
 async function checkNodeVersion(): Promise<CheckResult> {
   const currentVersion = process.version;
-  const majorVersion = parseInt(currentVersion.slice(1).split('.')[0], 10);
+  const majorVersion = parseInt(currentVersion.slice(1).split('.')?.[0] || '0', 10);
   const requiredVersion = 24;
 
   if (majorVersion >= requiredVersion) {
@@ -506,7 +506,7 @@ async function checkCommand(
 ): Promise<{ found: boolean; version?: string }> {
   try {
     const { stdout } = await execAsync(command, { timeout: 3000 });
-    const version = stdout.trim().split("\n")[0];
+    const version = stdout.trim().split("\n")?.[0];
     return { found: true, version };
   } catch {
     return { found: false };

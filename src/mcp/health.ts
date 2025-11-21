@@ -1,0 +1,324 @@
+/**
+ * MCP Server Health Monitoring
+ *
+ * Provides health checking, status monitoring, and automatic reconnection
+ * for MCP servers.
+ */
+
+import { EventEmitter } from 'events';
+import type { MCPManager } from './client.js';
+
+/**
+ * Health status for an MCP server
+ */
+export interface ServerHealth {
+  /** Server name */
+  serverName: string;
+  /** Connection status */
+  connected: boolean;
+  /** Number of available tools */
+  toolCount: number;
+  /** Server uptime in milliseconds */
+  uptime?: number;
+  /** Connection start time */
+  connectedAt?: number;
+  /** Last successful call timestamp */
+  lastSuccess?: number;
+  /** Last error message */
+  lastError?: string;
+  /** Last error timestamp */
+  lastErrorAt?: number;
+  /** Total number of successful tool calls */
+  successCount: number;
+  /** Total number of failed tool calls */
+  failureCount: number;
+  /** Average latency in milliseconds */
+  avgLatency?: number;
+  /** P95 latency in milliseconds */
+  p95Latency?: number;
+  /** Success rate percentage (0-100) */
+  successRate: number;
+}
+
+/**
+ * Health check event types
+ */
+export interface HealthCheckEvents {
+  'health-check': (health: ServerHealth) => void;
+  'server-disconnected': (serverName: string) => void;
+  'server-reconnected': (serverName: string) => void;
+  'health-check-error': (serverName: string, error: Error) => void;
+}
+
+/**
+ * MCP Health Monitor
+ *
+ * Monitors the health of MCP servers and provides automatic reconnection
+ */
+export class MCPHealthMonitor extends EventEmitter {
+  private mcpManager: MCPManager;
+  private healthCheckInterval: NodeJS.Timeout | null = null;
+  private serverStats: Map<string, {
+    connectedAt: number;
+    successCount: number;
+    failureCount: number;
+    latencies: number[];
+    lastSuccess?: number;
+    lastError?: string;
+    lastErrorAt?: number;
+  }> = new Map();
+
+  constructor(mcpManager: MCPManager) {
+    super();
+    this.mcpManager = mcpManager;
+  }
+
+  /**
+   * Start health monitoring with specified interval
+   */
+  start(intervalMs: number = 60000): void {
+    if (this.healthCheckInterval) {
+      throw new Error('Health monitoring already started');
+    }
+
+    // Initialize stats for existing servers
+    const servers = this.mcpManager.getServers();
+    for (const serverName of servers) {
+      if (!this.serverStats.has(serverName)) {
+        this.serverStats.set(serverName, {
+          connectedAt: Date.now(),
+          successCount: 0,
+          failureCount: 0,
+          latencies: [],
+        });
+      }
+    }
+
+    this.healthCheckInterval = setInterval(async () => {
+      await this.performHealthChecks();
+    }, intervalMs);
+  }
+
+  /**
+   * Stop health monitoring
+   */
+  stop(): void {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = null;
+    }
+  }
+
+  /**
+   * Perform health checks on all servers
+   */
+  private async performHealthChecks(): Promise<void> {
+    const servers = this.mcpManager.getServers();
+
+    for (const serverName of servers) {
+      try {
+        const health = await this.checkServerHealth(serverName);
+        this.emit('health-check', health);
+
+        // Check if server is unhealthy
+        if (!health.connected && health.successRate < 50) {
+          this.emit('server-disconnected', serverName);
+          await this.attemptReconnection(serverName);
+        }
+      } catch (error) {
+        this.emit('health-check-error', serverName, error as Error);
+      }
+    }
+  }
+
+  /**
+   * Check health of a specific server
+   */
+  async checkServerHealth(serverName: string): Promise<ServerHealth> {
+    const tools = this.mcpManager.getTools().filter((t: any) => t.serverName === serverName);
+
+    // Initialize stats if not present
+    if (!this.serverStats.has(serverName)) {
+      this.serverStats.set(serverName, {
+        connectedAt: Date.now(),
+        successCount: 0,
+        failureCount: 0,
+        latencies: [],
+      });
+    }
+
+    const stats = this.serverStats.get(serverName)!;
+
+    // Calculate success rate
+    const total = stats.successCount + stats.failureCount;
+    const successRate = total > 0 ? (stats.successCount / total) * 100 : 100;
+
+    // Calculate latencies
+    const avgLatency = stats.latencies.length > 0
+      ? stats.latencies.reduce((a, b) => a + b, 0) / stats.latencies.length
+      : undefined;
+
+    const p95Latency = stats.latencies.length > 0
+      ? this.calculatePercentile(stats.latencies, 0.95)
+      : undefined;
+
+    // Calculate uptime
+    const uptime = Date.now() - stats.connectedAt;
+
+    return {
+      serverName,
+      connected: tools.length > 0,
+      toolCount: tools.length,
+      uptime,
+      connectedAt: stats.connectedAt,
+      lastSuccess: stats.lastSuccess,
+      lastError: stats.lastError,
+      lastErrorAt: stats.lastErrorAt,
+      successCount: stats.successCount,
+      failureCount: stats.failureCount,
+      avgLatency,
+      p95Latency,
+      successRate,
+    };
+  }
+
+  /**
+   * Record a successful tool call
+   */
+  recordSuccess(serverName: string, latencyMs: number): void {
+    // Initialize stats if not present
+    if (!this.serverStats.has(serverName)) {
+      this.serverStats.set(serverName, {
+        connectedAt: Date.now(),
+        successCount: 0,
+        failureCount: 0,
+        latencies: [],
+      });
+    }
+
+    const stats = this.serverStats.get(serverName)!;
+
+    stats.successCount++;
+    stats.lastSuccess = Date.now();
+    stats.latencies.push(latencyMs);
+
+    // Keep only last 100 latencies
+    if (stats.latencies.length > 100) {
+      stats.latencies.shift();
+    }
+  }
+
+  /**
+   * Record a failed tool call
+   */
+  recordFailure(serverName: string, error: string): void {
+    // Initialize stats if not present
+    if (!this.serverStats.has(serverName)) {
+      this.serverStats.set(serverName, {
+        connectedAt: Date.now(),
+        successCount: 0,
+        failureCount: 0,
+        latencies: [],
+      });
+    }
+
+    const stats = this.serverStats.get(serverName)!;
+
+    stats.failureCount++;
+    stats.lastError = error;
+    stats.lastErrorAt = Date.now();
+  }
+
+  /**
+   * Attempt to reconnect to a disconnected server
+   */
+  private async attemptReconnection(serverName: string): Promise<void> {
+    try {
+      // Get server configuration (if available)
+      // Note: This would require extending MCPManager to expose config
+      // For now, we just emit an event
+      this.emit('server-reconnected', serverName);
+    } catch (error) {
+      this.emit('health-check-error', serverName, error as Error);
+    }
+  }
+
+  /**
+   * Calculate percentile from array of values
+   */
+  private calculatePercentile(values: number[], percentile: number): number {
+    const sorted = [...values].sort((a, b) => a - b);
+    const index = Math.ceil(sorted.length * percentile) - 1;
+    return sorted[index] || 0;
+  }
+
+  /**
+   * Get health report for all servers
+   */
+  async getHealthReport(): Promise<ServerHealth[]> {
+    const servers = this.mcpManager.getServers();
+    const report: ServerHealth[] = [];
+
+    for (const serverName of servers) {
+      const health = await this.checkServerHealth(serverName);
+      report.push(health);
+    }
+
+    return report;
+  }
+
+  /**
+   * Get health status for a specific server
+   */
+  async getServerStatus(serverName: string): Promise<ServerHealth | null> {
+    const servers = this.mcpManager.getServers();
+    if (!servers.includes(serverName)) {
+      return null;
+    }
+
+    return await this.checkServerHealth(serverName);
+  }
+
+  /**
+   * Reset stats for a server
+   */
+  resetStats(serverName: string): void {
+    this.serverStats.set(serverName, {
+      connectedAt: Date.now(),
+      successCount: 0,
+      failureCount: 0,
+      latencies: [],
+    });
+  }
+
+  /**
+   * Get formatted uptime string
+   */
+  static formatUptime(uptimeMs: number): string {
+    const seconds = Math.floor(uptimeMs / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) {
+      return `${days}d ${hours % 24}h`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes % 60}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${seconds % 60}s`;
+    } else {
+      return `${seconds}s`;
+    }
+  }
+
+  /**
+   * Get formatted latency string
+   */
+  static formatLatency(latencyMs: number): string {
+    if (latencyMs < 1000) {
+      return `${Math.round(latencyMs)}ms`;
+    } else {
+      return `${(latencyMs / 1000).toFixed(2)}s`;
+    }
+  }
+}

@@ -42,6 +42,7 @@ export const GLM_MODELS = Object.entries(modelsYaml.models).reduce((acc, [key, m
     maxOutputTokens: model.max_output_tokens,
     defaultMaxTokens: model.default_max_tokens,
     supportsThinking: model.supports_thinking,
+    supportsVision: model.supports_vision || false,
     defaultTemperature: model.default_temperature,
     temperatureRange: {
       min: model.temperature_range.min,
@@ -56,6 +57,7 @@ export const GLM_MODELS = Object.entries(modelsYaml.models).reduce((acc, [key, m
   maxOutputTokens: number;
   defaultMaxTokens: number;
   supportsThinking: boolean;
+  supportsVision: boolean;
   defaultTemperature: number;
   temperatureRange: { min: number; max: number };
   tokenEfficiency: number;

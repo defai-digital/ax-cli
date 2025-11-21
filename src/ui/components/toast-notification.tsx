@@ -59,9 +59,11 @@ export function ToastNotification({ toast, onDismiss }: ToastNotificationProps) 
     const duration = toast.duration || 2000;
 
     // Start fade out slightly before hiding
+    // Ensure fade delay is positive (minimum 100ms before fade starts)
+    const fadeDelay = Math.max(100, duration - 300);
     const fadeTimer = setTimeout(() => {
       setFadeOut(true);
-    }, duration - 300);
+    }, fadeDelay);
 
     // Hide and dismiss
     const hideTimer = setTimeout(() => {
@@ -214,6 +216,20 @@ export const TOAST_MESSAGES = {
   saved: { message: "Changes saved", type: "success" as const, icon: "💾" },
   interrupted: { message: "Operation cancelled", type: "warning" as const, icon: "⏹️" },
   contextLow: { message: "Context running low - consider /clear", type: "warning" as const, icon: "⚠️" },
+
+  // Memory operations
+  memoryWarmed: (tokens: number) => ({
+    message: `Memory cached (${tokens.toLocaleString()} tokens)`,
+    type: "success" as const,
+    icon: "💾",
+    duration: 3000,
+  }),
+  memoryRefreshed: { message: "Memory context refreshed", type: "success" as const, icon: "🔄" },
+  memoryCacheHit: { message: "Using cached memory context", type: "info" as const, icon: "⚡", duration: 1500 },
+
+  // Checkpoint operations
+  checkpointCreated: { message: "Checkpoint saved", type: "success" as const, icon: "💾", duration: 2000 },
+  checkpointRestored: { message: "Checkpoint restored", type: "success" as const, icon: "↩️", duration: 2000 },
 
   // Background task notifications
   taskCompleted: (_taskId: string, command: string) => ({

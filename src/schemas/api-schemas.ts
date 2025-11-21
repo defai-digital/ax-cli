@@ -9,7 +9,7 @@ import { ToolCallIdSchema, ModelIdSchema } from '@ax-cli/schemas';
 // Local schemas to avoid __brand symbol export issues
 const MessageRoleEnum = z.enum(['system', 'user', 'assistant', 'tool']);
 
-// Grok Tool Call Schema
+// LLM Tool Call Schema
 export const LLMToolCallSchema: z.ZodType<any> = z.object({
   id: ToolCallIdSchema,
   type: z.literal('function'),
@@ -21,7 +21,7 @@ export const LLMToolCallSchema: z.ZodType<any> = z.object({
 
 export type LLMToolCall = z.infer<typeof LLMToolCallSchema>;
 
-// Grok Message Schema
+// LLM Message Schema
 export const LLMMessageSchema: z.ZodType<any> = z.object({
   role: MessageRoleEnum,
   content: z.string().nullable(),
@@ -32,7 +32,7 @@ export const LLMMessageSchema: z.ZodType<any> = z.object({
 
 export type LLMMessage = z.infer<typeof LLMMessageSchema>;
 
-// Grok Response Schema
+// LLM Response Schema
 export const LLMResponseSchema: z.ZodType<any> = z.object({
   id: z.string().optional(),
   object: z.string().optional(),
@@ -136,7 +136,7 @@ export function validateLLMResponse(data: unknown): LLMResponse {
   return LLMResponseSchema.parse(data);
 }
 
-export function safeValidateGrokResponse(data: unknown): {
+export function safeValidateLLMResponse(data: unknown): {
   success: boolean;
   data?: LLMResponse;
   error?: z.ZodError;
@@ -147,6 +147,9 @@ export function safeValidateGrokResponse(data: unknown): {
   }
   return { success: false, error: result.error };
 }
+
+// Deprecated alias for backward compatibility
+export const safeValidateGrokResponse = safeValidateLLMResponse;
 
 export function validateToolCall(data: unknown): LLMToolCall {
   return LLMToolCallSchema.parse(data);

@@ -36,6 +36,7 @@ const QUICK_ACTIONS: QuickAction[] = [
 
   // Help
   { command: "/help", label: "Help", description: "Show all available commands", category: "help" },
+  { command: "/shortcuts", label: "Shortcuts", description: "Show keyboard shortcuts", category: "help" },
 ];
 
 interface QuickActionsProps {

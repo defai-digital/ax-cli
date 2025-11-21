@@ -53,11 +53,37 @@ interface WelcomePanelProps {
 export function WelcomePanel({ projectName: _projectName }: WelcomePanelProps) {
   return (
     <Box flexDirection="column" marginBottom={2}>
-      {/* Welcome message */}
-      <Box marginBottom={1}>
-        <Text color="cyan" bold>
-          Welcome to DEFAI ax-cli
-        </Text>
+      {/* Logo and Welcome Text in parallel */}
+      <Box flexDirection="row" marginBottom={1}>
+        {/* Robot Avatar Logo - positioned lower */}
+        <Box marginRight={2}>
+          <Text color="cyan">
+{`
+
+
+  ┌───────┐
+  │ ■   ■ │
+  │   ◡   │
+  └───────┘
+    │ │ │
+    └─┴─┘`}
+          </Text>
+        </Box>
+
+        {/* ASCII Art Welcome */}
+        <Box>
+          <Text color="cyan">
+{`              _                            _
+__      _____| | ___ ___  _ __ ___   ___  | |_ ___
+\\ \\ /\\ / / _ \\ |/ __/ _ \\| '_ \` _ \\ / _ \\ | __/ _ \\
+ \\ V  V /  __/ | (_| (_) | | | | | |  __/ | || (_) |
+  \\_/\\_/ \\___|_|\\___\\___/|_| |_| |_|\\___|  \\__\\___/
+  __ ___  __      ___| (_)
+ / _\` \\ \\/ /____ / __| | |
+| (_| |>  <_____| (__| | |
+ \\__,_/_/\\_\\     \\___|_|_|`}
+          </Text>
+        </Box>
       </Box>
 
       {/* Keyboard shortcuts - prominent display */}

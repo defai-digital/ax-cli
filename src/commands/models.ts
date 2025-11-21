@@ -15,7 +15,7 @@ export function createModelsCommand(): Command {
   modelsCmd
     .command("list")
     .description("List all available models")
-    .option("--provider <name>", "Filter by provider (glm, grok, ollama, openai)")
+    .option("--provider <name>", "Filter by provider (glm, ollama, openai, anthropic)")
     .option("--json", "Output in JSON format")
     .action(async (options) => {
       try {
@@ -27,7 +27,7 @@ export function createModelsCommand(): Command {
         const predefinedModels = Object.entries(GLM_MODELS).map(([id, config]) => ({
           id,
           name: config.name,
-          provider: id.startsWith("glm") ? "Z.AI (GLM)" : "xAI (Grok)",
+          provider: "Z.AI (GLM)",
           contextWindow: config.contextWindow,
           maxOutputTokens: config.maxOutputTokens,
           supportsThinking: config.supportsThinking,

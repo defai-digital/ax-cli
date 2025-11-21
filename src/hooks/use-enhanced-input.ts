@@ -89,8 +89,12 @@ export function useEnhancedInput({
   }, [isNavigatingHistory, setOriginalInput]);
 
   const setCursorPosition = useCallback((position: number) => {
-    setCursorPositionState(Math.max(0, Math.min(input.length, position)));
-  }, [input.length]);
+    // Use functional update to access current input state without stale closure
+    setInputState((currentInput) => {
+      setCursorPositionState(Math.max(0, Math.min(currentInput.length, position)));
+      return currentInput; // No change to input, just accessing for bounds check
+    });
+  }, []);
 
   const clearInput = useCallback(() => {
     setInputState("");
@@ -233,7 +237,8 @@ export function useEnhancedInput({
     }
 
     // Handle forward delete (Del key) - but not if it was already handled as backspace above
-    if ((key.delete && inputChar !== '') || (key.ctrl && inputChar === "d")) {
+    // Note: Ctrl+D is also treated as delete character (standard terminal behavior)
+    if (key.delete && inputChar !== '') {
       if (key.ctrl || key.meta) {
         // Ctrl/Cmd + Delete: Delete word after cursor
         const result = deleteWordAfter(input, cursorPosition);
@@ -247,6 +252,15 @@ export function useEnhancedInput({
         setCursorPositionState(result.position);
         setOriginalInput(result.text);
       }
+      return;
+    }
+
+    // Handle Ctrl+D: Delete character after cursor (standard terminal behavior)
+    if (key.ctrl && inputChar === "d") {
+      const result = deleteCharAfter(input, cursorPosition);
+      setInputState(result.text);
+      setCursorPositionState(result.position);
+      setOriginalInput(result.text);
       return;
     }
 

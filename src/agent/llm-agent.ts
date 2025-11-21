@@ -187,6 +187,7 @@ export class LLMAgent extends EventEmitter {
 
   private async initializeMCP(): Promise<void> {
     // Initialize MCP in the background without blocking
+    // Single error handler - no redundant catch needed since inner try-catch handles all errors
     Promise.resolve().then(async () => {
       try {
         const config = loadMCPConfig();
@@ -199,18 +200,9 @@ export class LLMAgent extends EventEmitter {
         console.warn("MCP initialization failed:", errorMsg);
         this.emit('system', `MCP initialization failed: ${errorMsg}`);
       }
-    }).catch((error) => {
-      // Catch any unhandled promise rejections
-      const errorMsg = extractErrorMessage(error);
-      console.warn("Unexpected error during MCP initialization:", errorMsg);
-      this.emit('system', `Unexpected MCP error: ${errorMsg}`);
     });
   }
 
-  private isGrokModel(): boolean {
-    const currentModel = this.llmClient.getCurrentModel();
-    return currentModel.toLowerCase().includes("grok");
-  }
 
   /**
    * Build chat options with sampling and thinking configuration included
@@ -387,35 +379,10 @@ export class LLMAgent extends EventEmitter {
       console.error(`[LOOP TRACKING] 🔄 Resetting tool call tracking (map had ${this.recentToolCalls.size} entries)`);
     }
     this.recentToolCalls.clear();
+    // Also clear the args cache to prevent memory leak
+    this.toolCallArgsCache.clear();
   }
 
-  // Heuristic: enable web search only when likely needed
-  private shouldUseSearchFor(message: string): boolean {
-    const q = message.toLowerCase();
-    const keywords = [
-      "today",
-      "latest",
-      "news",
-      "trending",
-      "breaking",
-      "current",
-      "now",
-      "recent",
-      "x.com",
-      "twitter",
-      "tweet",
-      "what happened",
-      "as of",
-      "update on",
-      "release notes",
-      "changelog",
-      "price",
-    ];
-    if (keywords.some((k) => q.includes(k))) return true;
-    // crude date pattern (e.g., 2024/2025) may imply recency
-    if (/(20\d{2})/.test(q)) return true;
-    return false;
-  }
 
   // ============================================================================
   // Multi-Phase Planning Integration
@@ -898,9 +865,7 @@ export class LLMAgent extends EventEmitter {
           this.messages,
           tools,
           this.buildChatOptions({
-            searchOptions: this.isGrokModel() && this.shouldUseSearchFor(message)
-              ? { search_parameters: { mode: "auto" } }
-              : { search_parameters: { mode: "off" } }
+            searchOptions: { search_parameters: { mode: "off" } }
           })
         );
 
@@ -1042,9 +1007,7 @@ export class LLMAgent extends EventEmitter {
         this.messages,
         tools,
         this.buildChatOptions({
-          searchOptions: this.isGrokModel() && this.shouldUseSearchFor(message)
-            ? { search_parameters: { mode: "auto" } }
-            : { search_parameters: { mode: "off" } }
+          searchOptions: { search_parameters: { mode: "off" } }
         })
       );
 
@@ -1172,9 +1135,7 @@ export class LLMAgent extends EventEmitter {
             this.messages,
             tools,
             this.buildChatOptions({
-              searchOptions: this.isGrokModel() && this.shouldUseSearchFor(message)
-                ? { search_parameters: { mode: "auto" } }
-                : { search_parameters: { mode: "off" } }
+              searchOptions: { search_parameters: { mode: "off" } }
             })
           );
         } else {
@@ -1618,9 +1579,7 @@ export class LLMAgent extends EventEmitter {
           this.messages,
           tools,
           this.buildChatOptions({
-            searchOptions: this.isGrokModel() && this.shouldUseSearchFor(message)
-              ? { search_parameters: { mode: "auto" } }
-              : { search_parameters: { mode: "off" } }
+            searchOptions: { search_parameters: { mode: "off" } }
           })
         );
 

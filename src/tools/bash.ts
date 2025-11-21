@@ -82,8 +82,21 @@ export class BashTool extends EventEmitter {
       this.currentOutput = [];
 
       return taskId;
-    } catch {
-      // Adoption failed - don't clear state so process can still be tracked
+    } catch (error) {
+      // CRITICAL FIX: Clear state even on failure to prevent process handle leak
+      this.currentProcess = null;
+      this.currentCommand = '';
+      this.currentOutput = [];
+
+      // Attempt to kill orphaned process to prevent resource leak
+      try {
+        if (!processToAdopt.killed && processToAdopt.exitCode === null) {
+          processToAdopt.kill('SIGTERM');
+        }
+      } catch {
+        // Ignore kill errors
+      }
+
       return null;
     }
   }
@@ -284,9 +297,18 @@ export class BashTool extends EventEmitter {
         }
       }, timeout);
 
+      // Helper to cleanup abort listener when process completes
+      // Defined first so it can be called from abortHandler
+      let abortHandler: (() => void) | null = null;
+      const cleanupAbortListener = () => {
+        if (signal && abortHandler) {
+          signal.removeEventListener('abort', abortHandler);
+          abortHandler = null;
+        }
+      };
+
       // Handle abort signal (for Ctrl+B background transfer)
       // Store handler reference for cleanup to prevent memory leaks
-      let abortHandler: (() => void) | null = null;
       if (signal) {
         abortHandler = () => {
           if (this.currentProcess === childProcess) {
@@ -295,6 +317,8 @@ export class BashTool extends EventEmitter {
             const taskId = this.moveToBackground();
             if (taskId) {
               movedToBackground = true;
+              // Cleanup abort listener to prevent memory leak (even though { once: true } auto-removes)
+              cleanupAbortListener();
               resolve({
                 movedToBackground: true,
                 taskId,
@@ -306,14 +330,6 @@ export class BashTool extends EventEmitter {
         };
         signal.addEventListener('abort', abortHandler, { once: true });
       }
-
-      // Helper to cleanup abort listener when process completes
-      const cleanupAbortListener = () => {
-        if (signal && abortHandler) {
-          signal.removeEventListener('abort', abortHandler);
-          abortHandler = null;
-        }
-      };
 
       // Collect stdout
       childProcess.stdout?.on('data', (data: Buffer) => {

@@ -488,8 +488,9 @@ export class Subagent extends EventEmitter {
   async terminate(): Promise<void> {
     this.isActive = false;
     this.currentTaskId = null;
-    this.removeAllListeners();
+    // Emit terminated event BEFORE removing listeners so they can receive it
     this.emit('terminated', { role: this.role });
+    this.removeAllListeners();
   }
 
   /**

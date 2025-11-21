@@ -51,3 +51,16 @@ models:
       min: 0.6
       max: 1.0
     token_efficiency: 1.1
+
+  glm-4.5v:
+    name: glm-4.5v
+    context_window: 64000  # 64K multimodal context
+    max_output_tokens: 16000  # 16K max output
+    default_max_tokens: 8192
+    supports_thinking: true  # Supports deep reasoning mode
+    supports_vision: true  # Vision/image capabilities
+    default_temperature: 0.7
+    temperature_range:
+      min: 0.6
+      max: 1.0
+    token_efficiency: 1.2

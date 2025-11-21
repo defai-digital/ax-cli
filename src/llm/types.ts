@@ -93,7 +93,7 @@ export interface ChatOptions {
   /**
    * Model identifier
    * @default "glm-4.6"
-   * @example "glm-4.6", "grok-code-fast-1"
+   * @example "glm-4.6", "glm-4-air"
    */
   model?: string;
 
@@ -286,6 +286,21 @@ export function hasReasoningContent(
 }
 
 /**
+ * Message content part for multimodal messages
+ */
+export type MessageContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+/**
+ * Message with multimodal content support
+ */
+export interface MultimodalMessage {
+  role: "user" | "assistant" | "system";
+  content: string | MessageContentPart[];
+}
+
+/**
  * GLM-4.6 model configurations
  *
  * Defines capabilities and limits for supported models
@@ -295,22 +310,16 @@ export const GLM_MODELS = {
     contextWindow: 200000,      // 200K tokens
     maxOutputTokens: 128000,    // 128K max output
     supportsThinking: true,
+    supportsVision: false,
     defaultTemperature: 0.7,
     temperatureRange: { min: 0.6, max: 1.0 },
     tokenEfficiency: 1.3,       // 30% more efficient
-  },
-  "grok-code-fast-1": {
-    contextWindow: 128000,      // 128K tokens
-    maxOutputTokens: 4096,
-    supportsThinking: false,
-    defaultTemperature: 0.7,
-    temperatureRange: { min: 0.0, max: 2.0 },
-    tokenEfficiency: 1.0,
   },
   "glm-4-air": {
     contextWindow: 128000,
     maxOutputTokens: 8192,
     supportsThinking: false,
+    supportsVision: false,
     defaultTemperature: 0.7,
     temperatureRange: { min: 0.6, max: 1.0 },
     tokenEfficiency: 1.15,
@@ -319,9 +328,19 @@ export const GLM_MODELS = {
     contextWindow: 8192,
     maxOutputTokens: 8192,
     supportsThinking: false,
+    supportsVision: false,
     defaultTemperature: 0.7,
     temperatureRange: { min: 0.6, max: 1.0 },
     tokenEfficiency: 1.1,
+  },
+  "glm-4.5v": {
+    contextWindow: 64000,       // 64K multimodal context
+    maxOutputTokens: 16000,     // 16K max output
+    supportsThinking: true,
+    supportsVision: true,       // Vision capabilities
+    defaultTemperature: 0.7,
+    temperatureRange: { min: 0.6, max: 1.0 },
+    tokenEfficiency: 1.2,
   },
 } as const;
 

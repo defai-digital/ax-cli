@@ -98,9 +98,9 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
 
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1}>
-      <Text color="yellow">{uiMessages.title || "🔑 Grok API Key Required"}</Text>
+      <Text color="yellow">{uiMessages.title || "🔑 API Key Required"}</Text>
       <Box marginBottom={1}>
-        <Text color="gray">{uiMessages.prompt || "Please enter your Grok API key to continue:"}</Text>
+        <Text color="gray">{uiMessages.prompt || "Please enter your API key to continue:"}</Text>
       </Box>
 
       <Box borderStyle="round" borderColor="blue" paddingX={1} marginBottom={1}>

@@ -199,11 +199,69 @@ ax-cli mcp add linear \
 
 ## Adding MCP Servers
 
+### Quick Start with Templates
+
+The easiest way to add MCP servers is using pre-configured templates:
+
+```bash
+# Browse available templates
+ax-cli mcp browse
+
+# View all templates
+ax-cli mcp templates
+
+# Filter templates by category
+ax-cli mcp templates --category design
+
+# Add a server using template (recommended)
+ax-cli mcp add figma --template
+```
+
 ### Basic Command Structure
 
 ```bash
 ax-cli mcp add <name> [options]
 ```
+
+### Adding via Templates (Recommended)
+
+Pre-configured templates make setup quick and error-free:
+
+```bash
+# Figma (Design)
+export FIGMA_ACCESS_TOKEN="your_token"
+ax-cli mcp add figma --template
+
+# GitHub (Version Control)
+export GITHUB_TOKEN="ghp_your_token"
+ax-cli mcp add github --template
+
+# Vercel (Deployment)
+export VERCEL_TOKEN="your_token"
+ax-cli mcp add vercel --template
+
+# Puppeteer (Testing)
+ax-cli mcp add puppeteer --template
+
+# Sentry (Monitoring)
+export SENTRY_AUTH_TOKEN="your_token"
+ax-cli mcp add sentry --template
+```
+
+**Available Templates**:
+- **Design**: Figma
+- **Version Control**: GitHub
+- **Deployment**: Vercel, Netlify, Firebase
+- **Testing**: Puppeteer, Storybook, Chromatic
+- **Monitoring**: Sentry
+- **Backend**: Supabase, Postgres, SQLite
+
+**Benefits of Templates**:
+- ✅ Pre-validated configurations
+- ✅ Clear environment variable requirements
+- ✅ Setup instructions and troubleshooting tips
+- ✅ Usage examples
+- ✅ Best practices included
 
 ### Adding via CLI Flags
 
@@ -301,6 +359,42 @@ ax-cli mcp list
 # Custom API (HTTP)     ✗ Disconnected
 ```
 
+### Discovering Tools
+
+Preview available tools from MCP servers:
+
+```bash
+# List all tools from a specific server
+ax-cli mcp tools figma
+
+# Output:
+# 🔧 figma Tools (5 available)
+#
+# ├─ get_file_data
+#    Retrieve Figma file structure and metadata
+#    Parameters: fileId*
+#
+# ├─ get_components
+#    List all components from a file
+#    Parameters: fileId*, componentName
+# ...
+
+# Show detailed schemas
+ax-cli mcp tools figma --verbose
+
+# Search for tools across all servers
+ax-cli mcp search "deploy"
+
+# Output JSON format
+ax-cli mcp tools figma --json
+```
+
+**Tool Discovery Commands**:
+- `ax-cli mcp tools <server>` - List all tools from a server
+- `ax-cli mcp search <query>` - Search tools by keyword
+- `--verbose` flag - Show full parameter schemas
+- `--json` flag - Machine-readable output
+
 ### Testing Server Connection
 
 ```bash
@@ -313,6 +407,54 @@ ax-cli mcp test server-name
 # - Server capabilities
 # - Response time
 ```
+
+### Health Monitoring
+
+Check the health and performance of your MCP servers:
+
+```bash
+# Check health of all servers
+ax-cli mcp health
+
+# Output:
+# 📊 MCP Server Health Report
+#
+# ✓ figma (Connected)
+#   Transport: MCP
+#   Uptime: 2h 15m
+#   Tools: 5 available
+#   Latency: avg 45ms, p95 120ms
+#   Success Rate: 98.5% (197/200 calls)
+#
+# ✓ github (Connected)
+#   Transport: MCP
+#   Uptime: 45m
+#   Tools: 12 available
+#   Success Rate: 100% (50/50 calls)
+
+# Check health of specific server
+ax-cli mcp health figma
+
+# Continuous monitoring (updates every 60 seconds)
+ax-cli mcp health --watch
+
+# JSON output for automation
+ax-cli mcp health --json
+```
+
+**Health Metrics**:
+- **Connection Status**: Whether the server is currently connected
+- **Uptime**: How long the server has been connected
+- **Tool Count**: Number of available tools from the server
+- **Latency**: Average and P95 response times
+- **Success Rate**: Percentage of successful tool calls
+- **Last Error**: Most recent error message (if any)
+
+**Use Cases**:
+- Monitor MCP server performance in production
+- Debug connectivity issues
+- Track reliability metrics
+- Set up automated health checks in CI/CD
 
 ### Viewing Server Details
 
@@ -1142,6 +1284,12 @@ See [MCP Protocol Documentation](https://modelcontextprotocol.io) for complete d
 
 ## Resources
 
+### AX CLI Documentation
+
+- **[MCP for Front-End Developers](./mcp-frontend-guide.md)** - Complete guide for front-end workflows
+- **[Features Guide](./features.md)** - All AX CLI features
+- **[Configuration Reference](./configuration.md)** - Advanced configuration
+
 ### Official Links
 
 - **MCP Protocol**: https://modelcontextprotocol.io
@@ -1150,6 +1298,7 @@ See [MCP Protocol Documentation](https://modelcontextprotocol.io) for complete d
 
 ### Popular MCP Servers
 
+- **Figma**: https://figma.com/mcp (Official design-to-code server)
 - **Linear**: https://linear.app/
 - **GitHub**: https://github.com/
 - **Slack**: https://slack.com/

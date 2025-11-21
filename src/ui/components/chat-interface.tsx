@@ -16,7 +16,6 @@ import {
   ConfirmationOptions,
 } from "../../utils/confirmation-service.js";
 import ApiKeyInput from "./api-key-input.js";
-import cfonts from "cfonts";
 import { getVersion } from "../../utils/version.js";
 import { getHistoryManager } from "../../utils/history-manager.js";
 import { getMcpConnectionCount } from "../../llm/tools.js";
@@ -70,6 +69,8 @@ function ChatInterfaceWithAgent({
   const lastPercentageRef = useRef<number>(0); // Store last percentage value
   const lastPercentageUpdateTime = useRef<number>(0); // Store last update timestamp
   const contextLowWarningShown = useRef<boolean>(false); // Track if low context warning was shown
+  const flashTimersRef = useRef<NodeJS.Timeout[]>([]); // Track flash timers for cleanup
+  const chatHistoryRef = useRef<ChatEntry[]>(chatHistory); // Track current chat history
 
   // Toast notification system
   const { toasts, removeToast, addToast } = useToasts();
@@ -78,10 +79,22 @@ function ChatInterfaceWithAgent({
   const projectName = getCurrentProjectName();
   const version = getVersion();
 
+  // Memory metadata removed (not used in original status bar)
+
   // Flash effect helper - triggers a brief highlight then clears
   const triggerFlash = useCallback((setter: React.Dispatch<React.SetStateAction<boolean>>) => {
     setter(true);
-    setTimeout(() => setter(false), 300);
+    const timeoutId = setTimeout(() => setter(false), 300);
+    // Track timer for cleanup on unmount
+    flashTimersRef.current.push(timeoutId);
+  }, []);
+
+  // Cleanup flash timers on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      flashTimersRef.current.forEach(timer => clearTimeout(timer));
+      flashTimersRef.current = [];
+    };
   }, []);
 
   // Mode toggle handlers with toast feedback
@@ -112,9 +125,15 @@ function ChatInterfaceWithAgent({
     addToast(TOAST_MESSAGES.cleared);
   }, [addToast]);
 
+  // Keep chatHistoryRef in sync
+  useEffect(() => {
+    chatHistoryRef.current = chatHistory;
+  }, [chatHistory]);
+
   const handleCopyLastResponse = useCallback(() => {
-    // Find the last assistant message
-    const lastAssistantEntry = [...chatHistory].reverse().find(entry => entry.type === "assistant");
+    // Use ref to get current chatHistory without causing callback re-creation
+    // This prevents unnecessary re-renders when chatHistory changes
+    const lastAssistantEntry = [...chatHistoryRef.current].reverse().find(entry => entry.type === "assistant");
     if (lastAssistantEntry && lastAssistantEntry.content) {
       try {
         clipboardy.writeSync(lastAssistantEntry.content);
@@ -125,7 +144,23 @@ function ChatInterfaceWithAgent({
     } else {
       addToast({ message: "No response to copy", type: "info", icon: "ℹ" });
     }
-  }, [chatHistory, addToast]);
+  }, [addToast]);
+
+  const handleMemoryWarmed = useCallback((tokens: number) => {
+    addToast(TOAST_MESSAGES.memoryWarmed(tokens));
+  }, [addToast]);
+
+  const handleMemoryRefreshed = useCallback(() => {
+    addToast(TOAST_MESSAGES.memoryRefreshed);
+  }, [addToast]);
+
+  const handleCheckpointCreated = useCallback(() => {
+    addToast(TOAST_MESSAGES.checkpointCreated);
+  }, [addToast]);
+
+  const handleCheckpointRestored = useCallback(() => {
+    addToast(TOAST_MESSAGES.checkpointRestored);
+  }, [addToast]);
 
   const {
     input,
@@ -156,6 +191,10 @@ function ChatInterfaceWithAgent({
     onOperationInterrupted: handleOperationInterrupted,
     onChatCleared: handleChatCleared,
     onCopyLastResponse: handleCopyLastResponse,
+    onMemoryWarmed: handleMemoryWarmed,
+    onMemoryRefreshed: handleMemoryRefreshed,
+    onCheckpointCreated: handleCheckpointCreated,
+    onCheckpointRestored: handleCheckpointRestored,
   });
 
   useEffect(() => {
@@ -170,34 +209,7 @@ function ChatInterfaceWithAgent({
       console.clear();
     }
 
-    // Add top padding
-    console.log("    ");
-
-    // Generate logo with margin to match Ink paddingX={2}
-    const logoOutput = cfonts.render("AX", {
-      font: "3d",
-      align: "left",
-      colors: ["white"],
-      space: true,
-      maxLength: "0",
-      gradient: false,
-      independentGradient: false,
-      transitionGradient: false,
-      env: "node",
-    });
-
-    // Add horizontal margin (2 spaces) to match Ink paddingX={2}
-    const logoLines = (logoOutput as any).string.split("\n");
-    logoLines.forEach((line: string) => {
-      if (line.trim()) {
-        console.log(" " + line); // Add 2 spaces for horizontal margin
-      } else {
-        console.log(line); // Keep empty lines as-is
-      }
-    });
-
-    console.log(" "); // Spacing after logo
-
+    // Welcome text is now displayed in WelcomePanel component
     // Don't clear history on mount since we loaded it from disk
   }, []);
 
@@ -492,48 +504,51 @@ function ChatInterfaceWithAgent({
   };
 
   // Get MCP server count safely
+  // MCP server count - only calculate once on mount
+  // MCP servers are configured at startup and rarely change during session
   const mcpServerCount = useMemo(() => {
     try {
       return getMcpConnectionCount();
     } catch {
       return 0;
     }
-  }, [chatHistory.length]); // Recalculate when chat changes (MCP servers might connect)
+  }, []); // Only calculate once
 
   // Get background task count (running tasks)
   const [backgroundTaskCount, setBackgroundTaskCount] = useState(0);
 
   // Listen for background task events
+  // Memoize handlers to prevent event listener leaks
+  const handleTaskComplete = useCallback(({ taskId, status }: { taskId: string; exitCode: number | null; status: string }) => {
+    const manager = BackgroundTaskManager.getInstance();
+    const taskInfo = manager.getTaskInfo(taskId);
+    const command = taskInfo?.command || taskId;
+
+    if (status === 'completed') {
+      addToast(TOAST_MESSAGES.taskCompleted(taskId, command));
+    } else {
+      addToast(TOAST_MESSAGES.taskFailed(taskId, command));
+    }
+
+    // Update running count
+    setBackgroundTaskCount(manager.listTasks().filter(t => t.status === 'running').length);
+  }, [addToast]);
+
+  const handleTaskStarted = useCallback(() => {
+    const manager = BackgroundTaskManager.getInstance();
+    setBackgroundTaskCount(manager.listTasks().filter(t => t.status === 'running').length);
+  }, []);
+
+  const handleTaskKilled = useCallback(() => {
+    const manager = BackgroundTaskManager.getInstance();
+    setBackgroundTaskCount(manager.listTasks().filter(t => t.status === 'running').length);
+  }, []);
+
   useEffect(() => {
     const manager = BackgroundTaskManager.getInstance();
 
     // Initial count
     setBackgroundTaskCount(manager.listTasks().filter(t => t.status === 'running').length);
-
-    // Task completed handler
-    const handleTaskComplete = ({ taskId, status }: { taskId: string; exitCode: number | null; status: string }) => {
-      const taskInfo = manager.getTaskInfo(taskId);
-      const command = taskInfo?.command || taskId;
-
-      if (status === 'completed') {
-        addToast(TOAST_MESSAGES.taskCompleted(taskId, command));
-      } else {
-        addToast(TOAST_MESSAGES.taskFailed(taskId, command));
-      }
-
-      // Update running count
-      setBackgroundTaskCount(manager.listTasks().filter(t => t.status === 'running').length);
-    };
-
-    // Task started handler
-    const handleTaskStarted = () => {
-      setBackgroundTaskCount(manager.listTasks().filter(t => t.status === 'running').length);
-    };
-
-    // Task killed handler
-    const handleTaskKilled = () => {
-      setBackgroundTaskCount(manager.listTasks().filter(t => t.status === 'running').length);
-    };
 
     manager.on('taskComplete', handleTaskComplete);
     manager.on('taskStarted', handleTaskStarted);
@@ -546,7 +561,7 @@ function ChatInterfaceWithAgent({
       manager.off('taskAdopted', handleTaskStarted);
       manager.off('taskKilled', handleTaskKilled);
     };
-  }, [addToast]);
+  }, [handleTaskComplete, handleTaskStarted, handleTaskKilled]);
 
   // Handler for quick action selection
   const handleQuickActionSelect = (command: string) => {
