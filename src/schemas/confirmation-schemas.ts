@@ -58,3 +58,15 @@ export function safeValidateConfirmationOptions(data: unknown): {
 export function validateConfirmationResult(data: unknown): ConfirmationResult {
   return ConfirmationResultSchema.parse(data);
 }
+
+export function safeValidateConfirmationResult(data: unknown): {
+  success: boolean;
+  data?: ConfirmationResult;
+  error?: z.ZodError;
+} {
+  const result = ConfirmationResultSchema.safeParse(data);
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+  return { success: false, error: result.error };
+}

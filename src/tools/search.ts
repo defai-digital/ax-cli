@@ -258,17 +258,30 @@ export class SearchTool {
           return;
         }
         isResolved = true;
-        cleanup();
 
-        // Try to kill process if it hasn't exited yet
+        // Try to kill process with escalating signals
         // Use a safer check: only kill if process hasn't exited
         try {
           if (rg.exitCode === null && rg.signalCode === null) {
             rg.kill('SIGTERM');
+            // Set a timeout to force kill if SIGTERM doesn't work
+            const killTimeout = setTimeout(() => {
+              try {
+                if (rg.exitCode === null && !rg.killed) {
+                  rg.kill('SIGKILL');
+                }
+              } catch {
+                // Process already terminated
+              }
+            }, 3000);
+            // Clean up timeout when process exits
+            rg.once('exit', () => clearTimeout(killTimeout));
           }
         } catch {
           // Process already terminated or can't be killed, ignore
         }
+
+        cleanup(); // Call cleanup AFTER initiating termination
         reject(error);
       });
     });

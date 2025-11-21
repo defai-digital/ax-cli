@@ -333,9 +333,18 @@ export function addMCPToolsToGrokTools(baseTools: LLMTool[]): LLMTool[] {
 
 export async function getAllGrokTools(): Promise<LLMTool[]> {
   const manager = getMCPManager();
-  // Try to initialize servers if not already done, but don't block
-  manager.ensureServersInitialized().catch(() => {
-    // Ignore initialization errors to avoid blocking
-  });
+  // Try to initialize servers if not already done
+  // Log errors but continue without MCP tools rather than blocking
+  try {
+    await Promise.race([
+      manager.ensureServersInitialized(),
+      new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error('MCP init timeout')), 5000)
+      ),
+    ]);
+  } catch (error) {
+    console.warn('MCP server initialization failed:', error instanceof Error ? error.message : String(error));
+    // Continue without MCP tools rather than blocking
+  }
   return addMCPToolsToGrokTools(GROK_TOOLS);
 }

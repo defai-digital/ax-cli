@@ -6,12 +6,17 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as prompts from '@clack/prompts';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { parseJsonFile } from '../utils/json-utils.js';
 import { TOKEN_CONFIG } from '../constants.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+// Whitelist of safe editors to prevent command injection
+const SAFE_EDITORS = ['code', 'vim', 'nano', 'vi', 'emacs', 'subl', 'nvim', 'gedit', 'kate', 'notepad'];
+// Pattern for valid editor names (alphanumeric, dots, hyphens, underscores only)
+const VALID_EDITOR_PATTERN = /^[a-zA-Z0-9._-]+$/;
 
 export function createMemoryCommand(): Command {
   const memoryCommand = new Command('memory')
@@ -84,25 +89,29 @@ export function createMemoryCommand(): Command {
 
         console.log(`📝 Opening ${customMdPath} in ${editor}...`);
 
-        // Open editor with comprehensive error handling
-        try {
-          let editorPromise: Promise<{stdout: string; stderr: string}>;
+        // Validate editor to prevent command injection
+        if (!SAFE_EDITORS.includes(editor) && !VALID_EDITOR_PATTERN.test(editor)) {
+          console.error(`❌ Invalid editor name: ${editor}`);
+          console.error(`   Allowed editors: ${SAFE_EDITORS.join(', ')}`);
+          console.error(`   Or any name matching: alphanumeric, dots, hyphens, underscores`);
+          process.exit(1);
+        }
 
-          if (editor === 'code') {
-            editorPromise = execAsync(`code --wait "${customMdPath}"`).catch(err => {
-              throw new Error(`VS Code failed: ${err.message}. Ensure VS Code is installed and 'code' command is available.`);
-            });
-          } else if (editor === 'subl') {
-            editorPromise = execAsync(`subl --wait "${customMdPath}"`).catch(err => {
-              throw new Error(`Sublime Text failed: ${err.message}. Ensure Sublime is installed.`);
-            });
+        // Open editor with comprehensive error handling
+        // Use execFile for safe execution without shell interpolation
+        try {
+          let editorArgs: string[];
+
+          if (editor === 'code' || editor === 'subl') {
+            editorArgs = ['--wait', customMdPath];
           } else {
-            editorPromise = execAsync(`${editor} "${customMdPath}"`).catch(err => {
-              throw new Error(`Editor '${editor}' failed: ${err.message}`);
-            });
+            editorArgs = [customMdPath];
           }
 
-          await editorPromise;
+          await execFileAsync(editor, editorArgs).catch(err => {
+            throw new Error(`Editor '${editor}' failed: ${err.message}`);
+          });
+
           console.log('✅ Custom instructions updated\n');
         } catch (error) {
           console.error(`❌ Failed to open editor '${editor}'`);

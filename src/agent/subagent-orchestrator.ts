@@ -215,9 +215,12 @@ export class SubagentOrchestrator extends EventEmitter {
 
     // Execute batches sequentially, but tasks within each batch in parallel
     for (const batch of batches) {
-      const batchTasks = batch.map(taskId =>
-        tasks.find(t => t.id === taskId)!
-      );
+      const batchTasks = batch
+        .map(taskId => tasks.find(t => t.id === taskId))
+        .filter((task): task is SubagentTask => task !== undefined);
+
+      // Skip empty batches (shouldn't happen with valid dependency resolution)
+      if (batchTasks.length === 0) continue;
 
       // Execute batch in parallel
       const batchResults = await this.executeBatch(batchTasks);

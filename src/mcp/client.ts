@@ -223,20 +223,26 @@ export class MCPManager extends EventEmitter {
     }
 
     // Create initialization promise to prevent concurrent initialization
+    // Wrap entire initialization in try-catch to prevent unhandled rejections
     this.initializationPromise = (async () => {
-      const { loadMCPConfig } = await import('../mcp/config');
-      const config = loadMCPConfig();
+      try {
+        const { loadMCPConfig } = await import('../mcp/config');
+        const config = loadMCPConfig();
 
-      // Initialize servers in parallel to avoid blocking
-      const initPromises = config.servers.map(async (serverConfig) => {
-        try {
-          await this.addServer(serverConfig);
-        } catch (error) {
-          console.warn(`Failed to initialize MCP server ${serverConfig.name}:`, error);
-        }
-      });
+        // Initialize servers in parallel to avoid blocking
+        const initPromises = config.servers.map(async (serverConfig) => {
+          try {
+            await this.addServer(serverConfig);
+          } catch (error) {
+            console.warn(`Failed to initialize MCP server ${serverConfig.name}:`, error);
+          }
+        });
 
-      await Promise.all(initPromises);
+        await Promise.all(initPromises);
+      } catch (error) {
+        // Catch config loading errors to prevent unhandled rejection
+        console.error('Failed to initialize MCP servers:', error);
+      }
     })();
 
     try {

@@ -261,8 +261,11 @@ export class ProjectAnalyzer {
         if (typeof packageJson.bin === 'string') {
           return packageJson.bin;
         }
-        // Get first bin entry
-        return Object.values(packageJson.bin)[0] as string;
+        // Get first bin entry (with bounds check)
+        const binValues = Object.values(packageJson.bin);
+        if (binValues.length > 0) {
+          return binValues[0] as string;
+        }
       }
 
       // Libraries

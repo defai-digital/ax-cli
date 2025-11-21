@@ -68,6 +68,7 @@ function ChatInterfaceWithAgent({
     selectedCommandIndex,
     commandSuggestions,
     autoEditEnabled,
+    verboseMode,
   } = useInputHandler({
     agent,
     chatHistory,
@@ -345,6 +346,9 @@ function ChatInterfaceWithAgent({
     }
 
     // Use setImmediate for non-blocking, async UI updates (Node.js equivalent of RAF)
+    // Track setTimeout for proper cleanup to prevent memory leaks
+    let autoPruneTimeoutId: NodeJS.Timeout | null = null;
+
     const immediateId = setImmediate(() => {
       const percentage = agent.getContextPercentage();
 
@@ -354,7 +358,7 @@ function ChatInterfaceWithAgent({
           percentage > lastPercentageRef.current + 10) {
         setShowAutoPrune(true);
         // Hide "auto-prune" after 3 seconds
-        setTimeout(() => setShowAutoPrune(false), 3000);
+        autoPruneTimeoutId = setTimeout(() => setShowAutoPrune(false), 3000);
       }
 
       lastPercentageRef.current = percentage; // Store percentage value
@@ -362,7 +366,11 @@ function ChatInterfaceWithAgent({
       setContextPercentage(percentage);
     });
 
-    return () => clearImmediate(immediateId);
+    return () => {
+      clearImmediate(immediateId);
+      // Clean up auto-prune timeout to prevent memory leaks on unmount
+      if (autoPruneTimeoutId) clearTimeout(autoPruneTimeoutId);
+    };
   }, [agent, chatHistory.length, isStreaming]); // Only when length changes and not streaming
 
   // Save history whenever it changes (debounced)
@@ -430,6 +438,7 @@ function ChatInterfaceWithAgent({
         <ChatHistory
           entries={chatHistory}
           isConfirmationActive={!!confirmationOptions}
+          verboseMode={verboseMode}
         />
       </Box>
 
@@ -469,6 +478,16 @@ function ChatInterfaceWithAgent({
               <Text color="gray" dimColor>
                 {" "}
                 (shift + tab)
+              </Text>
+            </Box>
+            <Box marginRight={2}>
+              <Text color={verboseMode ? "yellow" : "gray"}>
+                {verboseMode ? "📋" : "📄"} verbose:{" "}
+                {verboseMode ? "on" : "off"}
+              </Text>
+              <Text color="gray" dimColor>
+                {" "}
+                (ctrl + o)
               </Text>
             </Box>
             <Box marginRight={2}>

@@ -192,6 +192,10 @@ export class DependencyResolver {
     }
 
     // Group by level
+    // Handle empty levels case to prevent -Infinity from Math.max
+    if (levels.size === 0) {
+      return batches; // Return empty batches for empty task set
+    }
     const maxLevel = Math.max(...Array.from(levels.values()));
     for (let level = 0; level <= maxLevel; level++) {
       const batch: string[] = [];
