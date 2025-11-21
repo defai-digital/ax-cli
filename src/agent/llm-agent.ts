@@ -1187,7 +1187,10 @@ export class LLMAgent extends EventEmitter {
    *
    * Performance: 50% faster than immutable approach (no object copying)
    */
-  private reduceStreamDelta(acc: any, delta: any): any {
+  private reduceStreamDelta(
+    acc: Record<string, unknown>,
+    delta: Record<string, unknown>
+  ): Record<string, unknown> {
     for (const [key, value] of Object.entries(delta)) {
       if (value === undefined || value === null) {
         continue; // Skip undefined/null values
@@ -1216,11 +1219,11 @@ export class LLMAgent extends EventEmitter {
             accArray[i] = {};
           }
           // Recursively merge array elements
-          this.reduceStreamDelta(accArray[i], value[i]);
+          this.reduceStreamDelta(accArray[i] as Record<string, unknown>, value[i] as Record<string, unknown>);
         }
       } else if (typeof acc[key] === "object" && typeof value === "object") {
         // Object merging
-        this.reduceStreamDelta(acc[key], value);
+        this.reduceStreamDelta(acc[key] as Record<string, unknown>, value as Record<string, unknown>);
       } else {
         // Direct assignment for other types
         acc[key] = value;
@@ -1232,12 +1235,15 @@ export class LLMAgent extends EventEmitter {
   /**
    * Accumulate streaming message chunks
    */
-  private messageReducer(previous: any, item: GLM46StreamChunk): any {
+  private messageReducer(
+    previous: Record<string, unknown>,
+    item: GLM46StreamChunk
+  ): Record<string, unknown> {
     // Safety check: ensure item has valid structure
     if (!item?.choices || item.choices.length === 0 || !item.choices[0]?.delta) {
       return previous;
     }
-    return this.reduceStreamDelta(previous, item.choices[0].delta);
+    return this.reduceStreamDelta(previous, item.choices[0].delta as Record<string, unknown>);
   }
 
   /**
@@ -1318,11 +1324,11 @@ export class LLMAgent extends EventEmitter {
     inputTokens: number,
     lastTokenUpdate: { value: number },
     totalOutputTokens: { value: number }
-  ): AsyncGenerator<StreamingChunk | { accumulated: any; content: string; yielded: boolean }, { accumulated: any; content: string; yielded: boolean }, unknown> {
-    let accumulatedMessage: any = {};
+  ): AsyncGenerator<StreamingChunk | { accumulated: Record<string, unknown>; content: string; yielded: boolean }, { accumulated: Record<string, unknown>; content: string; yielded: boolean }, unknown> {
+    let accumulatedMessage: Record<string, unknown> = {};
     let accumulatedContent = "";
     let toolCallsYielded = false;
-    let usageData: any | null = null;
+    let usageData: Record<string, unknown> | null = null;
 
     for await (const chunk of stream) {
       // Check for cancellation in the streaming loop
@@ -1343,14 +1349,15 @@ export class LLMAgent extends EventEmitter {
       accumulatedMessage = this.messageReducer(accumulatedMessage, chunk);
 
       // Check for tool calls - yield when we have complete tool calls with function names
-      if (!toolCallsYielded && accumulatedMessage.tool_calls?.length > 0) {
-        const hasCompleteTool = accumulatedMessage.tool_calls.some(
+      const toolCalls = accumulatedMessage.tool_calls as Array<Record<string, unknown>> | undefined;
+      if (!toolCallsYielded && toolCalls && Array.isArray(toolCalls) && toolCalls.length > 0) {
+        const hasCompleteTool = toolCalls.some(
           (tc: Record<string, unknown>) => (tc.function as Record<string, unknown>)?.name
         );
         if (hasCompleteTool) {
           yield {
             type: "tool_calls",
-            toolCalls: accumulatedMessage.tool_calls,
+            toolCalls: toolCalls as unknown as LLMToolCall[],
           };
           toolCallsYielded = true;
         }
@@ -1400,11 +1407,13 @@ export class LLMAgent extends EventEmitter {
       tracker.trackUsage(this.llmClient.getCurrentModel(), usageData);
 
       // Emit accurate token count from API usage data (replaces estimation)
-      if (usageData.total_tokens) {
-        totalOutputTokens.value = usageData.completion_tokens || 0;
+      const totalTokens = usageData.total_tokens as number | undefined;
+      const completionTokens = usageData.completion_tokens as number | undefined;
+      if (totalTokens) {
+        totalOutputTokens.value = completionTokens || 0;
         yield {
           type: "token_count",
-          tokenCount: usageData.total_tokens,
+          tokenCount: totalTokens,
         };
       }
     }
@@ -1418,7 +1427,7 @@ export class LLMAgent extends EventEmitter {
   /**
    * Add assistant message to history and conversation
    */
-  private addAssistantMessage(accumulatedMessage: any): void {
+  private addAssistantMessage(accumulatedMessage: Record<string, unknown>): void {
     // Safely extract tool_calls with proper validation
     const toolCalls = Array.isArray(accumulatedMessage.tool_calls)
       ? (accumulatedMessage.tool_calls as LLMToolCall[])

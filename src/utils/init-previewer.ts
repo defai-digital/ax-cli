@@ -47,10 +47,21 @@ export class InitPreviewer {
     prompts.intro('Preview: Init Changes');
 
     // Preview CUSTOM.md
+    let customMdCurrentContent: string | undefined;
+    const customMdExists = fs.existsSync(customMdPath);
+    if (customMdExists) {
+      try {
+        customMdCurrentContent = fs.readFileSync(customMdPath, 'utf-8');
+      } catch {
+        // File was deleted between existsSync and readFileSync - treat as non-existent
+        customMdCurrentContent = undefined;
+      }
+    }
+
     const customMdPreview: FilePreview = {
       path: customMdPath,
-      exists: fs.existsSync(customMdPath),
-      currentContent: fs.existsSync(customMdPath) ? fs.readFileSync(customMdPath, 'utf-8') : undefined,
+      exists: customMdExists && customMdCurrentContent !== undefined,
+      currentContent: customMdCurrentContent,
       newContent: customMdContent,
     };
 
@@ -62,10 +73,21 @@ export class InitPreviewer {
     }
 
     // Preview index.json
+    let indexCurrentContent: string | undefined;
+    const indexExists = fs.existsSync(indexPath);
+    if (indexExists) {
+      try {
+        indexCurrentContent = fs.readFileSync(indexPath, 'utf-8');
+      } catch {
+        // File was deleted between existsSync and readFileSync - treat as non-existent
+        indexCurrentContent = undefined;
+      }
+    }
+
     const indexPreview: FilePreview = {
       path: indexPath,
-      exists: fs.existsSync(indexPath),
-      currentContent: fs.existsSync(indexPath) ? fs.readFileSync(indexPath, 'utf-8') : undefined,
+      exists: indexExists && indexCurrentContent !== undefined,
+      currentContent: indexCurrentContent,
       newContent: indexContent,
     };
 

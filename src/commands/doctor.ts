@@ -506,7 +506,8 @@ async function checkCommand(
 ): Promise<{ found: boolean; version?: string }> {
   try {
     const { stdout } = await execAsync(command, { timeout: 3000 });
-    const version = stdout.trim().split("\n")?.[0];
+    const lines = stdout.trim().split("\n");
+    const version = lines.length > 0 ? lines[0] : undefined;
     return { found: true, version };
   } catch {
     return { found: false };

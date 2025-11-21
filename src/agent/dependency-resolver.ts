@@ -44,7 +44,8 @@ export class DependencyResolver {
     try {
       const graph = this.buildDependencyGraph(tasks);
       return !this.hasCycle(graph);
-    } catch (error) {
+    } catch {
+      // Validation failed - treat as invalid dependencies
       return false;
     }
   }
