@@ -351,10 +351,11 @@ export class BashTool extends EventEmitter {
             clearTimeout(timeoutId);
 
             const taskId = this.moveToBackground();
+            // Always cleanup abort listener to prevent memory leak
+            cleanupAbortListener();
+
             if (taskId) {
               movedToBackground = true;
-              // Cleanup abort listener to prevent memory leak (even though { once: true } auto-removes)
-              cleanupAbortListener();
               resolve({
                 movedToBackground: true,
                 taskId,

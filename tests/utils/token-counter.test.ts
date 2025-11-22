@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { TokenCounter, formatTokenCount, createTokenCounter } from '../../src/utils/token-counter';
+import { TokenCounter, formatTokenCount, createTokenCounter, getTokenCounter } from '../../src/utils/token-counter';
 
 describe('TokenCounter', () => {
   let counter: TokenCounter;
@@ -136,19 +136,79 @@ describe('createTokenCounter', () => {
   it('should create a token counter without model', () => {
     const counter = createTokenCounter();
     expect(counter).toBeInstanceOf(TokenCounter);
-    counter.dispose();
+    // Don't dispose - createTokenCounter now returns singleton
   });
 
   it('should create a token counter with model', () => {
     const counter = createTokenCounter('gpt-4');
     expect(counter).toBeInstanceOf(TokenCounter);
-    counter.dispose();
+    // Don't dispose - createTokenCounter now returns singleton
   });
 
   it('should handle invalid model gracefully', () => {
     const counter = createTokenCounter('invalid-model');
     expect(counter).toBeInstanceOf(TokenCounter);
     expect(counter.countTokens('test')).toBeGreaterThan(0);
-    counter.dispose();
+    // Don't dispose - createTokenCounter now returns singleton
+  });
+});
+
+describe('getTokenCounter (singleton)', () => {
+  it('should return singleton instance for same model', () => {
+    const counter1 = getTokenCounter('gpt-4');
+    const counter2 = getTokenCounter('gpt-4');
+    expect(counter1).toBe(counter2); // Same instance
+  });
+
+  it('should return different instances for different models', () => {
+    const counter1 = getTokenCounter('gpt-4');
+    const counter2 = getTokenCounter('gpt-3.5-turbo');
+    expect(counter1).not.toBe(counter2); // Different instances
+  });
+
+  it('should return same instance when called multiple times without model', () => {
+    const counter1 = getTokenCounter();
+    const counter2 = getTokenCounter();
+    expect(counter1).toBe(counter2); // Same instance (default model)
+  });
+
+  it('should cache token counts correctly across singleton instances', () => {
+    const counter1 = getTokenCounter('gpt-4');
+    const text = 'This is a test sentence for token counting.';
+
+    // Count tokens first time (not cached)
+    const count1 = counter1.countTokens(text);
+
+    // Get singleton again and count same text (should hit cache)
+    const counter2 = getTokenCounter('gpt-4');
+    const count2 = counter2.countTokens(text);
+
+    expect(count1).toBe(count2);
+    expect(counter1).toBe(counter2); // Same instance
+  });
+
+  it('should maintain separate caches for different models', () => {
+    const counter1 = getTokenCounter('gpt-4');
+    const counter2 = getTokenCounter('gpt-3.5-turbo');
+
+    const text = 'Test text';
+
+    // Both should count the same text
+    const count1 = counter1.countTokens(text);
+    const count2 = counter2.countTokens(text);
+
+    // Counts should be the same (same encoding)
+    expect(count1).toBe(count2);
+
+    // But instances should be different
+    expect(counter1).not.toBe(counter2);
+  });
+
+  it('should work correctly with createTokenCounter (backwards compatibility)', () => {
+    const counter1 = createTokenCounter('gpt-4');
+    const counter2 = getTokenCounter('gpt-4');
+
+    // createTokenCounter now redirects to getTokenCounter, so should be same instance
+    expect(counter1).toBe(counter2);
   });
 });

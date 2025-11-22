@@ -5,7 +5,7 @@ import { createTransport, MCPTransport, TransportType } from "./transports.js";
 import { MCP_CONFIG, ERROR_MESSAGES } from "../constants.js";
 import { MCPServerConfigSchema } from "../schemas/settings-schemas.js";
 import type { MCPServerConfig, MCPTransportConfig } from "../schemas/settings-schemas.js";
-import { TokenCounter } from "../utils/token-counter.js";
+import { getTokenCounter } from "../utils/token-counter.js";
 
 // Re-export types for external use
 export type { MCPServerConfig, MCPTransportConfig };
@@ -23,7 +23,7 @@ export class MCPManager extends EventEmitter {
   private tools: Map<string, MCPTool> = new Map();
   private pendingConnections: Map<string, Promise<void>> = new Map();
   private initializationPromise: Promise<void> | null = null;
-  private tokenCounter: TokenCounter = new TokenCounter();
+  private tokenCounter = getTokenCounter(); // Use singleton to share encoder instance
 
   async addServer(config: MCPServerConfig): Promise<void> {
     // Check if already connected

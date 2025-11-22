@@ -52,9 +52,13 @@ export class TokenCounter {
 
     // Limit fingerprint cache size to prevent unbounded growth
     if (this.fingerprintToHashCache.size > 1000) {
-      // Clear oldest entries (Map iteration order is insertion order)
-      const keysToDelete = Array.from(this.fingerprintToHashCache.keys()).slice(0, 100);
-      keysToDelete.forEach(k => this.fingerprintToHashCache.delete(k));
+      // More efficient: use iterator instead of Array.from() to avoid creating full array
+      let deleted = 0;
+      for (const key of this.fingerprintToHashCache.keys()) {
+        this.fingerprintToHashCache.delete(key);
+        deleted++;
+        if (deleted >= 100) break;
+      }
     }
 
     this.fingerprintToHashCache.set(fingerprint, hash);
@@ -165,9 +169,36 @@ export function formatTokenCount(count: number): string {
   return m % 1 === 0 ? `${m}m` : `${m.toFixed(1)}m`;
 }
 
+// Singleton instances keyed by model
+const tokenCounterInstances = new Map<string, TokenCounter>();
+
+/**
+ * Get or create a singleton token counter for the specified model
+ * Reuses encoder instances to avoid expensive tiktoken initialization
+ *
+ * @param model - Model name (defaults to TOKEN_CONFIG.DEFAULT_MODEL)
+ * @returns Singleton TokenCounter instance for the model
+ */
+export function getTokenCounter(model?: string): TokenCounter {
+  const key = model || TOKEN_CONFIG.DEFAULT_MODEL;
+
+  let instance = tokenCounterInstances.get(key);
+  if (!instance) {
+    instance = new TokenCounter(key);
+    tokenCounterInstances.set(key, instance);
+  }
+
+  return instance;
+}
+
 /**
  * Create a token counter instance
+ *
+ * @deprecated Use getTokenCounter() instead for better performance (singleton pattern)
+ * @param model - Model name
+ * @returns New or singleton TokenCounter instance
  */
 export function createTokenCounter(model?: string): TokenCounter {
-  return new TokenCounter(model);
+  // Redirect to singleton for backwards compatibility and performance
+  return getTokenCounter(model);
 }

@@ -39,6 +39,7 @@ export class Subagent extends EventEmitter {
   protected isActive: boolean;
   protected currentTaskId: string | null;
   protected status: SubagentStatus;
+  private toolCallArgsCache: Map<string, Record<string, unknown>> = new Map();
 
   constructor(role: SubagentRole, configOverrides?: Partial<SubagentConfig>) {
     super();
@@ -162,6 +163,37 @@ export class Subagent extends EventEmitter {
 
     if (allowedTools.includes('search')) {
       this.tools.set('search', new SearchTool());
+    }
+  }
+
+  /**
+   * Parse tool call arguments with caching for performance
+   * Returns cached result if available, otherwise parses and caches
+   */
+  private parseToolArgumentsCached(toolCall: LLMToolCall): Record<string, unknown> {
+    const cached = this.toolCallArgsCache.get(toolCall.id);
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      const args = JSON.parse(toolCall.function.arguments || '{}');
+      this.toolCallArgsCache.set(toolCall.id, args);
+
+      // Prevent unbounded memory growth - limit cache size
+      if (this.toolCallArgsCache.size > 500) {
+        let deleted = 0;
+        for (const key of this.toolCallArgsCache.keys()) {
+          this.toolCallArgsCache.delete(key);
+          deleted++;
+          if (deleted >= 100) break;
+        }
+      }
+
+      return args;
+    } catch {
+      // Return empty object on parse error (don't cache failures)
+      return {};
     }
   }
 
@@ -306,21 +338,17 @@ export class Subagent extends EventEmitter {
 
             // Track files created/modified
             if (toolCall.function.name === 'text_editor' && toolResult.success) {
-              try {
-                const args = JSON.parse(toolCall.function.arguments);
-                if (args.path) {
-                  if (args.command === 'create') {
-                    if (!result.filesCreated!.includes(args.path)) {
-                      result.filesCreated!.push(args.path);
-                    }
-                  } else {
-                    if (!result.filesModified!.includes(args.path)) {
-                      result.filesModified!.push(args.path);
-                    }
+              const args = this.parseToolArgumentsCached(toolCall);
+              if (args.path) {
+                if (args.command === 'create') {
+                  if (!result.filesCreated!.includes(args.path as string)) {
+                    result.filesCreated!.push(args.path as string);
+                  }
+                } else {
+                  if (!result.filesModified!.includes(args.path as string)) {
+                    result.filesModified!.push(args.path as string);
                   }
                 }
-              } catch {
-                // Ignore JSON parse errors for file tracking - non-critical
               }
             }
 
@@ -429,15 +457,8 @@ export class Subagent extends EventEmitter {
       };
     }
 
-    let args: any;
-    try {
-      args = JSON.parse(toolCall.function.arguments);
-    } catch (parseError: any) {
-      return {
-        success: false,
-        error: `Failed to parse ${toolName} arguments: ${parseError.message}`,
-      };
-    }
+    // Use cached parsing for performance
+    const args = this.parseToolArgumentsCached(toolCall);
 
     try {
       const result = await tool.execute(args);
