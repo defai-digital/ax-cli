@@ -61,7 +61,7 @@ export class NestedConditionalsDetector extends BaseSmellDetector {
           }
         }
       }
-    } catch (error) {
+    } catch {
       // Skip files that can't be parsed
     }
 
@@ -92,6 +92,8 @@ export class NestedConditionalsDetector extends BaseSmellDetector {
   }
 
   private getSeverity(depth: number, threshold: number): SmellSeverity.LOW | SmellSeverity.MEDIUM | SmellSeverity.HIGH | SmellSeverity.CRITICAL {
+    // Guard against division by zero
+    if (threshold === 0) return SmellSeverity.LOW;
     const ratio = depth / threshold;
     if (ratio >= 2.5) return SmellSeverity.CRITICAL;
     if (ratio >= 2) return SmellSeverity.HIGH;

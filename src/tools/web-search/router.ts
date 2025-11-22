@@ -4,15 +4,11 @@
  */
 
 import type { SearchEngine, SearchIntent } from "./types.js";
-import { TavilySearch } from "./engines/tavily.js";
-import { BraveSearch } from "./engines/brave.js";
 import { NpmSearch } from "./engines/npm.js";
 import { PyPISearch } from "./engines/pypi.js";
 import { CratesSearch } from "./engines/crates.js";
 
 export class WebSearchRouter {
-  private tavilyEngine: TavilySearch;
-  private braveEngine: BraveSearch;
   private npmEngine: NpmSearch;
   private pypiEngine: PyPISearch;
   private cratesEngine: CratesSearch;
@@ -118,8 +114,6 @@ export class WebSearchRouter {
   ];
 
   constructor() {
-    this.tavilyEngine = new TavilySearch();
-    this.braveEngine = new BraveSearch();
     this.npmEngine = new NpmSearch(); // Always available (no API key)
     this.pypiEngine = new PyPISearch(); // Always available (no API key)
     this.cratesEngine = new CratesSearch(); // Always available (no API key)
@@ -230,38 +224,13 @@ export class WebSearchRouter {
           // Default to npm if language not detected
           engines.push(this.npmEngine);
         }
-
-        // Tavily is great for technical queries
-        if (this.tavilyEngine.isAvailable()) {
-          engines.push(this.tavilyEngine);
-        }
-        // Brave as fallback
-        if (this.braveEngine.isAvailable() && engines.length === 0) {
-          engines.push(this.braveEngine);
-        }
         break;
 
       case "news":
-        // Brave has better news coverage
-        if (this.braveEngine.isAvailable()) {
-          engines.push(this.braveEngine);
-        }
-        // Tavily as fallback
-        if (this.tavilyEngine.isAvailable() && engines.length === 0) {
-          engines.push(this.tavilyEngine);
-        }
-        break;
-
       case "general":
       default:
-        // Tavily is optimized for AI/general queries
-        if (this.tavilyEngine.isAvailable()) {
-          engines.push(this.tavilyEngine);
-        }
-        // Brave as fallback
-        if (this.braveEngine.isAvailable() && engines.length === 0) {
-          engines.push(this.braveEngine);
-        }
+        // Default to npm for general queries (always available)
+        engines.push(this.npmEngine);
         break;
     }
 
@@ -280,12 +249,6 @@ export class WebSearchRouter {
   getAvailableEngines(): SearchEngine[] {
     const engines: SearchEngine[] = [];
 
-    if (this.tavilyEngine.isAvailable()) {
-      engines.push(this.tavilyEngine);
-    }
-    if (this.braveEngine.isAvailable()) {
-      engines.push(this.braveEngine);
-    }
     // Package search engines are always available (no API key required)
     engines.push(this.npmEngine);
     engines.push(this.pypiEngine);

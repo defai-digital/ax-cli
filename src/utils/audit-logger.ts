@@ -1,18 +1,26 @@
 /**
- * Security Audit Logging System (REQ-SEC-008)
+ * Basic Audit Logger (Free Tier)
  *
- * Provides tamper-proof logging for security-critical events
- * Implements:
- * - Cryptographic log integrity verification
- * - Automatic log retention (90 days)
- * - SIEM-ready structured logging
- * - Critical event alerting
+ * Provides simple JSON logging for security events.
+ *
+ * Free Tier Features:
+ * ✅ Simple JSON logging to file
+ * ✅ 30-day retention (auto-cleanup)
+ * ✅ Basic event tracking
+ * ✅ Lightweight (no encryption, no hash chains)
+ *
+ * Enterprise features (requires @ax-cli/enterprise):
+ * - Compliance reports (SOC2, HIPAA, PCI-DSS)
+ * - Tamper-proof encrypted logs with hash chains
+ * - Real-time dashboards
+ * - Custom retention (1yr, 7yr, forever)
+ * - Incident response workflows
+ * - Anomaly detection
  *
  * Security: CVSS 6.1 (Medium Priority)
  */
 
-import { createHash } from 'crypto';
-import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'fs';
+import { writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -45,7 +53,7 @@ export enum AuditCategory {
 }
 
 /**
- * Audit event structure
+ * Audit event structure (basic version)
  */
 export interface AuditEvent {
   /**
@@ -102,20 +110,10 @@ export interface AuditEvent {
    * Source IP address (if applicable)
    */
   sourceIp?: string;
-
-  /**
-   * Previous log entry hash (for tamper detection)
-   */
-  previousHash?: string;
-
-  /**
-   * Current entry hash (SHA-256 of all fields)
-   */
-  hash?: string;
 }
 
 /**
- * Audit log configuration
+ * Audit log configuration (basic version)
  */
 export interface AuditLogConfig {
   /**
@@ -124,19 +122,9 @@ export interface AuditLogConfig {
   logDirectory?: string;
 
   /**
-   * Log retention period in days (default: 90)
+   * Log retention period in days (max 30 days in free tier)
    */
   retentionDays?: number;
-
-  /**
-   * Whether to emit critical event alerts
-   */
-  enableAlerts?: boolean;
-
-  /**
-   * Whether to enable tamper-proof chaining
-   */
-  enableChaining?: boolean;
 
   /**
    * Maximum log file size in bytes (default: 10MB)
@@ -145,20 +133,18 @@ export interface AuditLogConfig {
 }
 
 /**
- * Default configuration
+ * Default configuration (free tier)
  */
 const DEFAULT_CONFIG: Required<AuditLogConfig> = {
   logDirectory: join(homedir(), '.ax-cli', 'audit-logs'),
-  retentionDays: 90,
-  enableAlerts: true,
-  enableChaining: true,
+  retentionDays: 30,  // Free tier: max 30 days
   maxFileSize: 10 * 1024 * 1024, // 10MB
 };
 
 /**
- * Audit Logger
+ * Basic Audit Logger (Free Tier)
  *
- * Provides tamper-proof audit logging with cryptographic verification
+ * Simple JSON logging for security events.
  *
  * @example
  * ```typescript
@@ -173,26 +159,23 @@ const DEFAULT_CONFIG: Required<AuditLogConfig> = {
  *   outcome: 'failure',
  *   details: { limit: 20, attempts: 25 },
  * });
- *
- * // Log critical event (triggers alert)
- * logger.logCritical({
- *   category: AuditCategory.COMMAND_EXECUTION,
- *   action: 'shell_injection_attempt',
- *   outcome: 'failure',
- *   details: { command: 'ls; rm -rf /' },
- * });
  * ```
  */
 export class AuditLogger {
   private static instance: AuditLogger | null = null;
   private config: Required<AuditLogConfig>;
   private currentLogFile: string;
-  private lastHash: string | null = null;
   private eventCount: number = 0;
-  private alertCallbacks: Array<(event: AuditEvent) => void> = [];
 
   private constructor(config: AuditLogConfig = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    // Enforce free tier limits
+    const retentionDays = Math.min(config.retentionDays || 30, 30);
+
+    this.config = {
+      ...DEFAULT_CONFIG,
+      ...config,
+      retentionDays
+    };
 
     // Ensure log directory exists
     if (!existsSync(this.config.logDirectory)) {
@@ -201,11 +184,6 @@ export class AuditLogger {
 
     // Initialize log file
     this.currentLogFile = this.getCurrentLogFile();
-
-    // Load last hash for chaining
-    if (this.config.enableChaining) {
-      this.lastHash = this.loadLastHash();
-    }
 
     // Start retention cleanup (run once on init)
     this.cleanupOldLogs();
@@ -229,36 +207,17 @@ export class AuditLogger {
   }
 
   /**
-   * Register alert callback for critical events
+   * Log an audit event (basic version - no hash chains)
    */
-  onCriticalEvent(callback: (event: AuditEvent) => void): void {
-    this.alertCallbacks.push(callback);
-  }
-
-  /**
-   * Log an audit event
-   */
-  log(event: Omit<AuditEvent, 'id' | 'timestamp' | 'hash' | 'previousHash'>): void {
+  log(event: Omit<AuditEvent, 'id' | 'timestamp'>): void {
     const fullEvent: AuditEvent = {
       id: this.generateEventId(),
       timestamp: new Date().toISOString(),
       ...event,
     };
 
-    // Add hash chain for tamper detection
-    if (this.config.enableChaining) {
-      fullEvent.previousHash = this.lastHash || undefined;
-      fullEvent.hash = this.calculateHash(fullEvent);
-      this.lastHash = fullEvent.hash;
-    }
-
     // Write to log file
     this.writeEvent(fullEvent);
-
-    // Emit alert for critical events
-    if (this.config.enableAlerts && fullEvent.severity === AuditSeverity.CRITICAL) {
-      this.emitAlert(fullEvent);
-    }
 
     // Check if we need to rotate log file
     this.checkLogRotation();
@@ -270,7 +229,7 @@ export class AuditLogger {
    * Log critical security event (convenience method)
    */
   logCritical(
-    event: Omit<AuditEvent, 'id' | 'timestamp' | 'severity' | 'hash' | 'previousHash'>
+    event: Omit<AuditEvent, 'id' | 'timestamp' | 'severity'>
   ): void {
     this.log({
       ...event,
@@ -282,7 +241,7 @@ export class AuditLogger {
    * Log warning event (convenience method)
    */
   logWarning(
-    event: Omit<AuditEvent, 'id' | 'timestamp' | 'severity' | 'hash' | 'previousHash'>
+    event: Omit<AuditEvent, 'id' | 'timestamp' | 'severity'>
   ): void {
     this.log({
       ...event,
@@ -294,7 +253,7 @@ export class AuditLogger {
    * Log error event (convenience method)
    */
   logError(
-    event: Omit<AuditEvent, 'id' | 'timestamp' | 'severity' | 'hash' | 'previousHash'>
+    event: Omit<AuditEvent, 'id' | 'timestamp' | 'severity'>
   ): void {
     this.log({
       ...event,
@@ -306,63 +265,12 @@ export class AuditLogger {
    * Log info event (convenience method)
    */
   logInfo(
-    event: Omit<AuditEvent, 'id' | 'timestamp' | 'severity' | 'hash' | 'previousHash'>
+    event: Omit<AuditEvent, 'id' | 'timestamp' | 'severity'>
   ): void {
     this.log({
       ...event,
       severity: AuditSeverity.INFO,
     });
-  }
-
-  /**
-   * Verify log integrity
-   *
-   * Checks the hash chain to detect tampering
-   */
-  verifyIntegrity(logFile?: string): { valid: boolean; errors: string[] } {
-    const file = logFile || this.currentLogFile;
-
-    if (!existsSync(file)) {
-      return { valid: false, errors: ['Log file does not exist'] };
-    }
-
-    const errors: string[] = [];
-    const lines = readFileSync(file, 'utf8').split('\n').filter(l => l.trim());
-
-    let previousHash: string | null = null;
-
-    for (let i = 0; i < lines.length; i++) {
-      try {
-        const event: AuditEvent = JSON.parse(lines[i]);
-
-        // Verify hash chain (normalize undefined to null for comparison)
-        const eventPrevHash = event.previousHash || null;
-        if (eventPrevHash !== previousHash) {
-          errors.push(
-            `Event ${event.id} (line ${i + 1}): Hash chain broken. ` +
-            `Expected previous hash: ${previousHash}, got: ${eventPrevHash}`
-          );
-        }
-
-        // Verify event hash
-        const calculatedHash = this.calculateHash(event);
-        if (event.hash !== calculatedHash) {
-          errors.push(
-            `Event ${event.id} (line ${i + 1}): Hash mismatch. ` +
-            `Event may have been tampered with.`
-          );
-        }
-
-        previousHash = event.hash || null;
-      } catch (error) {
-        errors.push(`Line ${i + 1}: Invalid JSON - ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors,
-    };
   }
 
   /**
@@ -392,26 +300,6 @@ export class AuditLogger {
   }
 
   /**
-   * Calculate SHA-256 hash of event (excluding hash field itself)
-   */
-  private calculateHash(event: AuditEvent): string {
-    // Create copy without hash field
-    const { hash, ...eventWithoutHash } = event;
-
-    // Sort keys for consistent hashing, filter out undefined values
-    const sortedKeys = Object.keys(eventWithoutHash)
-      .filter(key => (eventWithoutHash as any)[key] !== undefined)
-      .sort();
-
-    const data = sortedKeys.map(key => {
-      const value = (eventWithoutHash as any)[key];
-      return `${key}:${JSON.stringify(value)}`;
-    }).join('|');
-
-    return createHash('sha256').update(data).digest('hex');
-  }
-
-  /**
    * Write event to log file
    */
   private writeEvent(event: AuditEvent): void {
@@ -433,25 +321,6 @@ export class AuditLogger {
   private getCurrentLogFile(): string {
     const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     return join(this.config.logDirectory, `audit-${date}.jsonl`);
-  }
-
-  /**
-   * Load last hash from current log file
-   */
-  private loadLastHash(): string | null {
-    if (!existsSync(this.currentLogFile)) {
-      return null;
-    }
-
-    try {
-      const lines = readFileSync(this.currentLogFile, 'utf8').split('\n').filter(l => l.trim());
-      if (lines.length === 0) return null;
-
-      const lastEvent: AuditEvent = JSON.parse(lines[lines.length - 1]);
-      return lastEvent.hash || null;
-    } catch {
-      return null;
-    }
   }
 
   /**
@@ -479,11 +348,10 @@ export class AuditLogger {
    */
   private rotateLogFile(): void {
     this.currentLogFile = this.getCurrentLogFile();
-    this.lastHash = this.loadLastHash();
   }
 
   /**
-   * Clean up old log files (retention policy)
+   * Clean up old log files (30-day retention in free tier)
    */
   private cleanupOldLogs(): void {
     try {
@@ -510,19 +378,6 @@ export class AuditLogger {
       }
     } catch (error) {
       console.error('Failed to clean up old audit logs:', error);
-    }
-  }
-
-  /**
-   * Emit alert for critical events
-   */
-  private emitAlert(event: AuditEvent): void {
-    for (const callback of this.alertCallbacks) {
-      try {
-        callback(event);
-      } catch (error) {
-        console.error('Alert callback failed:', error);
-      }
     }
   }
 }

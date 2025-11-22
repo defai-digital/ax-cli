@@ -64,7 +64,7 @@ export class InappropriateIntimacyDetector extends BaseSmellDetector {
           }
         }
       }
-    } catch (error) {
+    } catch {
       // Skip files that can't be parsed
     }
 

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   deleteCharBefore,
   deleteCharAfter,
@@ -10,6 +10,15 @@ import {
   moveToNextWord,
 } from "../../utils/text-utils.js";
 import { useInputHistory } from "./use-input-history.js";
+import {
+  PasteDetector,
+  PastedBlock,
+  shouldCollapsePaste,
+  createPastedBlock,
+  generatePlaceholder,
+  findBlockAtCursor,
+  expandAllPlaceholders,
+} from "../../utils/paste-utils.js";
 
 export interface Key {
   name?: string;
@@ -32,12 +41,15 @@ export interface EnhancedInputHook {
   input: string;
   cursorPosition: number;
   isMultiline: boolean;
+  pastedBlocks: PastedBlock[];
+  currentBlockAtCursor: PastedBlock | null;
   setInput: (text: string) => void;
   setCursorPosition: (position: number) => void;
   clearInput: () => void;
   insertAtCursor: (text: string) => void;
   resetHistory: () => void;
   handleInput: (inputChar: string, key: Key) => void;
+  expandPlaceholdersForSubmit: (text: string) => string;
 }
 
 interface UseEnhancedInputProps {
@@ -65,7 +77,12 @@ export function useEnhancedInput({
 }: UseEnhancedInputProps = {}): EnhancedInputHook {
   const [input, setInputState] = useState("");
   const [cursorPosition, setCursorPositionState] = useState(0);
+  const [pastedBlocks, setPastedBlocks] = useState<PastedBlock[]>([]);
+  const [pasteCounter, setPasteCounter] = useState(0);
+  const [currentBlockAtCursor, setCurrentBlockAtCursor] = useState<PastedBlock | null>(null);
   const isMultilineRef = useRef(multiline);
+  const pasteDetectorRef = useRef(new PasteDetector());
+  const pasteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Keep ref in sync with prop to avoid stale closure
   isMultilineRef.current = multiline;
@@ -104,6 +121,9 @@ export function useEnhancedInput({
     setInputState("");
     setCursorPositionState(0);
     setOriginalInput("");
+    setPastedBlocks([]);
+    setPasteCounter(0);
+    pasteDetectorRef.current.reset();
   }, [setOriginalInput]);
 
   const insertAtCursor = useCallback((text: string) => {
@@ -113,13 +133,127 @@ export function useEnhancedInput({
     setOriginalInput(result.text);
   }, [input, cursorPosition, setOriginalInput]);
 
+  // Handle paste completion (after accumulation timeout)
+  const handlePasteComplete = useCallback((pastedContent: string) => {
+    // Check if should collapse
+    if (shouldCollapsePaste(pastedContent)) {
+      // Create pasted block
+      const block = createPastedBlock(pasteCounter, pastedContent, cursorPosition);
+      setPasteCounter(prev => prev + 1);
+      setPastedBlocks(prev => [...prev, block]);
+
+      // Insert placeholder instead of full content
+      const placeholder = generatePlaceholder(block);
+      const result = insertText(input, cursorPosition, placeholder);
+      setInputState(result.text);
+      setCursorPositionState(result.position);
+      setOriginalInput(result.text);
+    } else {
+      // Insert normally (below threshold)
+      const result = insertText(input, cursorPosition, pastedContent);
+      setInputState(result.text);
+      setCursorPositionState(result.position);
+      setOriginalInput(result.text);
+    }
+  }, [input, cursorPosition, pasteCounter, setOriginalInput]);
+
+  // Toggle collapse/expand for block at cursor
+  const toggleBlockAtCursor = useCallback(() => {
+    const block = findBlockAtCursor(input, cursorPosition, pastedBlocks);
+    if (!block) return;
+
+    const placeholder = generatePlaceholder(block);
+
+    if (block.collapsed) {
+      // Expand: find the specific occurrence near cursor and replace it
+      let searchStart = 0;
+      let targetStart = -1;
+
+      // Find the occurrence that contains the cursor
+      while (searchStart < input.length) {
+        const occurrenceStart = input.indexOf(placeholder, searchStart);
+        if (occurrenceStart === -1) break;
+
+        const occurrenceEnd = occurrenceStart + placeholder.length;
+        if (cursorPosition >= occurrenceStart && cursorPosition <= occurrenceEnd) {
+          targetStart = occurrenceStart;
+          break;
+        }
+
+        searchStart = occurrenceStart + 1;
+      }
+
+      if (targetStart === -1) return; // Should not happen
+
+      // Replace only this specific occurrence
+      const newInput =
+        input.substring(0, targetStart) +
+        block.content +
+        input.substring(targetStart + placeholder.length);
+
+      setInputState(newInput);
+      // Keep cursor at same position or adjust if needed
+      const newCursor = cursorPosition + (block.content.length - placeholder.length);
+      setCursorPositionState(Math.min(newInput.length, newCursor));
+      setOriginalInput(newInput);
+
+      // Update block state
+      setPastedBlocks(prev =>
+        prev.map(b => (b.id === block.id ? { ...b, collapsed: false } : b))
+      );
+    } else {
+      // Collapse: find the specific occurrence near cursor and replace it
+      let searchStart = 0;
+      let targetStart = -1;
+
+      // Find the occurrence that contains the cursor
+      while (searchStart < input.length) {
+        const occurrenceStart = input.indexOf(block.content, searchStart);
+        if (occurrenceStart === -1) break;
+
+        const occurrenceEnd = occurrenceStart + block.content.length;
+        if (cursorPosition >= occurrenceStart && cursorPosition <= occurrenceEnd) {
+          targetStart = occurrenceStart;
+          break;
+        }
+
+        searchStart = occurrenceStart + 1;
+      }
+
+      if (targetStart === -1) return; // Should not happen
+
+      // Replace only this specific occurrence
+      const newInput =
+        input.substring(0, targetStart) +
+        placeholder +
+        input.substring(targetStart + block.content.length);
+
+      setInputState(newInput);
+      // Adjust cursor to end of placeholder
+      setCursorPositionState(targetStart + placeholder.length);
+      setOriginalInput(newInput);
+
+      // Update block state
+      setPastedBlocks(prev =>
+        prev.map(b => (b.id === block.id ? { ...b, collapsed: true } : b))
+      );
+    }
+  }, [input, cursorPosition, pastedBlocks, setOriginalInput]);
+
+  // Expand all placeholders for submission
+  const expandPlaceholdersForSubmit = useCallback((text: string): string => {
+    return expandAllPlaceholders(text, pastedBlocks);
+  }, [pastedBlocks]);
+
   const handleSubmit = useCallback(() => {
     if (input.trim()) {
-      addToHistory(input);
-      onSubmit?.(input);
+      // Expand all placeholders before submission
+      const expandedInput = expandPlaceholdersForSubmit(input);
+      addToHistory(expandedInput);
+      onSubmit?.(expandedInput);
       clearInput();
     }
-  }, [input, addToHistory, onSubmit, clearInput]);
+  }, [input, addToHistory, onSubmit, clearInput, expandPlaceholdersForSubmit]);
 
   const handleInput = useCallback((inputChar: string, key: Key) => {
     if (disabled) return;
@@ -129,6 +263,13 @@ export function useEnhancedInput({
       setInputState("");
       setCursorPositionState(0);
       setOriginalInput("");
+      return;
+    }
+
+    // Handle Ctrl+P: Toggle expand/collapse for paste at cursor
+    // Check both key.ctrl with 'p' and raw ASCII code \x10 (Ctrl+P = ASCII 16)
+    if ((key.ctrl && inputChar === "p") || inputChar === "\x10") {
+      toggleBlockAtCursor();
       return;
     }
 
@@ -328,22 +469,63 @@ export function useEnhancedInput({
 
     // Handle regular character input
     if (inputChar && !key.ctrl && !key.meta) {
-      const result = insertText(input, cursorPosition, inputChar);
-      setInputState(result.text);
-      setCursorPositionState(result.position);
-      setOriginalInput(result.text);
+      // Detect paste operation
+      const isPaste = pasteDetectorRef.current.detectPaste(inputChar);
+
+      if (isPaste) {
+        // Clear any existing paste timeout
+        if (pasteTimeoutRef.current) {
+          clearTimeout(pasteTimeoutRef.current);
+        }
+
+        // Accumulate paste input
+        pasteDetectorRef.current.accumulatePasteInput(inputChar);
+
+        // Set timeout to finalize paste (50ms after last input)
+        pasteTimeoutRef.current = setTimeout(() => {
+          const accumulated = pasteDetectorRef.current.getAccumulatedInput();
+          if (accumulated) {
+            handlePasteComplete(accumulated);
+          }
+          pasteTimeoutRef.current = null;
+        }, 50);
+      } else {
+        // Normal character input
+        const result = insertText(input, cursorPosition, inputChar);
+        setInputState(result.text);
+        setCursorPositionState(result.position);
+        setOriginalInput(result.text);
+      }
     }
-  }, [disabled, onSpecialKey, onVerboseToggle, onQuickActions, onBackgroundModeToggle, onCopyLastResponse, input, cursorPosition, multiline, handleSubmit, navigateHistory, setOriginalInput]);
+  }, [disabled, onSpecialKey, onVerboseToggle, onQuickActions, onBackgroundModeToggle, onCopyLastResponse, input, cursorPosition, multiline, handleSubmit, navigateHistory, setOriginalInput, toggleBlockAtCursor, handlePasteComplete]);
+
+  // Update current block at cursor when cursor position or input changes
+  useEffect(() => {
+    const block = findBlockAtCursor(input, cursorPosition, pastedBlocks);
+    setCurrentBlockAtCursor(block);
+  }, [input, cursorPosition, pastedBlocks]);
+
+  // Cleanup paste timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (pasteTimeoutRef.current) {
+        clearTimeout(pasteTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return {
     input,
     cursorPosition,
     isMultiline: isMultilineRef.current,
+    pastedBlocks,
+    currentBlockAtCursor,
     setInput,
     setCursorPosition,
     clearInput,
     insertAtCursor,
     resetHistory,
     handleInput,
+    expandPlaceholdersForSubmit,
   };
 }

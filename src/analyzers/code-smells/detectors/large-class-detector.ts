@@ -52,7 +52,7 @@ export class LargeClassDetector extends BaseSmellDetector {
           );
         }
       }
-    } catch (error) {
+    } catch {
       // Skip files that can't be parsed
     }
 
@@ -60,6 +60,8 @@ export class LargeClassDetector extends BaseSmellDetector {
   }
 
   private getSeverityByRatio(value: number, threshold: number): SmellSeverity.LOW | SmellSeverity.MEDIUM | SmellSeverity.HIGH | SmellSeverity.CRITICAL {
+    // Guard against division by zero
+    if (threshold === 0) return SmellSeverity.LOW;
     const ratio = value / threshold;
     if (ratio >= 3) return SmellSeverity.CRITICAL;
     if (ratio >= 2) return SmellSeverity.HIGH;

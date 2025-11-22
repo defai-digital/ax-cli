@@ -1,11 +1,14 @@
 import React from "react";
 import { Box, Text } from "ink";
+import type { PastedBlock } from "../../utils/paste-utils.js";
 
 interface ChatInputProps {
   input: string;
   cursorPosition: number;
   isProcessing: boolean;
   isStreaming: boolean;
+  pastedBlocks?: PastedBlock[];
+  currentBlockAtCursor?: PastedBlock | null;
 }
 
 export function ChatInput({
@@ -13,6 +16,8 @@ export function ChatInput({
   cursorPosition,
   isProcessing,
   isStreaming,
+  pastedBlocks: _pastedBlocks = [],
+  currentBlockAtCursor = null,
 }: ChatInputProps) {
   const beforeCursor = input.slice(0, cursorPosition);
 
@@ -42,48 +47,169 @@ export function ChatInput({
   const placeholderText = "Ask me anything...";
   const isPlaceholder = !input;
 
+  // Always show character count with color coding for length warnings
+  const maxChars = 20000;
+  const charCount = input.length;
+  const getCharCountColor = () => {
+    if (charCount >= maxChars) return "red";           // At/over limit
+    if (charCount >= maxChars * 0.8) return "yellow";  // 80% warning (16000+)
+    if (charCount >= maxChars * 0.5) return "cyan";    // 50% (10000+)
+    return "gray";                                      // Normal (0-9999)
+  };
+
+  // Detect if this line is part of an expanded paste block
+  const getPasteBlockInfo = (lineIndex: number): { isInPaste: boolean; isStart: boolean; isEnd: boolean; block?: PastedBlock } => {
+    if (!_pastedBlocks || _pastedBlocks.length === 0) {
+      return { isInPaste: false, isStart: false, isEnd: false };
+    }
+
+    // Check if any expanded paste block exists in the input
+    const expandedBlocks = _pastedBlocks.filter(block => !block.collapsed);
+    if (expandedBlocks.length === 0) {
+      return { isInPaste: false, isStart: false, isEnd: false };
+    }
+
+    // Check if this line is part of the pasted content
+    for (const block of expandedBlocks) {
+      const blockLines = block.content.split('\n');
+      const blockStartLine = input.substring(0, input.indexOf(block.content)).split('\n').length - 1;
+      const blockEndLine = blockStartLine + blockLines.length - 1;
+
+      if (lineIndex > blockStartLine && lineIndex <= blockEndLine) {
+        return {
+          isInPaste: true,
+          isStart: lineIndex === blockStartLine + 1,
+          isEnd: lineIndex === blockEndLine,
+          block
+        };
+      }
+    }
+
+    return { isInPaste: false, isStart: false, isEnd: false };
+  };
+
   if (isMultiline) {
     return (
-      <Box
-        borderStyle="round"
-        borderColor={borderColor}
-        paddingY={0}
-        marginTop={1}
-      >
-        {lines.map((line, index) => {
-          const isCurrentLine = index === currentLineIndex;
-          const promptChar = index === 0 ? "❯" : "│";
+      <Box flexDirection="column">
+        <Box
+          borderStyle="round"
+          borderColor={borderColor}
+          paddingY={0}
+          marginTop={1}
+        >
+          {lines.map((line, index) => {
+            const isCurrentLine = index === currentLineIndex;
+            const pasteInfo = getPasteBlockInfo(index);
+            const { isInPaste, isStart, isEnd, block } = pasteInfo;
 
-          if (isCurrentLine) {
-            const beforeCursorInLine = line.slice(0, currentCharIndex);
-            const cursorChar =
-              line.slice(currentCharIndex, currentCharIndex + 1) || " ";
-            const afterCursorInLine = line.slice(currentCharIndex + 1);
+            // Use different prompt for pasted content lines
+            let promptChar = index === 0 ? "❯" : "│";
+            if (isInPaste) {
+              promptChar = "┊"; // Different character for pasted lines
+            }
 
-            return (
-              <Box key={index}>
-                <Text color={promptColor}>{promptChar} </Text>
-                <Text>
-                  {beforeCursorInLine}
-                  {showCursor && (
-                    <Text backgroundColor="white" color="black">
-                      {cursorChar}
+            // Render paste block start marker
+            if (isStart && block) {
+              return (
+                <React.Fragment key={`paste-${index}`}>
+                  <Box>
+                    <Text color="yellow" dimColor>│ ─── Pasted #{block.id} ({block.lineCount} lines) ───</Text>
+                  </Box>
+                  <Box>
+                    <Text color={isCurrentLine && isInPaste ? "yellow" : isInPaste ? "yellow" : promptColor}>
+                      {promptChar}{" "}
                     </Text>
-                  )}
-                  {!showCursor && cursorChar !== " " && cursorChar}
-                  {afterCursorInLine}
-                </Text>
-              </Box>
-            );
-          } else {
-            return (
-              <Box key={index}>
-                <Text color={promptColor}>{promptChar} </Text>
-                <Text>{line}</Text>
-              </Box>
-            );
-          }
-        })}
+                    <Text color="gray">
+                      {isCurrentLine ? (
+                        <>
+                          {line.slice(0, currentCharIndex)}
+                          {showCursor && (
+                            <Text backgroundColor="white" color="black">
+                              {line.slice(currentCharIndex, currentCharIndex + 1) || " "}
+                            </Text>
+                          )}
+                          {!showCursor && line.slice(currentCharIndex, currentCharIndex + 1) !== " " && line.slice(currentCharIndex, currentCharIndex + 1)}
+                          {line.slice(currentCharIndex + 1)}
+                        </>
+                      ) : (
+                        line
+                      )}
+                    </Text>
+                  </Box>
+                </React.Fragment>
+              );
+            }
+
+            // Render paste block end marker
+            if (isEnd && block) {
+              return (
+                <React.Fragment key={`paste-end-${index}`}>
+                  <Box>
+                    <Text color={isInPaste ? "yellow" : promptColor}>{promptChar} </Text>
+                    <Text color="gray">
+                      {isCurrentLine ? (
+                        <>
+                          {line.slice(0, currentCharIndex)}
+                          {showCursor && (
+                            <Text backgroundColor="white" color="black">
+                              {line.slice(currentCharIndex, currentCharIndex + 1) || " "}
+                            </Text>
+                          )}
+                          {!showCursor && line.slice(currentCharIndex, currentCharIndex + 1) !== " " && line.slice(currentCharIndex, currentCharIndex + 1)}
+                          {line.slice(currentCharIndex + 1)}
+                        </>
+                      ) : (
+                        line
+                      )}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text color="yellow" dimColor>│ ────────────────────────────────</Text>
+                  </Box>
+                </React.Fragment>
+              );
+            }
+
+            // Regular line rendering
+            if (isCurrentLine) {
+              const beforeCursorInLine = line.slice(0, currentCharIndex);
+              const cursorChar =
+                line.slice(currentCharIndex, currentCharIndex + 1) || " ";
+              const afterCursorInLine = line.slice(currentCharIndex + 1);
+
+              return (
+                <Box key={index}>
+                  <Text color={isInPaste ? "yellow" : promptColor}>{promptChar} </Text>
+                  <Text color={isInPaste ? "gray" : undefined}>
+                    {beforeCursorInLine}
+                    {showCursor && (
+                      <Text backgroundColor="white" color="black">
+                        {cursorChar}
+                      </Text>
+                    )}
+                    {!showCursor && cursorChar !== " " && cursorChar}
+                    {afterCursorInLine}
+                  </Text>
+                </Box>
+              );
+            } else {
+              return (
+                <Box key={index}>
+                  <Text color={isInPaste ? "yellow" : promptColor}>{promptChar} </Text>
+                  <Text color={isInPaste ? "gray" : undefined}>{line}</Text>
+                </Box>
+              );
+            }
+          })}
+        </Box>
+        {/* Character count indicator - show in multiline mode too */}
+        {!isProcessing && !isStreaming && (
+          <Box marginLeft={2} marginTop={0}>
+            <Text color={getCharCountColor()} dimColor={charCount === 0}>
+              [{charCount}/{maxChars}]
+            </Text>
+          </Box>
+        )}
       </Box>
     );
   }
@@ -92,56 +218,59 @@ export function ChatInput({
   const cursorChar = input.slice(cursorPosition, cursorPosition + 1) || " ";
   const afterCursorText = input.slice(cursorPosition + 1);
 
-  // Always show character count with color coding for length warnings
-  const maxChars = 2000;
-  const charCount = input.length;
-  const getCharCountColor = () => {
-    if (charCount >= maxChars) return "red";           // At/over limit
-    if (charCount >= maxChars * 0.8) return "yellow";  // 80% warning (1600+)
-    if (charCount >= maxChars * 0.5) return "cyan";    // 50% (1000+)
-    return "gray";                                      // Normal (0-999)
-  };
-
   return (
-    <Box
-      borderStyle="round"
-      borderColor={borderColor}
-      paddingX={1}
-      paddingY={0}
-      marginTop={1}
-      justifyContent="space-between"
-    >
-      <Box flexGrow={1}>
-        <Text color={promptColor}>❯ </Text>
-        {isPlaceholder ? (
-          <>
-            <Text color="gray" dimColor>
-              {placeholderText}
+    <Box flexDirection="column">
+      <Box
+        borderStyle="round"
+        borderColor={borderColor}
+        paddingX={1}
+        paddingY={0}
+        marginTop={1}
+        justifyContent="space-between"
+      >
+        <Box flexGrow={1}>
+          <Text color={promptColor}>❯ </Text>
+          {isPlaceholder ? (
+            <>
+              <Text color="gray" dimColor>
+                {placeholderText}
+              </Text>
+              {showCursor && (
+                <Text backgroundColor="white" color="black">
+                  {" "}
+                </Text>
+              )}
+            </>
+          ) : (
+            <Text>
+              {beforeCursor}
+              {showCursor && (
+                <Text backgroundColor="white" color="black">
+                  {cursorChar}
+                </Text>
+              )}
+              {!showCursor && cursorChar !== " " && cursorChar}
+              {afterCursorText}
             </Text>
-            {showCursor && (
-              <Text backgroundColor="white" color="black">
-                {" "}
-              </Text>
-            )}
-          </>
-        ) : (
-          <Text>
-            {beforeCursor}
-            {showCursor && (
-              <Text backgroundColor="white" color="black">
-                {cursorChar}
-              </Text>
-            )}
-            {!showCursor && cursorChar !== " " && cursorChar}
-            {afterCursorText}
-          </Text>
+          )}
+        </Box>
+        {/* Character count indicator - always visible with color coding */}
+        {!isProcessing && !isStreaming && (
+          <Box marginLeft={1}>
+            <Text color={getCharCountColor()} dimColor={charCount === 0}>
+              [{charCount}/{maxChars}]
+            </Text>
+          </Box>
         )}
       </Box>
-      {/* Character count indicator - always visible with color coding */}
-      {!isProcessing && !isStreaming && (
-        <Box marginLeft={1}>
-          <Text color={getCharCountColor()} dimColor={charCount === 0}>
-            [{charCount}/{maxChars}]
+
+      {/* Hint text when cursor is on a collapsed/expanded paste block */}
+      {currentBlockAtCursor && !isProcessing && !isStreaming && (
+        <Box marginTop={0} marginLeft={2}>
+          <Text color="yellow" dimColor>
+            {currentBlockAtCursor.collapsed
+              ? `💡 Press Ctrl+P to expand ${currentBlockAtCursor.lineCount} lines`
+              : `💡 Press Ctrl+P to collapse`}
           </Text>
         </Box>
       )}

@@ -145,14 +145,6 @@ function ModePill({
   );
 }
 
-/**
- * Format token count for display
- */
-function formatTokens(count: number): string {
-  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-  if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
-  return count.toString();
-}
 
 /**
  * Compact Status Bar for narrow terminals (< 100 columns)
@@ -307,7 +299,7 @@ export function StatusBar(props: StatusBarProps) {
           <Text color="gray">🤖 </Text>
           <Text color="yellow">{model}</Text>
           {isProcessing && tokenCount > 0 && (
-            <Text color="cyan"> ({formatTokens(tokenCount)} tokens)</Text>
+            <Text color="cyan"> ({formatTokenCount(tokenCount)} tokens)</Text>
           )}
         </Box>
 

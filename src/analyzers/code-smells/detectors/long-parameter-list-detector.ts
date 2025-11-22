@@ -56,7 +56,7 @@ export class LongParameterListDetector extends BaseSmellDetector {
           }
         }
       }
-    } catch (error) {
+    } catch {
       // Skip files that can't be parsed
     }
 
@@ -64,6 +64,8 @@ export class LongParameterListDetector extends BaseSmellDetector {
   }
 
   private getSeverity(count: number, threshold: number): SmellSeverity.LOW | SmellSeverity.MEDIUM | SmellSeverity.HIGH | SmellSeverity.CRITICAL {
+    // Guard against division by zero
+    if (threshold === 0) return SmellSeverity.LOW;
     const ratio = count / threshold;
     if (ratio >= 2.5) return SmellSeverity.CRITICAL;
     if (ratio >= 2) return SmellSeverity.HIGH;

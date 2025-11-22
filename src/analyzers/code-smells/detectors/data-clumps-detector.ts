@@ -29,14 +29,13 @@ export class DataClumpsDetector extends BaseSmellDetector {
       for (const func of ast.functions) {
         if (func.parameters.length >= minParams) {
           const paramNames = func.parameters.map(p => p.name).sort().join(',');
-          if (!paramCombinations.has(paramNames)) {
-            paramCombinations.set(paramNames, []);
-          }
-          paramCombinations.get(paramNames)!.push({
+          const existing = paramCombinations.get(paramNames) ?? [];
+          existing.push({
             location: `function ${func.name}`,
             line: func.startLine,
             params: func.parameters.map(p => p.name),
           });
+          paramCombinations.set(paramNames, existing);
         }
       }
 
@@ -45,14 +44,13 @@ export class DataClumpsDetector extends BaseSmellDetector {
         for (const method of cls.methods) {
           if (method.parameters.length >= minParams) {
             const paramNames = method.parameters.map(p => p.name).sort().join(',');
-            if (!paramCombinations.has(paramNames)) {
-              paramCombinations.set(paramNames, []);
-            }
-            paramCombinations.get(paramNames)!.push({
+            const existing = paramCombinations.get(paramNames) ?? [];
+            existing.push({
               location: `${cls.name}.${method.name}`,
               line: method.startLine,
               params: method.parameters.map(p => p.name),
             });
+            paramCombinations.set(paramNames, existing);
           }
         }
       }
@@ -74,7 +72,7 @@ export class DataClumpsDetector extends BaseSmellDetector {
           );
         }
       }
-    } catch (error) {
+    } catch {
       // Skip files that can't be parsed
     }
 

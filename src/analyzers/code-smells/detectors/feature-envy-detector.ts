@@ -72,7 +72,7 @@ export class FeatureEnvyDetector extends BaseSmellDetector {
           }
         }
       }
-    } catch (error) {
+    } catch {
       // Skip files that can't be parsed
     }
 

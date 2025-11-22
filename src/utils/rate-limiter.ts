@@ -1,8 +1,22 @@
 /**
- * Rate Limiting Utilities (REQ-SEC-006)
+ * Basic Rate Limiting Utilities (Free Tier) - REQ-SEC-006
  *
  * Implements token bucket algorithm for rate limiting API calls and user actions
  * Prevents API abuse and ensures fair resource usage
+ *
+ * Free Tier Features:
+ * ✅ Token bucket rate limiting
+ * ✅ Multi-tier limits (per-second, per-minute)
+ * ✅ Per-key limits (per-user, per-IP)
+ * ✅ In-memory state (lightweight)
+ *
+ * Enterprise features (requires @ax-cli/enterprise):
+ * - Custom quotas per user/team/project
+ * - Cost analytics & forecasting
+ * - Budget alerts ($X/day threshold)
+ * - Persistent state (survives restarts)
+ * - Multi-tenant quota management
+ * - Usage optimization tips
  *
  * Security: Protects against:
  * - API abuse (excessive requests)

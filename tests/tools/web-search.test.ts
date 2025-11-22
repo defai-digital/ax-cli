@@ -274,29 +274,18 @@ describe('WebSearchTool', () => {
       // which is expected behavior
       const result = await tool.search('<script>alert("xss")</script>test query');
 
-      // Either succeeds (if API keys configured) or fails with API key error
+      // Either succeeds (if API key configured) or fails with API key error
       if (!result.success) {
-        expect(result.error).toMatch(/No search engines|API key|authentication/i);
+        expect(result.error).toMatch(/No search engine|API key|authentication/i);
       }
     });
 
-    it('should work even without API keys (using npm fallback)', async () => {
-      // Clear any API keys that might be set
-      const oldTavilyKey = process.env.TAVILY_API_KEY;
-      const oldBraveKey = process.env.BRAVE_API_KEY;
-
-      delete process.env.TAVILY_API_KEY;
-      delete process.env.BRAVE_API_KEY;
-
-      // Create new tool instance with cleared env
+    it('should work without API keys (using npm/PyPI/Crates)', async () => {
+      // Create tool instance
       const toolWithoutKeys = new WebSearchTool();
 
-      // Should still work with npm/PyPI/Crates fallback
+      // Should always work with npm/PyPI/Crates (no API keys required)
       expect(toolWithoutKeys.isAvailable()).toBe(true);
-
-      // Restore keys
-      if (oldTavilyKey) process.env.TAVILY_API_KEY = oldTavilyKey;
-      if (oldBraveKey) process.env.BRAVE_API_KEY = oldBraveKey;
     });
   });
 

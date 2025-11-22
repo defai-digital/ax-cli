@@ -27,6 +27,7 @@ const SHORTCUTS_BY_MODE: Record<string, Shortcut[]> = {
   typing: [
     { keys: "Enter", description: "send" },
     { keys: "Shift+Enter", description: "new line" },
+    { keys: "Ctrl+P", description: "toggle paste" },
     { keys: "Tab", description: "complete" },
     { keys: "Esc", description: "clear" },
   ],
@@ -82,6 +83,7 @@ export const ALL_SHORTCUTS: Record<string, Shortcut[]> = {
     { keys: "Enter", description: "Send message / confirm" },
     { keys: "Shift+Enter", description: "New line (multiline)" },
     { keys: "Ctrl+K", description: "Open quick actions menu" },
+    { keys: "Ctrl+P", description: "Expand/collapse pasted text" },
     { keys: "Ctrl+Y", description: "Copy last response" },
     { keys: "Tab", description: "Complete command suggestion" },
     { keys: "Esc", description: "Cancel / close menu / interrupt" },

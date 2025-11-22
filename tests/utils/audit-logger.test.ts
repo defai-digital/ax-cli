@@ -179,7 +179,8 @@ describe('AuditLogger', () => {
     });
   });
 
-  describe('tamper-proof chaining', () => {
+  // Enterprise features (tamper-proof chaining) moved to @ax-cli/enterprise
+  describe.skip('tamper-proof chaining', () => {
     it('should create hash chain across events', () => {
       logger.log({
         severity: AuditSeverity.INFO,
@@ -284,7 +285,8 @@ describe('AuditLogger', () => {
     });
   });
 
-  describe('critical event alerts', () => {
+  // Enterprise features (critical event alerts) moved to @ax-cli/enterprise
+  describe.skip('critical event alerts', () => {
     it('should trigger alert callback for critical events', () => {
       const alertCallback = vi.fn();
       logger.onCriticalEvent(alertCallback);

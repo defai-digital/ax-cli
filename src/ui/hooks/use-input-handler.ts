@@ -256,11 +256,14 @@ export function useInputHandler({
   const {
     input,
     cursorPosition,
+    pastedBlocks,
+    currentBlockAtCursor,
     setInput,
     setCursorPosition,
     clearInput,
     resetHistory,
     handleInput,
+    expandPlaceholdersForSubmit: _expandPlaceholdersForSubmit,
   } = useEnhancedInput({
     onSubmit: handleInputSubmit,
     onSpecialKey: handleSpecialKey,
@@ -270,6 +273,8 @@ export function useInputHandler({
     onCopyLastResponse,
     disabled: isConfirmationActive,
   });
+  // Suppress unused variable warning - expandPlaceholdersForSubmit is part of the hook interface but not yet used
+  void _expandPlaceholdersForSubmit;
 
   // Hook up the actual input handling
   useInput((inputChar: string, key: Key) => {
@@ -755,8 +760,15 @@ Enhanced Input Features:
   Ctrl+U      - Delete to start of line
   Ctrl+O      - Toggle verbose mode (show full output, default: concise)
   Ctrl+B      - Toggle background mode (run all commands in background)
+  Ctrl+P      - Expand/collapse pasted text at cursor
+  Ctrl+Y      - Copy last assistant response to clipboard
   Shift+Tab   - Toggle auto-edit mode (bypass confirmations)
   1-4 keys    - Quick select in confirmation dialogs
+
+Paste Handling:
+  When you paste 5+ lines, it's automatically collapsed to a preview.
+  Position cursor on collapsed text and press Ctrl+P to expand/collapse.
+  Full content is always sent to AI (display-only feature).
 
 Direct Commands (executed immediately):
   ls [path]   - List directory contents
@@ -875,9 +887,10 @@ Examples:
           const { promisify } = await import("util");
           const execAsync = promisify(exec);
 
-          const { stdout, stderr } = await execAsync("node dist/index.js doctor", {
+          // Use 'ax-cli doctor' command which will use the globally installed binary
+          // This works whether installed globally or linked locally
+          const { stdout, stderr } = await execAsync("ax-cli doctor", {
             encoding: "utf-8",
-            cwd: process.cwd(),
             timeout: 30000, // 30 second timeout
             maxBuffer: 10 * 1024 * 1024, // 10MB buffer
           });
@@ -1711,5 +1724,7 @@ Respond with ONLY the commit message, no additional text.`;
     autoEditEnabled,
     verboseMode,
     backgroundMode,
+    pastedBlocks,
+    currentBlockAtCursor,
   };
 }

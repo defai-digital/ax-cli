@@ -224,6 +224,11 @@ __      _____| | ___ ___  _ __ ___   ___  | |_ ___
               <Text>quick actions</Text>
             </Box>
             <Box>
+              <Text color="green" bold>^P</Text>
+              <Text color="gray"> Ctrl+P     </Text>
+              <Text>toggle paste</Text>
+            </Box>
+            <Box>
               <Text color="white" bold>?</Text>
               <Text color="gray">  or /help  </Text>
               <Text>all shortcuts</Text>

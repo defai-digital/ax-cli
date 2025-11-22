@@ -39,9 +39,8 @@ export class WebSearchTool {
       // Sanitize query
       const sanitizedQuery = this.sanitizeQuery(query);
 
-      // Note: hasAvailableEngines() always returns true now because npm search
-      // is available by default (no API key required). Optional: Configure
-      // TAVILY_API_KEY or BRAVE_API_KEY for enhanced search capabilities.
+      // Note: hasAvailableEngines() always returns true now because npm, PyPI,
+      // and crates.io search are available by default (no API key required).
 
       // Check cache first
       const cached = this.cache.get(sanitizedQuery);
@@ -227,14 +226,10 @@ export class WebSearchTool {
   private getSourceBonus(engine: string): number {
     // Prioritize certain engines based on reliability
     switch (engine) {
-      case "tavily":
-        return 3; // Tavily has AI-powered relevance
       case "npm":
       case "pypi":
       case "crates.io":
         return 2; // Package registries are authoritative for packages
-      case "brave":
-        return 1; // General search engine
       default:
         return 0;
     }
@@ -272,12 +267,6 @@ export class WebSearchTool {
     }
 
     output += ":\n\n";
-
-    // Extract AI-generated answer if available (from Tavily)
-    const answer = results[0]?.metadata?.answer;
-    if (answer && typeof answer === "string") {
-      output += `**Summary**: ${answer}\n\n`;
-    }
 
     // Format each result
     results.forEach((result, index) => {

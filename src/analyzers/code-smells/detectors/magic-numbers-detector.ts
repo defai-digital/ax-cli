@@ -39,10 +39,9 @@ export class MagicNumbersDetector extends BaseSmellDetector {
           }
 
           const line = node.getStartLineNumber();
-          if (!magicNumbers.has(value)) {
-            magicNumbers.set(value, []);
-          }
-          magicNumbers.get(value)!.push({ line, text: node.getText() });
+          const existing = magicNumbers.get(value) ?? [];
+          existing.push({ line, text: node.getText() });
+          magicNumbers.set(value, existing);
         }
       });
 
@@ -63,7 +62,7 @@ export class MagicNumbersDetector extends BaseSmellDetector {
           );
         }
       }
-    } catch (error) {
+    } catch {
       // Skip files that can't be parsed
     }
 

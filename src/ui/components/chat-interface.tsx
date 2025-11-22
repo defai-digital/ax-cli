@@ -182,6 +182,8 @@ function ChatInterfaceWithAgent({
     autoEditEnabled,
     verboseMode,
     backgroundMode,
+    pastedBlocks,
+    currentBlockAtCursor,
   } = useInputHandler({
     agent,
     chatHistory,
@@ -637,6 +639,8 @@ function ChatInterfaceWithAgent({
             cursorPosition={cursorPosition}
             isProcessing={isProcessing}
             isStreaming={isStreaming}
+            pastedBlocks={pastedBlocks}
+            currentBlockAtCursor={currentBlockAtCursor}
           />
 
           {/* Toast notifications for mode toggles */}

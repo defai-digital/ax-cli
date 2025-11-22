@@ -7,7 +7,7 @@ export interface WebSearchResult {
   title: string;
   url: string;
   snippet: string;
-  source: string; // Engine name (e.g., "tavily", "brave")
+  source: string; // Engine name (e.g., "npm", "pypi", "crates.io")
   relevanceScore?: number;
   publishedDate?: string;
   metadata?: Record<string, any>;

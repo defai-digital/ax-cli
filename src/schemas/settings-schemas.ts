@@ -33,6 +33,22 @@ export const DualModelSettingsSchema = z.object({
   codingModel: ModelIdSchema.optional(),
 }).optional();
 
+// Paste Settings Schema (for large paste auto-collapse)
+export const PasteSettingsSchema = z.object({
+  // Enable/disable auto-collapse feature
+  autoCollapse: z.boolean().optional().default(true),
+  // Minimum lines to trigger collapse (default: 20)
+  collapseThreshold: z.number().int().min(1).max(100).optional().default(20),
+  // Maximum collapsed blocks per message (default: 50)
+  maxCollapsedBlocks: z.number().int().min(1).max(100).optional().default(50),
+  // Show line count in placeholder (default: true)
+  showLineCount: z.boolean().optional().default(true),
+  // Show preview lines in collapsed state (default: false)
+  showPreview: z.boolean().optional().default(false),
+  // Number of preview lines to show (default: 2)
+  previewLines: z.number().int().min(0).max(10).optional().default(2),
+}).optional();
+
 // Security Settings Schema (for enterprise hardening)
 export const SecuritySettingsSchema = z.object({
   // Enable command whitelist validation (REQ-SEC-001)
@@ -78,6 +94,8 @@ export const UserSettingsSchema: z.ZodType<any> = z.object({
   thinking: ThinkingSettingsSchema,
   // Dual-model settings for chat vs coding mode
   dualModel: DualModelSettingsSchema,
+  // Paste settings for large paste auto-collapse
+  paste: PasteSettingsSchema,
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Project Settings Schema
@@ -132,3 +150,4 @@ export type MCPTransportConfig = z.infer<typeof MCPTransportConfigSchema>;
 export type SamplingSettings = z.infer<typeof SamplingSettingsSchema>;
 export type ThinkingSettings = z.infer<typeof ThinkingSettingsSchema>;
 export type DualModelSettings = z.infer<typeof DualModelSettingsSchema>;
+export type PasteSettings = z.infer<typeof PasteSettingsSchema>;
