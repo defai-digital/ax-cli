@@ -85,7 +85,7 @@ ax-cli
   - Support for package discovery, dependency research, and version information
   - Session-based context for iterative package exploration
 - **🔄 Auto-Update**: Built-in update checker and installer
-- **🔒 Enterprise-Grade Security** (NEW in v3.6.0): **FREE & Open Source**
+- **🔒 Enterprise-Grade Security**: **FREE & Open Source**
   - **Command Injection Protection**: CVSS 9.8 CRITICAL fix - Safe command execution with whitelisting
   - **Path Traversal Hardening**: CVSS 8.6 HIGH fix - Prevent unauthorized file system access
   - **SSRF Attack Prevention**: CVSS 7.5 HIGH fix - Validate MCP transport URLs and block private IPs
