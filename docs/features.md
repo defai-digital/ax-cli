@@ -2,17 +2,21 @@
 
 Welcome to the complete features documentation for **AX CLI**, an enterprise-class AI command line interface designed for GLM (General Language Model) with multi-provider support.
 
+**Current Version:** v3.6.1
+
 ---
 
 ## Table of Contents
 
 1. [GLM-First Architecture](#glm-first-architecture)
 2. [Multi-Provider AI Support](#multi-provider-ai-support)
-3. [Intelligent Automation](#intelligent-automation)
-4. [Extensibility](#extensibility)
-5. [Developer Experience](#developer-experience)
-6. [Enterprise Quality](#enterprise-quality)
-7. [GLM 4.6 - Advanced AI Features](#glm-46---advanced-ai-features)
+3. [Web Search & Package Discovery](#web-search--package-discovery)
+4. [Enterprise-Grade Security](#enterprise-grade-security)
+5. [Intelligent Automation](#intelligent-automation)
+6. [Extensibility](#extensibility)
+7. [Developer Experience](#developer-experience)
+8. [Enterprise Quality](#enterprise-quality)
+9. [GLM 4.6 - Advanced AI Features](#glm-46---advanced-ai-features)
 
 ---
 
@@ -25,6 +29,7 @@ AX CLI is optimized specifically for **GLM (General Language Model)** deployment
 #### Primary Support
 - **Optimized for GLM**: Built from the ground up with GLM's architecture and capabilities in mind
 - **GLM 4.6 Default**: Production-ready with 200K context window and advanced reasoning capabilities
+- **32K Max Tokens**: Industry-standard output (matches Claude Code CLI)
 - **Purpose-Built**: Every feature designed to maximize GLM's potential
 
 #### Local Deployment
@@ -63,8 +68,7 @@ While optimized for GLM, AX CLI supports a wide ecosystem of AI providers and mo
 ### Primary Models
 
 **GLM Models** (Default, Recommended)
-- `glm-4.6`: Flagship model with 200K context window and reasoning mode
-- `grok-code-fast-1`: Optimized for fast code generation
+- `glm-4.6`: Flagship model with 200K context window and reasoning mode (32K max output)
 - `glm-4-air`: Lightweight variant for efficiency
 - `glm-4-airx`: Ultra-fast inference model
 
@@ -82,24 +86,23 @@ Deploy any Ollama-supported model locally:
 # Install Ollama from ollama.ai
 
 # Pull and run a model
-ollama pull llama2
+ollama pull llama3.1
 ollama serve
 
 # Use with AX CLI (default port 11434)
-ax-cli --model llama2
+ax-cli --model llama3.1
 ```
 
 ### Cloud Providers
 
-AX CLI works with leading AI service providers:
+AX CLI works with leading AI service providers via OpenAI-compatible API:
 
-- **OpenAI**: GPT-4, GPT-4 Turbo (via OpenAI-compatible API)
-- **Anthropic**: Claude models
-- **Google**: Gemini models
-- **X.AI**: Grok models
+- **Z.AI Platform**: Native support for Z.AI GLM API server (recommended)
+- **OpenAI**: GPT-4, GPT-4 Turbo
+- **Anthropic**: Claude models (via compatible endpoints)
+- **Google**: Gemini models (via compatible endpoints)
 - **OpenRouter**: Multi-provider access
 - **Groq**: Ultra-fast inference
-- **Z.AI Platform**: Native support for Z.AI GLM API server
 
 **Example: Using OpenAI GPT-4**
 ```bash
@@ -119,11 +122,8 @@ ax-cli --base-url http://your-server:8000/v1 \
        --api-key your-key
 ```
 
-### Backward Compatibility
+### Configuration Priority
 
-**Full Support**: All models from the original grok-cli remain fully supported and functional.
-
-**Configuration Priority**
 The system respects this configuration hierarchy:
 1. **CLI Flags** (highest priority)
 2. **Environment Variables**
@@ -133,7 +133,7 @@ The system respects this configuration hierarchy:
 
 **Example: Configuration**
 ```bash
-# CLI flag
+# CLI flag (highest priority)
 ax-cli --model glm-4.6 --temperature 0.7
 
 # Environment variable
@@ -148,9 +148,129 @@ ax-cli
 
 # User settings (~/.ax-cli/config.json)
 {
-  "defaultModel": "glm-4.6"
+  "defaultModel": "glm-4.6",
+  "apiKey": "encrypted..."
 }
 ```
+
+---
+
+## Web Search & Package Discovery
+
+**NEW in v3.4.0** - Real-time package search across npm, PyPI, and crates.io registries.
+
+### Zero Configuration
+
+- ✅ **Works out-of-the-box**: No API keys required
+- ✅ **Three registries**: npm, PyPI, and crates.io
+- ✅ **Intelligent routing**: Automatic language detection
+- ✅ **Results caching**: 5-minute TTL for faster responses
+
+### Supported Registries
+
+**npm** - JavaScript/Node.js packages
+- 2M+ packages from npmjs.com
+- Download statistics and trends
+- Version information and compatibility
+- Bundle size analysis
+
+**PyPI** - Python packages
+- 500K+ packages from pypi.org
+- Package metadata and descriptions
+- Version history and dependencies
+- Wheel availability
+
+**crates.io** - Rust packages
+- 100K+ crates from crates.io
+- Documentation and examples
+- Version compatibility
+- Feature flags
+
+### How It Works
+
+```bash
+# Automatic web search during conversation
+> "Find a React state management library"
+🔍 Searching npm registry...
+Found: zustand (2.5M/week), redux (8.1M/week), mobx (1.2M/week)...
+
+# Language detection
+> "Search for data validation libraries"
+# Automatically searches npm (zod, yup), PyPI (pydantic), crates.io (serde)
+
+# Cross-registry comparison
+> "Compare JavaScript and Python validation libraries"
+# Uses cached results from both npm and PyPI
+```
+
+### Session-Based Context
+
+- **Result caching**: Search results preserved in conversation
+- **Follow-up questions**: Ask about packages without re-searching
+- **Multi-turn refinement**: Filter and compare iteratively
+- **Version checks**: Compatibility verification across sessions
+
+For detailed examples, see the [Web Search Section in README](../README.md#-web-search).
+
+---
+
+## Enterprise-Grade Security
+
+**NEW in v3.6.0** - Production-ready security features, **FREE & Open Source**.
+
+### Security Features
+
+**Command Injection Protection** (CVSS 9.8 CRITICAL fix)
+- Safe command execution with whitelisting
+- Input sanitization and validation
+- Prevents arbitrary command execution
+
+**Path Traversal Hardening** (CVSS 8.6 HIGH fix)
+- Prevents unauthorized file system access
+- Validates all file paths
+- Sandboxed file operations
+
+**SSRF Attack Prevention** (CVSS 7.5 HIGH fix)
+- MCP transport URL validation
+- Blocks private IP ranges
+- Prevents internal network access
+
+**Input Sanitization** (CVSS 7.0 HIGH fix)
+- Comprehensive input validation
+- XSS prevention
+- SQL injection protection
+
+**Error Sanitization** (CVSS 6.5 MEDIUM fix)
+- Prevents sensitive data leakage
+- Sanitized error messages
+- No credential exposure
+
+**API Key Encryption**
+- AES-256-GCM encryption at rest
+- Automatic migration from plain-text
+- Secure key storage
+
+**Memory Leak Fixes**
+- Process pool management
+- Proper resource cleanup
+- Long-running operation optimization
+
+**Security Audit Logging**
+- Basic JSON logging
+- 30-day retention
+- Compliance tracking
+
+**Rate Limiting**
+- Token bucket algorithm
+- 100 requests/minute default
+- Prevents API abuse
+
+### Production-Ready
+
+- **1381+ tests passing** with **98.29% coverage**
+- All security modules fully tested
+- User-friendly defaults
+- Zero configuration required
 
 ---
 
@@ -213,6 +333,7 @@ ax-cli -p "Run tests, commit changes, and create a pull request"
 - **Text Editor**: File creation and modification
 - **Bash**: Shell command execution
 - **Search**: Intelligent file searching with ripgrep
+- **Web Search**: Package discovery (npm, PyPI, crates.io)
 - **Todo Tool**: Task tracking and management
 - **Confirmation Tool**: User approval workflows
 - **MCP Tools**: Extended capabilities via Model Context Protocol
@@ -235,13 +356,29 @@ ax-cli -p "Refactor the authentication module:
 6. Update documentation"
 
 # This might use 20-50 tool rounds:
-# Round 1: Read auth files (bash/search)
-# Round 2: Analyze code (reasoning)
-# Round 3-5: Create test files (editor)
-# Round 6-10: Update auth implementation (editor)
-# Round 11: Run tests (bash)
-# Round 12-15: Update docs (editor)
-# ... etc
+# Round 1-3: Read and analyze auth files
+# Round 4-8: Create comprehensive test files
+# Round 9-15: Update auth implementation
+# Round 16: Run tests
+# Round 17-20: Update documentation
+```
+
+### Smart Paste Auto-Collapse
+
+**NEW in v3.6.1** - Intelligent handling of large text inputs
+
+- **Automatic collapse**: 20+ line pastes auto-collapse for readability
+- **Ctrl+P to expand**: Review pasted content anytime
+- **Full AI submission**: Complete text sent to AI (not just placeholder)
+- **Configurable threshold**: Customize in `~/.ax-cli/config.json`
+
+```json
+{
+  "paste": {
+    "autoCollapse": true,
+    "collapseThreshold": 20
+  }
+}
 ```
 
 ### Intelligent Context Management
@@ -260,27 +397,23 @@ Token Usage                    Action
 New message received           Context auto-adjusted before API call
 ```
 
-### Project Analysis
+### Project Memory
 
-**Automatic Structure Detection**
-- `ax-cli init`: Auto-detects tech stack, conventions, and structure
-- Generates appropriate configuration
-- Creates custom instructions for AI behavior
+**NEW in v3.5.0** - Intelligent context caching for z.ai GLM-4.6
 
-**Example: Project Initialization**
+- Automatic project scanning and context generation
+- z.ai implicit caching support (50% token savings)
+- Cache statistics tracking and efficiency monitoring
+
 ```bash
-cd my-project
-ax-cli init
+# Initialize project memory
+ax-cli memory warmup
 
-# Detects:
-# - Language: TypeScript
-# - Framework: React
-# - Testing: Vitest
-# - Linting: ESLint
-# - Package Manager: npm
-# - Git workflow: GitHub
-#
-# Creates: .ax-cli/settings.json with appropriate defaults
+# Show memory status
+ax-cli memory status
+
+# Cache statistics
+ax-cli memory cache-stats
 ```
 
 ---
@@ -294,16 +427,21 @@ AX CLI provides multiple ways to extend functionality and customize behavior.
 **Model Context Protocol Integration**
 - Integrate any MCP server for extended capabilities
 - Dynamic tool registration from servers
-- Both stdio and HTTP transports supported
+- stdio, HTTP, and SSE transports supported
+
+**12+ Pre-configured Templates**
+- Figma, GitHub, Vercel, Puppeteer
+- Storybook, Sentry, Linear, and more
+- One-command setup: `ax-cli mcp add figma --template`
 
 **Common MCP Integrations**
 
 | Server | Capabilities | Transport |
 |--------|--------------|-----------|
-| **Linear** | Issue tracking, project management | HTTP/SSE |
+| **Linear** | Issue tracking, project management | SSE |
 | **GitHub** | Repository access, PR management | stdio |
+| **Figma** | Design-to-code workflows | SSE |
 | **Filesystem** | Advanced file operations | stdio |
-| **Web Search** | Internet search capability | HTTP |
 
 **Configuration Example**
 ```json
@@ -311,8 +449,7 @@ AX CLI provides multiple ways to extend functionality and customize behavior.
   "mcpServers": {
     "linear": {
       "transport": "sse",
-      "url": "https://mcp.linear.app/sse",
-      "apiKey": "YOUR_API_KEY"
+      "url": "https://mcp.linear.app/sse"
     },
     "github": {
       "transport": "stdio",
@@ -348,21 +485,7 @@ AX CLI provides multiple ways to extend functionality and customize behavior.
 - Never log sensitive data
 - Always validate user input
 - Use environment variables for secrets
-
-## Documentation
-- Update README for new features
-- Add JSDoc comments to exported functions
-- Create GitHub releases for version updates
 ```
-
-### Plugin Architecture
-
-**Extend with Popular Tools**
-- Linear: Issue tracking and project management
-- GitHub: Repository and PR operations
-- Slack: Team notifications (via MCP)
-- Jira: Issue management (via MCP)
-- Custom servers: Build your own MCP servers
 
 ---
 
@@ -377,7 +500,7 @@ AX CLI provides multiple interfaces optimized for different workflows.
 - Real-time streaming of responses
 - Beautiful Ink-based terminal UI
 - Syntax highlighting for code
-- Reasoning display for GLM 4.6
+- Smart paste auto-collapse
 
 **Launch Interactive Mode**
 ```bash
@@ -387,9 +510,9 @@ ax-cli mcp list     # Manage MCP servers interactively
 ```
 
 **Interactive Features**
-- Multi-turn conversation history
-- Edit previous messages
-- Clear/reset conversation
+- Multi-turn conversation history with `--continue`
+- Character counter with visual warnings
+- Keyboard shortcuts (Ctrl+P for paste expand/collapse)
 - Export conversation logs
 - Visual reasoning display (GLM 4.6)
 
@@ -415,67 +538,33 @@ ax-cli --model glm-4.6 \
        -p "Run tests and create release notes"
 ```
 
-**CI/CD Example**
-```yaml
-# GitHub Actions
-- name: Auto-generate changelog
-  run: |
-    ax-cli --model glm-4.6 \
-           -p "Generate changelog since last release" \
-           > CHANGELOG_ENTRY.md
+### Dual-Model Mode
+
+**NEW in v3.5.0** - Use different models for chat vs coding
+
+- Configure chat and coding models separately
+- Manual model switching with `--chat-mode` flag
+- Optimize cost and performance for different task types
+
+```json
+{
+  "chatModel": "glm-4-air",
+  "codingModel": "glm-4.6"
+}
 ```
 
-### Beautiful UI
+### Health Check & Diagnostics
 
-**Terminal User Interface Features**
-- **Ink-Based Design**: React components in terminal
-- **Syntax Highlighting**: Code displays with proper coloring
-- **Responsive Layout**: Adapts to terminal size
-- **Real-Time Streaming**: See responses as they generate
-- **Thinking Indicator**: Visual "💭 Thinking..." for reasoning mode
-- **Error Handling**: Clear error messages with suggestions
+**NEW in v3.5.0** - Comprehensive system diagnostics
 
-**UI Components**
-```
-┌─────────────────────────────────────────┐
-│  AX CLI - Interactive Mode              │
-├─────────────────────────────────────────┤
-│                                         │
-│  You: Analyze the codebase              │
-│                                         │
-│  💭 Thinking...                         │
-│                                         │
-│  AI: I've analyzed your TypeScript      │
-│  codebase. Here are the findings:       │
-│                                         │
-│  1. Strong typing: 98% coverage         │
-│  2. Good test suite: 350+ tests         │
-│  3. ...                                 │
-│                                         │
-├─────────────────────────────────────────┤
-│  You: [Type your message here...]       │
-└─────────────────────────────────────────┘
-```
-
-### Global Installation
-
-**Use Anywhere**
-- Install globally: `npm install -g ax-cli`
-- Works in any directory
-- Configurable per-project or globally
-
-**Installation & Usage**
 ```bash
-# Install globally
-npm install -g ax-cli
+ax-cli doctor
 
-# Use from any directory
-cd any/project
-ax-cli -p "Generate component tests"
-
-# Or start interactive session
-cd my-project
-ax-cli
+# Checks:
+# ✓ API connectivity
+# ✓ Model configuration
+# ✓ MCP server configuration
+# ✓ Dependencies (ripgrep, git)
 ```
 
 ---
@@ -486,13 +575,14 @@ AX CLI meets production standards with comprehensive testing, type safety, and a
 
 ### Test Coverage
 
-**98.29% Test Coverage**
-- Comprehensive test suite: 80+ tests
+**98.29% Test Coverage** (v3.6.1)
+- Comprehensive test suite: **1,381 tests**
 - Focus areas:
-  - **Text utilities**: Unicode handling, string operations
-  - **Token counting**: Accurate usage tracking
-  - **Schema validation**: Input validation with Zod
-  - **Tool execution**: All tools thoroughly tested
+  - Text utilities: Unicode handling, string operations
+  - Token counting: Accurate usage tracking
+  - Schema validation: Input validation with Zod
+  - Tool execution: All tools thoroughly tested
+  - Security modules: Fully tested and validated
 
 **Coverage Breakdown**
 | Component | Coverage |
@@ -501,6 +591,7 @@ AX CLI meets production standards with comprehensive testing, type safety, and a
 | Token Counter | 95%+ |
 | Schemas/Validation | 95%+ |
 | Tools | 70%+ |
+| Security Modules | 100% |
 | UI Components | 50%+ |
 
 **Run Tests**
@@ -534,33 +625,13 @@ if (!result.success) {
 }
 ```
 
-### Automated CI/CD
+### Single Source of Truth (SSOT)
 
-**Continuous Integration Pipeline**
-- Tests run on every commit
-- Tests run on every PR
-- Build verification
-- Coverage reporting
-- Automated release process
-
-**GitHub Actions Workflow**
-```yaml
-- Run tests on every PR
-- Check code coverage
-- Lint and type checking
-- Build verification
-- Deploy to npm (on release)
-```
-
-### Comprehensive Documentation
-
-**Documentation Resources**
-- Main README: User-focused features and quick start
-- This Guide: Detailed feature documentation
-- GLM 4.6 Usage Guide: Model-specific capabilities
-- GLM 4.6 Migration Guide: Upgrading from previous versions
-- API References: Programmatic usage documentation
-- CLAUDE.md: Development guidelines and architecture
+**@defai.digital/ax-cli-schemas** package provides:
+- Centralized Zod schemas
+- Brand types for ID safety
+- Centralized enums
+- Type safety across all modules
 
 ### Node.js 24+ Support
 
@@ -584,14 +655,14 @@ AX CLI provides **first-class support for GLM 4.6**, the flagship model with ind
 
 ### Why GLM 4.6?
 
-GLM 4.6 is the **default model** in AX CLI, chosen for its exceptional performance across all use cases:
+GLM 4.6 is the **default model** in AX CLI, chosen for its exceptional performance:
 
 | Feature | GLM 4.6 | Industry Average |
 |---------|---------|------------------|
 | **Context Window** | 200,000 tokens | 32,000-128,000 |
-| **Max Output** | 128,000 tokens | 4,000-8,000 |
+| **Max Output** | 32,000 tokens | 4,000-8,000 |
 | **Reasoning Mode** | ✅ Built-in | ❌ Rare |
-| **Temperature Range** | 0.6-1.0 (optimized) | 0.0-2.0 (unstable) |
+| **Temperature Range** | 0.6-1.0 (optimized) | 0.0-2.0 |
 | **Token Efficiency** | 30% better | Baseline |
 | **Local Support** | ✅ Via Ollama | Limited |
 | **Cloud Support** | ✅ Via Z.AI | Limited |
@@ -601,13 +672,6 @@ GLM 4.6 is the **default model** in AX CLI, chosen for its exceptional performan
 **See the AI's Reasoning Process**
 
 GLM 4.6's thinking mode shows the AI's reasoning before providing answers, creating transparency and explainability.
-
-#### How It Works
-
-When you ask GLM 4.6 a complex question, it:
-1. **Thinks** (reasoning phase) - Analyzes the problem internally
-2. **Shows reasoning** (optional) - Displays thinking process
-3. **Provides answer** - Delivers final response based on reasoning
 
 #### Example Session
 
@@ -621,31 +685,12 @@ The main issues appear to be:
 2. Inconsistent error handling patterns
 3. Missing type definitions for external APIs
 
-Based on this analysis, I recommend a phased approach rather than a big-bang refactoring,
-since the codebase is already in production with active users.
-
 AI: Here's my recommended refactoring strategy:
 
-## Phase 1: Dependency Graph Resolution (Weeks 1-2)
-- Break circular dependencies by extracting shared types into separate modules
-- Create interface files for cross-module contracts
-- Update import statements to use new module structure
-
-## Phase 2: Error Handling Standardization (Weeks 3-4)
-- Define error handling patterns in error-handler.ts
-- Implement custom error classes
-- Update all tools to use standard error handling
-
-## Phase 3: Type Definitions (Weeks 5-6)
-- Generate missing type definitions
-- Add JSDoc comments
-- Update external API integrations
-
-## Benefits of This Approach
-- Lower risk through phased implementation
-- Maintains system stability during refactoring
-- Allows for testing at each phase
-- Team can learn new patterns incrementally
+## Phase 1: Dependency Graph Resolution
+- Break circular dependencies
+- Extract shared types into separate modules
+...
 ```
 
 #### Benefits
@@ -653,241 +698,22 @@ AI: Here's my recommended refactoring strategy:
 - **🔍 Transparency**: See exactly how the AI arrives at conclusions
 - **🎯 Better Decisions**: Understand the reasoning behind suggestions
 - **🐛 Easier Debugging**: Identify where AI logic went wrong
-- **📚 Learning Tool**: Learn problem-solving approaches from AI
-
-#### Enable Thinking Mode
-
-```typescript
-// Automatic in AX CLI - thinking mode enabled by default for GLM 4.6
-ax-cli --model glm-4.6  // Thinking mode active
-
-// Programmatic control (advanced)
-const client = new GrokClient(apiKey, 'glm-4.6');
-await client.chat(messages, {
-  thinking: {
-    type: 'enabled',
-    budget_tokens: 2000  // Optional: limit thinking tokens
-  }
-});
-```
+- **📚 Learning Tool**: Learn problem-solving approaches
 
 ### Massive Context Window
 
 **200,000 Tokens of Context**
 
-With a 200,000 token context window, you can analyze entire codebases in a single conversation without losing important details.
-
-#### What Fits in 200K Tokens?
-
 - **📦 40+ average TypeScript files** (~5K tokens each)
-  - Complete src/ directory for medium-sized projects
-  - All utility functions and helpers
-  - Full test suites
-
 - **📚 Complete documentation sets**
-  - README + API docs + guides
-  - Architecture documentation
-  - Type definitions
-
-- **💬 Extended conversations**
-  - 500+ back-and-forth messages
-  - Full conversation history
-  - Multiple files and discussions
-
+- **💬 500+ back-and-forth messages**
 - **🔍 Full repository context**
-  - Directory structure
-  - Key files
-  - Test files
-  - Configuration files
 
-#### Real-World Examples
+### Token Efficiency
 
-```bash
-# Analyze entire project structure
-ax-cli -p "Review all TypeScript files in src/ and suggest architectural improvements"
-
-# Long debugging sessions
-ax-cli -p "Let's debug this issue step by step, checking all related files"
-# ... 100+ messages later, GLM 4.6 still remembers the original context
-
-# Documentation generation
-ax-cli -p "Generate API documentation for all exported functions in src/"
-
-# Comprehensive refactoring
-ax-cli -p "Help me migrate this codebase from CommonJS to ESM modules"
-# All files kept in context for consistent refactoring
-```
-
-#### Token Efficiency
-
-- **30% Better Efficiency**: Uses tokens more effectively than alternatives
+- **30% Better Efficiency**: Uses tokens more effectively
 - **Lower Costs**: Accomplish more with fewer tokens
 - **Faster Responses**: Fewer tokens = faster processing
-
-### UI/UX Enhancements
-
-#### ReasoningDisplay Component
-
-Beautiful rendering of GLM 4.6's thinking process:
-- Clean visual presentation of reasoning steps
-- Collapsible/expandable sections
-- Visual separation from final answer
-- Streaming support with "Thinking..." indicator
-- Integrated into main chat interface
-
-**Visual Example**
-```
-┌──────────────────────────────────────────┐
-│ 💭 Thinking (expandable)                 │
-├──────────────────────────────────────────┤
-│ Analyzing the codebase structure...      │
-│ Found 15 TypeScript files in src/        │
-│ Checking dependencies...                 │
-│ Identified 3 circular dependencies       │
-│ Generating recommendations...            │
-└──────────────────────────────────────────┘
-```
-
-#### Real-Time Streaming
-
-- **Thinking content** streams as it's generated
-- **Final answer** streams separately
-- **Token usage** tracked independently
-- **Visual indicators** show current phase
-
-#### Smart Context Management
-
-**Automatic Pruning Strategy**
-- Pruning begins at 75% usage (150K tokens)
-- **Preserves**: First messages, recent work, critical context
-- **Removes**: Less relevant older messages
-- **Maintains coherence**: Keeps conversation meaningful
-
-**Token Management**
-```
-Conversation State         Action
-0-150K tokens              Keep all messages
-150-170K tokens            Remove less important older messages
-170K+ tokens               Aggressive pruning of old context
-New user message           Auto-adjust before sending to API
-```
-
-### Advanced Configuration
-
-#### Temperature Control
-
-**Optimized Range: 0.6-1.0**
-
-GLM 4.6 has an optimized temperature range that differs from other models.
-
-```typescript
-// GLM 4.6 enforces optimal temperature range
-validateTemperature(0.7, 'glm-4.6');  // ✅ Valid (in range 0.6-1.0)
-validateTemperature(0.5, 'glm-4.6');  // ❌ Error: out of range
-validateTemperature(1.1, 'glm-4.6');  // ❌ Error: out of range
-
-// Valid range for GLM 4.6
-// 0.6 = More consistent, focused responses
-// 0.7 = Balanced (recommended default)
-// 0.8 = More creative, diverse responses
-// 1.0 = Maximum creativity and variation
-```
-
-**Configuration Examples**
-```bash
-# Conservative, focused responses
-ax-cli --model glm-4.6 --temperature 0.6 -p "Generate critical bug fixes"
-
-# Balanced approach
-ax-cli --model glm-4.6 --temperature 0.7 -p "Analyze this code"
-
-# Creative, exploratory responses
-ax-cli --model glm-4.6 --temperature 0.9 -p "Brainstorm new features"
-```
-
-#### Output Token Control
-
-**Up to 128,000 Output Tokens**
-
-Generate extensive long-form content:
-
-```typescript
-// Generate long-form content
-await client.chat(messages, {
-  model: 'glm-4.6',
-  maxTokens: 100000,  // 100K tokens = ~75,000 words
-});
-```
-
-**Use Cases**
-- **Comprehensive guides**: 20,000+ word documentation
-- **Complete code implementations**: Multi-file projects
-- **Detailed analyses**: In-depth reports and recommendations
-- **Long-form content**: Extended explanations and tutorials
-
-#### Thinking Budget
-
-**Optional Constraint on Reasoning**
-
-Limit reasoning tokens for faster responses:
-
-```typescript
-// Budget thinking for quick responses
-await client.chat(messages, {
-  model: 'glm-4.6',
-  thinking: {
-    type: 'enabled',
-    budget_tokens: 500  // Quick thinking mode
-  }
-});
-
-// Unlimited thinking (default)
-await client.chat(messages, {
-  model: 'glm-4.6',
-  thinking: {
-    type: 'enabled',
-    budget_tokens: null  // No limit
-  }
-});
-```
-
-**Thinking Budget Guidelines**
-- **500 tokens**: Quick analyses, straightforward problems
-- **2000 tokens** (default): Complex reasoning, architecture decisions
-- **5000+ tokens**: Very complex problems, deep analysis
-- **No limit**: Open-ended exploration and learning
-
-### Type Safety & Validation
-
-**Full TypeScript Support with Runtime Validation**
-
-```typescript
-import {
-  validateTemperature,
-  validateMaxTokens,
-  validateThinking
-} from '@ax-cli/schemas';
-
-// Temperature validation (model-specific ranges)
-validateTemperature(0.7, 'glm-4.6');  // ✅ OK (0.6-1.0)
-validateTemperature(0.5, 'glm-4.6');  // ❌ Error: out of range
-
-// Max tokens validation (respects model limits)
-validateMaxTokens(100000, 'glm-4.6');  // ✅ OK (< 128K)
-validateMaxTokens(150000, 'glm-4.6');  // ❌ Error: exceeds limit
-
-// Thinking validation
-validateThinking({
-  enabled: true,
-  budget_tokens: 2000
-}, 'glm-4.6');  // ✅ OK
-```
-
-**Validation Benefits**
-- Compile-time type safety with TypeScript
-- Runtime validation catches user errors
-- Clear error messages guide users
-- Model-specific constraints enforced
 
 ---
 
@@ -897,7 +723,7 @@ validateThinking({
 
 ```bash
 # Install globally
-npm install -g ax-cli
+npm install -g @defai.digital/ax-cli
 
 # Initialize your project
 ax-cli init
@@ -909,48 +735,39 @@ ax-cli
 ax-cli -p "Analyze this codebase and suggest improvements"
 ```
 
-### Configuration
+### Secure Configuration
 
-Create `.ax-cli/settings.json` in your project:
+Use the setup wizard for secure API key configuration:
 
-```json
-{
-  "model": "glm-4.6",
-  "temperature": 0.7,
-  "maxToolRounds": 200,
-  "customInstructions": true,
-  "mcpServers": {}
-}
-```
+```bash
+ax-cli setup
 
-Create `~/.ax-cli/config.json` for global settings:
-
-```json
-{
-  "apiKey": "your-api-key",
-  "baseUrl": "https://api.z.ai/v1",
-  "defaultModel": "glm-4.6"
-}
+# Features:
+# - Interactive API key input
+# - AES-256-GCM encryption
+# - Automatic migration from plain-text
+# - Secure storage in ~/.ax-cli/config.json
 ```
 
 ### Next Steps
 
-- Read the [GLM 4.6 Usage Guide](./glm-4.6-usage-guide.md) for detailed model capabilities
-- Check the [GLM 4.6 Migration Guide](./glm-4.6-migration-guide.md) if upgrading
-- Review CLAUDE.md in the repository for development guidelines
-- Explore MCP integration for extended capabilities
+- Read the [Main README](../README.md) for quick start guide
+- Check the [MCP Integration Guide](./mcp.md) for extended capabilities
+- Review [Development Guide](./development.md) for contributing
+- Explore [CLI Reference](./cli-reference.md) for all commands
 
 ---
 
 ## Summary
 
-AX CLI combines the power of GLM 4.6 with a flexible, extensible architecture that supports multiple AI providers. Whether you're working locally or in the cloud, with simple tasks or complex workflows, AX CLI provides the tools and intelligence to accelerate your development process.
+AX CLI v3.6.1 combines the power of GLM 4.6 with enterprise-grade security, intelligent package discovery, and a flexible, extensible architecture.
 
 **Key Takeaways:**
-- ✅ Default support for GLM 4.6 with 200K context window
-- ✅ Works with any OpenAI-compatible API
-- ✅ Local deployment option with zero internet dependency
-- ✅ Up to 400 tool rounds for complex automation
-- ✅ 98%+ test coverage and enterprise-grade quality
-- ✅ Extensible via MCP protocol
+- ✅ GLM 4.6 with 200K context window (32K max output)
+- ✅ Enterprise-grade security (FREE & Open Source)
+- ✅ Package search: npm, PyPI, crates.io (no API keys)
+- ✅ 1,381 tests with 98.29% coverage
+- ✅ Smart paste auto-collapse for better UX
+- ✅ MCP protocol for extensibility
 - ✅ Beautiful terminal UI with real-time streaming
+- ✅ Works locally or in the cloud
