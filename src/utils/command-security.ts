@@ -40,6 +40,11 @@ export const SAFE_COMMANDS = [
   'git',
   'rg',
   'fd',
+  'rm',      // File deletion (safe with validation)
+  'mkdir',   // Directory creation
+  'touch',   // File creation
+  'cp',      // File copy
+  'mv',      // File move/rename
 ] as const;
 
 export type SafeCommand = typeof SAFE_COMMANDS[number];

@@ -21,32 +21,37 @@ describe('REQ-SEC-001: Command Injection Prevention', () => {
       expect(isSafeCommand('grep')).toBe(true);
       expect(isSafeCommand('cat')).toBe(true);
       expect(isSafeCommand('git')).toBe(true);
+      expect(isSafeCommand('rm')).toBe(true);
+      expect(isSafeCommand('mkdir')).toBe(true);
+      expect(isSafeCommand('touch')).toBe(true);
+      expect(isSafeCommand('cp')).toBe(true);
+      expect(isSafeCommand('mv')).toBe(true);
     });
 
     it('should block non-whitelisted commands', () => {
-      expect(isSafeCommand('rm')).toBe(false);
       expect(isSafeCommand('dd')).toBe(false);
       expect(isSafeCommand('curl')).toBe(false);
       expect(isSafeCommand('wget')).toBe(false);
       expect(isSafeCommand('bash')).toBe(false);
       expect(isSafeCommand('sh')).toBe(false);
+      expect(isSafeCommand('python')).toBe(false);
+      expect(isSafeCommand('node')).toBe(false);
     });
 
     it('should block dangerous commands', () => {
       const dangerousCommands = [
-        'rm',
-        'dd',
-        'mkfs',
-        'shutdown',
-        'reboot',
-        'curl',
-        'wget',
-        'nc',
-        'netcat',
-        'python',
-        'node',
-        'ruby',
-        'perl',
+        'dd',       // Disk operations
+        'mkfs',     // Filesystem creation
+        'shutdown', // System control
+        'reboot',   // System control
+        'curl',     // Network access
+        'wget',     // Network access
+        'nc',       // Network access
+        'netcat',   // Network access
+        'python',   // Code execution
+        'node',     // Code execution
+        'ruby',     // Code execution
+        'perl',     // Code execution
       ];
 
       for (const cmd of dangerousCommands) {
@@ -71,8 +76,10 @@ describe('REQ-SEC-001: Command Injection Prevention', () => {
     });
 
     it('should reject non-whitelisted commands', () => {
-      expect(() => parseCommand('rm -rf /')).toThrow('not in whitelist');
+      expect(() => parseCommand('dd if=/dev/zero of=/dev/sda')).toThrow('not in whitelist');
       expect(() => parseCommand('curl evil.com')).toThrow('not in whitelist');
+      expect(() => parseCommand('wget malicious.com')).toThrow('not in whitelist');
+      expect(() => parseCommand('bash -c "evil"')).toThrow('not in whitelist');
     });
   });
 

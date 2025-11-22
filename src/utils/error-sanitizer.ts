@@ -12,7 +12,7 @@
  */
 
 import { homedir } from 'os';
-import { getAuditLogger, AuditSeverity, AuditCategory } from './audit-logger.js';
+import { getAuditLogger, AuditCategory } from './audit-logger.js';
 
 /**
  * Patterns to detect and sanitize in error messages

@@ -13,7 +13,7 @@
 
 import { createHash } from 'crypto';
 import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'fs';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import { homedir } from 'os';
 
 /**

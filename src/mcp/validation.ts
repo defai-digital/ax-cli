@@ -9,7 +9,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import type { MCPServerConfig } from '../schemas/settings-schemas.js';
 import { getTemplate } from './templates.js';
-import { getAuditLogger, AuditSeverity, AuditCategory } from '../utils/audit-logger.js';
+import { getAuditLogger, AuditCategory } from '../utils/audit-logger.js';
 
 const execFileAsync = promisify(execFile);
 

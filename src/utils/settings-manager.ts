@@ -5,7 +5,7 @@ import { UserSettingsSchema, ProjectSettingsSchema } from "../schemas/settings-s
 import type { UserSettings, ProjectSettings, SamplingSettings, ThinkingSettings, DualModelSettings } from "../schemas/settings-schemas.js";
 import { ModelIdSchema } from '@ax-cli/schemas';
 import { parseJsonFile, writeJsonFile } from "./json-utils.js";
-import { encryptFields, decryptFields } from "./encryption.js";
+import { encrypt, decrypt } from "./encryption.js";
 
 // Re-export types for external use
 export type { UserSettings, ProjectSettings };
@@ -111,11 +111,67 @@ export class SettingsManager {
         return defaultSettings;
       }
 
-      // Decrypt sensitive fields before using
-      const decrypted = decryptFields(parseResult.data, ['apiKey']);
+      // REQ-SEC-003: Handle API key encryption migration
+      // Priority: apiKeyEncrypted > apiKey (plain-text)
+      let decryptedApiKey: string | undefined;
 
-      // Merge with defaults to ensure all required fields exist
-      const settings = { ...DEFAULT_USER_SETTINGS, ...decrypted };
+      if (parseResult.data.apiKeyEncrypted) {
+        // Already encrypted - decrypt it
+        try {
+          decryptedApiKey = decrypt(parseResult.data.apiKeyEncrypted);
+        } catch (error) {
+          console.error('Failed to decrypt API key:', error instanceof Error ? error.message : 'Unknown error');
+          // Fall back to plain-text if decryption fails
+          if (parseResult.data.apiKey && typeof parseResult.data.apiKey === 'string') {
+            decryptedApiKey = parseResult.data.apiKey;
+          }
+        }
+      } else if (parseResult.data.apiKey && typeof parseResult.data.apiKey === 'string') {
+        // Plain-text API key found - needs migration
+        decryptedApiKey = parseResult.data.apiKey;
+
+        // Migrate to encrypted format
+        console.log('🔒 Detected plain-text API key - migrating to encrypted format...');
+        try {
+          if (!decryptedApiKey) {
+            throw new Error('API key is empty');
+          }
+          const encrypted = encrypt(decryptedApiKey);
+
+          // Update the config file: add apiKeyEncrypted, remove apiKey
+          const migratedConfig = {
+            ...parseResult.data,
+            apiKeyEncrypted: encrypted,
+            apiKey: undefined, // Clear plain-text field
+          };
+
+          // Save the migrated config
+          const writeResult = writeJsonFile(
+            this.userSettingsPath,
+            migratedConfig,
+            UserSettingsSchema,
+            true // pretty
+          );
+
+          if (writeResult.success) {
+            console.log('✅ API key encrypted and saved successfully');
+          } else {
+            console.warn('⚠️  Failed to save encrypted API key:', writeResult.error);
+          }
+        } catch (error) {
+          console.warn('⚠️  Failed to encrypt API key:', error instanceof Error ? error.message : 'Unknown error');
+          // Continue with plain-text for now, will retry on next load
+        }
+      }
+
+      // Build settings object with decrypted API key
+      const settings = {
+        ...DEFAULT_USER_SETTINGS,
+        ...parseResult.data,
+        apiKey: decryptedApiKey, // Always use decrypted value in memory
+        apiKeyEncrypted: undefined, // Don't keep encrypted version in memory
+      };
+
       this.userSettingsCache = settings;
       this.cacheTimestamp.user = Date.now();
       return settings;
@@ -143,9 +199,24 @@ export class SettingsManager {
       if (existsSync(this.userSettingsPath)) {
         const parseResult = parseJsonFile<UserSettings>(this.userSettingsPath);
         if (parseResult.success) {
-          // Decrypt before merging
-          const decrypted = decryptFields(parseResult.data, ['apiKey']);
-          existingSettings = { ...DEFAULT_USER_SETTINGS, ...decrypted };
+          // Decrypt API key if encrypted
+          let apiKey: string | undefined;
+          if (parseResult.data.apiKeyEncrypted) {
+            try {
+              apiKey = decrypt(parseResult.data.apiKeyEncrypted);
+            } catch (error) {
+              console.error('Failed to decrypt API key during save');
+            }
+          } else if (parseResult.data.apiKey) {
+            apiKey = parseResult.data.apiKey as string;
+          }
+
+          existingSettings = {
+            ...DEFAULT_USER_SETTINGS,
+            ...parseResult.data,
+            apiKey, // Use decrypted value
+            apiKeyEncrypted: undefined, // Don't keep encrypted in memory
+          };
         } else {
           // If file is corrupted, use defaults
           console.warn("Corrupted user settings file, using defaults");
@@ -154,13 +225,20 @@ export class SettingsManager {
 
       const mergedSettings = { ...existingSettings, ...settings };
 
-      // Encrypt sensitive fields before saving
-      const encrypted = encryptFields(mergedSettings, ['apiKey']);
+      // REQ-SEC-003: Encrypt API key into apiKeyEncrypted field
+      const settingsToSave = { ...mergedSettings };
+
+      if (settingsToSave.apiKey) {
+        // Encrypt the API key
+        settingsToSave.apiKeyEncrypted = encrypt(settingsToSave.apiKey);
+        // Clear the plain-text field
+        delete settingsToSave.apiKey;
+      }
 
       // Use json-utils for consistent writing with schema validation
       const writeResult = writeJsonFile(
         this.userSettingsPath,
-        encrypted,
+        settingsToSave,
         UserSettingsSchema, // validate before writing
         true // pretty
       );

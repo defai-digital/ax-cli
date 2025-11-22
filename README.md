@@ -82,6 +82,13 @@ ax-cli
   - Support for technical docs, code examples, news, and general queries
   - Configurable search depth and freshness filters
 - **🔄 Auto-Update**: Built-in update checker and installer
+- **🔒 Enterprise Security** (NEW in v3.6.0): Optional hardening features for enterprise deployments
+  - **Automatic API Key Encryption**: AES-256-GCM encryption at rest (transparent migration)
+  - **Optional Command Whitelist**: Restrict bash commands to safe list (disabled by default)
+  - **Optional SSRF Protection**: Validate MCP transport URLs (disabled by default)
+  - **Optional Error Sanitization**: Remove sensitive data from error messages (disabled by default)
+  - **117 security tests** with 98%+ coverage
+  - **User-friendly defaults**: Full functionality for 95% of users, opt-in hardening for enterprise
 - **📊 Advanced Code Analysis** (NEW in v2.4.0): Professional-grade static analysis tools
   - **Dependency Analyzer**: Detect circular dependencies, calculate coupling metrics, identify orphan and hub files
   - **Code Smell Detector**: Find 10+ anti-patterns (long methods, large classes, duplicates, dead code, etc.)

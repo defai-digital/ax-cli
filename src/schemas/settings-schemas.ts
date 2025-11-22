@@ -33,10 +33,33 @@ export const DualModelSettingsSchema = z.object({
   codingModel: ModelIdSchema.optional(),
 }).optional();
 
+// Security Settings Schema (for enterprise hardening)
+export const SecuritySettingsSchema = z.object({
+  // Enable command whitelist validation (REQ-SEC-001)
+  // Default: false (allows all commands with user confirmation)
+  // Enterprise: true (strict whitelist enforcement)
+  enableCommandWhitelist: z.boolean().optional(),
+  // Enable SSRF protection for HTTP/SSE transports (REQ-SEC-011)
+  // Default: false (no SSRF validation)
+  // Enterprise: true (strict SSRF protection)
+  enableSSRFProtection: z.boolean().optional(),
+  // Enable error message sanitization (REQ-SEC-010)
+  // Default: false (full error details)
+  // Enterprise: true (sanitize sensitive data from errors)
+  enableErrorSanitization: z.boolean().optional(),
+}).optional();
+
 // User Settings Schema
 export const UserSettingsSchema: z.ZodType<any> = z.object({
-  // API key can be either string (plain-text, backwards compatible) or encrypted object
-  apiKey: z.union([z.string(), EncryptedValueSchema]).optional(),
+  // API key (plain-text) - DEPRECATED: Use apiKeyEncrypted instead
+  // This field is kept for backward compatibility and migration
+  // Will be cleared once migrated to apiKeyEncrypted
+  apiKey: z.string().optional(),
+
+  // Encrypted API key (new field) - REQ-SEC-003
+  // This is the preferred way to store API keys
+  apiKeyEncrypted: EncryptedValueSchema.optional(),
+
   baseURL: z.string().optional(), // Remove .url() to allow any string
   defaultModel: ModelIdSchema.optional(),
   currentModel: ModelIdSchema.optional(),
@@ -47,6 +70,8 @@ export const UserSettingsSchema: z.ZodType<any> = z.object({
     fileOperations: z.boolean().optional(),
     bashCommands: z.boolean().optional(),
   }).optional(),
+  // Security settings for enterprise hardening (disabled by default)
+  security: SecuritySettingsSchema,
   // Sampling settings for deterministic/reproducible mode
   sampling: SamplingSettingsSchema,
   // Thinking settings for GLM-4.6 reasoning mode

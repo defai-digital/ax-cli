@@ -313,7 +313,7 @@ export function StatusBar(props: StatusBarProps) {
 
         {/* Right section: Context (available), MCP, Background Tasks, AX */}
         <Box>
-          <Text color="gray">ctx available: </Text>
+          <Text color="gray">ctx avail: </Text>
           <ContextBar
             percentage={contextPercentage}
             showAutoPrune={showAutoPrune}
@@ -321,7 +321,7 @@ export function StatusBar(props: StatusBarProps) {
             maxTokens={maxTokens}
           />
           <Text color="gray"> • </Text>
-          <Text color={backgroundTaskCount > 0 ? "yellow" : "gray"}>background: {backgroundTaskCount}</Text>
+          <Text color={backgroundTaskCount > 0 ? "yellow" : "gray"}>bg: {backgroundTaskCount}</Text>
           <Text color="gray"> • </Text>
           <Text color={mcpServerCount > 0 ? "blue" : "gray"}>mcp: {mcpServerCount}</Text>
           {axEnabled && (

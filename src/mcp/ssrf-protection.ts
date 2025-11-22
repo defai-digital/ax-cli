@@ -11,7 +11,7 @@
  * Security: CVSS 8.6 (High Priority)
  */
 
-import { getAuditLogger, AuditSeverity, AuditCategory } from '../utils/audit-logger.js';
+import { getAuditLogger, AuditCategory } from '../utils/audit-logger.js';
 
 /**
  * Private IP ranges (RFC 1918 and special-use addresses)

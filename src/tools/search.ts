@@ -3,7 +3,7 @@ import fs from "fs-extra";
 import path from "path";
 import { getRipgrepPool } from "../utils/process-pool.js";
 import { sanitizeSearchQuery, validateRegexPattern } from "../utils/input-sanitizer.js";
-import { getAuditLogger, AuditSeverity, AuditCategory } from "../utils/audit-logger.js";
+import { getAuditLogger, AuditCategory } from "../utils/audit-logger.js";
 
 export interface SearchResult {
   file: string;

@@ -6,7 +6,7 @@ import { extractAndTranslateError } from "../utils/error-translator.js";
 import { GLM_MODELS, type SupportedModel } from "../constants.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
 import { RateLimiter, DEFAULT_RATE_LIMITS } from "../utils/rate-limiter.js";
-import { getAuditLogger, AuditSeverity, AuditCategory } from "../utils/audit-logger.js";
+import { getAuditLogger, AuditCategory } from "../utils/audit-logger.js";
 import type {
   ChatOptions,
   ThinkingConfig,

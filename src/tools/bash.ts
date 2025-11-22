@@ -3,6 +3,7 @@ import { ToolResult } from '../types/index.js';
 import { ConfirmationService } from '../utils/confirmation-service.js';
 import { getMessageOptimizer } from '../utils/message-optimizer.js';
 import { getBackgroundTaskManager } from '../utils/background-task-manager.js';
+import { getSettingsManager } from '../utils/settings-manager.js';
 import { EventEmitter } from 'events';
 import {
   parseCommand,
@@ -148,8 +149,15 @@ export class BashTool extends EventEmitter {
       }
 
       // SECURITY: Validate command against whitelist (REQ-SEC-001)
+      // Only enforce if enableCommandWhitelist is explicitly set to true (default: false)
+      // AX CLI already has user confirmation prompts for safety
+      // This strict hardening is for enterprise customers who enable it manually
+      const settingsManager = getSettingsManager();
+      const settings = settingsManager.loadUserSettings();
+      const shouldEnforceWhitelist = settings?.security?.enableCommandWhitelist ?? false;
+
       // Skip validation for cd command (handled separately) and background commands
-      if (!command.startsWith('cd ') && !shouldRunInBackground) {
+      if (shouldEnforceWhitelist && !command.startsWith('cd ') && !shouldRunInBackground) {
         try {
           const parsed = parseCommand(command);
           const validation = validateArguments(parsed.args);

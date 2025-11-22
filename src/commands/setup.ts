@@ -5,7 +5,7 @@ import { homedir } from 'os';
 import enquirer from 'enquirer';
 import chalk from 'chalk';
 import { validateProviderSetup } from '../utils/setup-validator.js';
-import { parseJsonFile } from '../utils/json-utils.js';
+import { getSettingsManager } from '../utils/settings-manager.js';
 import type { UserSettings } from '../schemas/settings-schemas.js';
 
 /**
@@ -106,13 +106,16 @@ export function createSetupCommand(): Command {
         }
 
         // Load existing config to check for existing API key BEFORE provider selection
+        // Use settings manager to load decrypted config (REQ-SEC-003)
         let existingConfig: UserSettings | null = null;
         let existingProviderKey: string | null = null;
 
         if (existsSync(configPath)) {
-          const parseResult = parseJsonFile<UserSettings>(configPath);
-          if (parseResult.success) {
-            existingConfig = parseResult.data;
+          try {
+            // Load settings through settings manager (handles decryption)
+            const settingsManager = getSettingsManager();
+            existingConfig = settingsManager.loadUserSettings();
+
             // Determine which provider the existing config is using
             if (existingConfig.baseURL) {
               existingProviderKey = getProviderFromBaseURL(existingConfig.baseURL);
@@ -125,6 +128,9 @@ export function createSetupCommand(): Command {
               console.log(chalk.dim(`   Provider: ${existingProvider?.displayName || 'Unknown'}`));
               console.log(chalk.dim(`   Location: ${configPath}\n`));
             }
+          } catch (error) {
+            console.warn(chalk.yellow('⚠️  Failed to load existing config:'), error instanceof Error ? error.message : 'Unknown error');
+            // Continue with setup even if loading existing config fails
           }
         }
 
@@ -149,13 +155,15 @@ export function createSetupCommand(): Command {
         let apiKey = '';
         if (selectedProvider.requiresApiKey) {
           const isSameProvider = existingProviderKey === providerResponse.provider;
-          const hasExistingKey = existingConfig?.apiKey && existingConfig.apiKey.trim().length > 0;
+          // existingConfig.apiKey is already decrypted string (loaded via loadUserSettings)
+          const hasExistingKey = existingConfig?.apiKey && typeof existingConfig.apiKey === 'string' && existingConfig.apiKey.trim().length > 0;
 
           // Same provider with existing API key - ask if they want to reuse it
           if (isSameProvider && hasExistingKey) {
             console.log(chalk.green(`\n✓ Found existing API key for ${selectedProvider.displayName}`));
             // Display masked API key (handle short keys gracefully)
-            const key = existingConfig!.apiKey;
+            // apiKey is guaranteed to be a string here (type guard in hasExistingKey)
+            const key = existingConfig!.apiKey as string;
             const maskedKey = key.length > 12
               ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}`
               : `${key.substring(0, Math.min(4, key.length))}...`;

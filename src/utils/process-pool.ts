@@ -257,10 +257,19 @@ export class ProcessPool extends EventEmitter {
           } catch {
             // Process already terminated
           }
+          // Always clear timeout to prevent leak
+          clearTimeout(forceKillTimeout);
         }, 3000);
 
         // Clear force kill timeout when process exits
-        proc.once('exit', () => clearTimeout(forceKillTimeout));
+        // NOTE: Use setImmediate to ensure listener fires even if already exited
+        setImmediate(() => {
+          if (proc.exitCode !== null || proc.signalCode !== null) {
+            clearTimeout(forceKillTimeout);
+          } else {
+            proc.once('exit', () => clearTimeout(forceKillTimeout));
+          }
+        });
       } catch {
         // Process already terminated or can't be killed
       }
