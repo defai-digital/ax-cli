@@ -3,7 +3,7 @@ import path from "path";
 import { writeFile as writeFilePromise } from "fs/promises";
 import { ToolResult, EditorCommand } from "../types/index.js";
 import { ConfirmationService } from "../utils/confirmation-service.js";
-import { resolveAndValidatePath } from "../utils/path-validator.js";
+import { validatePathSecure } from "../utils/path-security.js";
 import { getMessageOptimizer } from "../utils/message-optimizer.js";
 
 /**
@@ -35,7 +35,16 @@ export class TextEditorTool {
     viewRange?: [number, number]
   ): Promise<ToolResult> {
     try {
-      const resolvedPath = path.resolve(filePath);
+      // SECURITY: Validate path to prevent traversal attacks (REQ-SEC-002)
+      const pathValidation = await validatePathSecure(filePath);
+      if (!pathValidation.success) {
+        return {
+          success: false,
+          error: `Security: ${pathValidation.error}`,
+        };
+      }
+
+      const resolvedPath = pathValidation.path!;
 
       if (await fs.pathExists(resolvedPath)) {
         const stats = await fs.stat(resolvedPath);
@@ -123,17 +132,22 @@ export class TextEditorTool {
     replaceAll: boolean = false
   ): Promise<ToolResult> {
     try {
-      // Validate and resolve path
-      const pathResult = await resolveAndValidatePath(filePath, {
-        mustExist: true,
-        mustBeFile: true
-      });
-
-      if (!pathResult.success) {
-        return { success: false, error: pathResult.error };
+      // SECURITY: Validate path to prevent traversal attacks (REQ-SEC-002)
+      const pathValidation = await validatePathSecure(filePath);
+      if (!pathValidation.success) {
+        return {
+          success: false,
+          error: `Security: ${pathValidation.error}`,
+        };
       }
 
-      const resolvedPath = pathResult.path;
+      const resolvedPath = pathValidation.path!;
+
+      // Check file exists
+      const fileExistsError = await checkFileExists(resolvedPath);
+      if (fileExistsError) {
+        return fileExistsError;
+      }
 
       const content = await fs.readFile(resolvedPath, "utf-8");
 
@@ -211,7 +225,16 @@ export class TextEditorTool {
 
   async create(filePath: string, content: string): Promise<ToolResult> {
     try {
-      const resolvedPath = path.resolve(filePath);
+      // SECURITY: Validate path to prevent traversal attacks (REQ-SEC-002)
+      const pathValidation = await validatePathSecure(filePath);
+      if (!pathValidation.success) {
+        return {
+          success: false,
+          error: `Security: ${pathValidation.error}`,
+        };
+      }
+
+      const resolvedPath = pathValidation.path!;
 
       // Create a diff-style preview for file creation
       const contentLines = content.split("\n");
@@ -274,12 +297,21 @@ export class TextEditorTool {
     newContent: string
   ): Promise<ToolResult> {
     try {
-      const fileExistsError = await checkFileExists(filePath);
+      // SECURITY: Validate path to prevent traversal attacks (REQ-SEC-002)
+      const pathValidation = await validatePathSecure(filePath);
+      if (!pathValidation.success) {
+        return {
+          success: false,
+          error: `Security: ${pathValidation.error}`,
+        };
+      }
+
+      const resolvedPath = pathValidation.path!;
+
+      const fileExistsError = await checkFileExists(resolvedPath);
       if (fileExistsError) {
         return fileExistsError;
       }
-
-      const resolvedPath = path.resolve(filePath);
 
       const fileContent = await fs.readFile(resolvedPath, "utf-8");
       const lines = fileContent.split("\n");
@@ -362,12 +394,21 @@ export class TextEditorTool {
     content: string
   ): Promise<ToolResult> {
     try {
-      const fileExistsError = await checkFileExists(filePath);
+      // SECURITY: Validate path to prevent traversal attacks (REQ-SEC-002)
+      const pathValidation = await validatePathSecure(filePath);
+      if (!pathValidation.success) {
+        return {
+          success: false,
+          error: `Security: ${pathValidation.error}`,
+        };
+      }
+
+      const resolvedPath = pathValidation.path!;
+
+      const fileExistsError = await checkFileExists(resolvedPath);
       if (fileExistsError) {
         return fileExistsError;
       }
-
-      const resolvedPath = path.resolve(filePath);
 
       const fileContent = await fs.readFile(resolvedPath, "utf-8");
       const lines = fileContent.split("\n");

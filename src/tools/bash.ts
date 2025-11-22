@@ -4,10 +4,16 @@ import { ConfirmationService } from '../utils/confirmation-service.js';
 import { getMessageOptimizer } from '../utils/message-optimizer.js';
 import { getBackgroundTaskManager } from '../utils/background-task-manager.js';
 import { EventEmitter } from 'events';
+import {
+  parseCommand,
+  validateArguments,
+  getSafeCommands,
+} from '../utils/command-security.js';
 
 /**
- * Escape shell argument to prevent command injection
- * Exported for use in other modules that need to construct shell commands
+ * @deprecated This function is deprecated and will be removed in a future version.
+ * Command execution now uses whitelist validation instead of shell escaping.
+ * See src/utils/command-security.ts for the new secure implementation.
  */
 export function escapeShellArg(arg: string): string {
   // Replace single quotes with '\'' to safely escape them
@@ -139,6 +145,27 @@ export class BashTool extends EventEmitter {
           success: false,
           error: 'Command execution cancelled by user'
         };
+      }
+
+      // SECURITY: Validate command against whitelist (REQ-SEC-001)
+      // Skip validation for cd command (handled separately) and background commands
+      if (!command.startsWith('cd ') && !shouldRunInBackground) {
+        try {
+          const parsed = parseCommand(command);
+          const validation = validateArguments(parsed.args);
+
+          if (!validation.valid) {
+            return {
+              success: false,
+              error: `Security: Command validation failed\n${validation.errors.join('\n')}\n\nAllowed commands: ${getSafeCommands().join(', ')}`
+            };
+          }
+        } catch (error: any) {
+          return {
+            success: false,
+            error: `Security: ${error.message}\n\nAllowed commands: ${getSafeCommands().join(', ')}`
+          };
+        }
       }
 
       // Handle background execution
