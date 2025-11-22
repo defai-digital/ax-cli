@@ -6,6 +6,14 @@
 import { z } from 'zod';
 import { ModelIdSchema, MCPServerIdSchema } from '@ax-cli/schemas';
 
+// Encrypted Value Schema (for encrypted API keys)
+export const EncryptedValueSchema = z.object({
+  encrypted: z.string(),
+  iv: z.string(),
+  tag: z.string(),
+  version: z.number().int().positive(),
+});
+
 // Sampling Settings Schema (for deterministic/reproducible mode)
 export const SamplingSettingsSchema = z.object({
   doSample: z.boolean().optional(),
@@ -27,7 +35,8 @@ export const DualModelSettingsSchema = z.object({
 
 // User Settings Schema
 export const UserSettingsSchema: z.ZodType<any> = z.object({
-  apiKey: z.string().optional(),
+  // API key can be either string (plain-text, backwards compatible) or encrypted object
+  apiKey: z.union([z.string(), EncryptedValueSchema]).optional(),
   baseURL: z.string().optional(), // Remove .url() to allow any string
   defaultModel: ModelIdSchema.optional(),
   currentModel: ModelIdSchema.optional(),
@@ -89,6 +98,7 @@ export const MCPServerConfigSchema: z.ZodType<any> = z.object({
 });
 
 // Export types
+export type EncryptedValue = z.infer<typeof EncryptedValueSchema>;
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
 export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
 export type ModelOption = z.infer<typeof ModelOptionSchema>;

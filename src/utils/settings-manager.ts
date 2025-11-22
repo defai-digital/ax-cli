@@ -5,6 +5,7 @@ import { UserSettingsSchema, ProjectSettingsSchema } from "../schemas/settings-s
 import type { UserSettings, ProjectSettings, SamplingSettings, ThinkingSettings, DualModelSettings } from "../schemas/settings-schemas.js";
 import { ModelIdSchema } from '@ax-cli/schemas';
 import { parseJsonFile, writeJsonFile } from "./json-utils.js";
+import { encryptFields, decryptFields } from "./encryption.js";
 
 // Re-export types for external use
 export type { UserSettings, ProjectSettings };
@@ -110,8 +111,11 @@ export class SettingsManager {
         return defaultSettings;
       }
 
+      // Decrypt sensitive fields before using
+      const decrypted = decryptFields(parseResult.data, ['apiKey']);
+
       // Merge with defaults to ensure all required fields exist
-      const settings = { ...DEFAULT_USER_SETTINGS, ...parseResult.data };
+      const settings = { ...DEFAULT_USER_SETTINGS, ...decrypted };
       this.userSettingsCache = settings;
       this.cacheTimestamp.user = Date.now();
       return settings;
@@ -139,7 +143,9 @@ export class SettingsManager {
       if (existsSync(this.userSettingsPath)) {
         const parseResult = parseJsonFile<UserSettings>(this.userSettingsPath);
         if (parseResult.success) {
-          existingSettings = { ...DEFAULT_USER_SETTINGS, ...parseResult.data };
+          // Decrypt before merging
+          const decrypted = decryptFields(parseResult.data, ['apiKey']);
+          existingSettings = { ...DEFAULT_USER_SETTINGS, ...decrypted };
         } else {
           // If file is corrupted, use defaults
           console.warn("Corrupted user settings file, using defaults");
@@ -148,10 +154,13 @@ export class SettingsManager {
 
       const mergedSettings = { ...existingSettings, ...settings };
 
+      // Encrypt sensitive fields before saving
+      const encrypted = encryptFields(mergedSettings, ['apiKey']);
+
       // Use json-utils for consistent writing with schema validation
       const writeResult = writeJsonFile(
         this.userSettingsPath,
-        mergedSettings,
+        encrypted,
         UserSettingsSchema, // validate before writing
         true // pretty
       );
