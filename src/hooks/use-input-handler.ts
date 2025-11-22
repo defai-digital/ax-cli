@@ -990,9 +990,11 @@ Examples:
             let resultContent = `✅ Project memory generated (${tokenEstimate.toLocaleString()} tokens)\n\n`;
             resultContent += `**📊 Context breakdown:**\n`;
             for (const [name, tokens] of Object.entries(sections)) {
-              const tokenCount = tokens as number;
-              const pct = Math.round((tokenCount / tokenEstimate) * 100);
-              resultContent += `   ${name.charAt(0).toUpperCase() + name.slice(1)}: ${tokenCount.toLocaleString()} tokens (${pct}%)\n`;
+              if (tokens !== undefined) {
+                const tokenCount = tokens as number;
+                const pct = Math.round((tokenCount / tokenEstimate) * 100);
+                resultContent += `   ${name.charAt(0).toUpperCase() + name.slice(1)}: ${tokenCount.toLocaleString()} tokens (${pct}%)\n`;
+              }
             }
             resultContent += `\n💾 Saved to .ax-cli/memory.json`;
 
