@@ -141,6 +141,71 @@ AX CLI uses **industry-standard max tokens** based on research of leading AI cod
 
 [View all features →](docs/features.md)
 
+## 🎉 What's New in v3.7.0
+
+**SDK Best Practices & Developer Experience** - Major improvements to the programmatic SDK API:
+
+### ✨ New Features
+
+- **🔒 Structured Error System**: Programmatic error handling with `SDKError` and error codes
+  ```typescript
+  try {
+    const agent = await createAgent();
+  } catch (error) {
+    if (SDKError.isSDKError(error)) {
+      switch (error.code) {
+        case SDKErrorCode.SETUP_NOT_RUN:
+          console.log('Run: ax-cli setup');
+          break;
+      }
+    }
+  }
+  ```
+
+- **✅ Input Validation**: Zod schema validation prevents invalid configurations
+  - Validates `maxToolRounds` (1-1000, must be integer)
+  - Rejects NaN, negative values, unknown properties
+  - Clear validation error messages
+
+- **🧪 Testing Utilities**: Built-in mocks for easier testing
+  ```typescript
+  import { createMockAgent } from '@defai.digital/ax-cli/sdk/testing';
+
+  const agent = createMockAgent(['Response 1', 'Response 2']);
+  const result = await agent.processUserMessage('Test');
+  ```
+
+- **🛡️ Disposal Protection**: Prevents use-after-disposal bugs
+  - Throws `AGENT_DISPOSED` error if agent used after `dispose()`
+  - Idempotent disposal (safe to call multiple times)
+
+- **📊 SDK Version Tracking**: Version info for debugging and compatibility
+  ```typescript
+  import { SDK_VERSION, getSDKInfo } from '@defai.digital/ax-cli/sdk';
+
+  console.log('SDK Version:', SDK_VERSION); // "3.7.0"
+  ```
+
+- **🐛 Debug Mode**: Verbose logging for troubleshooting
+  ```typescript
+  const agent = await createAgent({
+    maxToolRounds: 50,
+    debug: true  // Logs agent creation, tool calls, results
+  });
+  ```
+
+### 🔧 Improvements
+
+- **Enhanced Disposal**: Comprehensive cleanup of listeners, caches, and history
+- **Better Documentation**: Fixed outdated examples, added error handling patterns
+- **Type Safety**: Full TypeScript support with proper type exports
+
+### 📦 Breaking Changes
+
+**None!** All changes are backward compatible.
+
+---
+
 ## 📦 Installation
 
 ### Supported Platforms

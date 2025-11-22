@@ -19,7 +19,7 @@ import { ValidationTool } from "../tools/analysis-tools/validation-tool.js";
 import { ToolResult } from "../types/index.js";
 import { EventEmitter } from "events";
 import { AGENT_CONFIG } from "../constants.js";
-import { createTokenCounter, TokenCounter } from "../utils/token-counter.js";
+import { getTokenCounter, TokenCounter } from "../utils/token-counter.js";
 import { loadCustomInstructions } from "../utils/custom-instructions.js";
 import { getSettingsManager } from "../utils/settings-manager.js";
 import { ContextManager } from "./context-manager.js";
@@ -81,8 +81,9 @@ export class LLMAgent extends EventEmitter {
   private todoTool: TodoTool;
   private search: SearchTool;
   private webSearch: WebSearchTool;
-  private architectureTool: ArchitectureTool;
-  private validationTool: ValidationTool;
+  // Lazy-loaded tools (rarely used)
+  private _architectureTool?: ArchitectureTool;
+  private _validationTool?: ValidationTool;
   private chatHistory: ChatEntry[] = [];
   private messages: LLMMessage[] = [];
   private tokenCounter: TokenCounter;
@@ -101,6 +102,8 @@ export class LLMAgent extends EventEmitter {
   private samplingConfig: SamplingConfig | undefined;
   /** Thinking/reasoning mode configuration */
   private thinkingConfig: ThinkingConfig | undefined;
+  /** Track if agent has been disposed */
+  private disposed = false;
 
   constructor(
     apiKey: string,
@@ -125,9 +128,8 @@ export class LLMAgent extends EventEmitter {
     this.todoTool = new TodoTool();
     this.search = new SearchTool();
     this.webSearch = new WebSearchTool();
-    this.architectureTool = new ArchitectureTool();
-    this.validationTool = new ValidationTool();
-    this.tokenCounter = createTokenCounter(modelToUse);
+    // architectureTool and validationTool are lazy-loaded (see getters below)
+    this.tokenCounter = getTokenCounter(modelToUse);
     this.contextManager = new ContextManager({ model: modelToUse });
     this.checkpointManager = getCheckpointManager();
     this.subagentOrchestrator = new SubagentOrchestrator({ maxConcurrentAgents: 5 });
@@ -265,6 +267,36 @@ export class LLMAgent extends EventEmitter {
   }
 
   /**
+   * Apply context pruning to both messages and chatHistory
+   * BUGFIX: Prevents chatHistory from growing unbounded
+   */
+  private applyContextPruning(): void {
+    if (this.contextManager.shouldPrune(this.messages, this.tokenCounter)) {
+      // Prune LLM messages
+      this.messages = this.contextManager.pruneMessages(this.messages, this.tokenCounter);
+
+      // Also prune chatHistory to prevent unlimited growth
+      // Keep last 200 entries which is more than enough for UI display
+      const MAX_CHAT_HISTORY_ENTRIES = 200;
+      if (this.chatHistory.length > MAX_CHAT_HISTORY_ENTRIES) {
+        const entriesToRemove = this.chatHistory.length - MAX_CHAT_HISTORY_ENTRIES;
+        this.chatHistory = this.chatHistory.slice(entriesToRemove);
+
+        // Update tool call index map after pruning
+        // Clear and rebuild only for remaining entries
+        this.toolCallIndexMap.clear();
+        this.chatHistory.forEach((entry, index) => {
+          if (entry.type === "tool_call" && entry.toolCall?.id) {
+            this.toolCallIndexMap.set(entry.toolCall.id, index);
+          } else if (entry.type === "tool_result" && entry.toolCall?.id) {
+            this.toolCallIndexMap.set(entry.toolCall.id, index);
+          }
+        });
+      }
+    }
+  }
+
+  /**
    * Check if agent is running in deterministic mode
    */
   public isDeterministicMode(): boolean {
@@ -284,7 +316,40 @@ export class LLMAgent extends EventEmitter {
 
     const args = JSON.parse(toolCall.function.arguments || '{}');
     this.toolCallArgsCache.set(toolCall.id, args);
+
+    // Prevent unbounded memory growth - limit cache size
+    if (this.toolCallArgsCache.size > 500) {
+      let deleted = 0;
+      for (const key of this.toolCallArgsCache.keys()) {
+        this.toolCallArgsCache.delete(key);
+        deleted++;
+        if (deleted >= 100) break;
+      }
+    }
+
     return args;
+  }
+
+  /**
+   * Lazy-loaded getter for ArchitectureTool
+   * Only instantiates when first accessed to reduce startup time
+   */
+  private get architectureTool(): ArchitectureTool {
+    if (!this._architectureTool) {
+      this._architectureTool = new ArchitectureTool();
+    }
+    return this._architectureTool;
+  }
+
+  /**
+   * Lazy-loaded getter for ValidationTool
+   * Only instantiates when first accessed to reduce startup time
+   */
+  private get validationTool(): ValidationTool {
+    if (!this._validationTool) {
+      this._validationTool = new ValidationTool();
+    }
+    return this._validationTool;
   }
 
   /**
@@ -483,15 +548,11 @@ export class LLMAgent extends EventEmitter {
           // Track file modifications from text_editor tool
           if (toolCall.function.name === "text_editor" ||
               toolCall.function.name === "str_replace_editor") {
-            try {
-              const args = JSON.parse(toolCall.function.arguments);
-              if (args.path && result.success) {
-                if (!filesModified.includes(args.path)) {
-                  filesModified.push(args.path);
-                }
+            const args = this.parseToolArgumentsCached(toolCall);
+            if (args.path && result.success) {
+              if (!filesModified.includes(args.path as string)) {
+                filesModified.push(args.path as string);
               }
-            } catch {
-              // Ignore parse errors
             }
           }
 
@@ -508,9 +569,7 @@ export class LLMAgent extends EventEmitter {
 
       // Prune context if configured
       if (PLANNER_CONFIG.PRUNE_AFTER_PHASE) {
-        if (this.contextManager.shouldPrune(this.messages, this.tokenCounter)) {
-          this.messages = this.contextManager.pruneMessages(this.messages, this.tokenCounter);
-        }
+        this.applyContextPruning();
       }
 
       const endTokens = this.tokenCounter.countMessageTokens(this.messages);
@@ -995,6 +1054,9 @@ export class LLMAgent extends EventEmitter {
   }
 
   async processUserMessage(message: string): Promise<ChatEntry[]> {
+    // Check if agent has been disposed
+    this.checkDisposed();
+
     // Reset tool call tracking for new message
     this.resetToolCallTracking();
 
@@ -1149,9 +1211,7 @@ export class LLMAgent extends EventEmitter {
 
           // Apply context pruning after adding tool results to prevent overflow
           // Tool results can be very large (file reads, grep output, etc.)
-          if (this.contextManager.shouldPrune(this.messages, this.tokenCounter)) {
-            this.messages = this.contextManager.pruneMessages(this.messages, this.tokenCounter);
-          }
+          this.applyContextPruning();
 
           // Get next response - this might contain more tool calls
           currentResponse = await this.llmClient.chat(
@@ -1284,9 +1344,7 @@ export class LLMAgent extends EventEmitter {
     this.messages.push({ role: "user", content: message });
 
     // Apply context management before sending to API
-    if (this.contextManager.shouldPrune(this.messages, this.tokenCounter)) {
-      this.messages = this.contextManager.pruneMessages(this.messages, this.tokenCounter);
-    }
+    this.applyContextPruning();
 
     // Calculate input tokens
     return this.tokenCounter.countMessageTokens(this.messages);
@@ -1387,7 +1445,8 @@ export class LLMAgent extends EventEmitter {
       }
 
       // Stream reasoning content (GLM-4.6 thinking mode)
-      if (chunk.choices[0].delta?.reasoning_content) {
+      // Safety check: ensure choices[0] exists before accessing
+      if (chunk.choices[0]?.delta?.reasoning_content) {
         yield {
           type: "reasoning",
           reasoningContent: chunk.choices[0].delta.reasoning_content,
@@ -1395,7 +1454,7 @@ export class LLMAgent extends EventEmitter {
       }
 
       // Stream content as it comes
-      if (chunk.choices[0].delta?.content) {
+      if (chunk.choices[0]?.delta?.content) {
         accumulatedContent += chunk.choices[0].delta.content;
 
         yield {
@@ -1472,9 +1531,7 @@ export class LLMAgent extends EventEmitter {
 
     // Apply context pruning after adding message to prevent overflow
     // Critical for long assistant responses and tool results
-    if (this.contextManager.shouldPrune(this.messages, this.tokenCounter)) {
-      this.messages = this.contextManager.pruneMessages(this.messages, this.tokenCounter);
-    }
+    this.applyContextPruning();
   }
 
   /**
@@ -1538,9 +1595,7 @@ export class LLMAgent extends EventEmitter {
 
     // Apply context pruning after adding tool results to prevent overflow
     // Tool results can be very large (file reads, grep output, etc.)
-    if (this.contextManager.shouldPrune(this.messages, this.tokenCounter)) {
-      this.messages = this.contextManager.pruneMessages(this.messages, this.tokenCounter);
-    }
+    this.applyContextPruning();
 
     // Update token count after processing all tool calls
     inputTokens.value = this.tokenCounter.countMessageTokens(this.messages);
@@ -1912,7 +1967,7 @@ export class LLMAgent extends EventEmitter {
         ? result.content
           .map((item) => {
             if (item.type === "text") {
-              return item.text;
+              return item.text || ""; // Safety check for missing text property
             } else if (item.type === "resource") {
               return `Resource: ${item.resource?.uri || "Unknown"}`;
             }
@@ -1935,6 +1990,7 @@ export class LLMAgent extends EventEmitter {
   }
 
   getChatHistory(): ChatEntry[] {
+    this.checkDisposed();
     return [...this.chatHistory];
   }
 
@@ -1967,9 +2023,8 @@ export class LLMAgent extends EventEmitter {
 
   setModel(model: string): void {
     this.llmClient.setModel(model);
-    // Update token counter for new model
-    this.tokenCounter.dispose();
-    this.tokenCounter = createTokenCounter(model);
+    // Update token counter for new model (use singleton)
+    this.tokenCounter = getTokenCounter(model);
   }
 
   abortCurrentOperation(): void {
@@ -2228,20 +2283,80 @@ export class LLMAgent extends EventEmitter {
   }
 
   /**
+   * Check if agent has been disposed
+   * @internal
+   */
+  private checkDisposed(): void {
+    if (this.disposed) {
+      const { SDKError, SDKErrorCode } = require('../sdk/errors.js');
+      throw new SDKError(
+        SDKErrorCode.AGENT_DISPOSED,
+        'Agent has been disposed and cannot be used. Create a new agent instance.'
+      );
+    }
+  }
+
+  /**
    * Dispose of resources and remove event listeners
-   * Call this when the agent is no longer needed
+   *
+   * This method should be called when the agent is no longer needed to prevent
+   * memory leaks and properly close all connections.
+   *
+   * After calling dispose(), the agent cannot be used anymore. Any method calls
+   * will throw an AGENT_DISPOSED error.
+   *
+   * Cleans up:
+   * - Event listeners
+   * - In-memory caches (tool calls, arguments)
+   * - Token counter and context manager
+   * - Aborts in-flight requests
+   * - Terminates subagents
+   * - Clears conversation history
+   *
+   * @example
+   * ```typescript
+   * const agent = await createAgent();
+   * try {
+   *   await agent.processUserMessage('task');
+   * } finally {
+   *   agent.dispose();  // Always cleanup
+   * }
+   * ```
    */
   dispose(): void {
+    if (this.disposed) return; // Already disposed, safe to call multiple times
+
+    this.disposed = true;
+
+    // Remove all event listeners to prevent memory leaks
     this.removeAllListeners();
+
+    // Clear in-memory caches
+    this.recentToolCalls.clear();
+    this.toolCallIndexMap.clear();
+    this.toolCallArgsCache.clear();
+
+    // Clear conversation history to free memory
+    this.chatHistory = [];
+    this.messages = [];
+
+    // Dispose token counter and context manager
     this.tokenCounter.dispose();
     this.contextManager.dispose();
+
+    // Abort any in-flight requests
     if (this.abortController) {
       this.abortController.abort();
       this.abortController = null;
     }
+
     // Terminate all subagents
     this.subagentOrchestrator.terminateAll().catch((error) => {
       console.warn('Error terminating subagents:', error);
     });
+
+    // Note: We don't disconnect MCP servers here because they might be shared
+    // across multiple agent instances. MCP connections are managed globally
+    // by the MCPManager singleton and will be cleaned up on process exit.
   }
 }
