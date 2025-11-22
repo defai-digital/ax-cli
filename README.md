@@ -1138,5 +1138,5 @@ Built with **AutomatosX** multi-agent orchestration to achieve enterprise-class 
 ---
 
 <p align="center">
-  Made with ❤️ by <a href="https://github.com/defai-digital">DefAI Digital</a>
+  Made with ❤️ by <a href="https://github.com/defai-digital">DEFAI Digital</a>
 </p>

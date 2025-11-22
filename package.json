@@ -68,7 +68,7 @@
     "library",
     "programmatic-api"
   ],
-  "author": "DefAI Digital <https://defai.digital>",
+  "author": "DEFAI Digital <https://defai.digital>",
   "license": "MIT",
   "dependencies": {
     "@ax-cli/schemas": "npm:@defai.digital/ax-cli-schemas@^1.0.0",
