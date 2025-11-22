@@ -88,10 +88,39 @@ export const MCP_CONFIG = {
   TRUNCATION_ENABLED: settingsYaml.mcp.truncation_enabled,
 } as const;
 
+// Verbosity Levels
+export enum VerbosityLevel {
+  /** Group operations, show summaries only (default) */
+  QUIET = 0,
+  /** One line per tool execution */
+  CONCISE = 1,
+  /** Full details with arguments and outputs */
+  VERBOSE = 2,
+}
+
+// Map string values from config to enum
+export function parseVerbosityLevel(value: string): VerbosityLevel {
+  switch (value.toLowerCase()) {
+    case 'quiet':
+      return VerbosityLevel.QUIET;
+    case 'concise':
+      return VerbosityLevel.CONCISE;
+    case 'verbose':
+      return VerbosityLevel.VERBOSE;
+    default:
+      return VerbosityLevel.QUIET;
+  }
+}
+
 // UI Configuration
 export const UI_CONFIG = {
   STATUS_UPDATE_INTERVAL: settingsYaml.ui.status_update_interval,
   PROCESSING_TIMER_INTERVAL: settingsYaml.ui.processing_timer_interval,
+  // Verbosity settings
+  DEFAULT_VERBOSITY_LEVEL: parseVerbosityLevel(settingsYaml.ui.verbosity_level || 'quiet'),
+  GROUP_TOOL_CALLS: settingsYaml.ui.group_tool_calls !== undefined ? settingsYaml.ui.group_tool_calls : true,
+  MAX_GROUP_SIZE: settingsYaml.ui.max_group_size || 20,
+  GROUP_TIME_WINDOW: settingsYaml.ui.group_time_window || 500,
 } as const;
 
 // Token Counting

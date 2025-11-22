@@ -49,6 +49,18 @@ export const PasteSettingsSchema = z.object({
   previewLines: z.number().int().min(0).max(10).optional().default(2),
 }).optional();
 
+// UI Settings Schema (for verbosity levels and tool grouping)
+export const UISettingsSchema = z.object({
+  // Verbosity level: quiet (0), concise (1), verbose (2)
+  verbosityLevel: z.enum(['quiet', 'concise', 'verbose']).optional().default('quiet'),
+  // Enable/disable tool call grouping (applies to quiet mode)
+  groupToolCalls: z.boolean().optional().default(true),
+  // Maximum operations per group
+  maxGroupSize: z.number().int().min(1).max(50).optional().default(20),
+  // Time window for grouping consecutive operations (ms)
+  groupTimeWindow: z.number().int().min(0).max(5000).optional().default(500),
+}).optional();
+
 // Security Settings Schema (for enterprise hardening)
 export const SecuritySettingsSchema = z.object({
   // Enable command whitelist validation (REQ-SEC-001)
@@ -96,6 +108,8 @@ export const UserSettingsSchema: z.ZodType<any> = z.object({
   dualModel: DualModelSettingsSchema,
   // Paste settings for large paste auto-collapse
   paste: PasteSettingsSchema,
+  // UI settings for verbosity levels and tool grouping
+  ui: UISettingsSchema,
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Project Settings Schema
@@ -113,6 +127,8 @@ export const ProjectSettingsSchema: z.ZodType<any> = z.object({
   thinking: ThinkingSettingsSchema,
   // Project-level dual-model settings (overrides user settings)
   dualModel: DualModelSettingsSchema,
+  // Project-level UI settings (overrides user settings)
+  ui: UISettingsSchema,
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Model Option Schema
@@ -151,3 +167,4 @@ export type SamplingSettings = z.infer<typeof SamplingSettingsSchema>;
 export type ThinkingSettings = z.infer<typeof ThinkingSettingsSchema>;
 export type DualModelSettings = z.infer<typeof DualModelSettingsSchema>;
 export type PasteSettings = z.infer<typeof PasteSettingsSchema>;
+export type UISettings = z.infer<typeof UISettingsSchema>;

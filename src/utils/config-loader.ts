@@ -125,6 +125,10 @@ export interface SettingsYaml {
   ui: {
     status_update_interval: number;
     processing_timer_interval: number;
+    verbosity_level?: string;
+    group_tool_calls?: boolean;
+    max_group_size?: number;
+    group_time_window?: number;
   };
   token: {
     tokens_per_message: number;

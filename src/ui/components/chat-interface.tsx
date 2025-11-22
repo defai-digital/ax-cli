@@ -181,6 +181,7 @@ function ChatInterfaceWithAgent({
     commandSuggestions,
     autoEditEnabled,
     verboseMode,
+    verbosityLevel,
     backgroundMode,
     pastedBlocks,
     currentBlockAtCursor,
@@ -601,6 +602,7 @@ function ChatInterfaceWithAgent({
           entries={chatHistory}
           isConfirmationActive={!!confirmationOptions}
           verboseMode={verboseMode}
+          verbosityLevel={verbosityLevel}
         />
       </Box>
 
@@ -661,6 +663,7 @@ function ChatInterfaceWithAgent({
             showAutoPrune={showAutoPrune}
             autoEditEnabled={autoEditEnabled}
             verboseMode={verboseMode}
+            verbosityLevel={verbosityLevel}
             backgroundMode={backgroundMode}
             mcpServerCount={mcpServerCount}
             backgroundTaskCount={backgroundTaskCount}

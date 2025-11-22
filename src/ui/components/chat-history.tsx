@@ -4,11 +4,16 @@ import { ChatEntry } from "../../agent/llm-agent.js";
 import { DiffRenderer } from "./diff-renderer.js";
 import { MarkdownRenderer } from "../utils/markdown-renderer.js";
 import { ReasoningDisplay } from "./reasoning-display.js";
+import { ToolGroupDisplay } from "./tool-group-display.js";
+import { groupConsecutiveTools, isToolGroup, type GroupedEntry } from "../utils/tool-grouper.js";
+import { getBriefToolSummary } from "../utils/change-summarizer.js";
+import { VerbosityLevel } from "../../constants.js";
 
 interface ChatHistoryProps {
   entries: ChatEntry[];
   isConfirmationActive?: boolean;
-  verboseMode?: boolean;
+  verboseMode?: boolean;  // DEPRECATED: Use verbosityLevel instead
+  verbosityLevel?: VerbosityLevel;
 }
 
 // Memoized ChatEntry component to prevent unnecessary re-renders
@@ -167,75 +172,8 @@ const MemoizedChatEntry = React.memo(
           return "";
         };
 
-        // Get a brief summary of the result for concise mode
-        // Phase 3: Enhanced with more contextual feedback
-        const getBriefSummary = (content: string, toolName: string): string => {
-          if (!content) return "";
-
-          // Count lines for file content
-          const lineCount = content.split("\n").length;
-
-          switch (toolName) {
-            case "view_file":
-              // More descriptive for files
-              if (lineCount === 1) return "1 line read";
-              if (lineCount < 10) return `${lineCount} lines read`;
-              if (lineCount < 100) return `${lineCount} lines read`;
-              return `${lineCount} lines (large file)`;
-            case "create_file":
-              return `${lineCount} lines written`;
-            case "str_replace_editor":
-              // Extract just the first line which usually has the summary
-              const firstLine = content.split("\n")[0];
-              if (firstLine.includes("Updated")) {
-                return firstLine.replace(/^Updated\s+/, "").trim();
-              }
-              // Count replacements for better feedback
-              const replacements = (content.match(/replaced/gi) || []).length;
-              if (replacements > 0) return `${replacements} change${replacements > 1 ? 's' : ''}`;
-              return "updated";
-            case "bash":
-              if (content.includes("Background task started")) {
-                return "→ background task started";
-              }
-              // Detect common command patterns for better feedback
-              if (content.includes("npm install") || content.includes("npm i ")) {
-                return "packages installed";
-              }
-              if (content.includes("git commit")) {
-                return "committed";
-              }
-              if (content.includes("git push")) {
-                return "pushed";
-              }
-              if (content.includes("Test passed") || content.includes("✓")) {
-                return "tests passed";
-              }
-              if (lineCount <= 1) {
-                // Short output, show it
-                return content.trim().slice(0, 50) + (content.length > 50 ? "..." : "");
-              }
-              return `${lineCount} lines output`;
-            case "search":
-              // Try to count matches with better formatting
-              const matches = content.match(/Found (\d+) match/);
-              if (matches) {
-                const count = parseInt(matches[1], 10);
-                return `${count} match${count !== 1 ? 'es' : ''} found`;
-              }
-              return `${lineCount} result${lineCount !== 1 ? 's' : ''}`;
-            case "create_todo_list":
-            case "update_todo_list":
-              // Count todos for better feedback
-              const todos = (content.match(/\[.*?\]/g) || []).length;
-              return `${todos} task${todos !== 1 ? 's' : ''}`;
-            default:
-              if (lineCount <= 1 && content.length < 60) {
-                return content.trim();
-              }
-              return `${lineCount} lines`;
-          }
-        };
+        // Use imported brief summary function
+        const getBriefSummary = getBriefToolSummary;
 
         const filePath = getFilePath(entry.toolCall);
         const toolArgs = getToolArguments(entry.toolCall);
@@ -382,7 +320,13 @@ export const ChatHistory = React.memo(
     entries,
     isConfirmationActive = false,
     verboseMode = false,
+    verbosityLevel,
   }: ChatHistoryProps) {
+    // Backward compatibility: convert verboseMode boolean to verbosityLevel
+    const effectiveVerbosityLevel = verbosityLevel !== undefined
+      ? verbosityLevel
+      : (verboseMode ? VerbosityLevel.VERBOSE : VerbosityLevel.QUIET);
+
     // Filter out tool_call entries with "Executing..." when confirmation is active
     const filteredEntries = isConfirmationActive
       ? entries.filter(
@@ -391,23 +335,45 @@ export const ChatHistory = React.memo(
         )
       : entries;
 
-    // Show ALL entries - removed the .slice(-20) limitation
-    // Scrolling will be handled by the terminal's native scroll capability
+    // Group entries based on verbosity level
+    const groupedEntries: GroupedEntry[] = effectiveVerbosityLevel === VerbosityLevel.QUIET
+      ? groupConsecutiveTools(filteredEntries)
+      : filteredEntries;
+
+    // Render grouped or individual entries
     return (
       <Box flexDirection="column">
-        {filteredEntries.map((entry, index) => {
+        {groupedEntries.map((entry, index) => {
+          // Handle grouped entries
+          if (isToolGroup(entry)) {
+            return (
+              <ToolGroupDisplay
+                key={`group-${entry.startTime.getTime()}-${index}`}
+                group={entry}
+                index={index}
+              />
+            );
+          }
+
+          // Handle individual entries
           // Safely get timestamp - handle both Date objects and serialized strings
-          // Use string key for NaN fallback to avoid NaN in React keys
           const rawTimestamp = entry.timestamp instanceof Date
             ? entry.timestamp.getTime()
             : new Date(entry.timestamp).getTime();
           const timestamp = Number.isNaN(rawTimestamp) ? `fallback-${index}` : rawTimestamp;
+
+          // Determine effective verbose mode for this entry
+          // QUIET: show minimal (like concise but even less)
+          // CONCISE: show one line per tool
+          // VERBOSE: show full details
+          const entryVerboseMode = effectiveVerbosityLevel === VerbosityLevel.VERBOSE;
+
           return (
             <MemoizedChatEntry
               key={`${timestamp}-${index}`}
               entry={entry}
               index={index}
-              verboseMode={verboseMode}
+              verboseMode={entryVerboseMode}
             />
           );
         })}
@@ -419,12 +385,13 @@ export const ChatHistory = React.memo(
     // This prevents re-renders when unrelated state updates happen
     if (prevProps.entries === nextProps.entries &&
         prevProps.isConfirmationActive === nextProps.isConfirmationActive &&
-        prevProps.verboseMode === nextProps.verboseMode) {
+        prevProps.verboseMode === nextProps.verboseMode &&
+        prevProps.verbosityLevel === nextProps.verbosityLevel) {
       return true; // Props are equal, skip re-render
     }
 
-    // Always re-render if verbose mode changed
-    if (prevProps.verboseMode !== nextProps.verboseMode) {
+    // Always re-render if verbose mode or verbosity level changed
+    if (prevProps.verboseMode !== nextProps.verboseMode || prevProps.verbosityLevel !== nextProps.verbosityLevel) {
       return false;
     }
 

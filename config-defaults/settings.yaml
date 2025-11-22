@@ -58,6 +58,30 @@ ui:
   status_update_interval: 2000  # 2 seconds
   processing_timer_interval: 1000  # 1 second
 
+  # Verbosity Level Configuration
+  # Controls how much detail is shown for tool executions
+  #
+  # Levels:
+  # - quiet (0): Group consecutive operations, show summaries only
+  #   Example: "Working on app.ts (3 edits, 5 reads) ✓ 2.3s"
+  #   Best for: Regular coding work, focusing on results
+  #
+  # - concise (1): One line per tool execution
+  #   Example: "⏺ Read (app.ts) ✓ 22 lines read"
+  #   Best for: Debugging tool execution order
+  #
+  # - verbose (2): Full details with arguments and outputs
+  #   Example: Full args, outputs, diffs, execution timings
+  #   Best for: Deep debugging, understanding AI behavior
+  #
+  # Default: quiet (best user experience, minimal noise)
+  verbosity_level: quiet  # Options: quiet | concise | verbose
+
+  # Tool Grouping Settings (applies to quiet mode)
+  group_tool_calls: true  # Enable/disable tool call grouping
+  max_group_size: 20  # Max operations per group before splitting
+  group_time_window: 500  # Max milliseconds between operations to group
+
 token:
   tokens_per_message: 3
   tokens_for_reply_priming: 3

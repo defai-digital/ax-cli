@@ -5,6 +5,7 @@
 
 import React from "react";
 import { Box, Text } from "ink";
+import { VerbosityLevel } from "../../constants.js";
 
 interface StatusBarProps {
   projectName: string;
@@ -13,7 +14,8 @@ interface StatusBarProps {
   contextPercentage: number;
   showAutoPrune: boolean;
   autoEditEnabled: boolean;
-  verboseMode: boolean;
+  verboseMode: boolean;  // DEPRECATED: Use verbosityLevel instead
+  verbosityLevel?: VerbosityLevel;
   backgroundMode?: boolean;
   mcpServerCount?: number;
   backgroundTaskCount?: number;
@@ -114,26 +116,28 @@ function ContextBar({
 
 /**
  * Mode indicator pill component
- * Shows clear "Label: On/Off" format for better visibility
+ * Shows clear "Label: On/Off" or "Label: Value" format for better visibility
  * Supports flash animation on toggle
  */
 function ModePill({
   label,
   enabled,
+  value,
   shortcut,
   enabledColor = "cyan",
   flash = false,
 }: {
   label: string;
-  enabled: boolean;
+  enabled?: boolean;
+  value?: string;
   shortcut: string;
   enabledColor?: string;
   flash?: boolean;
 }) {
   // Flash effect: briefly highlight when toggled
-  const displayColor = flash ? "white" : enabled ? enabledColor : "gray";
-  const isBold = flash || enabled;
-  const status = enabled ? "On" : "Off";
+  const displayColor = flash ? "white" : (enabled !== undefined && enabled) ? enabledColor : "gray";
+  const isBold = flash || (enabled !== undefined && enabled);
+  const status = value || (enabled ? "On" : "Off");
 
   return (
     <Box marginRight={2}>
@@ -143,6 +147,22 @@ function ModePill({
       </Text>
     </Box>
   );
+}
+
+/**
+ * Get verbosity level name for display
+ */
+function getVerbosityName(level: VerbosityLevel): string {
+  switch (level) {
+    case VerbosityLevel.QUIET:
+      return "Quiet";
+    case VerbosityLevel.CONCISE:
+      return "Concise";
+    case VerbosityLevel.VERBOSE:
+      return "Verbose";
+    default:
+      return "Quiet";
+  }
 }
 
 
@@ -159,6 +179,7 @@ function CompactStatusBar(props: StatusBarProps) {
     showAutoPrune,
     autoEditEnabled,
     verboseMode,
+    verbosityLevel,
     backgroundMode = false,
     mcpServerCount = 0,
     backgroundTaskCount = 0,
@@ -170,6 +191,11 @@ function CompactStatusBar(props: StatusBarProps) {
     flashBackground = false,
     axEnabled = false,
   } = props;
+
+  // Use verbosityLevel if available, fallback to verboseMode
+  const effectiveVerbosityLevel = verbosityLevel !== undefined
+    ? verbosityLevel
+    : (verboseMode ? VerbosityLevel.VERBOSE : VerbosityLevel.QUIET);
 
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -227,10 +253,10 @@ function CompactStatusBar(props: StatusBarProps) {
           flash={flashAutoEdit}
         />
         <ModePill
-          label="Verbose"
-          enabled={verboseMode}
+          label="Verbosity"
+          value={getVerbosityName(effectiveVerbosityLevel)}
           shortcut="^O"
-          enabledColor="yellow"
+          enabledColor={effectiveVerbosityLevel === VerbosityLevel.QUIET ? "gray" : "yellow"}
           flash={flashVerbose}
         />
         <ModePill
@@ -254,6 +280,7 @@ export function StatusBar(props: StatusBarProps) {
     showAutoPrune,
     autoEditEnabled,
     verboseMode,
+    verbosityLevel,
     backgroundMode = false,
     mcpServerCount = 0,
     backgroundTaskCount = 0,
@@ -267,6 +294,11 @@ export function StatusBar(props: StatusBarProps) {
     flashBackground = false,
     axEnabled = false,
   } = props;
+
+  // Use verbosityLevel if available, fallback to verboseMode
+  const effectiveVerbosityLevel = verbosityLevel !== undefined
+    ? verbosityLevel
+    : (verboseMode ? VerbosityLevel.VERBOSE : VerbosityLevel.QUIET);
 
   // Use compact layout for narrow terminals (< 100 columns)
   if (terminalWidth < 100) {
@@ -335,10 +367,10 @@ export function StatusBar(props: StatusBarProps) {
           flash={flashAutoEdit}
         />
         <ModePill
-          label="Verbose"
-          enabled={verboseMode}
+          label="Verbosity"
+          value={getVerbosityName(effectiveVerbosityLevel)}
           shortcut="^O"
-          enabledColor="yellow"
+          enabledColor={effectiveVerbosityLevel === VerbosityLevel.QUIET ? "gray" : "yellow"}
           flash={flashVerbose}
         />
         <ModePill

@@ -4,6 +4,7 @@ import { LLMAgent, ChatEntry } from "../../agent/llm-agent.js";
 import { ConfirmationService } from "../../utils/confirmation-service.js";
 import { useEnhancedInput, Key } from "./use-enhanced-input.js";
 import { escapeShellArg } from "../../tools/bash.js";
+import { VerbosityLevel } from "../../constants.js";
 
 import { filterCommandSuggestions } from "../components/command-suggestions.js";
 import { getSettingsManager } from "../../utils/settings-manager.js";
@@ -104,7 +105,8 @@ export function useInputHandler({
     // Default to true (auto-apply enabled by default)
     return sessionFlags.allOperations !== undefined ? sessionFlags.allOperations : true;
   });
-  const [verboseMode, setVerboseMode] = useState(false);
+  const [verboseMode, setVerboseMode] = useState(false);  // DEPRECATED: Legacy boolean mode
+  const [verbosityLevel, setVerbosityLevel] = useState<VerbosityLevel>(VerbosityLevel.QUIET);
   const [backgroundMode, setBackgroundMode] = useState(false);
 
   const handleSpecialKey = (key: Key): boolean => {
@@ -226,11 +228,17 @@ export function useInputHandler({
   }, []);
 
   const handleVerboseToggle = useCallback(() => {
-    setVerboseMode((prev) => {
-      const newState = !prev;
-      // Notify parent for toast/flash feedback instead of polluting chat history
-      onVerboseModeChange?.(newState);
-      return newState;
+    // Cycle through verbosity levels: QUIET -> CONCISE -> VERBOSE -> QUIET
+    setVerbosityLevel((prev) => {
+      const nextLevel = (prev + 1) % 3;  // Cycle through 0, 1, 2
+
+      // Update legacy verboseMode for backward compatibility
+      setVerboseMode(nextLevel === VerbosityLevel.VERBOSE);
+
+      // Notify parent for toast/flash feedback
+      onVerboseModeChange?.(nextLevel === VerbosityLevel.VERBOSE);
+
+      return nextLevel as VerbosityLevel;
     });
   }, [onVerboseModeChange]);
 
@@ -1722,7 +1730,8 @@ Respond with ONLY the commit message, no additional text.`;
     availableModels,
     agent,
     autoEditEnabled,
-    verboseMode,
+    verboseMode,  // DEPRECATED: Use verbosityLevel instead
+    verbosityLevel,
     backgroundMode,
     pastedBlocks,
     currentBlockAtCursor,

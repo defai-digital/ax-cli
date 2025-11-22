@@ -71,6 +71,12 @@ ax-cli
 - **🏥 Health Check**: Comprehensive diagnostics with `ax-cli doctor`
   - Verify configuration, API connectivity, and dependencies
   - Detailed error messages with actionable suggestions
+- **🎨 Smart Verbosity Control**: Multi-level output for optimal UX
+  - **Quiet mode** (default): Groups tool operations → 85% less noise
+  - **Concise mode**: One line per tool execution
+  - **Verbose mode**: Full details for debugging
+  - Press `Ctrl+O` to cycle between levels
+  - Auto-expands errors with full details
 - **💬 Dual-Model Mode**: Use different models for chat vs coding
   - Configure chat and coding models separately
   - Manual model switching with `--chat-mode` flag
@@ -244,7 +250,7 @@ AX CLI supports powerful keyboard shortcuts for enhanced productivity:
 
 | Shortcut | Action | Description |
 |----------|--------|-------------|
-| **Ctrl+O** | Toggle verbose mode | Default: concise single-line output. Verbose: full details, diffs, file contents |
+| **Ctrl+O** | Cycle verbosity | Quiet (grouped) → Concise (per-tool) → Verbose (full details) → Quiet |
 | **Ctrl+B** | Background mode | Move running command to background, or toggle "always background" mode |
 | **Ctrl+K** | Quick actions | Open quick actions menu |
 | **Shift+Tab** | Auto-edit mode | Toggle automatic approval for all operations |
@@ -252,6 +258,11 @@ AX CLI supports powerful keyboard shortcuts for enhanced productivity:
 | **↑/↓** | History | Navigate command history |
 | **Ctrl+A/E** | Cursor | Move to line start/end |
 | **Ctrl+W** | Delete word | Delete word before cursor |
+
+**Verbosity Levels** (Ctrl+O to cycle):
+- **Quiet** (default): Groups operations → `⏺ Working on app.ts (3 edits, 5 reads) ✓ 2.3s`
+- **Concise**: One line per tool → `⏺ Read (app.ts) ✓ 22 lines`
+- **Verbose**: Full details → Shows args, outputs, diffs, timings
 
 ### 🔄 Background Tasks
 
