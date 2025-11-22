@@ -227,13 +227,18 @@ async function checkUrlAccessible(url: string): Promise<boolean> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000); // 3 second timeout
 
-    const response = await fetch(url, {
-      method: 'HEAD',
-      signal: controller.signal
-    });
+    try {
+      const response = await fetch(url, {
+        method: 'HEAD',
+        signal: controller.signal
+      });
 
-    clearTimeout(timeout);
-    return response.ok || response.status === 404; // 404 is ok, means server exists
+      clearTimeout(timeout);
+      return response.ok || response.status === 404; // 404 is ok, means server exists
+    } finally {
+      // Always clear timeout to prevent memory leak, even if fetch throws
+      clearTimeout(timeout);
+    }
   } catch {
     return false;
   }

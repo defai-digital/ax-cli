@@ -740,6 +740,33 @@ AX CLI implements enterprise-grade architecture with:
 - [Development](docs/development.md) - Development and contribution guide
 - [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
 
+## 📋 Changelog
+
+### v3.5.2 (2025-11-22)
+
+**Bug Fixes - Resource Leak Prevention:**
+- Fixed uncleaned nested timeout in bash tool that held process references after exit
+- Fixed uncleaned timeout in MCP URL validation causing 3-second memory leaks
+- Added `.unref()` to background cleanup timers to prevent GC blocking
+- Added try-finally blocks for guaranteed timeout cleanup in error scenarios
+
+**Bug Fixes - Platform Compatibility:**
+- Fixed Windows home directory bug in command history (used `os.homedir()` instead of `"~"` fallback)
+
+**Code Quality:**
+- Comprehensive resource leak analysis across 78+ potential issues
+- Improved timeout cleanup patterns following Node.js best practices
+- Enhanced memory management for better garbage collection
+
+### v3.5.0
+
+**Features:**
+- Multi-phase task planner with automatic complexity detection
+- Enhanced MCP integration with production-ready templates
+- Project memory system with intelligent context caching
+- Web search capabilities with Tavily AI and Brave Search
+- Advanced code analysis tools (dependency, security, metrics)
+
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) for details

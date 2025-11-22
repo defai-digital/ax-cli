@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-cli",
-  "version": "3.5.0",
+  "version": "3.5.2",
   "description": "Enterprise-Class AI Command Line Interface - Primary support for GLM (General Language Model) with multi-provider AI orchestration powered by AutomatosX.",
   "type": "module",
   "workspaces": [
@@ -26,13 +26,13 @@
   },
   "files": [
     "dist",
-    "config",
+    "config-defaults",
     "packages/schemas/dist",
     "packages/schemas/package.json",
     ".ax-cli",
     "LICENSE",
     "README.md",
-    "automatosx.config.json",
+    "ax.config.json",
     "eslint.config.js",
     "vitest.config.ts"
   ],

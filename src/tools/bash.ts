@@ -289,11 +289,12 @@ export class BashTool extends EventEmitter {
       const timeoutId = setTimeout(() => {
         if (!movedToBackground) {
           childProcess.kill('SIGTERM');
+          // Use unref() so timeout doesn't prevent GC after process exits
           setTimeout(() => {
             if (childProcess.exitCode === null) {
               childProcess.kill('SIGKILL');
             }
-          }, 1000);
+          }, 1000).unref();
         }
       }, timeout);
 
