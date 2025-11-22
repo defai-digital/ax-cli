@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    testTimeout: 30000, // 30s timeout for analyzer tests (AST parsing is slow in CI)
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
