@@ -20,6 +20,7 @@ import { getVersion } from "../../utils/version.js";
 import { getHistoryManager } from "../../utils/history-manager.js";
 import { getMcpConnectionCount } from "../../llm/tools.js";
 import { BackgroundTaskManager } from "../../utils/background-task-manager.js";
+import { isAutomatosXAvailable } from "../../utils/automatosx-detector.js";
 import clipboardy from "clipboardy";
 import path from "path";
 
@@ -64,6 +65,7 @@ function ChatInterfaceWithAgent({
   const [flashAutoEdit, setFlashAutoEdit] = useState(false);
   const [flashVerbose, setFlashVerbose] = useState(false);
   const [flashBackground, setFlashBackground] = useState(false);
+  const [axEnabled, setAxEnabled] = useState(false);
   const scrollRef = useRef<any>();
   const processingStartTime = useRef<number>(0);
   const lastPercentageRef = useRef<number>(0); // Store last percentage value
@@ -78,6 +80,15 @@ function ChatInterfaceWithAgent({
   const confirmationService = ConfirmationService.getInstance();
   const projectName = getCurrentProjectName();
   const version = getVersion();
+
+  // Check AutomatosX availability on mount
+  useEffect(() => {
+    const checkAx = async () => {
+      const available = await isAutomatosXAvailable();
+      setAxEnabled(available);
+    };
+    checkAx();
+  }, []);
 
   // Memory metadata removed (not used in original status bar)
 
@@ -654,6 +665,7 @@ function ChatInterfaceWithAgent({
             flashAutoEdit={flashAutoEdit}
             flashVerbose={flashVerbose}
             flashBackground={flashBackground}
+            axEnabled={axEnabled}
           />
 
           <CommandSuggestions

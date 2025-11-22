@@ -48,6 +48,12 @@ mcp:
   client_version: 1.0.0
   default_timeout: 30000  # 30 seconds
 
+  # MCP Tool Output Token Limiting (Phase 4)
+  # Prevents MCP tool outputs from overwhelming conversation context
+  token_warning_threshold: 10000  # Warn at 10k tokens
+  token_hard_limit: 25000  # Truncate at 25k tokens
+  truncation_enabled: true  # Enable automatic truncation
+
 ui:
   status_update_interval: 2000  # 2 seconds
   processing_timer_interval: 1000  # 1 second

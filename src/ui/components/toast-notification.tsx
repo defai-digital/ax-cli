@@ -200,8 +200,8 @@ export const TOAST_MESSAGES = {
   verboseOff: { message: "Verbose mode OFF - concise output", type: "info" as const, icon: "📄" },
   backgroundOn: { message: "Background mode ON - commands run in background", type: "success" as const, icon: "🔄" },
   backgroundOff: { message: "Background mode OFF - foreground execution", type: "info" as const, icon: "▶️" },
-  autoEditOn: { message: "Auto-edit ON - confirmations bypassed", type: "warning" as const, icon: "⚡" },
-  autoEditOff: { message: "Auto-edit OFF - confirmations enabled", type: "info" as const, icon: "🛡️" },
+  autoEditOn: { message: "Auto-apply ON - changes applied automatically", type: "warning" as const, icon: "⚡" },
+  autoEditOff: { message: "Auto-apply OFF - requires confirmation", type: "info" as const, icon: "🛡️" },
 
   // Background task operations
   taskMoved: (taskId: string) => ({

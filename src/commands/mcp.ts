@@ -7,6 +7,16 @@ import { MCPServerIdSchema } from '@ax-cli/schemas';
 import chalk from 'chalk';
 import { ConsoleMessenger } from '../utils/console-messenger.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
+import { validateServerConfig, formatValidationResult } from '../mcp/validation.js';
+import { listAllResources, listServerResources, searchResources } from '../mcp/resources.js';
+import {
+  searchRegistry,
+  getRegistryServer,
+  getPopularServers,
+  generateConfigFromRegistry,
+  formatRegistryServer,
+  type RegistrySearchOptions
+} from '../mcp/registry.js';
 
 export function createMCPCommand(): Command {
   const mcpCommand = new Command('mcp');
@@ -747,6 +757,278 @@ export function createMCPCommand(): Command {
           console.log(chalk.gray('💡 Tip: Use --watch to continuously monitor server health'));
           console.log();
         }
+
+      } catch (error: unknown) {
+        console.error(chalk.red(`\n❌ Error: ${extractErrorMessage(error)}\n`));
+        process.exit(1);
+      }
+    });
+
+  // Validate server configuration (Phase 4)
+  mcpCommand
+    .command('validate <name>')
+    .description('Validate MCP server configuration with pre-flight checks')
+    .action(async (name: string) => {
+      try {
+        // Load configuration
+        const config = loadMCPConfig();
+        const serverConfig = config.servers.find(s => s.name === name);
+
+        if (!serverConfig) {
+          console.error(chalk.red(`\n❌ Server "${name}" not found in configuration\n`));
+          console.log(chalk.gray('Available servers:'));
+          const availableServers = config.servers.map(s => s.name);
+          if (availableServers.length === 0) {
+            console.log(chalk.gray('  (none configured)'));
+          } else {
+            availableServers.forEach(s => console.log(chalk.gray(`  • ${s}`)));
+          }
+          console.log();
+          process.exit(1);
+        }
+
+        console.log(chalk.blue.bold(`\n🔍 Validating "${name}" MCP server configuration...\n`));
+
+        // Run validation
+        const result = await validateServerConfig(serverConfig);
+
+        // Display results
+        console.log(formatValidationResult(result));
+        console.log();
+
+        if (!result.valid) {
+          console.log(chalk.yellow('💡 Fix the errors above and try again'));
+          console.log();
+          process.exit(1);
+        } else if (result.warnings.length > 0) {
+          console.log(chalk.blue('💡 Configuration is valid but has warnings. Review them before connecting.'));
+          console.log();
+        } else {
+          console.log(chalk.green('🚀 Ready to connect! Use: ax-cli mcp add ' + name + ' --template'));
+          console.log();
+        }
+
+      } catch (error: unknown) {
+        console.error(chalk.red(`\n❌ Error: ${extractErrorMessage(error)}\n`));
+        process.exit(1);
+      }
+    });
+
+  // List MCP resources (Phase 4)
+  mcpCommand
+    .command('resources [server-name]')
+    .description('List resources exposed by MCP servers')
+    .option('--search <query>', 'Search resources by name or URI')
+    .option('--json', 'Output in JSON format')
+    .action(async (serverName: string | undefined, options) => {
+      try {
+        const manager = getMCPManager();
+
+        // Get resources
+        const resources = serverName
+          ? await listServerResources(manager, serverName)
+          : await listAllResources(manager);
+
+        // Filter by search query if provided
+        const filteredResources = options.search
+          ? searchResources(resources, options.search)
+          : resources;
+
+        if (options.json) {
+          console.log(JSON.stringify(filteredResources, null, 2));
+          return;
+        }
+
+        // Display resources
+        if (filteredResources.length === 0) {
+          if (serverName) {
+            console.log(chalk.yellow(`\n⚠️  No resources found for server "${serverName}"\n`));
+          } else {
+            console.log(chalk.yellow('\n⚠️  No resources found from any connected server\n'));
+          }
+          console.log(chalk.gray('Note: Not all MCP servers expose resources.'));
+          console.log();
+          return;
+        }
+
+        console.log(chalk.blue.bold('\n📦 MCP Resources\n'));
+
+        // Group by server
+        const byServer = new Map<string, typeof filteredResources>();
+        for (const resource of filteredResources) {
+          if (!byServer.has(resource.serverName)) {
+            byServer.set(resource.serverName, []);
+          }
+          byServer.get(resource.serverName)!.push(resource);
+        }
+
+        for (const [server, serverResources] of byServer.entries()) {
+          console.log(chalk.bold(`${server} (${serverResources.length} resources)`));
+
+          for (const resource of serverResources) {
+            console.log(chalk.green(`  ${resource.reference}`));
+            if (resource.description) {
+              console.log(chalk.gray(`    ${resource.description}`));
+            }
+            if (resource.mimeType) {
+              console.log(chalk.gray(`    Type: ${resource.mimeType}`));
+            }
+          }
+          console.log();
+        }
+
+        console.log(chalk.gray('💡 Use resources in chat with: "Query the @mcp:server/uri"'));
+        console.log();
+
+      } catch (error: unknown) {
+        console.error(chalk.red(`\n❌ Error: ${extractErrorMessage(error)}\n`));
+        process.exit(1);
+      }
+    });
+
+  // Browse MCP Server Registry (Phase 5)
+  mcpCommand
+    .command('registry')
+    .description('Browse MCP server registry')
+    .option('--search <query>', 'Search for servers')
+    .option('--category <category>', 'Filter by category')
+    .option('--transport <type>', 'Filter by transport type (stdio, http, sse)')
+    .option('--json', 'Output in JSON format')
+    .action(async (options) => {
+      try {
+        console.log(chalk.blue.bold('\n📦 MCP Server Registry\n'));
+
+        const searchOptions: RegistrySearchOptions = {
+          query: options.search,
+          category: options.category,
+          transport: options.transport,
+          sortBy: 'stars',
+          limit: 20
+        };
+
+        const servers = options.search || options.category || options.transport
+          ? await searchRegistry(searchOptions)
+          : await getPopularServers();
+
+        if (options.json) {
+          console.log(JSON.stringify(servers, null, 2));
+          return;
+        }
+
+        if (servers.length === 0) {
+          console.log(chalk.yellow('⚠️  No servers found matching your criteria\n'));
+          console.log(chalk.gray('Try different search terms or browse all servers'));
+          console.log();
+          return;
+        }
+
+        console.log(chalk.gray(`Found ${servers.length} server(s)\n`));
+
+        for (const server of servers) {
+          const badge = server.verified ? chalk.green('✓ verified') : chalk.gray('community');
+          console.log(`${chalk.bold(server.displayName)} [${badge}] ⭐ ${server.stars}`);
+          console.log(chalk.gray(`  ${server.description}`));
+          console.log(chalk.gray(`  Category: ${server.category} | Transport: ${server.transport}`));
+          if (server.packageName) {
+            console.log(chalk.blue(`  Install: ax-cli mcp install ${server.name}`));
+          } else {
+            console.log(chalk.gray(`  Repository: ${server.repository}`));
+          }
+          console.log();
+        }
+
+        console.log(chalk.gray('💡 Use --search to find specific servers'));
+        console.log(chalk.gray('💡 Use --category to filter by type (design, database, api, etc.)'));
+        console.log();
+
+      } catch (error: unknown) {
+        console.error(chalk.red(`\n❌ Error: ${extractErrorMessage(error)}\n`));
+        process.exit(1);
+      }
+    });
+
+  // Install MCP server from registry (Phase 5)
+  mcpCommand
+    .command('install <name>')
+    .description('Install MCP server from registry')
+    .option('--no-validate', 'Skip validation before installation')
+    .option('--no-connect', 'Add configuration but don\'t connect immediately')
+    .action(async (name: string, options) => {
+      try {
+        console.log(chalk.blue(`\n📦 Installing "${name}" from registry...\n`));
+
+        // Search registry
+        const server = await getRegistryServer(name);
+
+        if (!server) {
+          console.error(chalk.red(`❌ Server "${name}" not found in registry\n`));
+          console.log(chalk.gray('Available options:'));
+          console.log(chalk.gray('  • Search registry: ax-cli mcp registry --search <query>'));
+          console.log(chalk.gray('  • Browse all: ax-cli mcp registry'));
+          console.log();
+          process.exit(1);
+        }
+
+        // Display server info
+        console.log(formatRegistryServer(server, false));
+        console.log();
+
+        // Generate configuration
+        const config = generateConfigFromRegistry(server);
+
+        // Validate if requested
+        if (options.validate !== false) {
+          console.log(chalk.blue('🔍 Validating configuration...\n'));
+          const validation = await validateServerConfig(config);
+
+          if (!validation.valid) {
+            console.log(formatValidationResult(validation));
+            console.log();
+            console.error(chalk.red('❌ Validation failed. Fix errors and try again.\n'));
+            process.exit(1);
+          }
+
+          if (validation.warnings.length > 0) {
+            console.log(chalk.yellow('⚠️  Warnings:\n'));
+            validation.warnings.forEach(w => console.log(chalk.yellow(`  • ${w}`)));
+            console.log();
+          }
+        }
+
+        // Add server to configuration
+        await addMCPServer(config);
+        console.log(chalk.green(`✅ Server "${server.name}" added to configuration\n`));
+
+        // Connect if requested
+        if (options.connect !== false) {
+          console.log(chalk.blue('🔌 Connecting to server...\n'));
+
+          try {
+            const manager = getMCPManager();
+            await manager.addServer(config);
+
+            const tools = manager.getTools().filter(t => t.serverName === server.name);
+            console.log(chalk.green(`✅ Connected successfully! ${tools.length} tool(s) available\n`));
+
+            // Show available tools
+            if (tools.length > 0) {
+              console.log(chalk.gray('Available tools:'));
+              tools.slice(0, 5).forEach(tool => {
+                console.log(chalk.gray(`  • ${tool.name.replace(`mcp__${server.name}__`, '')}`));
+              });
+              if (tools.length > 5) {
+                console.log(chalk.gray(`  ... and ${tools.length - 5} more`));
+              }
+              console.log();
+            }
+          } catch (error) {
+            console.error(chalk.yellow(`⚠️  Server added but connection failed: ${extractErrorMessage(error)}\n`));
+            console.log(chalk.gray('You can try connecting manually with: ax-cli mcp add ' + server.name + ' --template'));
+            console.log();
+          }
+        }
+
+        console.log(chalk.green('🎉 Installation complete!\n'));
 
       } catch (error: unknown) {
         console.error(chalk.red(`\n❌ Error: ${extractErrorMessage(error)}\n`));

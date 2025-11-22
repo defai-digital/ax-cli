@@ -13,6 +13,9 @@ import {
   SearchTool,
 } from "../tools/index.js";
 import { BashOutputTool } from "../tools/bash-output.js";
+import { WebSearchTool } from "../tools/web-search/index.js";
+import { ArchitectureTool } from "../tools/analysis-tools/architecture-tool.js";
+import { ValidationTool } from "../tools/analysis-tools/validation-tool.js";
 import { ToolResult } from "../types/index.js";
 import { EventEmitter } from "events";
 import { AGENT_CONFIG } from "../constants.js";
@@ -35,6 +38,7 @@ import {
   isComplexRequest,
 } from "../planner/index.js";
 import { PLANNER_CONFIG } from "../constants.js";
+import { resolveMCPReferences, extractMCPReferences } from "../mcp/resources.js";
 
 export interface ChatEntry {
   type: "user" | "assistant" | "tool_result" | "tool_call";
@@ -76,6 +80,9 @@ export class LLMAgent extends EventEmitter {
   private bashOutput: BashOutputTool;
   private todoTool: TodoTool;
   private search: SearchTool;
+  private webSearch: WebSearchTool;
+  private architectureTool: ArchitectureTool;
+  private validationTool: ValidationTool;
   private chatHistory: ChatEntry[] = [];
   private messages: LLMMessage[] = [];
   private tokenCounter: TokenCounter;
@@ -117,6 +124,9 @@ export class LLMAgent extends EventEmitter {
     this.bashOutput = new BashOutputTool();
     this.todoTool = new TodoTool();
     this.search = new SearchTool();
+    this.webSearch = new WebSearchTool();
+    this.architectureTool = new ArchitectureTool();
+    this.validationTool = new ValidationTool();
     this.tokenCounter = createTokenCounter(modelToUse);
     this.contextManager = new ContextManager({ model: modelToUse });
     this.checkpointManager = getCheckpointManager();
@@ -988,14 +998,27 @@ export class LLMAgent extends EventEmitter {
     // Reset tool call tracking for new message
     this.resetToolCallTracking();
 
+    // Resolve MCP resource references (Phase 4)
+    let resolvedMessage = message;
+    const mcpReferences = extractMCPReferences(message);
+    if (mcpReferences.length > 0) {
+      try {
+        const mcpManager = getMCPManager();
+        resolvedMessage = await resolveMCPReferences(message, mcpManager);
+      } catch (error) {
+        // If resolution fails, continue with original message
+        console.warn('Failed to resolve MCP references:', error);
+      }
+    }
+
     // Add user message to conversation
     const userEntry: ChatEntry = {
       type: "user",
-      content: message,
+      content: resolvedMessage,
       timestamp: new Date(),
     };
     this.chatHistory.push(userEntry);
-    this.messages.push({ role: "user", content: message });
+    this.messages.push({ role: "user", content: resolvedMessage });
 
     const newEntries: ChatEntry[] = [userEntry];
     const maxToolRounds = this.maxToolRounds; // Prevent infinite loops
@@ -1807,6 +1830,33 @@ export class LLMAgent extends EventEmitter {
             fileTypes: Array.isArray(args.file_types) ? args.file_types : undefined,
             includeHidden: getBoolean('include_hidden'),
           });
+
+        case "web_search": {
+          const freshnessValue = args.freshness;
+          const validFreshness = (freshnessValue === 'day' || freshnessValue === 'week' || freshnessValue === 'month' || freshnessValue === 'year') ? freshnessValue : undefined;
+          const searchDepthValue = args.searchDepth;
+          const validSearchDepth = (searchDepthValue === 'basic' || searchDepthValue === 'advanced') ? searchDepthValue : 'basic';
+
+          return await this.webSearch.search(getString('query'), {
+            maxResults: getNumber('maxResults'),
+            includeAnswer: getBoolean('includeAnswer'),
+            searchDepth: validSearchDepth,
+            freshness: validFreshness,
+          });
+        }
+
+        case "analyze_architecture": {
+          const projectPath = typeof args.projectPath === 'string' ? args.projectPath : undefined;
+          const depth = typeof args.depth === 'string' ? args.depth : undefined;
+          return await this.architectureTool.execute({ projectPath, depth });
+        }
+
+        case "validate_best_practices": {
+          const path = typeof args.path === 'string' ? args.path : undefined;
+          const pattern = typeof args.pattern === 'string' ? args.pattern : undefined;
+          const rules = typeof args.rules === 'object' && args.rules !== null ? args.rules as Record<string, { enabled: boolean }> : undefined;
+          return await this.validationTool.execute({ path, pattern, rules });
+        }
 
         default:
           // Check if this is an MCP tool

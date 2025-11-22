@@ -118,6 +118,9 @@ export interface SettingsYaml {
     client_name: string;
     client_version: string;
     default_timeout: number;
+    token_warning_threshold: number;
+    token_hard_limit: number;
+    truncation_enabled: boolean;
   };
   ui: {
     status_update_interval: number;

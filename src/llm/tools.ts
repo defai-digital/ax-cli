@@ -274,6 +274,105 @@ const BASE_GROK_TOOLS: LLMTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "analyze_architecture",
+      description:
+        "Analyze project architecture to detect design patterns (MVC, Clean Architecture, Repository), anti-patterns (God Objects), and generate improvement recommendations with confidence scores.",
+      parameters: {
+        type: "object",
+        properties: {
+          projectPath: {
+            type: "string",
+            description:
+              "Path to project root directory (default: current directory)",
+          },
+          depth: {
+            type: "string",
+            enum: ["quick", "deep"],
+            default: "quick",
+            description:
+              'Analysis depth: "quick" for pattern detection only, "deep" includes anti-pattern detection',
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "validate_best_practices",
+      description:
+        "Validate TypeScript/JavaScript files against best practices and coding standards. Checks for type safety issues (any types, implicit any), code quality (unused variables, error handling), maintainability (complexity, file length), and adherence to naming conventions.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: {
+            type: "string",
+            description:
+              "Path to directory or file to validate (default: current directory)",
+          },
+          pattern: {
+            type: "string",
+            description:
+              "Glob pattern for files to validate (default: **/*.{ts,tsx})",
+          },
+          rules: {
+            type: "object",
+            description:
+              "Rule configuration object to enable/disable specific rules (e.g., {\"no-any-type\": {\"enabled\": false}})",
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description:
+        "Search the internet for current information, documentation, code examples, news, or answers to questions. Returns web search results with titles, URLs, and snippets. Use this when you need real-time information, recent events, documentation, or knowledge beyond your training data.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description:
+              "The search query. Be specific and include relevant keywords. Examples: 'TypeScript 5.0 new features', 'React hooks error handling best practices', 'latest npm vulnerability news'",
+          },
+          maxResults: {
+            type: "number",
+            description:
+              "Maximum number of results to return (default: 5, max: 10)",
+            default: 5,
+          },
+          includeAnswer: {
+            type: "boolean",
+            description:
+              "Whether to include an AI-generated answer summary from search results (default: true)",
+            default: true,
+          },
+          searchDepth: {
+            type: "string",
+            enum: ["basic", "advanced"],
+            description:
+              "Search depth: 'basic' for faster results, 'advanced' for more comprehensive search (default: 'basic')",
+            default: "basic",
+          },
+          freshness: {
+            type: "string",
+            enum: ["day", "week", "month", "year"],
+            description:
+              "Filter results by recency: 'day' (past 24h), 'week', 'month', or 'year'. Omit for all results.",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
 ];
 
 // Function to build tools array

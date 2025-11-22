@@ -11,6 +11,15 @@ Complete guide to extending AX CLI with Model Context Protocol servers for advan
 3. [Available Transports](#available-transports)
 4. [Adding MCP Servers](#adding-mcp-servers)
 5. [Managing MCP Servers](#managing-mcp-servers)
+   - [Listing Servers](#listing-servers)
+   - [Discovering Tools](#discovering-tools)
+   - [Testing Server Connection](#testing-server-connection)
+   - [Health Monitoring](#health-monitoring)
+   - [Validating Configuration (Phase 4)](#validating-configuration-phase-4)
+   - [Resource References (Phase 4)](#resource-references-phase-4)
+   - [Token Output Limiting (Phase 4)](#token-output-limiting-phase-4)
+   - [MCP Server Registry (Phase 5)](#mcp-server-registry-phase-5)
+   - [Automatic Reconnection (Phase 5)](#automatic-reconnection-phase-5)
 6. [Configuration](#configuration)
 7. [Popular MCP Servers](#popular-mcp-servers)
 8. [Integration Examples](#integration-examples)
@@ -455,6 +464,223 @@ ax-cli mcp health --json
 - Debug connectivity issues
 - Track reliability metrics
 - Set up automated health checks in CI/CD
+
+### Validating Configuration (Phase 4)
+
+Validate MCP server configurations before connecting to catch errors early:
+
+```bash
+# Validate server configuration
+ax-cli mcp validate server-name
+
+# Output:
+# 🔍 Validating "figma" MCP server configuration...
+#
+# ✅ Configuration is valid
+# 🚀 Ready to connect! Use: ax-cli mcp add figma --template
+```
+
+**Pre-flight Checks**:
+- **Command Availability**: Verifies executables exist in PATH (stdio)
+- **URL Accessibility**: Tests HTTP/SSE endpoints are reachable
+- **Environment Variables**: Checks required env vars are set
+- **Server Name**: Validates naming conventions
+- **Transport Config**: Ensures proper transport configuration
+
+**Example - Failed Validation**:
+```bash
+$ ax-cli mcp validate github
+
+🔍 Validating "github" MCP server configuration...
+
+❌ Validation Failed
+
+  • Command "npx" not found in PATH. Please install it or provide full path.
+  • Missing required environment variable: GITHUB_TOKEN - GitHub API token
+
+💡 Fix the errors above and try again
+```
+
+### Resource References (Phase 4)
+
+MCP servers can expose resources (database tables, API endpoints, files) that you can reference in chat using `@mcp:` syntax:
+
+```bash
+# List all resources from connected servers
+ax-cli mcp resources
+
+# Output:
+# 📦 MCP Resources
+#
+# postgres (3 resources)
+#   @mcp:postgres/database://users
+#     User accounts and profiles
+#     Type: application/json
+#
+#   @mcp:postgres/database://orders
+#     Customer orders
+#     Type: application/json
+#
+# rest-api (5 resources)
+#   @mcp:rest-api/api://get-user
+#     Retrieve user information
+
+# List resources from specific server
+ax-cli mcp resources postgres
+
+# Search resources
+ax-cli mcp resources --search users
+
+# JSON output
+ax-cli mcp resources --json
+```
+
+**Using Resources in Chat**:
+```bash
+# Reference resources directly in prompts
+$ ax-cli
+
+> Query the @mcp:postgres/users table for active users
+
+# The AI will automatically:
+# 1. Fetch the resource content
+# 2. Include it in the context
+# 3. Process your request with that data
+```
+
+**Resource Reference Format**: `@mcp:<server-name>/<resource-uri>`
+
+**Benefits**:
+- **Direct Data Access**: Reference database tables, API endpoints, etc.
+- **Automatic Resolution**: Resources are fetched and included in context
+- **Type Safety**: MCP protocol ensures proper data formatting
+- **Discovery**: Easily browse available resources
+
+### Token Output Limiting (Phase 4)
+
+MCP tool outputs are automatically limited to prevent context overflow:
+
+**Limits** (configurable in `config/settings.yaml`):
+- **Warning Threshold**: 10,000 tokens
+- **Hard Limit**: 25,000 tokens
+- **Truncation**: Enabled by default
+
+**How it Works**:
+```yaml
+# config/settings.yaml
+mcp:
+  token_warning_threshold: 10000  # Warn at 10k tokens
+  token_hard_limit: 25000         # Truncate at 25k tokens
+  truncation_enabled: true        # Enable automatic truncation
+```
+
+**When Limit is Exceeded**:
+```
+⚠️  Output truncated: 30,250 tokens exceeded limit of 25,000 tokens
+
+[First 25,000 tokens of output shown]
+```
+
+**Use Cases**:
+- Prevents large API responses from overwhelming context
+- Protects against database queries returning massive results
+- Ensures consistent performance across MCP tools
+
+### MCP Server Registry (Phase 5)
+
+Discover and install MCP servers from the GitHub MCP Registry with one command:
+
+```bash
+# Browse popular servers
+ax-cli mcp registry
+
+# Search for specific servers
+ax-cli mcp registry --search database
+
+# Filter by category
+ax-cli mcp registry --category design
+
+# Filter by transport type
+ax-cli mcp registry --transport stdio
+
+# JSON output
+ax-cli mcp registry --json
+```
+
+**One-Command Installation**:
+```bash
+# Install from registry
+ax-cli mcp install github
+
+# Install by package name
+ax-cli mcp install @modelcontextprotocol/server-github
+
+# Skip validation
+ax-cli mcp install figma --no-validate
+
+# Add config but don't connect
+ax-cli mcp install linear --no-connect
+```
+
+**Registry Features**:
+- **GitHub Integration**: Searches GitHub for MCP servers automatically
+- **Verified Servers**: Official `@modelcontextprotocol` servers are badged
+- **Star Sorting**: Popular servers appear first
+- **Category Filtering**: design, database, api, deployment, testing, etc.
+- **Transport Filtering**: stdio, http, sse
+- **Auto-Validation**: Validates configuration before installation
+- **Auto-Connection**: Connects immediately after installation
+
+**Example Output**:
+```
+📦 MCP Server Registry
+
+Found 15 server(s)
+
+GitHub [✓ verified] ⭐ 245
+  GitHub integration for MCP
+  Category: version-control | Transport: stdio
+  Install: ax-cli mcp install github
+
+Figma [✓ verified] ⭐ 189
+  Figma design integration
+  Category: design | Transport: stdio
+  Install: ax-cli mcp install figma
+```
+
+### Automatic Reconnection (Phase 5)
+
+MCP servers automatically reconnect with exponential backoff when connections fail:
+
+**How It Works**:
+- Retry sequence: 1s → 2s → 4s → 8s → 16s → 30s (max)
+- Maximum 5 retry attempts by default
+- Jitter added to prevent thundering herd
+- Integrated with health monitoring
+
+**Configuration** (customizable via `ReconnectionStrategy`):
+```typescript
+{
+  maxRetries: 5,          // Maximum retry attempts
+  baseDelayMs: 1000,      // Initial delay (1 second)
+  maxDelayMs: 30000,      // Maximum delay (30 seconds)
+  backoffMultiplier: 2,   // Double each time
+  jitter: true            // Add randomness
+}
+```
+
+**Reconnection Events**:
+- `reconnection-scheduled` - Attempt scheduled
+- `reconnection-attempt` - Attempting to reconnect
+- `reconnection-success` - Successfully reconnected
+- `reconnection-failed` - Attempt failed
+- `max-retries-reached` - All attempts exhausted
+
+**Benefits**:
+- **Production Reliability**: Automatic recovery from transient failures
+- **Smart Backoff**: Prevents overwhelming failed servers
+- **Zero Config**: Works automatically with health monitoring
+- **Transparent**: Reconnects happen in the background
 
 ### Viewing Server Details
 

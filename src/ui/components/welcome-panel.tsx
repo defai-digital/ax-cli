@@ -1,15 +1,87 @@
 /**
  * Welcome Panel Component
  * Shows helpful tips and example prompts when chat is empty
+ * Features animated ASCII robot avatar during startup
  */
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Box, Text } from "ink";
 
 interface ExamplePrompt {
   category: string;
   examples: string[];
 }
+
+// Animated ASCII Robot Avatar Frames
+// 6 frames total (1 second each) - last frame returns to first for smooth loop
+// Positioned to align with second line of welcome text
+const AVATAR_FRAMES = [
+  // Frame 1: Idle/Neutral (0-1s)
+  `
+
+
+  ┌───────┐
+  │ ■   ■ │
+  │   ◡   │
+  └───────┘
+    │ │ │
+    └─┴─┘     `,
+
+  // Frame 2: Waving/Greeting (1-2s)
+  `
+
+
+  ┌───────┐
+  │ ●   ● │  ╲
+  │   ⌣   │
+  └───────┘
+    │ │ │
+    └─┴─┘     `,
+
+  // Frame 3: Happy/Laughing (2-3s)
+  `
+
+
+  ┌───────┐
+  │ ^   ^ │
+  │   ⌣   │
+  └───────┘
+    │ │ │
+    └─┴─┘     `,
+
+  // Frame 4: Thinking/Processing (3-4s)
+  `
+
+
+  ┌───────┐
+  │ ◉   ◉ │ ≈≈
+  │   ~   │
+  └───────┘
+    │ │ │
+    └─┴─┘     `,
+
+  // Frame 5: Excited/Ready (4-5s)
+  `
+
+
+  ┌───────┐
+  │ ★   ★ │
+  │   ◠   │
+  └───────┘
+   ╲│ │ │╱
+    └─┴─┘     `,
+
+  // Frame 6: Back to Idle (5-6s, same as Frame 1)
+  `
+
+
+  ┌───────┐
+  │ ■   ■ │
+  │   ◡   │
+  └───────┘
+    │ │ │
+    └─┴─┘     `,
+];
 
 const EXAMPLE_PROMPTS: ExamplePrompt[] = [
   {
@@ -51,22 +123,43 @@ interface WelcomePanelProps {
 }
 
 export function WelcomePanel({ projectName: _projectName }: WelcomePanelProps) {
+  // Animation state - cycle through frames during first 6 seconds
+  const [currentFrame, setCurrentFrame] = useState(0);
+  const [animationActive, setAnimationActive] = useState(true);
+
+  useEffect(() => {
+    // Animation duration: 6 seconds (6 frames, 1 second each)
+    const animationDuration = 6000;
+    const frameDuration = animationDuration / AVATAR_FRAMES.length; // 1 second per frame
+
+    // Cycle through frames
+    const frameInterval = setInterval(() => {
+      setCurrentFrame((prev) => {
+        const nextFrame = prev + 1;
+        if (nextFrame >= AVATAR_FRAMES.length) {
+          // Animation complete - stop and rest on last frame
+          clearInterval(frameInterval);
+          setAnimationActive(false);
+          return AVATAR_FRAMES.length - 1;
+        }
+        return nextFrame;
+      });
+    }, frameDuration);
+
+    // Cleanup on unmount
+    return () => {
+      clearInterval(frameInterval);
+    };
+  }, []);
+
   return (
     <Box flexDirection="column" marginBottom={2}>
       {/* Logo and Welcome Text in parallel */}
       <Box flexDirection="row" marginBottom={1}>
-        {/* Robot Avatar Logo - positioned lower */}
+        {/* Robot Avatar Logo - Animated! */}
         <Box marginRight={2}>
-          <Text color="cyan">
-{`
-
-
-  ┌───────┐
-  │ ■   ■ │
-  │   ◡   │
-  └───────┘
-    │ │ │
-    └─┴─┘`}
+          <Text color={animationActive ? "cyan" : "green"}>
+            {AVATAR_FRAMES[currentFrame]}
           </Text>
         </Box>
 
@@ -108,7 +201,7 @@ __      _____| | ___ ___  _ __ ___   ___  | |_ ___
             <Box>
               <Text color="green" bold>⇧⇥</Text>
               <Text color="gray"> Shift+Tab  </Text>
-              <Text>auto-edit</Text>
+              <Text>auto-apply</Text>
             </Box>
             <Box>
               <Text color="yellow" bold>^O</Text>

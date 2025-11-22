@@ -7,6 +7,7 @@
 
 import { EventEmitter } from 'events';
 import type { MCPManager } from './client.js';
+import { ReconnectionManager, type ReconnectionStrategy } from './reconnection.js';
 
 /**
  * Health status for an MCP server
@@ -58,6 +59,7 @@ export interface HealthCheckEvents {
 export class MCPHealthMonitor extends EventEmitter {
   private mcpManager: MCPManager;
   private healthCheckInterval: NodeJS.Timeout | null = null;
+  private reconnectionManager: ReconnectionManager;
   private serverStats: Map<string, {
     connectedAt: number;
     successCount: number;
@@ -68,9 +70,17 @@ export class MCPHealthMonitor extends EventEmitter {
     lastErrorAt?: number;
   }> = new Map();
 
-  constructor(mcpManager: MCPManager) {
+  constructor(mcpManager: MCPManager, reconnectionStrategy?: ReconnectionStrategy) {
     super();
     this.mcpManager = mcpManager;
+    this.reconnectionManager = new ReconnectionManager(reconnectionStrategy);
+
+    // Forward reconnection events
+    this.reconnectionManager.on('reconnection-scheduled', (data) => this.emit('reconnection-scheduled', data));
+    this.reconnectionManager.on('reconnection-attempt', (data) => this.emit('reconnection-attempt', data));
+    this.reconnectionManager.on('reconnection-success', (data) => this.emit('reconnection-success', data));
+    this.reconnectionManager.on('reconnection-failed', (data) => this.emit('reconnection-failed', data));
+    this.reconnectionManager.on('max-retries-reached', (data) => this.emit('max-retries-reached', data));
   }
 
   /**
@@ -123,10 +133,11 @@ export class MCPHealthMonitor extends EventEmitter {
         // Check if server is unhealthy
         if (!health.connected && health.successRate < 50) {
           this.emit('server-disconnected', serverName);
-          await this.attemptReconnection(serverName);
+          // Note: Automatic reconnection disabled - config not available in health monitor
+          // Reconnection should be handled externally via the reconnection manager
         }
       } catch (error) {
-        this.emit('health-check-error', serverName, error as Error);
+        this.emit('health-check-error', { serverName, error: error as Error });
       }
     }
   }
@@ -231,16 +242,31 @@ export class MCPHealthMonitor extends EventEmitter {
 
   /**
    * Attempt to reconnect to a disconnected server
+   *
+   * NOTE: This method is currently not used because the health monitor
+   * doesn't have access to server configs. Reconnection should be handled
+   * externally by listening to 'server-disconnected' events.
    */
-  private async attemptReconnection(serverName: string): Promise<void> {
-    try {
-      // Get server configuration (if available)
-      // Note: This would require extending MCPManager to expose config
-      // For now, we just emit an event
-      this.emit('server-reconnected', serverName);
-    } catch (error) {
-      this.emit('health-check-error', serverName, error as Error);
+  /* private async attemptReconnection(serverName: string, config: any): Promise<void> {
+    // Only schedule if not already reconnecting
+    if (this.reconnectionManager.isReconnecting(serverName)) {
+      return;
     }
+
+    await this.reconnectionManager.scheduleReconnection(
+      serverName,
+      config,
+      async (cfg) => {
+        await this.mcpManager.addServer(cfg);
+      }
+    );
+  } */
+
+  /**
+   * Get reconnection manager
+   */
+  getReconnectionManager(): ReconnectionManager {
+    return this.reconnectionManager;
   }
 
   /**

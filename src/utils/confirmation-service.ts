@@ -28,7 +28,7 @@ export class ConfirmationService extends EventEmitter {
   private sessionFlags = {
     fileOperations: false,
     bashCommands: false,
-    allOperations: false,
+    allOperations: true, // Default to true (auto-apply enabled by default)
   };
 
   static getInstance(): ConfirmationService {

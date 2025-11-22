@@ -83,6 +83,9 @@ export const MCP_CONFIG = {
   CLIENT_NAME: settingsYaml.mcp.client_name,
   CLIENT_VERSION: settingsYaml.mcp.client_version,
   DEFAULT_TIMEOUT: settingsYaml.mcp.default_timeout,
+  TOKEN_WARNING_THRESHOLD: settingsYaml.mcp.token_warning_threshold,
+  TOKEN_HARD_LIMIT: settingsYaml.mcp.token_hard_limit,
+  TRUNCATION_ENABLED: settingsYaml.mcp.truncation_enabled,
 } as const;
 
 // UI Configuration

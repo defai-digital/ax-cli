@@ -28,6 +28,8 @@ interface StatusBarProps {
   flashAutoEdit?: boolean;
   flashVerbose?: boolean;
   flashBackground?: boolean;
+  // AutomatosX integration
+  axEnabled?: boolean;
 }
 
 /**
@@ -112,7 +114,7 @@ function ContextBar({
 
 /**
  * Mode indicator pill component
- * Uses bright colors when enabled for better visibility
+ * Shows clear "Label: On/Off" format for better visibility
  * Supports flash animation on toggle
  */
 function ModePill({
@@ -131,18 +133,12 @@ function ModePill({
   // Flash effect: briefly highlight when toggled
   const displayColor = flash ? "white" : enabled ? enabledColor : "gray";
   const isBold = flash || enabled;
+  const status = enabled ? "On" : "Off";
 
   return (
     <Box marginRight={2}>
-      {enabled ? (
-        <>
-          <Text color={displayColor} bold={isBold}>●</Text>
-          <Text color={displayColor} bold={flash}> {label}</Text>
-        </>
-      ) : (
-        <Text color={displayColor} bold={flash}>○ {label}</Text>
-      )}
-      <Text color="gray" dimColor>
+      <Text color={displayColor} bold={isBold}>{label}: {status}</Text>
+      <Text color="gray">
         {" "}({shortcut})
       </Text>
     </Box>
@@ -180,6 +176,7 @@ function CompactStatusBar(props: StatusBarProps) {
     flashAutoEdit = false,
     flashVerbose = false,
     flashBackground = false,
+    axEnabled = false,
   } = props;
 
   return (
@@ -195,7 +192,7 @@ function CompactStatusBar(props: StatusBarProps) {
         <Box>
           <Text color="magenta" bold>{projectName}</Text>
           <Text color="gray"> • </Text>
-          <Text color="white" bold>ax</Text>
+          <Text color="white" bold>ax-cli</Text>
           <Text color="greenBright" bold> v{version}</Text>
         </Box>
         <Box>
@@ -204,7 +201,7 @@ function CompactStatusBar(props: StatusBarProps) {
         </Box>
       </Box>
 
-      {/* Row 2: Context, Tasks, MCP */}
+      {/* Row 2: Context, Tasks, MCP, AX */}
       <Box paddingX={1} flexDirection="row" justifyContent="space-between">
         <Box>
           <Text color="gray">ctx: </Text>
@@ -216,15 +213,14 @@ function CompactStatusBar(props: StatusBarProps) {
           />
         </Box>
         <Box>
-          {backgroundTaskCount > 0 && (
+          <Text color={backgroundTaskCount > 0 ? "yellow" : "gray"}>bg: {backgroundTaskCount}</Text>
+          <Text color="gray"> • </Text>
+          <Text color={mcpServerCount > 0 ? "blue" : "gray"}>mcp: {mcpServerCount}</Text>
+          {axEnabled && (
             <>
-              <Text color="yellow">📦 {backgroundTaskCount}</Text>
-              <Text color="gray" dimColor> (/tasks)</Text>
-              {mcpServerCount > 0 && <Text color="gray"> • </Text>}
+              <Text color="gray"> • </Text>
+              <Text color="green">⚡ ax</Text>
             </>
-          )}
-          {mcpServerCount > 0 && (
-            <Text color="blue">MCP: {mcpServerCount}</Text>
           )}
         </Box>
       </Box>
@@ -232,21 +228,21 @@ function CompactStatusBar(props: StatusBarProps) {
       {/* Row 3: Mode indicators (compact) */}
       <Box paddingX={1}>
         <ModePill
-          label="auto"
+          label="Auto-apply"
           enabled={autoEditEnabled}
           shortcut="⇧⇥"
           enabledColor="green"
           flash={flashAutoEdit}
         />
         <ModePill
-          label="verb"
+          label="Verbose"
           enabled={verboseMode}
           shortcut="^O"
           enabledColor="yellow"
           flash={flashVerbose}
         />
         <ModePill
-          label="bg"
+          label="Background"
           enabled={backgroundMode}
           shortcut="^B"
           enabledColor="magenta"
@@ -277,6 +273,7 @@ export function StatusBar(props: StatusBarProps) {
     flashAutoEdit = false,
     flashVerbose = false,
     flashBackground = false,
+    axEnabled = false,
   } = props;
 
   // Use compact layout for narrow terminals (< 100 columns)
@@ -301,7 +298,7 @@ export function StatusBar(props: StatusBarProps) {
             {projectName}
           </Text>
           <Text color="gray"> • </Text>
-          <Text color="white" bold>ax</Text>
+          <Text color="white" bold>ax-cli</Text>
           <Text color="greenBright" bold> v{version}</Text>
         </Box>
 
@@ -314,7 +311,7 @@ export function StatusBar(props: StatusBarProps) {
           )}
         </Box>
 
-        {/* Right section: Context (available), MCP, Background Tasks */}
+        {/* Right section: Context (available), MCP, Background Tasks, AX */}
         <Box>
           <Text color="gray">ctx available: </Text>
           <ContextBar
@@ -323,17 +320,14 @@ export function StatusBar(props: StatusBarProps) {
             currentTokens={currentTokens}
             maxTokens={maxTokens}
           />
-          {backgroundTaskCount > 0 && (
+          <Text color="gray"> • </Text>
+          <Text color={backgroundTaskCount > 0 ? "yellow" : "gray"}>background: {backgroundTaskCount}</Text>
+          <Text color="gray"> • </Text>
+          <Text color={mcpServerCount > 0 ? "blue" : "gray"}>mcp: {mcpServerCount}</Text>
+          {axEnabled && (
             <>
               <Text color="gray"> • </Text>
-              <Text color="yellow">📦 {backgroundTaskCount} running</Text>
-              <Text color="gray" dimColor> (/tasks)</Text>
-            </>
-          )}
-          {mcpServerCount > 0 && (
-            <>
-              <Text color="gray"> • </Text>
-              <Text color="blue">MCP: {mcpServerCount}</Text>
+              <Text color="green">⚡ ax</Text>
             </>
           )}
         </Box>
@@ -342,21 +336,21 @@ export function StatusBar(props: StatusBarProps) {
       {/* Mode indicators row - always visible for better UX */}
       <Box marginTop={0} paddingX={1}>
         <ModePill
-          label="auto-edit"
+          label="Auto-apply"
           enabled={autoEditEnabled}
           shortcut="⇧⇥"
           enabledColor="green"
           flash={flashAutoEdit}
         />
         <ModePill
-          label="verbose"
+          label="Verbose"
           enabled={verboseMode}
           shortcut="^O"
           enabledColor="yellow"
           flash={flashVerbose}
         />
         <ModePill
-          label="bg-mode"
+          label="Background"
           enabled={backgroundMode}
           shortcut="^B"
           enabledColor="magenta"

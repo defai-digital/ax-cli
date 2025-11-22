@@ -58,6 +58,9 @@ export const SettingsYamlSchema = z.object({
     client_name: z.string().min(1),
     client_version: z.string().regex(/^\d+\.\d+\.\d+$/, "Must be semver format"),
     default_timeout: z.number().positive().int(),
+    token_warning_threshold: z.number().positive().int(),
+    token_hard_limit: z.number().positive().int(),
+    truncation_enabled: z.boolean(),
   }),
   ui: z.object({
     status_update_interval: z.number().positive().int(),

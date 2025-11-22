@@ -5,6 +5,7 @@ import { createTransport, MCPTransport, TransportType } from "./transports.js";
 import { MCP_CONFIG, ERROR_MESSAGES } from "../constants.js";
 import { MCPServerConfigSchema } from "../schemas/settings-schemas.js";
 import type { MCPServerConfig, MCPTransportConfig } from "../schemas/settings-schemas.js";
+import { TokenCounter } from "../utils/token-counter.js";
 
 // Re-export types for external use
 export type { MCPServerConfig, MCPTransportConfig };
@@ -22,6 +23,7 @@ export class MCPManager extends EventEmitter {
   private tools: Map<string, MCPTool> = new Map();
   private pendingConnections: Map<string, Promise<void>> = new Map();
   private initializationPromise: Promise<void> | null = null;
+  private tokenCounter: TokenCounter = new TokenCounter();
 
   async addServer(config: MCPServerConfig): Promise<void> {
     // Check if already connected
@@ -187,7 +189,66 @@ export class MCPManager extends EventEmitter {
       arguments: safeArgs
     });
 
+    // Apply token limiting (Phase 4)
+    if (MCP_CONFIG.TRUNCATION_ENABLED) {
+      const resultText = JSON.stringify(result.content);
+      const tokenCount = this.tokenCounter.countTokens(resultText);
+
+      if (tokenCount > MCP_CONFIG.TOKEN_HARD_LIMIT) {
+        // Truncate output at hard limit
+        const truncatedText = this.truncateToTokenLimit(resultText, MCP_CONFIG.TOKEN_HARD_LIMIT);
+
+        result.content = [
+          { type: 'text', text: truncatedText },
+          {
+            type: 'text',
+            text: `\n\n⚠️  Output truncated: ${tokenCount.toLocaleString()} tokens exceeded limit of ${MCP_CONFIG.TOKEN_HARD_LIMIT.toLocaleString()} tokens`
+          }
+        ];
+
+        this.emit('token-limit-exceeded', {
+          toolName,
+          serverName: tool.serverName,
+          originalTokens: tokenCount,
+          truncatedTokens: MCP_CONFIG.TOKEN_HARD_LIMIT
+        });
+      } else if (tokenCount > MCP_CONFIG.TOKEN_WARNING_THRESHOLD) {
+        // Emit warning but don't truncate
+        this.emit('token-warning', {
+          toolName,
+          serverName: tool.serverName,
+          tokenCount,
+          threshold: MCP_CONFIG.TOKEN_WARNING_THRESHOLD
+        });
+      }
+    }
+
     return result as CallToolResult;
+  }
+
+  /**
+   * Truncate text to fit within token limit
+   */
+  private truncateToTokenLimit(text: string, maxTokens: number): string {
+    // Binary search to find the right truncation point
+    let low = 0;
+    let high = text.length;
+    let result = text;
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const truncated = text.substring(0, mid);
+      const tokens = this.tokenCounter.countTokens(truncated);
+
+      if (tokens <= maxTokens) {
+        result = truncated;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    return result;
   }
 
   getTools(): MCPTool[] {

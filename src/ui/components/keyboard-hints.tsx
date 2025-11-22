@@ -48,7 +48,7 @@ const SHORTCUTS_BY_MODE: Record<string, Shortcut[]> = {
 };
 
 const EXTENDED_SHORTCUTS: Shortcut[] = [
-  { keys: "Shift+Tab", description: "toggle auto-edit" },
+  { keys: "Shift+Tab", description: "toggle auto-apply" },
   { keys: "Ctrl+O", description: "toggle verbose" },
   { keys: "Ctrl+B", description: "background mode" },
   { keys: "?", description: "all shortcuts" },
@@ -74,7 +74,7 @@ export const ALL_SHORTCUTS: Record<string, Shortcut[]> = {
     { keys: "Delete", description: "Delete character after" },
   ],
   "Modes": [
-    { keys: "Shift+Tab", description: "Toggle auto-edit mode" },
+    { keys: "Shift+Tab", description: "Toggle auto-apply mode" },
     { keys: "Ctrl+O", description: "Toggle verbose mode" },
     { keys: "Ctrl+B", description: "Toggle background mode" },
   ],

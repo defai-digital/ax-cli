@@ -75,6 +75,12 @@ ax-cli
   - Configure chat and coding models separately
   - Manual model switching with `--chat-mode` flag
   - Optimize cost and performance for different task types
+- **🌐 Web Search** (NEW in v3.4.0): Real-time internet search capabilities
+  - Integrated Tavily AI (AI-optimized search) and Brave Search
+  - Intelligent query routing based on intent detection
+  - Results caching for faster responses and reduced API costs
+  - Support for technical docs, code examples, news, and general queries
+  - Configurable search depth and freshness filters
 - **🔄 Auto-Update**: Built-in update checker and installer
 
 ### Max Tokens Configuration
@@ -414,6 +420,110 @@ ax-cli --chat-mode
 - 💰 **Cost savings**: Use faster/cheaper models for simple queries
 - ⚡ **Better performance**: Match model capability to task complexity
 - 🎯 **Manual control**: You decide when to use each model
+
+## 🌐 Web Search (NEW)
+
+Search the internet for real-time information, documentation, code examples, and current events.
+
+### ✨ Works Out of the Box!
+
+**npm package search is enabled by default** (no API key required). For enhanced web search capabilities, optionally configure Tavily AI or Brave Search.
+
+### Quick Setup
+
+**Option 1: Use npm Search Only** (Default - No Setup Required)
+- npm package search works immediately
+- Perfect for JavaScript/TypeScript development
+- No API keys needed
+
+**Option 2: Add Enhanced Web Search** (Optional)
+1. **Get API Keys** (choose one or both):
+   - **Tavily AI** (recommended): https://tavily.com/
+     - Free tier: 1,000 searches/month
+     - Best for: AI-optimized general search, technical queries
+   - **Brave Search**: https://brave.com/search/api/
+     - Free tier: 2,000 searches/month
+     - Best for: News, current events, privacy-focused
+
+2. **Configure API Keys**:
+
+```bash
+# Add to ~/.bashrc, ~/.zshrc, or .env (OPTIONAL)
+export TAVILY_API_KEY="your_tavily_api_key"
+export BRAVE_API_KEY="your_brave_api_key"
+```
+
+### Usage
+
+```bash
+# The AI will automatically use web search when needed
+ax-cli
+
+> "Find a React state management library"  # Uses npm search
+> "Search for axios npm package"           # Uses npm search
+> "What are the latest TypeScript features?" # Uses Tavily/Brave (if configured)
+> "Latest security news"                   # Uses Brave (if configured)
+```
+
+### How It Works
+
+- **Intelligent Routing**: Automatically selects the best search engine based on query type
+  - **Package queries** → npm search (always available, no API key)
+  - **Technical queries** → Tavily (if configured) or npm fallback
+  - **News queries** → Brave (if configured) or npm fallback
+  - **General queries** → Tavily (if configured) or npm fallback
+
+- **Automatic Caching**: Results cached for 5 minutes to reduce API costs
+
+- **LLM Integration**: The AI decides when to search based on:
+  - Real-time information needs
+  - Documentation lookups
+  - Current events
+  - Questions beyond training data
+
+### Features
+
+- **Search Depth**: `basic` (faster) or `advanced` (comprehensive)
+- **Freshness Filters**: `day`, `week`, `month`, or `year`
+- **AI Summaries**: Automatic answer generation from search results
+- **Source Attribution**: All results include URLs and sources
+
+### Manual Usage
+
+While the AI uses web search automatically, you can also request it explicitly:
+
+```bash
+# In interactive mode
+> "search the web for Next.js 14 server actions tutorial"
+
+# Headless mode
+ax-cli -p "search for latest Node.js LTS security updates"
+```
+
+### Costs (Optional - Free Tier Available)
+
+Both services offer generous free tiers:
+
+| Service | Free Tier | Paid Tier |
+|---------|-----------|-----------|
+| Tavily AI | 1,000/month | $120/month (10K searches) |
+| Brave Search | 2,000/month | $3/1,000 queries |
+| **Combined** | **~3,000/month FREE** | **~$150/month (20K total)** |
+
+**Recommendation**: Start with free tiers (sufficient for most users). Only upgrade if you exceed limits.
+
+### Troubleshooting
+
+**"No search engines configured"**
+- Set at least one API key (TAVILY_API_KEY or BRAVE_API_KEY)
+
+**Rate limit errors**
+- Check your usage at provider dashboards
+- Results are cached to minimize API calls
+
+**Slow searches**
+- Use `basic` search depth (default)
+- Results are cached after first search
 
 ## 🔌 MCP (Model Context Protocol)
 

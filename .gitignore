@@ -132,5 +132,8 @@ AutomatosX-Integration.md
 # Test checkpoint artifacts
 .test-checkpoints-*
 
-# Local checkpoints
-.ax-cli/checkpoints/
+# Local ax-cli user data (config, memory, checkpoints)
+# This directory contains user-specific settings and runtime data
+.ax-cli/
+# But allow the settings template to be tracked
+!.ax-cli/settings.json.template

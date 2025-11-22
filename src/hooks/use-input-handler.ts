@@ -101,7 +101,8 @@ export function useInputHandler({
   const [autoEditEnabled, setAutoEditEnabled] = useState(() => {
     const confirmationService = ConfirmationService.getInstance();
     const sessionFlags = confirmationService.getSessionFlags();
-    return sessionFlags.allOperations;
+    // Default to true (auto-apply enabled by default)
+    return sessionFlags.allOperations !== undefined ? sessionFlags.allOperations : true;
   });
   const [verboseMode, setVerboseMode] = useState(false);
   const [backgroundMode, setBackgroundMode] = useState(false);
