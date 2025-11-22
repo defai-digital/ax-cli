@@ -9,6 +9,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import type { MCPServerConfig } from '../schemas/settings-schemas.js';
 import { getTemplate } from './templates.js';
+import { getAuditLogger, AuditSeverity, AuditCategory } from '../utils/audit-logger.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -180,6 +181,17 @@ async function validateStdioTransport(
   // SECURITY: Validate command against whitelist (REQ-SEC-004)
   const whitelistResult = validateCommandWhitelist(command);
   if (!whitelistResult.valid) {
+    // REQ-SEC-008: Audit log command injection attempt
+    const auditLogger = getAuditLogger();
+    auditLogger.logCritical({
+      category: AuditCategory.COMMAND_EXECUTION,
+      action: 'mcp_command_injection_attempt',
+      resource: config.name,
+      outcome: 'failure',
+      error: whitelistResult.error,
+      details: { command, configName: config.name },
+    });
+
     errors.push(whitelistResult.error!);
     return; // Don't continue if command is not allowed
   }

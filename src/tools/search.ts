@@ -3,6 +3,7 @@ import fs from "fs-extra";
 import path from "path";
 import { getRipgrepPool } from "../utils/process-pool.js";
 import { sanitizeSearchQuery, validateRegexPattern } from "../utils/input-sanitizer.js";
+import { getAuditLogger, AuditSeverity, AuditCategory } from "../utils/audit-logger.js";
 
 export interface SearchResult {
   file: string;
@@ -72,6 +73,17 @@ export class SearchTool {
       // REQ-SEC-007: Sanitize search query to prevent ReDoS and injection
       const sanitizedQuery = sanitizeSearchQuery(query);
       if (!sanitizedQuery.valid) {
+        // REQ-SEC-008: Audit log input validation failure
+        const auditLogger = getAuditLogger();
+        auditLogger.logWarning({
+          category: AuditCategory.INPUT_VALIDATION,
+          action: 'search_query_validation_failed',
+          resource: 'search_tool',
+          outcome: 'failure',
+          error: sanitizedQuery.error,
+          details: { queryLength: query.length },
+        });
+
         return {
           success: false,
           error: `Invalid search query: ${sanitizedQuery.error}`,
@@ -82,6 +94,17 @@ export class SearchTool {
       if (options.regex) {
         const regexValidation = validateRegexPattern(sanitizedQuery.value!);
         if (!regexValidation.valid) {
+          // REQ-SEC-008: Audit log ReDoS protection trigger
+          const auditLogger = getAuditLogger();
+          auditLogger.logCritical({
+            category: AuditCategory.INPUT_VALIDATION,
+            action: 'redos_pattern_detected',
+            resource: 'search_tool',
+            outcome: 'failure',
+            error: regexValidation.error,
+            details: { pattern: sanitizedQuery.value },
+          });
+
           return {
             success: false,
             error: `Invalid regex pattern: ${regexValidation.error}`,

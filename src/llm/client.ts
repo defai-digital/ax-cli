@@ -6,6 +6,7 @@ import { extractAndTranslateError } from "../utils/error-translator.js";
 import { GLM_MODELS, type SupportedModel } from "../constants.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
 import { RateLimiter, DEFAULT_RATE_LIMITS } from "../utils/rate-limiter.js";
+import { getAuditLogger, AuditSeverity, AuditCategory } from "../utils/audit-logger.js";
 import type {
   ChatOptions,
   ThinkingConfig,
@@ -310,6 +311,21 @@ export class LLMClient {
       const rateLimitResult = this.rateLimiter.tryAcquire();
       if (!rateLimitResult.allowed) {
         const waitSeconds = Math.ceil(rateLimitResult.resetIn / 1000);
+
+        // REQ-SEC-008: Audit log rate limit exceeded
+        const auditLogger = getAuditLogger();
+        auditLogger.logWarning({
+          category: AuditCategory.RATE_LIMIT,
+          action: 'rate_limit_exceeded',
+          resource: 'llm_api',
+          outcome: 'failure',
+          details: {
+            limit: rateLimitResult.limit,
+            remaining: rateLimitResult.remaining,
+            resetIn: rateLimitResult.resetIn,
+          },
+        });
+
         throw new Error(
           `Rate limit exceeded. ${rateLimitResult.remaining}/${rateLimitResult.limit} requests remaining. ` +
           `Please wait ${waitSeconds} seconds before trying again.`
@@ -347,6 +363,19 @@ export class LLMClient {
 
       const response =
         await this.client.chat.completions.create(requestPayload);
+
+      // REQ-SEC-008: Audit log successful API call
+      const auditLogger = getAuditLogger();
+      auditLogger.logInfo({
+        category: AuditCategory.API_CALL,
+        action: 'llm_api_call',
+        resource: model,
+        outcome: 'success',
+        details: {
+          hasTools: tools && tools.length > 0,
+          messageCount: messages.length,
+        },
+      });
 
       // Validate response structure
       const validationResult = safeValidateGrokResponse(response);
