@@ -21,9 +21,9 @@ const configCache = new Map<string, any>();
  * Get the config directory path
  */
 function getConfigDir(): string {
-  // In development: src/utils -> ../../config
-  // In production: dist/utils -> ../../config
-  return join(__dirname, '../../config');
+  // In development: src/utils -> ../../config-defaults
+  // In production: dist/utils -> ../../config-defaults
+  return join(__dirname, '../../config-defaults');
 }
 
 /**

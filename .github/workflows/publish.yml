@@ -150,7 +150,7 @@ jobs:
             ```
 
             ### Changes
-            See [CHANGELOG.md](https://github.com/defai-digital/ax-cli/blob/main/CHANGELOG.md) for details.
+            See [GitHub Releases](https://github.com/defai-digital/ax-cli/releases) for details.
 
             ### NPM Package
             https://www.npmjs.com/package/@defai.digital/ax-cli/v/${{ steps.package-version.outputs.version }}

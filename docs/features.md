@@ -352,7 +352,7 @@ AX CLI provides multiple ways to extend functionality and customize behavior.
 ## Documentation
 - Update README for new features
 - Add JSDoc comments to exported functions
-- Keep CHANGELOG.md updated
+- Create GitHub releases for version updates
 ```
 
 ### Plugin Architecture

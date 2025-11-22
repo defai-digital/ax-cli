@@ -221,7 +221,7 @@ Add marketplace badge to README.md:
 
 ```bash
 # 1. Fix bugs
-# 2. Update CHANGELOG.md
+# 2. Update vscode-extension/CHANGELOG.md
 # 3. Bump version and publish
 vsce publish patch
 ```
@@ -230,7 +230,7 @@ vsce publish patch
 
 ```bash
 # 1. Implement features
-# 2. Update CHANGELOG.md
+# 2. Update vscode-extension/CHANGELOG.md
 # 3. Bump version and publish
 vsce publish minor
 ```
@@ -239,7 +239,7 @@ vsce publish minor
 
 ```bash
 # 1. Make breaking changes
-# 2. Update CHANGELOG.md with migration guide
+# 2. Update vscode-extension/CHANGELOG.md with migration guide
 # 3. Bump version and publish
 vsce publish major
 ```
@@ -282,7 +282,7 @@ Include:
 - ✅ Known issues
 - ✅ License
 
-### 3. CHANGELOG.md
+### 3. vscode-extension/CHANGELOG.md
 
 Maintain clear version history:
 - ✅ Keep format consistent
@@ -420,7 +420,7 @@ Before first publish:
 - [ ] Extension tested locally
 - [ ] VSIX package created and tested
 - [ ] README.md complete with screenshots
-- [ ] CHANGELOG.md up to date
+- [ ] vscode-extension/CHANGELOG.md up to date
 - [ ] LICENSE file included
 - [ ] Icon (128x128 PNG) included
 - [ ] All tests passing

@@ -8,7 +8,7 @@ import {
   moveToLineStart,
   moveToPreviousWord,
   moveToNextWord,
-} from "../utils/text-utils.js";
+} from "../../utils/text-utils.js";
 import { useInputHistory } from "./use-input-history.js";
 
 export interface Key {
@@ -88,9 +88,14 @@ export function useEnhancedInput({
   }, [isNavigatingHistory, setOriginalInput]);
 
   const setCursorPosition = useCallback((position: number) => {
-    // Use functional update to access current input state without stale closure
+    // Set cursor position with bounds checking based on current input length
+    // Use separate state reads to avoid nested state updates
     setInputState((currentInput) => {
-      setCursorPositionState(Math.max(0, Math.min(currentInput.length, position)));
+      const boundedPosition = Math.max(0, Math.min(currentInput.length, position));
+      // Schedule cursor update after current state update completes
+      queueMicrotask(() => {
+        setCursorPositionState(boundedPosition);
+      });
       return currentInput; // No change to input, just accessing for bounds check
     });
   }, []);

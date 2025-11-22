@@ -155,39 +155,25 @@ export class StreamingAnalyzer<T = unknown> extends EventEmitter {
 
     // Process files in parallel batches
     const queue = [...files];
-    const executing: Promise<void>[] = [];
+    const executing: Set<Promise<void>> = new Set();
 
-    while (queue.length > 0 || executing.length > 0) {
+    while (queue.length > 0 || executing.size > 0) {
       // Start new analyses up to concurrency limit
-      while (queue.length > 0 && executing.length < concurrency) {
+      while (queue.length > 0 && executing.size < concurrency) {
         const file = queue.shift()!;
         const promise = this.analyzeFile(file, analyzer);
-        executing.push(promise);
+
+        // Wrap promise to auto-remove from set when completed
+        const tracked = promise.finally(() => {
+          executing.delete(tracked);
+        });
+
+        executing.add(tracked);
       }
 
       // Wait for at least one to complete
-      if (executing.length > 0) {
+      if (executing.size > 0) {
         await Promise.race(executing);
-
-        // Remove completed promises
-        for (let i = executing.length - 1; i >= 0; i--) {
-          const promise = executing[i];
-          // Check if promise is settled
-          let settled = false;
-          promise.then(
-            () => {
-              settled = true;
-            },
-            () => {
-              settled = true;
-            }
-          );
-          // Allow microtask queue to process
-          await Promise.resolve();
-          if (settled) {
-            executing.splice(i, 1);
-          }
-        }
       }
     }
 

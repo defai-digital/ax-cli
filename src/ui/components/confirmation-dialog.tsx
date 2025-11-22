@@ -31,7 +31,7 @@ export default function ConfirmationDialog({
   useInput((input, key) => {
     // Quick number key selection (1-3)
     if (input >= "1" && input <= "3") {
-      const optionIndex = parseInt(input) - 1;
+      const optionIndex = parseInt(input, 10) - 1;
       if (optionIndex < options.length) {
         if (optionIndex === 0) {
           onConfirm(false);

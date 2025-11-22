@@ -465,8 +465,7 @@ ax-cli/
 ├── vitest.config.ts                  # Test runner configuration
 ├── eslint.config.js                  # Linting configuration
 ├── CLAUDE.md                         # AI development instructions
-├── README.md                         # User documentation
-└── CHANGELOG.md                      # Release notes
+└── README.md                         # User documentation
 ```
 
 ### Key Architectural Patterns

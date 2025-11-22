@@ -104,8 +104,10 @@ export class MCPHealthMonitor extends EventEmitter {
       }
     }
 
-    this.healthCheckInterval = setInterval(async () => {
-      await this.performHealthChecks();
+    this.healthCheckInterval = setInterval(() => {
+      this.performHealthChecks().catch((error) => {
+        console.error('Health check failed:', error);
+      });
     }, intervalMs);
   }
 

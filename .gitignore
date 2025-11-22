@@ -105,7 +105,7 @@ temp/
 
 # AutomatosX
 .automatosx/
-automatosx.config.json
+ax.config.json
 
 # AutomatosX output directories
 # Ignore temporary files but keep PRDs and reports
@@ -121,13 +121,10 @@ automatosx/tmp/
 !automatosx/REPORT/
 !automatosx/REPORT/**/*.md
 
-# Documentation and config files
-AX.md
-AGENTS.md
-CLAUDE.md
-GEMINI.md
-GROK.md
-AutomatosX-Integration.md
+# Backup and temporary files
+*.bak
+*.backup
+test-file-*.ts
 
 # Test checkpoint artifacts
 .test-checkpoints-*

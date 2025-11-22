@@ -154,7 +154,12 @@ export function createSetupCommand(): Command {
           // Same provider with existing API key - ask if they want to reuse it
           if (isSameProvider && hasExistingKey) {
             console.log(chalk.green(`\n✓ Found existing API key for ${selectedProvider.displayName}`));
-            console.log(chalk.dim(`   Key: ${existingConfig!.apiKey.substring(0, 8)}...${existingConfig!.apiKey.substring(existingConfig!.apiKey.length - 4)}\n`));
+            // Display masked API key (handle short keys gracefully)
+            const key = existingConfig!.apiKey;
+            const maskedKey = key.length > 12
+              ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}`
+              : `${key.substring(0, Math.min(4, key.length))}...`;
+            console.log(chalk.dim(`   Key: ${maskedKey}\n`));
 
             const reuseKeyResponse = await enquirer.prompt<{ reuseKey: boolean }>({
               type: 'confirm',

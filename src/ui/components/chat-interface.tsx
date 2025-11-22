@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Box } from "ink";
 import { LLMAgent, ChatEntry } from "../../agent/llm-agent.js";
-import { useInputHandler } from "../../hooks/use-input-handler.js";
+import { useInputHandler } from "../hooks/use-input-handler.js";
 import { LoadingSpinner } from "./loading-spinner.js";
 import { CommandSuggestions } from "./command-suggestions.js";
 import { ChatHistory } from "./chat-history.js";
@@ -374,10 +374,11 @@ function ChatInterfaceWithAgent({
                 break;
             }
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
           const errorEntry: ChatEntry = {
             type: "assistant",
-            content: `Error: ${error.message}`,
+            content: `Error: ${errorMessage}`,
             timestamp: new Date(),
           };
           setChatHistory((prev) => [...prev, errorEntry]);

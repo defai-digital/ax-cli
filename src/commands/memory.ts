@@ -246,7 +246,7 @@ export function createMemoryCommand(): Command {
         const total = memory.context.token_estimate;
 
         const formatBar = (tokens: number | undefined, label: string) => {
-          if (!tokens) return;
+          if (!tokens || !total || total === 0) return;
           const pct = Math.round((tokens / total) * 100);
           const barLen = Math.round(pct / 5);
           const bar = '█'.repeat(barLen) + '░'.repeat(20 - barLen);

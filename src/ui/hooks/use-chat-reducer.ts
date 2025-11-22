@@ -4,7 +4,7 @@
  */
 
 import { useReducer, Reducer } from 'react';
-import type { ChatEntry } from '../agent/llm-agent.js';
+import type { ChatEntry } from '../../agent/llm-agent.js';
 
 export interface ChatState {
   history: ChatEntry[];

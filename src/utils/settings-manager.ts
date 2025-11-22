@@ -510,12 +510,24 @@ export class SettingsManager {
 
     if (envChatModel !== undefined) {
       if (!result) result = {};
-      result.chatModel = envChatModel as any;
+      // Validate model ID from environment variable
+      const chatModelResult = ModelIdSchema.safeParse(envChatModel);
+      if (chatModelResult.success) {
+        result.chatModel = chatModelResult.data;
+      } else {
+        console.warn(`Invalid AI_CHAT_MODEL: ${envChatModel}`);
+      }
     }
 
     if (envCodingModel !== undefined) {
       if (!result) result = {};
-      result.codingModel = envCodingModel as any;
+      // Validate model ID from environment variable
+      const codingModelResult = ModelIdSchema.safeParse(envCodingModel);
+      if (codingModelResult.success) {
+        result.codingModel = codingModelResult.data;
+      } else {
+        console.warn(`Invalid AI_CODING_MODEL: ${envCodingModel}`);
+      }
     }
 
     // Return undefined if no settings were configured (use defaults)

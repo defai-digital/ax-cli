@@ -220,7 +220,7 @@ const MemoizedChatEntry = React.memo(
               // Try to count matches with better formatting
               const matches = content.match(/Found (\d+) match/);
               if (matches) {
-                const count = parseInt(matches[1]);
+                const count = parseInt(matches[1], 10);
                 return `${count} match${count !== 1 ? 'es' : ''} found`;
               }
               return `${lineCount} result${lineCount !== 1 ? 's' : ''}`;

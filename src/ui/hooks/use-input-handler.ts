@@ -1,17 +1,17 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useInput } from "ink";
-import { LLMAgent, ChatEntry } from "../agent/llm-agent.js";
-import { ConfirmationService } from "../utils/confirmation-service.js";
+import { LLMAgent, ChatEntry } from "../../agent/llm-agent.js";
+import { ConfirmationService } from "../../utils/confirmation-service.js";
 import { useEnhancedInput, Key } from "./use-enhanced-input.js";
-import { escapeShellArg } from "../tools/bash.js";
+import { escapeShellArg } from "../../tools/bash.js";
 
-import { filterCommandSuggestions } from "../ui/components/command-suggestions.js";
-import { getSettingsManager } from "../utils/settings-manager.js";
-import { ProjectAnalyzer } from "../utils/project-analyzer.js";
-import { InstructionGenerator } from "../utils/instruction-generator.js";
-import { getUsageTracker } from "../utils/usage-tracker.js";
-import { getHistoryManager } from "../utils/history-manager.js";
-import { handleRewindCommand, handleCheckpointsCommand, handleCheckpointCleanCommand } from "../commands/rewind.js";
+import { filterCommandSuggestions } from "../components/command-suggestions.js";
+import { getSettingsManager } from "../../utils/settings-manager.js";
+import { ProjectAnalyzer } from "../../utils/project-analyzer.js";
+import { InstructionGenerator } from "../../utils/instruction-generator.js";
+import { getUsageTracker } from "../../utils/usage-tracker.js";
+import { getHistoryManager } from "../../utils/history-manager.js";
+import { handleRewindCommand, handleCheckpointsCommand, handleCheckpointCleanCommand } from "../../commands/rewind.js";
 import {
   handlePlansCommand,
   handlePlanCommand,
@@ -21,14 +21,14 @@ import {
   handleSkipPhaseCommand,
   handleAbandonCommand,
   handleResumableCommand,
-} from "../commands/plan.js";
-import { BashOutputTool } from "../tools/bash-output.js";
-import { getKeyboardShortcutGuideText } from "../ui/components/keyboard-hints.js";
+} from "../../commands/plan.js";
+import { BashOutputTool } from "../../tools/bash-output.js";
+import { getKeyboardShortcutGuideText } from "../components/keyboard-hints.js";
 import {
   getContextStore,
   ContextGenerator,
   getStatsCollector,
-} from "../memory/index.js";
+} from "../../memory/index.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -549,12 +549,11 @@ export function useInputHandler({
         // Track timeout for cleanup on unmount
         retryTimeoutRef.current = setTimeout(() => {
           retryTimeoutRef.current = null;
-          try {
-            handleInputSubmit(messageToRetry);
-          } catch {
+          // Call async function and handle promise rejection
+          handleInputSubmit(messageToRetry).catch(() => {
             // Restore history if retry fails
             setChatHistory(historyBackup);
-          }
+          });
         }, 50);
       } else {
         clearInput();
@@ -890,10 +889,11 @@ Examples:
             timestamp: new Date(),
           };
           setChatHistory((prev) => [...prev, resultEntry]);
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
           const errorEntry: ChatEntry = {
             type: "assistant",
-            content: `❌ **Doctor diagnostics failed:**\n\n\`\`\`\n${error.message}\n\`\`\``,
+            content: `❌ **Doctor diagnostics failed:**\n\n\`\`\`\n${errorMessage}\n\`\`\``,
             timestamp: new Date(),
           };
           setChatHistory((prev) => [...prev, errorEntry]);
@@ -1019,14 +1019,15 @@ Examples:
         } else {
           throw new Error(result.error);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         // Update the specific entry by index to avoid race conditions
         setChatHistory((prev) => {
           const updated = [...prev];
           if (entryIndex >= 0 && entryIndex < updated.length) {
             updated[entryIndex] = {
               type: "assistant",
-              content: `❌ Failed to generate memory: ${error.message}`,
+              content: `❌ Failed to generate memory: ${errorMessage}`,
               timestamp: new Date(),
             };
           }
@@ -1103,14 +1104,15 @@ Examples:
         } else {
           throw new Error(result.error);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         // Update the specific entry by index to avoid race conditions
         setChatHistory((prev) => {
           const updated = [...prev];
           if (entryIndex >= 0 && entryIndex < updated.length) {
             updated[entryIndex] = {
               type: "assistant",
-              content: `❌ Failed to refresh memory: ${error.message}`,
+              content: `❌ Failed to refresh memory: ${errorMessage}`,
               timestamp: new Date(),
             };
           }
@@ -1490,10 +1492,11 @@ Respond with ONLY the commit message, no additional text.`;
           };
           setChatHistory((prev) => [...prev, pushEntry]);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         const errorEntry: ChatEntry = {
           type: "assistant",
-          content: `Error during commit and push: ${error.message}`,
+          content: `Error during commit and push: ${errorMessage}`,
           timestamp: new Date(),
         };
         setChatHistory((prev) => [...prev, errorEntry]);
@@ -1549,10 +1552,11 @@ Respond with ONLY the commit message, no additional text.`;
           toolResult: result,
         };
         setChatHistory((prev) => [...prev, commandEntry]);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         const errorEntry: ChatEntry = {
           type: "assistant",
-          content: `Error executing command: ${error.message}`,
+          content: `Error executing command: ${errorMessage}`,
           timestamp: new Date(),
         };
         setChatHistory((prev) => [...prev, errorEntry]);
@@ -1680,10 +1684,11 @@ Respond with ONLY the commit message, no additional text.`;
             break;
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       const errorEntry: ChatEntry = {
         type: "assistant",
-        content: `Error: ${error.message}`,
+        content: `Error: ${errorMessage}`,
         timestamp: new Date(),
       };
       setChatHistory((prev) => [...prev, errorEntry]);
