@@ -5,6 +5,7 @@ import { ErrorCategory, createErrorMessage } from "../utils/error-handler.js";
 import { extractAndTranslateError } from "../utils/error-translator.js";
 import { GLM_MODELS, type SupportedModel } from "../constants.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
+import { RateLimiter, DEFAULT_RATE_LIMITS } from "../utils/rate-limiter.js";
 import type {
   ChatOptions,
   ThinkingConfig,
@@ -78,6 +79,7 @@ export class LLMClient {
   private currentModel: string; // Can be SupportedModel or custom model name (e.g., Ollama)
   private defaultMaxTokens: number;
   private defaultTemperature: number;
+  private rateLimiter: RateLimiter; // REQ-SEC-006: Rate limiting to prevent API abuse
 
   constructor(apiKey: string, model?: string, baseURL?: string) {
     if (!model) {
@@ -118,6 +120,9 @@ export class LLMClient {
       envTemp <= modelConfig.temperatureRange.max
       ? envTemp
       : modelConfig.defaultTemperature;
+
+    // Initialize rate limiter for API abuse prevention (REQ-SEC-006)
+    this.rateLimiter = new RateLimiter(DEFAULT_RATE_LIMITS.LLM_API);
   }
 
   /**
@@ -301,6 +306,16 @@ export class LLMClient {
     options?: ChatOptions
   ): Promise<LLMResponse> {
     try {
+      // REQ-SEC-006: Check rate limit before making API call
+      const rateLimitResult = this.rateLimiter.tryAcquire();
+      if (!rateLimitResult.allowed) {
+        const waitSeconds = Math.ceil(rateLimitResult.resetIn / 1000);
+        throw new Error(
+          `Rate limit exceeded. ${rateLimitResult.remaining}/${rateLimitResult.limit} requests remaining. ` +
+          `Please wait ${waitSeconds} seconds before trying again.`
+        );
+      }
+
       // Merge options with defaults
       const model = this.validateModel(options?.model || this.currentModel);
       const temperature = options?.temperature ?? this.defaultTemperature;
@@ -412,6 +427,16 @@ export class LLMClient {
     options?: ChatOptions
   ): AsyncGenerator<GLM46StreamChunk, void, unknown> {
     try {
+      // REQ-SEC-006: Check rate limit before making streaming API call
+      const rateLimitResult = this.rateLimiter.tryAcquire();
+      if (!rateLimitResult.allowed) {
+        const waitSeconds = Math.ceil(rateLimitResult.resetIn / 1000);
+        throw new Error(
+          `Rate limit exceeded. ${rateLimitResult.remaining}/${rateLimitResult.limit} requests remaining. ` +
+          `Please wait ${waitSeconds} seconds before trying again.`
+        );
+      }
+
       // Merge options with defaults
       const model = this.validateModel(options?.model || this.currentModel);
       const temperature = options?.temperature ?? this.defaultTemperature;

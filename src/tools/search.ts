@@ -2,6 +2,7 @@ import { ToolResult } from "../types/index.js";
 import fs from "fs-extra";
 import path from "path";
 import { getRipgrepPool } from "../utils/process-pool.js";
+import { sanitizeSearchQuery, validateRegexPattern } from "../utils/input-sanitizer.js";
 
 export interface SearchResult {
   file: string;
@@ -68,12 +69,37 @@ export class SearchTool {
     } = {}
   ): Promise<ToolResult> {
     try {
+      // REQ-SEC-007: Sanitize search query to prevent ReDoS and injection
+      const sanitizedQuery = sanitizeSearchQuery(query);
+      if (!sanitizedQuery.valid) {
+        return {
+          success: false,
+          error: `Invalid search query: ${sanitizedQuery.error}`,
+        };
+      }
+
+      // Additional validation for regex patterns
+      if (options.regex) {
+        const regexValidation = validateRegexPattern(sanitizedQuery.value!);
+        if (!regexValidation.valid) {
+          return {
+            success: false,
+            error: `Invalid regex pattern: ${regexValidation.error}`,
+          };
+        }
+        // Log warnings if any
+        if (regexValidation.warnings && regexValidation.warnings.length > 0) {
+          console.warn(`Search regex warnings: ${regexValidation.warnings.join(', ')}`);
+        }
+      }
+
       const searchType = options.searchType || "both";
       const results: UnifiedSearchResult[] = [];
+      const cleanQuery = sanitizedQuery.value!;
 
       // Search for text content if requested
       if (searchType === "text" || searchType === "both") {
-        const textResults = await this.executeRipgrep(query, options);
+        const textResults = await this.executeRipgrep(cleanQuery, options);
         results.push(
           ...textResults.map((r) => ({
             type: "text" as const,
@@ -88,7 +114,7 @@ export class SearchTool {
 
       // Search for files if requested
       if (searchType === "files" || searchType === "both") {
-        const fileResults = await this.findFilesByPattern(query, options);
+        const fileResults = await this.findFilesByPattern(cleanQuery, options);
         results.push(
           ...fileResults.map((r) => ({
             type: "file" as const,
@@ -101,13 +127,13 @@ export class SearchTool {
       if (results.length === 0) {
         return {
           success: true,
-          output: `No results found for "${query}"`,
+          output: `No results found for "${cleanQuery}"`,
         };
       }
 
       const formattedOutput = this.formatUnifiedResults(
         results,
-        query,
+        cleanQuery,
         searchType
       );
 
