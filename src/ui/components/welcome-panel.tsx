@@ -190,7 +190,7 @@ __      _____| | ___ ___  _ __ ___   ___  | |_ ___
       >
         <Box marginBottom={1}>
           <Text color="cyan" bold>
-            ⌨️  Essential Shortcuts
+            Essential Shortcuts
           </Text>
         </Box>
 

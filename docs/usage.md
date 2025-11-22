@@ -11,10 +11,11 @@ A comprehensive guide to using AX CLI for interactive sessions, headless automat
 3. [Headless Mode](#headless-mode)
 4. [Tool Execution Control](#tool-execution-control)
 5. [Common Workflows](#common-workflows)
-6. [Best Practices](#best-practices)
-7. [Tips and Tricks](#tips-and-tricks)
-8. [Real-World Scenarios](#real-world-scenarios)
-9. [Troubleshooting](#troubleshooting)
+6. [Working with Large Content](#working-with-large-content)
+7. [Best Practices](#best-practices)
+8. [Tips and Tricks](#tips-and-tricks)
+9. [Real-World Scenarios](#real-world-scenarios)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -395,6 +396,245 @@ AX> Optimize the top 3 slowest functions
 AX> Run benchmarks to verify improvements
 
 AX> Document the optimizations
+```
+
+---
+
+## Working with Large Content
+
+### Understanding Terminal Input Limitations
+
+When working with large amounts of text (code files, logs, error outputs, documentation), be aware of terminal paste limitations:
+
+**Terminal Paste Behavior:**
+- Most terminals have buffer limits for pasted content
+- **VS Code integrated terminal** is particularly prone to truncating long pastes (confirmed limitation)
+- Truncation is often **silent** - content may be cut off without warning
+- Modern terminals (iTerm2, Terminal.app) handle larger pastes better, but still have limits
+
+**AX CLI Visual Feedback:**
+
+The interactive terminal shows a character counter `[count/2000]` with color-coded warnings:
+
+| Color | Character Range | Status | Action |
+|-------|----------------|--------|--------|
+| **Gray** | 0-999 | ✅ Optimal | Continue normally |
+| **Cyan** | 1000-1599 | ⚠️ Getting long | Consider file-based approach |
+| **Yellow** | 1600-1999 | ⚠️ Warning zone | Switch to file-based workflow |
+| **Red** | 2000+ | ❌ Too large | Must use file-based workflow |
+
+### File-Based Workflows (Recommended)
+
+**❌ DON'T DO THIS:**
+```bash
+# Pasting 5000+ lines of code directly into terminal
+ax-cli
+> [paste massive code dump]  # May be silently truncated!
+```
+
+**✅ DO THIS INSTEAD:**
+
+#### Option 1: Save to File First (Most Reliable)
+```bash
+# Save your content to a temporary file
+cat > /tmp/large-context.txt
+# (paste your content, then press Ctrl+D)
+
+# Then reference in AX CLI
+ax-cli
+> /memory add /tmp/large-context.txt
+> analyze the content I just added
+> identify all the errors and suggest fixes
+```
+
+#### Option 2: Direct File Reference (Headless Mode)
+```bash
+# For existing files
+ax-cli --file path/to/large-file.ts --prompt "review this code for bugs"
+
+# For command output
+ax-cli --prompt "analyze these errors: $(npm test 2>&1)"
+
+# For multiple files
+ax-cli --file src/index.ts --file src/utils.ts --prompt "refactor these modules"
+```
+
+#### Option 3: Use Memory System
+```bash
+# Add entire directories or specific files to context
+ax-cli
+> /memory add src/
+> /memory add logs/error.log
+> /memory add docs/api.md
+> analyze all the code and documentation I just loaded
+```
+
+#### Option 4: Piping for Automation
+```bash
+# Process command output directly
+npm test 2>&1 | tee test-output.txt
+ax-cli --prompt "analyze the test failures in test-output.txt"
+
+# Or save and reference
+git diff > changes.patch
+ax-cli --file changes.patch --prompt "review these changes"
+```
+
+### Real-World Examples
+
+**Scenario 1: Analyzing Build Errors**
+```bash
+# ❌ Bad: Paste 200 lines of build output into terminal
+# ✅ Good:
+npm run build 2>&1 | tee build-errors.txt
+ax-cli --file build-errors.txt --prompt "explain these TypeScript errors and how to fix them"
+```
+
+**Scenario 2: Code Review of Large Files**
+```bash
+# ❌ Bad: Copy/paste entire 1000-line file
+# ✅ Good:
+ax-cli --file src/complex-module.ts --prompt "review this code for performance issues"
+```
+
+**Scenario 3: Processing Log Files**
+```bash
+# ❌ Bad: Paste log file contents
+# ✅ Good:
+ax-cli
+> /memory add logs/application.log
+> find all ERROR entries and explain what's causing them
+```
+
+**Scenario 4: API Documentation Analysis**
+```bash
+# ❌ Bad: Paste entire API spec
+# ✅ Good:
+ax-cli --file openapi.yaml --prompt "generate TypeScript types from this API spec"
+```
+
+### When You Can Paste Safely
+
+Short, focused inputs work well with direct pasting:
+
+**✅ Safe to paste:**
+- Error messages (<500 chars)
+- Code snippets (<1000 chars)
+- Configuration samples (<1500 chars)
+- Questions with context (<1000 chars)
+
+**Example:**
+```
+> I'm getting this error:
+  TypeError: Cannot read property 'map' of undefined
+    at processData (utils.ts:45)
+  How do I fix this?
+```
+
+### Platform-Specific Considerations
+
+| Terminal | Max Recommended Paste | Notes |
+|----------|----------------------|-------|
+| **VS Code** | 2000 chars | High truncation risk, use files |
+| **iTerm2** | 10,000 chars | Good paste support |
+| **Terminal.app** | 5000 chars | macOS default, moderate support |
+| **Alacritty** | 10,000 chars | Modern, fast, good paste handling |
+| **Windows Terminal** | 5000 chars | Improving with recent versions |
+
+### Troubleshooting Paste Issues
+
+**Problem:** "My pasted content seems cut off"
+```bash
+# Solution: Use file-based approach
+echo "your content" > temp.txt
+ax-cli --file temp.txt --prompt "your question"
+```
+
+**Problem:** "Terminal freezes when pasting"
+```bash
+# Solution: Save to file instead
+cat > input.txt  # paste here, Ctrl+D
+ax-cli --file input.txt --prompt "process this"
+```
+
+**Problem:** "Lost content, not sure what was sent"
+```bash
+# Solution: Always save first for large content
+# Create a habit of: save → reference → query
+cat > context.txt
+ax-cli --file context.txt --prompt "analyze"
+```
+
+### Automatic Paste Protection (Phase 3)
+
+**Default Protection**:
+- Pastes >5000 characters are automatically truncated
+- Clear notification shows original → truncated size
+- Prevents silent data loss from terminal buffer limits
+
+**Configuration**:
+```json
+// ~/.ax-cli/config.json
+{
+  "paste": {
+    "allowLargePaste": false,     // Enable/disable truncation (default: false)
+    "maxPasteLength": 5000,        // Truncation threshold (default: 5000)
+    "warningThreshold": 1000       // Warning threshold (default: 1000)
+  }
+}
+```
+
+**When to Disable Truncation**:
+- You use a modern terminal (iTerm2, Alacritty, Terminal.app)
+- You frequently work with 5000-10000 char pastes
+- You understand terminal buffer risks
+
+**When to Keep Truncation Enabled** (Recommended):
+- You use VS Code integrated terminal (high truncation risk)
+- You're unsure about your terminal's paste capabilities
+- You want guaranteed predictable behavior
+
+**Configuration Examples**:
+
+```json
+// Conservative (default) - Best for most users
+{
+  "paste": {
+    "allowLargePaste": false,
+    "maxPasteLength": 5000
+  }
+}
+
+// Permissive - For modern terminals only
+{
+  "paste": {
+    "allowLargePaste": true,
+    "maxPasteLength": 10000
+  }
+}
+
+// Custom thresholds
+{
+  "paste": {
+    "allowLargePaste": false,
+    "maxPasteLength": 3000,
+    "warningThreshold": 1500
+  }
+}
+```
+
+**Project-Level Overrides**:
+
+You can override user settings per project in `.ax-cli/settings.json`:
+
+```json
+// .ax-cli/settings.json
+{
+  "model": "glm-4.6",
+  "paste": {
+    "allowLargePaste": true  // Override for this project only
+  }
+}
 ```
 
 ---

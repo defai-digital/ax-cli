@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-cli",
-  "version": "3.4.6",
+  "version": "3.5.0",
   "description": "Enterprise-Class AI Command Line Interface - Primary support for GLM (General Language Model) with multi-provider AI orchestration powered by AutomatosX.",
   "type": "module",
   "workspaces": [
@@ -37,9 +37,9 @@
     "vitest.config.ts"
   ],
   "scripts": {
-    "build": "npm run build:schemas && tsc",
+    "build": "npm run build:schemas && tsc && chmod +x dist/index.js",
     "build:schemas": "cd packages/schemas && npm run build",
-    "build:bun": "bun run tsc",
+    "build:bun": "bun run tsc && chmod +x dist/index.js",
     "dev": "bun run src/index.ts",
     "dev:node": "tsx src/index.ts",
     "start": "node dist/index.js",

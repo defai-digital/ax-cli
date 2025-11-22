@@ -58,6 +58,8 @@ export interface MethodInfo {
   readonly isAsync: boolean;
   readonly complexity: number;
   readonly length: number;
+  readonly startLine: number;
+  readonly endLine: number;
 }
 
 /**
@@ -81,6 +83,7 @@ export interface ImportInfo {
   readonly defaultImport?: string;
   readonly namespaceImport?: string;
   readonly isExternal: boolean;
+  readonly isTypeOnly: boolean;
 }
 
 /**

@@ -16,7 +16,6 @@ export interface Key {
   ctrl?: boolean;
   meta?: boolean;
   shift?: boolean;
-  paste?: boolean;
   sequence?: string;
   upArrow?: boolean;
   downArrow?: boolean;

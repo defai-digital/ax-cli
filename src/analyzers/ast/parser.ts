@@ -6,7 +6,6 @@
 
 import { Project, SourceFile, ScriptTarget, ModuleKind, SyntaxKind } from 'ts-morph';
 import type { FileASTInfo, FunctionInfo, ClassInfo, ImportInfo, ExportInfo, ParameterInfo, MethodInfo, PropertyInfo } from './types.js';
-import path from 'path';
 
 export class ASTParser {
   private project: Project;
@@ -165,6 +164,8 @@ export class ASTParser {
           isAsync: method.isAsync(),
           complexity: this.calculateCyclomaticComplexity(method.getBody()?.getText() || ''),
           length: endLine - startLine + 1,
+          startLine,
+          endLine,
         })
       );
     });
@@ -239,6 +240,9 @@ export class ASTParser {
       // Determine if external (starts with letter, not './' or '../')
       const isExternal = !moduleSpecifier.startsWith('.') && !moduleSpecifier.startsWith('/');
 
+      // Check if type-only import
+      const isTypeOnly = imp.isTypeOnly();
+
       imports.push(
         Object.freeze({
           moduleSpecifier,
@@ -246,6 +250,7 @@ export class ASTParser {
           defaultImport,
           namespaceImport,
           isExternal,
+          isTypeOnly,
         })
       );
     });

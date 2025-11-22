@@ -1,8 +1,8 @@
 # AX CLI - Enterprise-Class GLM AI CLI
 
 [![npm](https://img.shields.io/npm/dt/@defai.digital/ax-cli?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
-[![Tests](https://img.shields.io/badge/tests-562%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
-[![Coverage](https://img.shields.io/badge/coverage-98.29%25-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli)
+[![Tests](https://img.shields.io/badge/tests-1017%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/badge/coverage-98%2B%25-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9%2B-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D24.0.0-blue?style=flat-square)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
@@ -82,6 +82,13 @@ ax-cli
   - Support for technical docs, code examples, news, and general queries
   - Configurable search depth and freshness filters
 - **🔄 Auto-Update**: Built-in update checker and installer
+- **📊 Advanced Code Analysis** (NEW in v2.4.0): Professional-grade static analysis tools
+  - **Dependency Analyzer**: Detect circular dependencies, calculate coupling metrics, identify orphan and hub files
+  - **Code Smell Detector**: Find 10+ anti-patterns (long methods, large classes, duplicates, dead code, etc.)
+  - **Hotspot Analyzer**: Identify frequently changing, complex code using git history analysis
+  - **Metrics Calculator**: Cyclomatic complexity, Halstead metrics, Maintainability Index (MI)
+  - **Security Scanner**: Detect SQL injection, XSS, path traversal, hardcoded secrets, and more
+  - **[Complete Guide](docs/analysis-tools.md)** and **[API Documentation](docs/api/analyzers.md)**
 
 ### Max Tokens Configuration
 
@@ -349,6 +356,60 @@ ax-cli usage reset
 **Phase 2** (Coming Soon): Support for additional providers (OpenAI, Anthropic, etc.)
 
 [CLI Reference →](docs/cli-reference.md) | [Usage Guide →](docs/usage.md)
+
+## 📋 Working with Large Content
+
+When working with large amounts of text (logs, code files, documentation), use **file-based workflows** instead of pasting directly into the terminal.
+
+### ⚠️ Terminal Paste Limitations
+
+**Avoid pasting large content directly** into the interactive terminal:
+
+- ❌ **DON'T**: Paste large code files, logs, or documents (>2000 characters)
+- ⚠️ Some terminals may have paste limitations
+- ⚠️ Character counter shows visual warning: Gray (0-999) → Cyan (1000-1599) → Yellow (1600-1999) → **Red (2000+)**
+
+### ✅ Recommended Approaches
+
+**Option 1: File Reference (Interactive Mode)**
+```bash
+# Save your content to a file first
+cat > context.txt
+# (paste content, then Ctrl+D)
+
+# Then use memory commands
+ax-cli
+> /memory add context.txt
+> analyze the content I just added
+```
+
+**Option 2: Headless Mode with File Input**
+```bash
+# Direct file processing
+ax-cli --prompt "analyze this: $(cat large-file.txt)"
+
+# Or use the --file flag
+ax-cli --file path/to/code.ts --prompt "review this code"
+```
+
+**Option 3: Use `/memory` Commands**
+```bash
+# In interactive mode
+> /memory add src/
+> /memory add logs/error.log
+> analyze the errors in the log file
+```
+
+### Character Count Guide
+
+The interactive terminal shows a character counter `[count/2000]` with color-coded warnings:
+
+| Color | Range | Recommendation |
+|-------|-------|----------------|
+| **Gray** | 0-999 | ✅ Optimal length |
+| **Cyan** | 1000-1599 | ⚠️ Getting long |
+| **Yellow** | 1600-1999 | ⚠️ Consider using files |
+| **Red** | 2000+ | ❌ Use file-based workflow |
 
 ## 🏥 Health Check & Diagnostics (NEW)
 
