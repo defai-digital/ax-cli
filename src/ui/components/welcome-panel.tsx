@@ -263,7 +263,7 @@ __      _____| | ___ ___  _ __ ___   ___  | |_ ___
           <Box>
             <Text color="gray">• </Text>
             <Text>Run </Text>
-            <Text color="magenta">/memory warmup</Text>
+            <Text color="cyan">/memory warmup</Text>
             <Text> to cache project context (faster AI responses)</Text>
           </Box>
           <Box>
