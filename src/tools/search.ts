@@ -1,7 +1,7 @@
-import { spawn } from "child_process";
 import { ToolResult } from "../types/index.js";
 import fs from "fs-extra";
 import path from "path";
+import { getRipgrepPool } from "../utils/process-pool.js";
 
 export interface SearchResult {
   file: string;
@@ -124,7 +124,7 @@ export class SearchTool {
   }
 
   /**
-   * Execute ripgrep command with specified options
+   * Execute ripgrep command with specified options using process pool (REQ-ARCH-002)
    */
   private async executeRipgrep(
     query: string,
@@ -139,161 +139,102 @@ export class SearchTool {
       excludeFiles?: string[];
     }
   ): Promise<SearchResult[]> {
-    return new Promise((resolve, reject) => {
-      const args = [
-        "--json",
-        "--with-filename",
-        "--line-number",
-        "--column",
-        "--no-heading",
-        "--color=never",
-      ];
+    const args = [
+      "--json",
+      "--with-filename",
+      "--line-number",
+      "--column",
+      "--no-heading",
+      "--color=never",
+    ];
 
-      // Add case sensitivity
-      if (!options.caseSensitive) {
-        args.push("--ignore-case");
+    // Add case sensitivity
+    if (!options.caseSensitive) {
+      args.push("--ignore-case");
+    }
+
+    // Add whole word matching
+    if (options.wholeWord) {
+      args.push("--word-regexp");
+    }
+
+    // Add regex mode
+    if (!options.regex) {
+      args.push("--fixed-strings");
+    }
+
+    // Add max results limit
+    if (options.maxResults !== undefined) {
+      // Validate maxResults is a positive integer
+      if (!Number.isInteger(options.maxResults) || options.maxResults < 1) {
+        throw new Error(`maxResults must be a positive integer, got: ${options.maxResults}`);
       }
+      args.push("--max-count", options.maxResults.toString());
+    }
 
-      // Add whole word matching
-      if (options.wholeWord) {
-        args.push("--word-regexp");
-      }
+    // Add file type filters
+    if (options.fileTypes) {
+      options.fileTypes.forEach((type) => {
+        args.push("--type", type);
+      });
+    }
 
-      // Add regex mode
-      if (!options.regex) {
-        args.push("--fixed-strings");
-      }
+    // Add include pattern
+    if (options.includePattern) {
+      args.push("--glob", options.includePattern);
+    }
 
-      // Add max results limit
-      if (options.maxResults !== undefined) {
-        // Validate maxResults is a positive integer
-        if (!Number.isInteger(options.maxResults) || options.maxResults < 1) {
-          reject(new Error(`maxResults must be a positive integer, got: ${options.maxResults}`));
-          return;
-        }
-        args.push("--max-count", options.maxResults.toString());
-      }
+    // Add exclude pattern
+    if (options.excludePattern) {
+      args.push("--glob", `!${options.excludePattern}`);
+    }
 
-      // Add file type filters
-      if (options.fileTypes) {
-        options.fileTypes.forEach((type) => {
-          args.push("--type", type);
-        });
-      }
+    // Add exclude files
+    if (options.excludeFiles) {
+      options.excludeFiles.forEach((file) => {
+        args.push("--glob", `!${file}`);
+      });
+    }
 
-      // Add include pattern
-      if (options.includePattern) {
-        args.push("--glob", options.includePattern);
-      }
+    // Respect gitignore and common ignore patterns
+    args.push(
+      "--no-require-git",
+      "--follow",
+      "--glob",
+      "!.git/**",
+      "--glob",
+      "!node_modules/**",
+      "--glob",
+      "!.DS_Store",
+      "--glob",
+      "!*.log"
+    );
 
-      // Add exclude pattern
-      if (options.excludePattern) {
-        args.push("--glob", `!${options.excludePattern}`);
-      }
+    // Add query and search directory
+    args.push(query, this.currentDirectory);
 
-      // Add exclude files
-      if (options.excludeFiles) {
-        options.excludeFiles.forEach((file) => {
-          args.push("--glob", `!${file}`);
-        });
-      }
+    // MEMORY LEAK FIX (REQ-ARCH-002): Use process pool instead of spawning directly
+    const pool = getRipgrepPool();
 
-      // Respect gitignore and common ignore patterns
-      args.push(
-        "--no-require-git",
-        "--follow",
-        "--glob",
-        "!.git/**",
-        "--glob",
-        "!node_modules/**",
-        "--glob",
-        "!.DS_Store",
-        "--glob",
-        "!*.log"
-      );
-
-      // Add query and search directory
-      args.push(query, this.currentDirectory);
-
-      const rg = spawn("rg", args);
-      let output = "";
-      let errorOutput = "";
-      let isResolved = false;
-
-      rg.stdout.on("data", (data) => {
-        output += data.toString();
+    try {
+      const result = await pool.execute({
+        command: "rg",
+        args,
+        cwd: this.currentDirectory,
+        timeout: 30000, // 30 second timeout
       });
 
-      rg.stderr.on("data", (data) => {
-        errorOutput += data.toString();
-      });
-
-      const cleanup = () => {
-        // Remove all listeners to prevent memory leaks
-        rg.stdout.removeAllListeners();
-        rg.stderr.removeAllListeners();
-        rg.removeAllListeners();
-      };
-
-      rg.on("close", (code) => {
-        if (isResolved) {
-          cleanup();
-          return;
-        }
-        isResolved = true;
-        cleanup();
-
-        if (code === 0 || code === 1) {
-          // 0 = found, 1 = not found
-          const results = this.parseRipgrepOutput(output);
-          resolve(results);
-        } else {
-          reject(new Error(`Ripgrep failed with code ${code}: ${errorOutput}`));
-        }
-      });
-
-      rg.on("error", (error) => {
-        if (isResolved) {
-          cleanup();
-          return;
-        }
-        isResolved = true;
-
-        // Try to kill process with escalating signals
-        // Use a safer check: only kill if process hasn't exited
-        let killTimeout: ReturnType<typeof setTimeout> | null = null;
-        try {
-          if (rg.exitCode === null && rg.signalCode === null) {
-            rg.kill('SIGTERM');
-            // Set a timeout to force kill if SIGTERM doesn't work
-            killTimeout = setTimeout(() => {
-              try {
-                if (rg.exitCode === null && !rg.killed) {
-                  rg.kill('SIGKILL');
-                }
-              } catch {
-                // Process already terminated
-              }
-            }, 3000);
-          }
-        } catch {
-          // Process already terminated or can't be killed, ignore
-        }
-
-        // Clean up timeout when process exits (add listener BEFORE cleanup)
-        // Note: We need to keep this specific listener active for timeout cleanup
-        if (killTimeout) {
-          const timeoutRef = killTimeout;
-          rg.once('exit', () => clearTimeout(timeoutRef));
-        }
-
-        // Call cleanup for stdout/stderr listeners only, keep exit listener for timeout
-        rg.stdout.removeAllListeners();
-        rg.stderr.removeAllListeners();
-
-        reject(error);
-      });
-    });
+      // Handle ripgrep exit codes: 0 = found, 1 = not found, others = error
+      if (result.exitCode === 0 || result.exitCode === 1) {
+        return this.parseRipgrepOutput(result.stdout);
+      } else {
+        throw new Error(`Ripgrep failed with code ${result.exitCode}: ${result.stderr}`);
+      }
+    } catch (error) {
+      throw error instanceof Error
+        ? error
+        : new Error(`Ripgrep execution failed: ${String(error)}`);
+    }
   }
 
   /**
