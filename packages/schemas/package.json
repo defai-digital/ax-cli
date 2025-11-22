@@ -34,7 +34,7 @@
     "brand-types",
     "type-safety"
   ],
-  "author": "AX-CLI Team",
+  "author": "DEFAI Digital <https://defai.digital>",
   "license": "MIT",
   "dependencies": {
     "zod": "^3.22.4"
