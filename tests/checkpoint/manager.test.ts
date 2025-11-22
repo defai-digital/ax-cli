@@ -61,8 +61,10 @@ describe('CheckpointManager', () => {
     it('should initialize only once', async () => {
       await manager.initialize();
       await manager.initialize();
-      // Should not throw
-      expect(true).toBe(true);
+      // Should not throw and directory should still exist
+      const checkpointsDir = path.join(testDir, 'checkpoints');
+      const stat = await fs.stat(checkpointsDir);
+      expect(stat.isDirectory()).toBe(true);
     });
 
     it('should create storage directory', async () => {
@@ -71,9 +73,9 @@ describe('CheckpointManager', () => {
       expect(stat.isDirectory()).toBe(true);
     });
 
-    it('should start background tasks when enabled', async () => {
-      // This is tested indirectly - if initialization completes without errors, background tasks started
-      expect(true).toBe(true);
+    it.skip('should start background tasks when enabled', async () => {
+      // TODO: This requires mocking background task intervals or verifying task execution
+      // Skipping for now as it requires more complex test infrastructure
     });
   });
 
@@ -597,10 +599,9 @@ describe('CheckpointManager', () => {
       await expect(invalidManager.initialize()).rejects.toThrow();
     });
 
-    it('should continue after background task failures', async () => {
-      // Background tasks run in intervals and catch their own errors
-      // This is more of an integration test
-      expect(true).toBe(true);
+    it.skip('should continue after background task failures', async () => {
+      // TODO: This requires mocking background tasks and forcing failures
+      // Skipping for now as it requires more complex test infrastructure
     });
   });
 });

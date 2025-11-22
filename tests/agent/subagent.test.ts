@@ -76,7 +76,7 @@ describe('Subagent', () => {
       };
 
       // Start task execution (will fail due to mock, but status should update)
-      const promise = subagent.executeTask(task);
+      const promise = subagent.executeTask(task).catch(() => {});
 
       // Give it a moment to start
       await new Promise(resolve => setTimeout(resolve, 10));
