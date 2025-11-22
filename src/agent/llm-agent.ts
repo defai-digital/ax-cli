@@ -2106,7 +2106,7 @@ export class LLMAgent extends EventEmitter {
       const { SubagentRole } = await import('./subagent-types.js');
 
       // Convert string role to SubagentRole enum
-      const roleMap: Record<string, any> = {
+      const roleMap: Record<string, typeof SubagentRole[keyof typeof SubagentRole]> = {
         'testing': SubagentRole.TESTING,
         'documentation': SubagentRole.DOCUMENTATION,
         'refactoring': SubagentRole.REFACTORING,
@@ -2178,7 +2178,7 @@ export class LLMAgent extends EventEmitter {
       // Import SubagentRole and SubagentTask
       const { SubagentRole } = await import('./subagent-types.js');
 
-      const roleMap: Record<string, any> = {
+      const roleMap: Record<string, typeof SubagentRole[keyof typeof SubagentRole]> = {
         'testing': SubagentRole.TESTING,
         'documentation': SubagentRole.DOCUMENTATION,
         'refactoring': SubagentRole.REFACTORING,
@@ -2192,7 +2192,7 @@ export class LLMAgent extends EventEmitter {
       const subagentTasks = tasks.map((task, index) => ({
         id: task.id || `task-${index}-${Date.now()}`,
         description: task.description,
-        role: roleMap[task.role.toLowerCase()] || SubagentRole.GENERAL,
+        role: roleMap[task.role.toLowerCase()] ?? SubagentRole.GENERAL,
         priority: 1,
         context: {
           files: [],

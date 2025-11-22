@@ -21,7 +21,7 @@ import { createCacheCommand } from "./commands/cache.js";
 import { createModelsCommand } from "./commands/models.js";
 import { createDoctorCommand } from "./commands/doctor.js";
 import { getVersion } from "./utils/version.js";
-import type { ChatCompletionMessageParam } from "openai/resources/chat.js";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
 
 // Load environment variables
 dotenv.config();
@@ -673,6 +673,13 @@ program
       }
 
       // Interactive mode: launch UI
+      // Check if stdin supports raw mode (required for Ink)
+      if (!process.stdin.isTTY || !process.stdin.setRawMode) {
+        console.error("❌ Interactive mode not supported: Terminal does not support raw mode");
+        console.error("💡 Use --prompt flag for headless mode instead");
+        console.error("   Example: ax-cli --prompt 'your message here'");
+        process.exit(1);
+      }
       const agent = new LLMAgent(apiKey, baseURL, model, maxToolRounds);
       activeAgent = agent; // Track for cleanup on exit
 

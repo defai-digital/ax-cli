@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2025-11-22T08:20:00.750Z",
-  "updated_at": "2025-11-22T08:20:00.750Z",
+  "updated_at": "2025-11-22T08:50:43.896Z",
   "project_root": "/Users/akiralam/code/ax-cli",
   "content_hash": "sha256:ae357ae94ade10259343bc4891328c0490d5acd39a791b67c4acc65e74e502cb",
   "source": {
@@ -51,5 +51,12 @@
       "config": 838,
       "patterns": 99
     }
+  },
+  "stats": {
+    "last_cached_tokens": 9317,
+    "last_prompt_tokens": 9404,
+    "total_tokens_saved": 73861,
+    "usage_count": 10,
+    "last_used_at": "2025-11-22T08:50:43.896Z"
   }
 }
