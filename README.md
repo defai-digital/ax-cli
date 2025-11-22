@@ -44,7 +44,7 @@ ax-cli
   - 200K context window, 128K max output capability
   - 30% more token efficient than GLM 4.5
   - Optimized for complex code generation and refactoring
-- **🎯 Multi-Phase Task Planner** (NEW in v3.0.0): Intelligent task decomposition for complex requests
+- **🎯 Multi-Phase Task Planner**: Intelligent task decomposition for complex requests
   - Automatic complexity detection (57 keyword patterns)
   - LLM-based plan generation with phases and dependencies
   - Phase-by-phase execution with progress tracking
@@ -64,18 +64,18 @@ ax-cli
 - **✅ Production-Ready**: 98%+ test coverage, TypeScript strict mode, Zod validation
 - **🎯 Interactive & Headless**: Chat interface or one-shot commands
 - **📝 Smart Project Init**: Automatic project analysis and custom instructions
-- **🧠 Project Memory** (NEW): Intelligent context caching for z.ai GLM-4.6
+- **🧠 Project Memory**: Intelligent context caching for z.ai GLM-4.6
   - Automatic project scanning and context generation
   - z.ai implicit caching support (50% token savings on repeated context)
   - Cache statistics tracking and efficiency monitoring
-- **🏥 Health Check** (NEW): Comprehensive diagnostics with `ax-cli doctor`
+- **🏥 Health Check**: Comprehensive diagnostics with `ax-cli doctor`
   - Verify configuration, API connectivity, and dependencies
   - Detailed error messages with actionable suggestions
-- **💬 Dual-Model Mode** (NEW): Use different models for chat vs coding
+- **💬 Dual-Model Mode**: Use different models for chat vs coding
   - Configure chat and coding models separately
   - Manual model switching with `--chat-mode` flag
   - Optimize cost and performance for different task types
-- **🌐 Web Search** (NEW in v3.4.0): Real-time package search capabilities
+- **🌐 Web Search**: Real-time package search capabilities
   - **Works out-of-the-box**: npm, PyPI, and crates.io package search (no API keys required)
   - **Intelligent routing**: Automatically selects the best engine based on query intent
     - JavaScript/Node.js packages → npm registry search
@@ -107,7 +107,7 @@ ax-cli
   - **SSO/SAML Integration**: Enterprise identity provider support
   - **Priority Support**: 24-hour SLA email support
   - 📧 **Contact sales@defai.digital** for enterprise licensing and pricing
-- **📊 Advanced Code Analysis** (NEW in v2.4.0): Professional-grade static analysis tools
+- **📊 Advanced Code Analysis**: Professional-grade static analysis tools
   - **Dependency Analyzer**: Detect circular dependencies, calculate coupling metrics, identify orphan and hub files
   - **Code Smell Detector**: Find 10+ anti-patterns (long methods, large classes, duplicates, dead code, etc.)
   - **Hotspot Analyzer**: Identify frequently changing, complex code using git history analysis
@@ -228,7 +228,7 @@ ax-cli -c
 /commit-and-push   # AI-powered git commit
 /exit              # Exit application
 
-# Multi-Phase Planner commands (NEW in v3.0.0):
+# Multi-Phase Planner commands:
 /plans             # List all execution plans
 /plan              # Show current plan details
 /phases            # Show phase progress
@@ -285,7 +285,7 @@ ax-cli -p "write tests for utils/" --max-tool-rounds 50
 ax-cli -p "refactor" --model glm-4.6
 ```
 
-### 🔌 VSCode Integration (NEW!)
+### 🔌 VSCode Integration
 
 AX CLI integrates seamlessly with Visual Studio Code via tasks and keyboard shortcuts:
 
@@ -479,7 +479,7 @@ The interactive terminal shows a character counter `[count/2000]` with color-cod
 | **Yellow** | 1600-1999 | ⚠️ Consider using files |
 | **Red** | 2000+ | ❌ Use file-based workflow |
 
-## 🏥 Health Check & Diagnostics (NEW)
+## 🏥 Health Check & Diagnostics
 
 Run comprehensive diagnostics to verify your AX CLI configuration:
 
@@ -503,7 +503,7 @@ The `doctor` command checks:
 - ✓ MCP server configuration
 - ✓ Dependencies (ripgrep, git)
 
-## 💬 Dual-Model Mode (NEW)
+## 💬 Dual-Model Mode
 
 Use different models for chat vs coding tasks to optimize performance and cost:
 
@@ -554,7 +554,7 @@ ax-cli --chat-mode
 - ⚡ **Better performance**: Match model capability to task complexity
 - 🎯 **Manual control**: You decide when to use each model
 
-## 🌐 Web Search (NEW)
+## 🌐 Web Search
 
 Search package registries for JavaScript, Python, and Rust packages with intelligent language detection and cross-registry comparison.
 
@@ -888,7 +888,7 @@ ax-cli mcp remove linear
 
 [MCP Integration Guide →](docs/mcp.md)
 
-## 🧠 Project Memory (NEW)
+## 🧠 Project Memory
 
 Project Memory enables intelligent context caching for z.ai GLM-4.6, reducing token costs and improving response consistency:
 
