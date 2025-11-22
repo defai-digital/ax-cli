@@ -79,7 +79,6 @@ export function ToastNotification({ toast, onDismiss }: ToastNotificationProps) 
       clearTimeout(fadeTimer);
       clearTimeout(hideTimer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast]); // Intentionally exclude onDismiss to prevent timer reset on re-render
 
   if (!visible || !toast) return null;

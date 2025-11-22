@@ -219,33 +219,46 @@ export async function parallelLimit<T, R>(
   processor: (item: T) => Promise<R>,
   concurrency: number
 ): Promise<R[]> {
-  const results: R[] = [];
-  const executing: Promise<void>[] = [];
+  const results: R[] = new Array(items.length);
+  const executing: Map<number, Promise<void>> = new Map();
+  let firstError: Error | null = null;
 
-  for (const item of items) {
-    const promise = processor(item).then((result) => {
-      results.push(result);
-    });
+  for (let i = 0; i < items.length; i++) {
+    const index = i;  // Capture index for closure
+    const item = items[i];
 
-    executing.push(promise);
+    // Create task that stores result at correct index
+    const task = processor(item)
+      .then((result) => {
+        results[index] = result;  // Store at correct index to preserve order
+      })
+      .catch((error) => {
+        // Store first error to throw after all promises settle
+        if (!firstError) {
+          firstError = error;
+        }
+      })
+      .finally(() => {
+        // Remove using index (deterministic), not promise reference
+        executing.delete(index);
+      });
 
-    if (executing.length >= concurrency) {
-      await Promise.race(executing);
-      // Remove completed promises
-      executing.splice(
-        executing.findIndex((p) => {
-          let resolved = false;
-          p.then(() => {
-            resolved = true;
-          });
-          return resolved;
-        }),
-        1
-      );
+    executing.set(index, task);
+
+    // Wait for any task to complete when at concurrency limit
+    if (executing.size >= concurrency) {
+      await Promise.race(executing.values());
     }
   }
 
-  await Promise.all(executing);
+  // Wait for all remaining tasks to complete
+  await Promise.all(executing.values());
+
+  // Throw first error if any occurred
+  if (firstError) {
+    throw firstError;
+  }
+
   return results;
 }
 

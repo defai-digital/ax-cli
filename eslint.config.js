@@ -12,6 +12,9 @@ export default [
       'packages/**',           // Ignore packages directory
       '**/*.d.ts',            // Ignore TypeScript declaration files
       '**/__tests__/**',      // Ignore test directories
+      'examples/**',          // Ignore examples (documentation only)
+      'automatosx/tmp/**',    // Ignore AutomatosX temporary files and backups
+      'vscode-extension/**',  // VS Code extension has its own ESLint config
     ],
   },
   {
