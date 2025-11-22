@@ -99,32 +99,37 @@ export function createSetupCommand(): Command {
         const configPath = join(homedir(), '.ax-cli', 'config.json');
         const configDir = dirname(configPath);
 
-        // Check if config already exists
-        if (existsSync(configPath) && !options.force) {
-          console.log(chalk.yellow('⚠️  Configuration file already exists at:'));
-          console.log(chalk.dim(`   ${configPath}\n`));
-
-          const overwrite = await enquirer.prompt<{ overwrite: boolean }>({
-            type: 'confirm',
-            name: 'overwrite',
-            message: 'Do you want to overwrite the existing configuration?',
-            initial: false
-          });
-
-          if (!overwrite.overwrite) {
-            console.log(chalk.blue('\n✨ Setup cancelled. Using existing configuration.\n'));
-            return;
-          }
-        }
-
         // Ensure config directory exists
         if (!existsSync(configDir)) {
           mkdirSync(configDir, { recursive: true });
           console.log(chalk.green(`✓ Created config directory: ${configDir}`));
         }
 
+        // Load existing config to check for existing API key BEFORE provider selection
+        let existingConfig: UserSettings | null = null;
+        let existingProviderKey: string | null = null;
+
+        if (existsSync(configPath)) {
+          const parseResult = parseJsonFile<UserSettings>(configPath);
+          if (parseResult.success) {
+            existingConfig = parseResult.data;
+            // Determine which provider the existing config is using
+            if (existingConfig.baseURL) {
+              existingProviderKey = getProviderFromBaseURL(existingConfig.baseURL);
+            }
+
+            // Show existing configuration
+            if (existingProviderKey && !options.force) {
+              const existingProvider = PROVIDERS[existingProviderKey];
+              console.log(chalk.blue('ℹ️  Existing configuration found:'));
+              console.log(chalk.dim(`   Provider: ${existingProvider?.displayName || 'Unknown'}`));
+              console.log(chalk.dim(`   Location: ${configPath}\n`));
+            }
+          }
+        }
+
         // Provider selection
-        console.log(chalk.cyan('\n📝 Configuration Setup\n'));
+        console.log(chalk.cyan('📝 Configuration Setup\n'));
 
         const providerChoices = Object.entries(PROVIDERS).map(([key, provider]) => ({
           name: key,
@@ -139,21 +144,6 @@ export function createSetupCommand(): Command {
         });
 
         const selectedProvider = PROVIDERS[providerResponse.provider];
-
-        // Load existing config to check for existing API key
-        let existingConfig: UserSettings | null = null;
-        let existingProviderKey: string | null = null;
-
-        if (existsSync(configPath)) {
-          const parseResult = parseJsonFile<UserSettings>(configPath);
-          if (parseResult.success) {
-            existingConfig = parseResult.data;
-            // Determine which provider the existing config is using
-            if (existingConfig.baseURL) {
-              existingProviderKey = getProviderFromBaseURL(existingConfig.baseURL);
-            }
-          }
-        }
 
         // API Key prompt (if required)
         let apiKey = '';
