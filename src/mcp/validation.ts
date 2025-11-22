@@ -5,12 +5,12 @@
  * before attempting connection, improving error messages and UX.
  */
 
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import type { MCPServerConfig } from '../schemas/settings-schemas.js';
 import { getTemplate } from './templates.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export interface ValidationResult {
   valid: boolean;
@@ -23,6 +23,36 @@ export interface ValidationIssue {
   message: string;
   field?: string;
 }
+
+/**
+ * Safe commands whitelist for MCP stdio transport
+ * Only these commands are allowed to prevent command injection
+ */
+const SAFE_MCP_COMMANDS = [
+  // Node.js package managers
+  'node',
+  'npm',
+  'npx',
+  'bun',
+  'deno',
+  'pnpm',
+  'yarn',
+  // Python
+  'python',
+  'python3',
+  'pip',
+  'pip3',
+  'uvx',
+  // Docker
+  'docker',
+  // Common shell commands (for legitimate MCP servers)
+  'bash',
+  'sh',
+  'zsh',
+  // Full paths allowed (validated separately)
+] as const;
+
+type SafeMCPCommand = typeof SAFE_MCP_COMMANDS[number];
 
 /**
  * Validate an MCP server configuration with pre-flight checks
@@ -69,6 +99,67 @@ export async function validateServerConfig(config: MCPServerConfig): Promise<Val
 }
 
 /**
+ * Validate command against whitelist
+ * Prevents command injection by only allowing safe commands
+ */
+function validateCommandWhitelist(command: string): { valid: boolean; error?: string } {
+  // Allow full paths (they will be validated separately)
+  if (command.includes('/') || command.includes('\\')) {
+    // Validate path doesn't contain shell metacharacters
+    const dangerousChars = /[;&|`$()<>]/;
+    if (dangerousChars.test(command)) {
+      return {
+        valid: false,
+        error: `Command path contains dangerous characters: ${command}`
+      };
+    }
+    return { valid: true };
+  }
+
+  // Check against whitelist
+  const baseCommand = command.split(/\s+/)[0]; // Get command name without args
+  if (!SAFE_MCP_COMMANDS.includes(baseCommand as SafeMCPCommand)) {
+    return {
+      valid: false,
+      error: `Command "${baseCommand}" is not in the safe commands whitelist. ` +
+             `Allowed: ${SAFE_MCP_COMMANDS.join(', ')}. ` +
+             `Use full path for custom commands.`
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validate command arguments for injection attempts
+ */
+function validateCommandArgs(args: string[]): { valid: boolean; error?: string } {
+  const dangerousPatterns = /[;&|`$()<>]/;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    // Check for shell metacharacters
+    if (dangerousPatterns.test(arg)) {
+      return {
+        valid: false,
+        error: `Argument ${i} contains dangerous shell metacharacters: "${arg}"`
+      };
+    }
+
+    // Check for null bytes
+    if (arg.includes('\0')) {
+      return {
+        valid: false,
+        error: `Argument ${i} contains null byte`
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
  * Validate stdio transport configuration
  */
 async function validateStdioTransport(
@@ -86,15 +177,32 @@ async function validateStdioTransport(
     return;
   }
 
-  // Check if command is executable
-  const commandExists = await checkCommandExists(command);
-  if (!commandExists) {
-    errors.push(`Command "${command}" not found in PATH. Please install it or provide full path.`);
+  // SECURITY: Validate command against whitelist (REQ-SEC-004)
+  const whitelistResult = validateCommandWhitelist(command);
+  if (!whitelistResult.valid) {
+    errors.push(whitelistResult.error!);
+    return; // Don't continue if command is not allowed
   }
 
   // Validate args
   if (args && !Array.isArray(args)) {
     errors.push('Arguments must be an array');
+    return;
+  }
+
+  // SECURITY: Validate arguments for injection attempts (REQ-SEC-004)
+  if (args && args.length > 0) {
+    const argsResult = validateCommandArgs(args);
+    if (!argsResult.valid) {
+      errors.push(argsResult.error!);
+      return;
+    }
+  }
+
+  // Check if command is executable (after whitelist check)
+  const commandExists = await checkCommandExists(command);
+  if (!commandExists) {
+    warnings.push(`Command "${command}" not found in PATH. Please install it or provide full path.`);
   }
 
   // Check for common npm package patterns
@@ -198,6 +306,7 @@ function validateRequiredEnvVars(
 
 /**
  * Check if a command exists in PATH
+ * Uses execFile to prevent command injection vulnerabilities
  */
 async function checkCommandExists(command: string): Promise<boolean> {
   try {
@@ -206,12 +315,10 @@ async function checkCommandExists(command: string): Promise<boolean> {
       return true; // Assume full paths are valid
     }
 
-    // Check if command exists in PATH
-    const checkCommand = process.platform === 'win32'
-      ? `where ${command}`
-      : `which ${command}`;
+    // Check if command exists in PATH using execFile (prevents command injection)
+    const checkCommand = process.platform === 'win32' ? 'where' : 'which';
 
-    await execAsync(checkCommand);
+    await execFileAsync(checkCommand, [command]);
     return true;
   } catch {
     return false;
@@ -269,4 +376,11 @@ export function formatValidationResult(result: ValidationResult): string {
   }
 
   return lines.join('\n');
+}
+
+/**
+ * Get the list of safe MCP commands (for documentation/testing)
+ */
+export function getSafeMCPCommands(): readonly string[] {
+  return SAFE_MCP_COMMANDS;
 }

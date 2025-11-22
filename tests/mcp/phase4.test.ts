@@ -106,7 +106,7 @@ describe('MCP Phase 4 - Validation', () => {
       expect(result.errors).toContain('Command is required for stdio transport');
     });
 
-    it('should warn about missing commands', async () => {
+    it('should reject commands not in whitelist', async () => {
       const config: MCPServerConfig = {
         name: 'test-server',
         transport: {
@@ -118,7 +118,7 @@ describe('MCP Phase 4 - Validation', () => {
 
       const result = await validateServerConfig(config);
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.includes('not found in PATH'))).toBe(true);
+      expect(result.errors.some(e => e.includes('not in the safe commands whitelist'))).toBe(true);
     });
   });
 

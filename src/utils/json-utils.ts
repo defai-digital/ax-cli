@@ -1,11 +1,61 @@
 /**
  * JSON Parsing Utilities
  * Centralized JSON operations with validation and error handling
+ *
+ * Security: REQ-SEC-005 - Prototype Pollution Prevention
+ * - Sanitizes dangerous keys (__proto__, constructor, prototype)
+ * - Validates JSON structure before use
+ * - Prevents object property injection attacks
  */
 
 import { readFileSync, writeFileSync, renameSync, unlinkSync, existsSync, copyFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { z } from 'zod';
+
+/**
+ * Dangerous keys that can cause prototype pollution
+ * These keys should never be allowed in parsed JSON
+ */
+const DANGEROUS_KEYS = ['__proto__', 'constructor', 'prototype'] as const;
+
+/**
+ * Sanitize parsed JSON by removing dangerous keys
+ * Prevents prototype pollution attacks (REQ-SEC-005)
+ *
+ * @param obj - Object to sanitize (recursively)
+ * @returns Sanitized object with dangerous keys removed
+ */
+function sanitizeObject<T>(obj: T): T {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeObject(item)) as T;
+  }
+
+  // Handle objects
+  const sanitized: Record<string, unknown> = {};
+
+  for (const key in obj) {
+    // Skip dangerous keys
+    if (DANGEROUS_KEYS.includes(key as typeof DANGEROUS_KEYS[number])) {
+      continue;
+    }
+
+    // Skip inherited properties
+    if (!Object.prototype.hasOwnProperty.call(obj, key)) {
+      continue;
+    }
+
+    // Recursively sanitize nested objects
+    const value = (obj as Record<string, unknown>)[key];
+    sanitized[key] = sanitizeObject(value);
+  }
+
+  return sanitized as T;
+}
 
 /**
  * Parse JSON string with Zod schema validation
@@ -15,7 +65,10 @@ export function parseJson<T>(
   schema?: z.ZodSchema<T>
 ): { success: true; data: T } | { success: false; error: string } {
   try {
-    const data = JSON.parse(jsonString);
+    const rawData = JSON.parse(jsonString);
+
+    // SECURITY: Sanitize to prevent prototype pollution (REQ-SEC-005)
+    const data = sanitizeObject(rawData);
 
     if (schema) {
       const result = schema.safeParse(data);
@@ -199,4 +252,15 @@ export function parseJsonFileWithFallback<T>(
 ): T {
   const result = parseJsonFile<T>(filePath, schema);
   return result.success ? result.data : fallback;
+}
+
+/**
+ * Sanitize an object to prevent prototype pollution
+ * Exported for testing purposes
+ *
+ * @param obj - Object to sanitize
+ * @returns Sanitized object
+ */
+export function sanitizeJson<T>(obj: T): T {
+  return sanitizeObject(obj);
 }

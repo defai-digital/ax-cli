@@ -38,7 +38,7 @@ describe('MCP Phases 4 & 5 - Integration Tests', () => {
         transport: {
           type: 'stdio',
           command: 'node',
-          args: ['-e', 'console.log("test")']
+          args: ['--version']  // Use safe args without shell metacharacters
         }
       };
 
@@ -63,7 +63,8 @@ describe('MCP Phases 4 & 5 - Integration Tests', () => {
 
       expect(validation.valid).toBe(false);
       expect(validation.errors.length).toBeGreaterThan(0);
-      expect(validation.errors[0]).toContain('not found');
+      // Should reject due to whitelist (more secure than just "not found")
+      expect(validation.errors[0]).toContain('not in the safe commands whitelist');
     });
   });
 
