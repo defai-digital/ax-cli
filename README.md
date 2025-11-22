@@ -1,7 +1,7 @@
 # AX CLI - Enterprise-Class GLM AI CLI
 
 [![npm](https://img.shields.io/npm/dt/@defai.digital/ax-cli?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
-[![Tests](https://img.shields.io/badge/tests-1017%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
+[![Tests](https://img.shields.io/badge/tests-1036%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
 [![Coverage](https://img.shields.io/badge/coverage-98%2B%25-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9%2B-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D24.0.0-blue?style=flat-square)](https://nodejs.org/)
