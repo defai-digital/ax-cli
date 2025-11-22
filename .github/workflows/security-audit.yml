@@ -1,0 +1,102 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly security audit on Mondays at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+        id: npm-audit
+
+      - name: Generate audit report
+        if: always()
+        run: |
+          npm audit --json > audit-report.json || true
+          npm audit > audit-report.txt || true
+
+      - name: Upload audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-reports
+          path: |
+            audit-report.json
+            audit-report.txt
+
+      - name: Check for high/critical vulnerabilities
+        run: |
+          # Extract vulnerability counts
+          CRITICAL=$(npm audit --json 2>/dev/null | jq -r '.metadata.vulnerabilities.critical // 0')
+          HIGH=$(npm audit --json 2>/dev/null | jq -r '.metadata.vulnerabilities.high // 0')
+
+          echo "Critical vulnerabilities: $CRITICAL"
+          echo "High vulnerabilities: $HIGH"
+
+          # Fail if there are critical or high vulnerabilities
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            echo "❌ Found $CRITICAL critical and $HIGH high vulnerabilities"
+            echo "Please run 'npm audit fix' or update dependencies manually"
+            exit 1
+          else
+            echo "✅ No critical or high vulnerabilities found"
+          fi
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          deny-licenses: GPL-2.0, GPL-3.0
+
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
