@@ -262,6 +262,12 @@ __      _____| | ___ ___  _ __ ___   ___  | |_ ___
           </Box>
           <Box>
             <Text color="gray">• </Text>
+            <Text>Run </Text>
+            <Text color="magenta">memory warmup</Text>
+            <Text> to cache project context (faster AI responses)</Text>
+          </Box>
+          <Box>
+            <Text color="gray">• </Text>
             <Text>Append </Text>
             <Text color="cyan">&</Text>
             <Text> to bash commands for background execution</Text>
