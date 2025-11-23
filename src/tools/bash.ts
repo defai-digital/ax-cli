@@ -466,4 +466,26 @@ export class BashTool extends EventEmitter {
   async grep(pattern: string, files: string = '.'): Promise<ToolResult> {
     return this.execute(`grep -r ${escapeShellArg(pattern)} ${escapeShellArg(files)}`);
   }
+
+  /**
+   * Clean up resources (kill running process, remove event listeners)
+   */
+  dispose(): void {
+    // Kill current process if running
+    if (this.currentProcess && !this.currentProcess.killed) {
+      try {
+        this.currentProcess.kill('SIGTERM');
+      } catch {
+        // Ignore errors during cleanup
+      }
+    }
+
+    // Clear state
+    this.currentProcess = null;
+    this.currentCommand = '';
+    this.currentOutput = [];
+
+    // Remove all event listeners
+    this.removeAllListeners();
+  }
 }

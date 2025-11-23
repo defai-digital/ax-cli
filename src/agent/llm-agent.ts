@@ -314,20 +314,25 @@ export class LLMAgent extends EventEmitter {
       return cached;
     }
 
-    const args = JSON.parse(toolCall.function.arguments || '{}');
-    this.toolCallArgsCache.set(toolCall.id, args);
+    try {
+      const args = JSON.parse(toolCall.function.arguments || '{}');
+      this.toolCallArgsCache.set(toolCall.id, args);
 
-    // Prevent unbounded memory growth - limit cache size
-    if (this.toolCallArgsCache.size > 500) {
-      let deleted = 0;
-      for (const key of this.toolCallArgsCache.keys()) {
-        this.toolCallArgsCache.delete(key);
-        deleted++;
-        if (deleted >= 100) break;
+      // Prevent unbounded memory growth - limit cache size
+      if (this.toolCallArgsCache.size > 500) {
+        let deleted = 0;
+        for (const key of this.toolCallArgsCache.keys()) {
+          this.toolCallArgsCache.delete(key);
+          deleted++;
+          if (deleted >= 100) break;
+        }
       }
-    }
 
-    return args;
+      return args;
+    } catch {
+      // Return empty object on parse error (don't cache failures)
+      return {};
+    }
   }
 
   /**
@@ -2330,6 +2335,9 @@ export class LLMAgent extends EventEmitter {
 
     // Remove all event listeners to prevent memory leaks
     this.removeAllListeners();
+
+    // Dispose tools that have cleanup methods
+    this.bash.dispose();
 
     // Clear in-memory caches
     this.recentToolCalls.clear();
