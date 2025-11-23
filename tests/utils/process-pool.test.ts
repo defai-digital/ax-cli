@@ -371,6 +371,9 @@ describe('REQ-ARCH-002: Process Pool - Memory Leak Prevention', () => {
       expect(successes).toBe(25);
       expect(failures).toBe(25);
 
+      // Wait for async cleanup to complete (process event loop tick)
+      await new Promise((resolve) => setImmediate(resolve));
+
       // Verify pool is clean even after errors
       const stats = pool.getStats();
       expect(stats.activeProcesses).toBe(0);
@@ -386,6 +389,9 @@ describe('REQ-ARCH-002: Process Pool - Memory Leak Prevention', () => {
       });
 
       expect(result.exitCode).toBe(0);
+
+      // Wait for async cleanup to complete (process event loop tick)
+      await new Promise((resolve) => setImmediate(resolve));
 
       // Pool should be clean
       const stats = pool.getStats();

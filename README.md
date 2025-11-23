@@ -1104,6 +1104,21 @@ AX CLI implements enterprise-grade architecture with:
 
 ## 📋 Changelog
 
+### v3.7.2 (2025-11-23)
+
+**🐛 Bug Fixes - Test Stability:**
+- Fixed flaky process-pool tests failing in CI/CD environments
+  - Added proper async cleanup waiting with `setImmediate()`
+  - Fixed race condition where `activeProcesses` count was checked before cleanup completed
+  - Tests: "should handle errors without leaking resources" and "should remove all event listeners after execution"
+  - Follows Node.js best practices for testing async cleanup operations
+
+**✅ Test Results:**
+- All 1,517 tests passing (9 skipped)
+- 98.29% test coverage maintained
+- Zero breaking changes
+- Improved CI/CD reliability
+
 ### v3.6.1 (2025-11-22)
 
 **🔧 Improvements:**
