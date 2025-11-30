@@ -1,15 +1,10 @@
 /**
- * Hook System Exports
+ * Hooks Module
  *
- * Phase 4: Hook Architecture
+ * Event-driven hooks for customizing tool execution and user interaction.
+ *
+ * @packageDocumentation
  */
 
-export {
-  HookRunner,
-  HookType,
-  type HookInput,
-  type HookOutput,
-  getHookRunner,
-  initializeHookRunner,
-  disposeHookRunner,
-} from './hook-runner.js';
+export * from "./types.js";
+export * from "./manager.js";

@@ -33,7 +33,7 @@ import {
 } from "../../memory/index.js";
 import { openExternalEditor, getPreferredEditor, getEditorDisplayName } from "../../utils/external-editor.js";
 import { extractErrorMessage } from "../../utils/error-handler.js";
-import { getCustomCommandsManager } from "../../commands/custom-commands.js";
+import { getCustomCommandsManager, type CustomCommand } from "../../commands/custom-commands.js";
 import { getHooksManager } from "../../hooks/index.js";
 import { parseFileMentions } from "../../utils/file-mentions.js";
 import * as fs from "fs";
@@ -422,7 +422,7 @@ export function useInputHandler({
 
     // Add custom commands
     const customCmds = customCommandsManager.getAllCommands();
-    const customSuggestions = customCmds.map(cmd => ({
+    const customSuggestions = customCmds.map((cmd: CustomCommand) => ({
       command: `/${cmd.name}`,
       description: `${cmd.description} [${cmd.scope}]`,
     }));
@@ -1642,8 +1642,8 @@ Respond with ONLY the commit message, no additional text.`;
         content += "  • `.ax-cli/commands/` (project-level)\n";
         content += "  • `~/.ax-cli/commands/` (user-level)\n";
       } else {
-        const projectCmds = customCmds.filter(c => c.scope === "project");
-        const userCmds = customCmds.filter(c => c.scope === "user");
+        const projectCmds = customCmds.filter((c: CustomCommand) => c.scope === "project");
+        const userCmds = customCmds.filter((c: CustomCommand) => c.scope === "user");
 
         if (projectCmds.length > 0) {
           content += "**Project Commands:**\n";
