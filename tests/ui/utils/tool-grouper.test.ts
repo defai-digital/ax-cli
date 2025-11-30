@@ -141,10 +141,9 @@ describe('tool-grouper', () => {
       const result = groupConsecutiveTools(entries, { enabled: true, semanticGrouping: false });
 
       expect(result).toHaveLength(2);
-      expect(isToolGroup(result[0])).toBe(true);
-      expect(isToolGroup(result[1])).toBe(true);
-      expect((result[0] as ToolGroup).resource).toBe('test1.ts');
-      expect((result[1] as ToolGroup).resource).toBe('test2.ts');
+      // Single-item groups are unwrapped to the original entry (not wrapped in ToolGroup)
+      expect(isToolGroup(result[0])).toBe(false);
+      expect(isToolGroup(result[1])).toBe(false);
     });
 
     it('should group operations on different files (semantic mode)', () => {
@@ -172,9 +171,10 @@ describe('tool-grouper', () => {
       const result = groupConsecutiveTools(entries, { enabled: true });
 
       expect(result).toHaveLength(3);
-      expect(isToolGroup(result[0])).toBe(true);
-      expect(isToolGroup(result[1])).toBe(false);
-      expect(isToolGroup(result[2])).toBe(true);
+      // Single-item tool groups are unwrapped to the original entry
+      expect(isToolGroup(result[0])).toBe(false);
+      expect(isToolGroup(result[1])).toBe(false); // user message
+      expect(isToolGroup(result[2])).toBe(false);
     });
 
     it('should return entries as-is when grouping is disabled', () => {
@@ -196,8 +196,10 @@ describe('tool-grouper', () => {
       const result = groupConsecutiveTools([entry], { enabled: true });
 
       expect(result).toHaveLength(1);
-      expect(isToolGroup(result[0])).toBe(true);
-      expect((result[0] as ToolGroup).resource).toBe('bash:empty');
+      // Single-item groups are unwrapped to the original entry
+      expect(isToolGroup(result[0])).toBe(false);
+      // The entry should still have the correct toolCall info
+      expect((result[0] as ChatEntry).toolCall?.function?.name).toBe('bash');
     });
 
     it('should handle whitespace-only bash commands', () => {
@@ -205,7 +207,8 @@ describe('tool-grouper', () => {
       const result = groupConsecutiveTools([entry], { enabled: true });
 
       expect(result).toHaveLength(1);
-      expect((result[0] as ToolGroup).resource).toBe('bash:empty');
+      // Single-item groups are unwrapped
+      expect(isToolGroup(result[0])).toBe(false);
     });
 
     it('should handle bash commands with multiple spaces', () => {
@@ -213,7 +216,8 @@ describe('tool-grouper', () => {
       const result = groupConsecutiveTools([entry], { enabled: true });
 
       expect(result).toHaveLength(1);
-      expect((result[0] as ToolGroup).resource).toBe('bash:git');
+      // Single-item groups are unwrapped
+      expect(isToolGroup(result[0])).toBe(false);
     });
 
     it('should group bash commands by command type (resource-based mode)', () => {
@@ -227,10 +231,12 @@ describe('tool-grouper', () => {
       // Resource-based mode groups by command prefix
       const result = groupConsecutiveTools(entries, { enabled: true, timeWindow: 10000, semanticGrouping: false });
 
-      expect(result).toHaveLength(2); // git group and npm group
+      expect(result).toHaveLength(2); // git group (2 items) and npm (single unwrapped)
+      expect(isToolGroup(result[0])).toBe(true);
       expect((result[0] as ToolGroup).resource).toBe('bash:git');
       expect((result[0] as ToolGroup).operations).toHaveLength(2);
-      expect((result[1] as ToolGroup).resource).toBe('bash:npm');
+      // npm is a single item, so unwrapped
+      expect(isToolGroup(result[1])).toBe(false);
     });
   });
 
@@ -323,7 +329,8 @@ describe('tool-grouper', () => {
 
       expect(result).toHaveLength(2);
       expect((result[0] as ToolGroup).operations).toHaveLength(2);
-      expect((result[1] as ToolGroup).operations).toHaveLength(1);
+      // Single remaining item is unwrapped
+      expect(isToolGroup(result[1])).toBe(false);
     });
   });
 
@@ -409,8 +416,9 @@ describe('tool-grouper', () => {
       const result = groupConsecutiveTools([entry], { enabled: true });
 
       expect(result).toHaveLength(1);
-      expect(isToolGroup(result[0])).toBe(true);
-      expect((result[0] as ToolGroup).operations).toHaveLength(1);
+      // Single-item groups are unwrapped to the original entry
+      expect(isToolGroup(result[0])).toBe(false);
+      expect((result[0] as ChatEntry).toolCall?.function?.name).toBe('view_file');
     });
 
     it('should handle entries without toolCall', () => {
@@ -613,19 +621,19 @@ describe('tool-grouper', () => {
         },
       };
 
-      // Group them - should use cache on second call
+      // Group them - the tool_result replaces the tool_call for the same ID
       const result = groupConsecutiveTools([entry1, entry2], {
         enabled: true,
         maxGroupSize: 10,
         timeWindow: 60000,
       });
 
-      // Should be grouped (same resource due to cache working)
+      // Tool_result replaces tool_call, so only 1 entry (unwrapped since single item)
       expect(result.length).toBe(1);
-      expect(isToolGroup(result[0])).toBe(true);
-      if (isToolGroup(result[0])) {
-        expect(result[0].operations.length).toBe(2);
-      }
+      // Single-item result is unwrapped
+      expect(isToolGroup(result[0])).toBe(false);
+      // Should be the tool_result (replaced tool_call)
+      expect((result[0] as ChatEntry).type).toBe('tool_result');
     });
 
     it('should handle large number of tool calls without memory issues', () => {

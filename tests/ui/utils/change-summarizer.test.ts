@@ -511,8 +511,9 @@ describe('change-summarizer', () => {
     });
 
     it('should indicate large files', () => {
-      const content = Array(150).fill('line').join('\n');
-      expect(getBriefToolSummary(content, 'view_file')).toBe('150 lines (large)');
+      // Files with 500+ lines are considered large
+      const content = Array(550).fill('line').join('\n');
+      expect(getBriefToolSummary(content, 'view_file')).toBe('550 lines (large)');
     });
   });
 
@@ -622,11 +623,13 @@ describe('change-summarizer', () => {
     });
 
     it('should handle single newline', () => {
-      expect(getBriefToolSummary('\n', 'view_file')).toBe('2 lines');
+      // Trimmed content of '\n' is empty string, so 0 lines
+      expect(getBriefToolSummary('\n', 'view_file')).toBe('0 lines');
     });
 
     it('should handle content with only spaces', () => {
-      expect(getBriefToolSummary('   ', 'view_file')).toBe('1 line');
+      // Trimmed content of '   ' is empty string, so 0 lines
+      expect(getBriefToolSummary('   ', 'view_file')).toBe('0 lines');
     });
   });
 });

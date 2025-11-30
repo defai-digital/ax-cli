@@ -402,7 +402,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
-### v3.11.3 (Latest)
+### v3.11.4 (Latest)
+
+- **Test Suite Fixes** - Fixed 12 failing tests in CI/CD pipeline for tool-grouper and change-summarizer modules
+- **Tool Grouper Updates** - Updated tests to reflect single-item group unwrapping behavior (returns original entry instead of wrapping in ToolGroup)
+- **Change Summarizer Updates** - Fixed line counting tests to match trimmed content behavior and 500+ line "large" file threshold
+
+### v3.11.3
 
 - **Bug Fixes: CLI Message Grouping** - Fixed parseInt NaN in diff-renderer, keyboard-hints fallback, semantic group duration color, reasoning-display marginBottom, diff-renderer gap separator
 - **Bug Fixes: Paste Handling** - Fixed placeholder 1-based numbering, stale pastedBlocks closure, findBlockAtCursor guards, singular/plural line counts, negative ID guard, expandAllPlaceholders optimization
