@@ -441,7 +441,7 @@ This project is developed with assistance from multiple AI coding assistants:
 
 - [AutomatosX](https://github.com/defai-digital/automatosx) - AI agent orchestration platform
 - [Claude](https://github.com/claude) - Anthropic's AI assistant
-- [Gemini Code Assist](https://github.com/apps/gemini-code-assist) - Google's AI coding assistant
+- [Gemini CLI](https://github.com/google-gemini/gemini-cli) - Google's AI coding assistant
 - [Codex](https://github.com/openai/codex) - OpenAI's code generation model
 
 ---
