@@ -33,6 +33,9 @@ import {
 } from "../../memory/index.js";
 import { openExternalEditor, getPreferredEditor, getEditorDisplayName } from "../../utils/external-editor.js";
 import { extractErrorMessage } from "../../utils/error-handler.js";
+import { getCustomCommandsManager } from "../../commands/custom-commands.js";
+import { getHooksManager } from "../../hooks/index.js";
+import { parseFileMentions } from "../../utils/file-mentions.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -129,6 +132,22 @@ export function useInputHandler({
   const [backgroundMode, setBackgroundMode] = useState(false);
   const [thinkingModeEnabled, setThinkingModeEnabled] = useState(true);
 
+  const toggleAutoEditMode = useCallback(() => {
+    const newAutoEditState = !autoEditEnabled;
+    setAutoEditEnabled(newAutoEditState);
+
+    const confirmationService = ConfirmationService.getInstance();
+    if (newAutoEditState) {
+      // Enable auto-edit: set all operations to be accepted
+      confirmationService.setSessionFlag("allOperations", true);
+    } else {
+      // Disable auto-edit: reset session flags
+      confirmationService.resetSession();
+    }
+    // Notify parent for toast/flash feedback
+    onAutoEditModeChange?.(newAutoEditState);
+  }, [autoEditEnabled, onAutoEditModeChange]);
+
   const handleSpecialKey = (key: Key): boolean => {
     // Don't handle input if confirmation dialog is active
     if (isConfirmationActive) {
@@ -137,19 +156,7 @@ export function useInputHandler({
 
     // Handle shift+tab to toggle auto-edit mode
     if (key.shift && key.tab) {
-      const newAutoEditState = !autoEditEnabled;
-      setAutoEditEnabled(newAutoEditState);
-
-      const confirmationService = ConfirmationService.getInstance();
-      if (newAutoEditState) {
-        // Enable auto-edit: set all operations to be accepted
-        confirmationService.setSessionFlag("allOperations", true);
-      } else {
-        // Disable auto-edit: reset session flags
-        confirmationService.resetSession();
-      }
-      // Notify parent for toast/flash feedback
-      onAutoEditModeChange?.(newAutoEditState);
+      toggleAutoEditMode();
       return true; // Handled
     }
 
@@ -378,34 +385,50 @@ export function useInputHandler({
     };
   }, []);
 
-  const commandSuggestions: CommandSuggestion[] = [
-    { command: "/help", description: "Show help information" },
-    { command: "/shortcuts", description: "Show keyboard shortcuts guide" },
-    { command: "/continue", description: "Continue incomplete response" },
-    { command: "/retry", description: "Re-send the last message" },
-    { command: "/clear", description: "Clear chat history" },
-    { command: "/init", description: "Initialize project with smart analysis" },
-    { command: "/usage", description: "Show API usage statistics" },
-    { command: "/doctor", description: "Run health check diagnostics" },
-    { command: "/tasks", description: "List background tasks" },
-    { command: "/task", description: "View output of a background task" },
-    { command: "/kill", description: "Kill a background task" },
-    { command: "/rewind", description: "Rewind to previous checkpoint" },
-    { command: "/checkpoints", description: "List checkpoint statistics" },
-    { command: "/checkpoint-clean", description: "Clean old checkpoints" },
-    { command: "/commit-and-push", description: "AI commit & push to remote" },
-    { command: "/plans", description: "List all task plans" },
-    { command: "/plan", description: "Show current plan details" },
-    { command: "/phases", description: "Show phases of current plan" },
-    { command: "/pause", description: "Pause current plan execution" },
-    { command: "/resume", description: "Resume paused plan" },
-    { command: "/skip", description: "Skip current phase" },
-    { command: "/abandon", description: "Abandon current plan" },
-    { command: "/memory", description: "Show project memory status" },
-    { command: "/memory warmup", description: "Generate project memory" },
-    { command: "/memory refresh", description: "Update project memory" },
-    { command: "/exit", description: "Exit the application" },
-  ];
+  // Get custom commands manager
+  const customCommandsManager = useMemo(() => getCustomCommandsManager(), []);
+
+  // Build command suggestions including custom commands
+  const commandSuggestions: CommandSuggestion[] = useMemo(() => {
+    const builtIn: CommandSuggestion[] = [
+      { command: "/help", description: "Show help information" },
+      { command: "/shortcuts", description: "Show keyboard shortcuts guide" },
+      { command: "/continue", description: "Continue incomplete response" },
+      { command: "/retry", description: "Re-send the last message" },
+      { command: "/clear", description: "Clear chat history" },
+      { command: "/init", description: "Initialize project with smart analysis" },
+      { command: "/usage", description: "Show API usage statistics" },
+      { command: "/doctor", description: "Run health check diagnostics" },
+      { command: "/tasks", description: "List background tasks" },
+      { command: "/task", description: "View output of a background task" },
+      { command: "/kill", description: "Kill a background task" },
+      { command: "/rewind", description: "Rewind to previous checkpoint" },
+      { command: "/checkpoints", description: "List checkpoint statistics" },
+      { command: "/checkpoint-clean", description: "Clean old checkpoints" },
+      { command: "/commit-and-push", description: "AI commit & push to remote" },
+      { command: "/plans", description: "List all task plans" },
+      { command: "/plan", description: "Show current plan details" },
+      { command: "/phases", description: "Show phases of current plan" },
+      { command: "/pause", description: "Pause current plan execution" },
+      { command: "/resume", description: "Resume paused plan" },
+      { command: "/skip", description: "Skip current phase" },
+      { command: "/abandon", description: "Abandon current plan" },
+      { command: "/memory", description: "Show project memory status" },
+      { command: "/memory warmup", description: "Generate project memory" },
+      { command: "/memory refresh", description: "Update project memory" },
+      { command: "/commands", description: "List custom commands" },
+      { command: "/exit", description: "Exit the application" },
+    ];
+
+    // Add custom commands
+    const customCmds = customCommandsManager.getAllCommands();
+    const customSuggestions = customCmds.map(cmd => ({
+      command: `/${cmd.name}`,
+      description: `${cmd.description} [${cmd.scope}]`,
+    }));
+
+    return [...builtIn, ...customSuggestions];
+  }, [customCommandsManager]);
 
   // Load models from configuration with fallback to defaults
   const availableModels: ModelOption[] = useMemo(() => {
@@ -839,6 +862,7 @@ Enhanced Input Features:
   ↑/↓ Arrow   - Navigate command history
   Ctrl+C      - Clear input (press twice to exit)
   Ctrl+X      - Clear entire input line
+  Esc×2       - Clear input (press Escape twice quickly)
   Ctrl+←/→    - Move by word
   Ctrl+A/E    - Move to line start/end
   Ctrl+W      - Delete word before cursor
@@ -1607,6 +1631,196 @@ Respond with ONLY the commit message, no additional text.`;
       return true;
     }
 
+    // Handle /commands - list all custom commands
+    if (trimmedInput === "/commands") {
+      const customCmds = customCommandsManager.getAllCommands();
+      let content = "**Custom Commands:**\n\n";
+
+      if (customCmds.length === 0) {
+        content += "No custom commands found.\n\n";
+        content += "Create commands by adding markdown files to:\n";
+        content += "  • `.ax-cli/commands/` (project-level)\n";
+        content += "  • `~/.ax-cli/commands/` (user-level)\n";
+      } else {
+        const projectCmds = customCmds.filter(c => c.scope === "project");
+        const userCmds = customCmds.filter(c => c.scope === "user");
+
+        if (projectCmds.length > 0) {
+          content += "**Project Commands:**\n";
+          for (const cmd of projectCmds) {
+            content += `  /${cmd.name} - ${cmd.description}\n`;
+          }
+          content += "\n";
+        }
+
+        if (userCmds.length > 0) {
+          content += "**User Commands:**\n";
+          for (const cmd of userCmds) {
+            content += `  /${cmd.name} - ${cmd.description}\n`;
+          }
+        }
+      }
+
+      const commandsEntry: ChatEntry = {
+        type: "assistant",
+        content,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, commandsEntry]);
+      clearInput();
+      return true;
+    }
+
+    // Handle custom commands (starts with / but not a built-in command)
+    if (trimmedInput.startsWith("/")) {
+      const parts = trimmedInput.slice(1).split(/\s+/);
+      const cmdName = parts[0];
+      const cmdArgs = parts.slice(1).join(" ");
+
+      if (customCommandsManager.hasCommand(cmdName)) {
+        let expandedPrompt = customCommandsManager.expandCommand(cmdName, cmdArgs);
+        if (expandedPrompt) {
+          // Show what command was invoked
+          const userEntry: ChatEntry = {
+            type: "user",
+            content: trimmedInput,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, userEntry]);
+
+          // Process the expanded prompt through the agent
+          setIsProcessing(true);
+          clearInput();
+
+          try {
+            // Apply hooks and file mentions to expanded prompt
+            const hooksManager = getHooksManager();
+            expandedPrompt = await hooksManager.processUserInput(expandedPrompt);
+
+            const fileMentionResult = await parseFileMentions(expandedPrompt, {
+              baseDir: process.cwd(),
+              maxFileSize: 100 * 1024,
+              maxMentions: 10,
+              includeContents: true,
+            });
+            if (fileMentionResult.hasMentions) {
+              expandedPrompt = fileMentionResult.expandedInput;
+            }
+
+            setIsStreaming(true);
+            let streamingEntry: ChatEntry | null = null;
+
+            for await (const chunk of agent.processUserMessageStream(expandedPrompt)) {
+              switch (chunk.type) {
+                case "content":
+                  if (chunk.content) {
+                    if (!streamingEntry) {
+                      const newEntry: ChatEntry = {
+                        type: "assistant",
+                        content: chunk.content,
+                        timestamp: new Date(),
+                        isStreaming: true,
+                      };
+                      setChatHistory((prev) => [...prev, newEntry]);
+                      streamingEntry = newEntry;
+                    } else {
+                      setChatHistory((prev) =>
+                        prev.map((entry, idx) =>
+                          idx === prev.length - 1 && entry.isStreaming
+                            ? { ...entry, content: entry.content + chunk.content }
+                            : entry
+                        )
+                      );
+                    }
+                  }
+                  break;
+
+                case "token_count":
+                  if (chunk.tokenCount !== undefined) {
+                    setTokenCount(chunk.tokenCount);
+                  }
+                  break;
+
+                case "tool_calls":
+                  if (chunk.toolCalls) {
+                    setChatHistory((prev) =>
+                      prev.map((entry) =>
+                        entry.isStreaming
+                          ? { ...entry, isStreaming: false, toolCalls: chunk.toolCalls }
+                          : entry
+                      )
+                    );
+                    streamingEntry = null;
+
+                    chunk.toolCalls.forEach((toolCall) => {
+                      const toolCallEntry: ChatEntry = {
+                        type: "tool_call",
+                        content: "Executing...",
+                        timestamp: new Date(),
+                        toolCall: toolCall,
+                      };
+                      setChatHistory((prev) => [...prev, toolCallEntry]);
+                    });
+                  }
+                  break;
+
+                case "tool_result":
+                  if (chunk.toolCall && chunk.toolResult) {
+                    setChatHistory((prev) =>
+                      prev.map((entry) => {
+                        if (entry.isStreaming) {
+                          return { ...entry, isStreaming: false };
+                        }
+                        if (
+                          entry.type === "tool_call" &&
+                          entry.toolCall?.id === chunk.toolCall?.id
+                        ) {
+                          return {
+                            ...entry,
+                            type: "tool_result",
+                            content: chunk.toolResult?.success
+                              ? chunk.toolResult?.output || "Success"
+                              : chunk.toolResult?.error || "Error occurred",
+                            toolResult: chunk.toolResult,
+                            executionDurationMs: chunk.executionDurationMs,
+                          };
+                        }
+                        return entry;
+                      })
+                    );
+                    streamingEntry = null;
+                  }
+                  break;
+
+                case "done":
+                  if (streamingEntry) {
+                    setChatHistory((prev) =>
+                      prev.map((entry) =>
+                        entry.isStreaming ? { ...entry, isStreaming: false } : entry
+                      )
+                    );
+                  }
+                  setIsStreaming(false);
+                  break;
+              }
+            }
+          } catch (error: unknown) {
+            const errorMessage = extractErrorMessage(error);
+            const errorEntry: ChatEntry = {
+              type: "assistant",
+              content: `Error: ${errorMessage}`,
+              timestamp: new Date(),
+            };
+            setChatHistory((prev) => [...prev, errorEntry]);
+            setIsStreaming(false);
+          }
+
+          setIsProcessing(false);
+          return true;
+        }
+      }
+    }
+
     const directBashCommands = [
       "ls",
       "pwd",
@@ -1680,17 +1894,41 @@ Respond with ONLY the commit message, no additional text.`;
     clearInput();
 
     try {
+      // Process UserPromptSubmit hooks (may modify input)
+      const hooksManager = getHooksManager();
+      let processedInput = await hooksManager.processUserInput(userInput);
+
+      // Parse and expand @file mentions
+      const fileMentionResult = await parseFileMentions(processedInput, {
+        baseDir: process.cwd(),
+        maxFileSize: 100 * 1024, // 100KB limit
+        maxMentions: 10,
+        includeContents: true,
+      });
+
+      // Use expanded input if file mentions were found
+      processedInput = fileMentionResult.hasMentions
+        ? fileMentionResult.expandedInput
+        : processedInput;
+
       setIsStreaming(true);
       let streamingEntry: ChatEntry | null = null;
 
-      for await (const chunk of agent.processUserMessageStream(userInput)) {
+      for await (const chunk of agent.processUserMessageStream(processedInput)) {
         switch (chunk.type) {
           case "content":
-            if (chunk.content) {
+            if (chunk.content !== undefined) {
+              const shouldIgnore = shouldIgnoreContentChunk(chunk.content, !!streamingEntry);
+              if (shouldIgnore) {
+                break;
+              }
+
+              const contentChunk = chunk.content;
+
               if (!streamingEntry) {
                 const newStreamingEntry = {
                   type: "assistant" as const,
-                  content: chunk.content,
+                  content: contentChunk,
                   timestamp: new Date(),
                   isStreaming: true,
                 };
@@ -1700,7 +1938,7 @@ Respond with ONLY the commit message, no additional text.`;
                 setChatHistory((prev) =>
                   prev.map((entry, idx) =>
                     idx === prev.length - 1 && entry.isStreaming
-                      ? { ...entry, content: entry.content + chunk.content }
+                      ? { ...entry, content: entry.content + contentChunk }
                       : entry
                   )
                 );
@@ -1816,5 +2054,19 @@ Respond with ONLY the commit message, no additional text.`;
     pastedBlocks,
     currentBlockAtCursor,
     isPasting,
+    toggleVerbosity: handleVerboseToggle,
+    toggleAutoEdit: toggleAutoEditMode,
+    toggleThinkingMode: handleThinkingModeToggle,
+    toggleBackgroundMode: handleBackgroundModeToggle,
   };
+}
+
+/**
+ * Determine whether a streaming content chunk should be ignored.
+ * We ignore whitespace-only chunks before any assistant content exists to avoid
+ * creating empty assistant messages that break tool grouping.
+ */
+export function shouldIgnoreContentChunk(content: string | undefined, hasActiveStreamingEntry: boolean): boolean {
+  if (hasActiveStreamingEntry) return false;
+  return !content || content.trim() === "";
 }
