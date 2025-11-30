@@ -438,7 +438,7 @@ This project was inspired by and partially based on [grok-cli](https://github.co
 
 This project is developed with assistance from multiple AI coding assistants:
 
-- [AutomatosX](https://github.com/automatosx) - AI agent orchestration platform
+- [AutomatosX](https://github.com/defai-digital/automatosx) - AI agent orchestration platform
 - [Claude](https://github.com/claude) - Anthropic's AI assistant
 - [Gemini Code Assist](https://github.com/apps/gemini-code-assist) - Google's AI coding assistant
 - [Codex](https://github.com/openai/codex) - OpenAI's code generation model
