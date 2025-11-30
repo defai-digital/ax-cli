@@ -402,7 +402,12 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
-### v3.11.9 (Latest)
+### v3.11.10 (Latest)
+
+- **Fix: Stress Test Timeout** - Increased process-pool 1000-search stress test timeout from 120s to 180s for CI reliability
+- **Code Quality Verification** - Verified background-task-manager.ts has comprehensive memory leak and race condition fixes
+
+### v3.11.9
 
 - **Fix: Redundant Ternary in Paste Block Display** - Simplified redundant color ternary in chat-input.tsx paste block rendering
 

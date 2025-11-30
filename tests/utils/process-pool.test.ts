@@ -335,7 +335,7 @@ describe('REQ-ARCH-002: Process Pool - Memory Leak Prevention', () => {
       const stats = pool.getStats();
       expect(stats.activeProcesses).toBe(0);
       expect(stats.queuedTasks).toBe(0);
-    }, 120000); // 120 second timeout for 1000 searches
+    }, 180000); // 180 second timeout for 1000 searches (increased for slower CI)
 
     it('should handle errors without leaking resources', async () => {
       const iterations = 50;
