@@ -129,7 +129,8 @@ export function ChatInput({
                     <Text color="yellow" dimColor>│ ─── Pasted #{block.id + 1} ({block.lineCount} lines) ───</Text>
                   </Box>
                   <Box>
-                    <Text color={isCurrentLine && isInPaste ? "yellow" : isInPaste ? "yellow" : promptColor}>
+                    {/* BUG FIX: Simplified redundant ternary (both branches returned yellow) */}
+                    <Text color={isInPaste ? "yellow" : promptColor}>
                       {promptChar}{" "}
                     </Text>
                     <Text color="gray">

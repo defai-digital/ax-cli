@@ -402,7 +402,11 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
-### v3.11.8 (Latest)
+### v3.11.9 (Latest)
+
+- **Fix: Redundant Ternary in Paste Block Display** - Simplified redundant color ternary in chat-input.tsx paste block rendering
+
+### v3.11.8
 
 - **Fix: Keyboard Help Documentation** - Fixed incorrect documentation for Ctrl+D (was "Exit AX CLI", should be "Delete character after cursor")
 
