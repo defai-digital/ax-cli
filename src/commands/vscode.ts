@@ -17,7 +17,9 @@ const __dirname = path.dirname(__filename);
  * VSCode Extension Information
  */
 const EXTENSION_ID = 'defai-digital.ax-cli-vscode';
-const VSIX_FILENAME = 'ax-cli-vscode-0.1.0.vsix';
+const VSIX_BASENAME = 'ax-cli-vscode';
+// Fallback if we can't discover the VSIX dynamically (kept in sync with vscode-extension/package.json)
+const DEFAULT_VSIX = 'ax-cli-vscode-0.3.1.vsix';
 
 /**
  * Detect if VSCode is installed
@@ -104,25 +106,77 @@ async function getInstalledVersion(): Promise<string | null> {
 async function findVSIXFile(): Promise<string | null> {
   try {
     // Check in the vscode-extension directory relative to the package
-    const possiblePaths = [
+    const candidateDirs = [
       // Development: relative to src/commands/
-      path.resolve(__dirname, '../../vscode-extension', VSIX_FILENAME),
+      path.resolve(__dirname, '../../vscode-extension'),
       // Installed package: in node_modules
-      path.resolve(__dirname, '../../../vscode-extension', VSIX_FILENAME),
-      // Alternative: check parent directory
-      path.resolve(__dirname, '../../../../vscode-extension', VSIX_FILENAME),
+      path.resolve(__dirname, '../../../vscode-extension'),
+      // Alternative: check parent directory (monorepo/workspace)
+      path.resolve(__dirname, '../../../../vscode-extension'),
     ];
 
-    for (const vsixPath of possiblePaths) {
+    const foundPaths: string[] = [];
+
+    for (const dir of candidateDirs) {
+      // Always check the default VSIX name first (fast path)
+      const defaultVsixPath = path.join(dir, DEFAULT_VSIX);
       try {
-        await fs.access(vsixPath);
-        return vsixPath;
+        await fs.access(defaultVsixPath);
+        foundPaths.push(defaultVsixPath);
       } catch {
-        // Try next path
+        // Ignore and continue searching for any versioned VSIX
+      }
+
+      try {
+        const entries = await fs.readdir(dir);
+        for (const entry of entries) {
+          if (
+            entry.startsWith(`${VSIX_BASENAME}-`) &&
+            entry.endsWith('.vsix')
+          ) {
+            foundPaths.push(path.join(dir, entry));
+          }
+        }
+      } catch {
+        // Directory might not exist in this installation layout
       }
     }
 
-    return null;
+    // Deduplicate and pick the highest semver we can find
+    const uniquePaths = Array.from(new Set(foundPaths));
+    if (uniquePaths.length === 0) {
+      return null;
+    }
+
+    const extractVersion = (filePath: string): string | null => {
+      const match = path.basename(filePath).match(/ax-cli-vscode-(\d+\.\d+\.\d+)\.vsix$/);
+      return match ? match[1] : null;
+    };
+
+    const compareSemverDesc = (a: string, b: string): number => {
+      const vA = extractVersion(a);
+      const vB = extractVersion(b);
+
+      if (vA && vB) {
+        const partsA = vA.split('.').map(Number);
+        const partsB = vB.split('.').map(Number);
+        const len = Math.max(partsA.length, partsB.length);
+        for (let i = 0; i < len; i++) {
+          const diff = (partsB[i] || 0) - (partsA[i] || 0);
+          if (diff !== 0) return diff;
+        }
+        return 0;
+      }
+
+      // Prefer the one with a version
+      if (vA && !vB) return -1;
+      if (!vA && vB) return 1;
+
+      // Stable fallback comparison
+      return path.basename(a).localeCompare(path.basename(b));
+    };
+
+    return uniquePaths.sort(compareSemverDesc)[0] ?? null;
   } catch {
     return null;
   }
@@ -258,12 +312,13 @@ export function createVSCodeCommand(): Command {
           console.log(chalk.red('✗ VSIX file not found'));
           console.log();
           console.log(chalk.gray('Expected locations:'));
-          console.log(chalk.gray('   ./vscode-extension/' + VSIX_FILENAME));
-          console.log(chalk.gray('   ../vscode-extension/' + VSIX_FILENAME));
+          console.log(chalk.gray(`   ./vscode-extension/${DEFAULT_VSIX}`));
+          console.log(chalk.gray(`   ../vscode-extension/${DEFAULT_VSIX}`));
           console.log();
           console.log(chalk.gray('💡 Build the extension first:'));
           console.log(chalk.gray('   cd vscode-extension'));
           console.log(chalk.gray('   npm run package:vsix'));
+          console.log(chalk.gray(`   # Expected file pattern: ${VSIX_BASENAME}-<version>.vsix`));
           console.log();
           process.exit(1);
         }

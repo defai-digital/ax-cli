@@ -402,7 +402,18 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
-### v3.11.10 (Latest)
+### v3.12.1 (Latest)
+
+- **Fix: Quick Actions Command Padding** - Increased command column padding from 15 to 24 characters to fit longest command (`show:keyboard-shortcuts`)
+- **Fix: Thinking Mode Shortcut Consistency** - Changed "^T" to "Tab" in quick-actions.tsx and status-bar.tsx to match actual behavior (Tab toggles thinking mode when input is empty)
+- **Fix: Keyboard Hints Missing Thinking Mode** - Added "Tab: Toggle thinking mode (empty input)" to the Modes section in keyboard-hints.tsx for completeness
+
+### v3.12.0
+
+- **Fix: VSCode Integration Auto-Install** - CLI now discovers and installs the newest `ax-cli-vscode-*.vsix` (0.3.1 current) so diff/approval panels show up again in VSCode
+- **Maintenance: VSIX Discovery** - Falls back to bundled default and sorts available VSIX files by semver to pick the latest build across dev/installed layouts
+
+### v3.11.10
 
 - **Fix: Stress Test Timeout** - Increased process-pool 1000-search stress test timeout from 120s to 180s for CI reliability
 - **Code Quality Verification** - Verified background-task-manager.ts has comprehensive memory leak and race condition fixes
