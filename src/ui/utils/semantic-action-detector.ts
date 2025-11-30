@@ -226,10 +226,24 @@ export function detectSemanticAction(entries: ChatEntry[]): SemanticAction {
     for (const entry of entries) {
       const toolName = entry.toolCall?.function?.name;
       // BUG FIX: Include multi_edit in refactoring detection
-      if (toolName === 'str_replace_editor' || toolName === 'multi_edit') {
+      if (toolName === 'str_replace_editor') {
         const args = parseToolArgs(entry);
         const filePath = (args.path as string) || (args.file_path as string) || '';
         if (filePath) editPaths.add(filePath);
+      } else if (toolName === 'multi_edit') {
+        // BUG FIX: multi_edit uses 'files' array, not single path
+        const args = parseToolArgs(entry);
+        const files = args.files as Array<{ path?: string; file_path?: string }> | undefined;
+        if (Array.isArray(files)) {
+          for (const file of files) {
+            const filePath = file.path || file.file_path || '';
+            if (filePath) editPaths.add(filePath);
+          }
+        } else {
+          // Fallback to single path for old format
+          const filePath = (args.path as string) || (args.file_path as string) || '';
+          if (filePath) editPaths.add(filePath);
+        }
       }
     }
     if (editPaths.size >= 2) {

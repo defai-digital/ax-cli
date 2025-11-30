@@ -357,6 +357,10 @@ export function useEnhancedInput({
   // BUG FIX: Track mounted state for async operations
   const isMountedRef = useRef(true);
 
+  // Double-ESC detection: track last escape press time
+  const lastEscapeTimeRef = useRef<number>(0);
+  const DOUBLE_ESCAPE_WINDOW_MS = 500;
+
   // Keep ref in sync with prop to avoid stale closure
   isMultilineRef.current = multiline;
   onLargePasteRef.current = onLargePaste;
@@ -711,14 +715,38 @@ export function useEnhancedInput({
       return;
     }
 
-    // Allow special key handler to override default behavior
-    if (onSpecialKey?.(key)) {
+    // Handle Escape key with double-ESC detection for clearing input
+    if (key.escape) {
+      const now = Date.now();
+
+      // Let special key handler try first (close menus, abort operations)
+      if (onSpecialKey?.(key)) {
+        // An action was taken (menu closed, operation aborted)
+        // Reset double-ESC timer since we did something
+        lastEscapeTimeRef.current = 0;
+        return;
+      }
+
+      // Check for double-ESC to clear input
+      const inputHasText = inputRef.current.length > 0;
+      const isDoubleEscape = lastEscapeTimeRef.current > 0 &&
+                             (now - lastEscapeTimeRef.current) < DOUBLE_ESCAPE_WINDOW_MS;
+
+      if (inputHasText && isDoubleEscape) {
+        // Double-ESC detected with text in input - clear it
+        clearInput();
+        lastEscapeTimeRef.current = 0;
+        return;
+      }
+
+      // Record escape time for potential double-ESC
+      lastEscapeTimeRef.current = now;
+      onEscape?.();
       return;
     }
 
-    // Handle Escape
-    if (key.escape) {
-      onEscape?.();
+    // Allow special key handler to override default behavior for non-escape keys
+    if (onSpecialKey?.(key)) {
       return;
     }
 

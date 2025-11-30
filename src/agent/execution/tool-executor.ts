@@ -19,8 +19,10 @@ import {
 import { BashOutputTool } from "../../tools/bash-output.js";
 import { ArchitectureTool } from "../../tools/analysis-tools/architecture-tool.js";
 import { ValidationTool } from "../../tools/analysis-tools/validation-tool.js";
+import { getAskUserTool, type Question } from "../../tools/ask-user.js";
 import { extractErrorMessage } from "../../utils/error-handler.js";
 import type { ToolParseResult } from "../core/types.js";
+import { getHooksManager } from "../../hooks/index.js";
 
 /**
  * Tool executor configuration
@@ -121,7 +123,7 @@ export class ToolExecutor {
   }
 
   /**
-   * Execute a tool call
+   * Execute a tool call with hooks integration
    */
   async execute(toolCall: LLMToolCall): Promise<ToolResult> {
     try {
@@ -131,6 +133,20 @@ export class ToolExecutor {
       }
 
       const args = parseResult.args;
+
+      // Check PreToolUse hooks before execution
+      const hooksManager = getHooksManager();
+      const blockCheck = await hooksManager.shouldBlockTool(
+        toolCall.function.name,
+        args as Record<string, unknown>,
+        toolCall.id
+      );
+      if (blockCheck.blocked) {
+        return {
+          success: false,
+          error: `Tool blocked by hook: ${blockCheck.reason || 'No reason provided'}`,
+        };
+      }
 
       // Helper to safely get string argument with validation
       const getString = (key: string, required = true): string => {
@@ -250,10 +266,64 @@ export class ToolExecutor {
           return await this.validationTool.execute({ path, pattern, rules });
         }
 
+        case "ask_user": {
+          const questions = args.questions;
+          if (!Array.isArray(questions)) {
+            return {
+              success: false,
+              error: "ask_user requires a 'questions' array",
+            };
+          }
+
+          // Validate and transform questions
+          const validQuestions: Question[] = [];
+          for (const q of questions) {
+            if (typeof q !== 'object' || q === null) continue;
+            const qObj = q as Record<string, unknown>;
+            if (typeof qObj.question !== 'string' || !Array.isArray(qObj.options)) continue;
+
+            const validOptions = (qObj.options as unknown[]).filter(
+              (opt): opt is { label: string; description?: string } =>
+                typeof opt === 'object' && opt !== null && typeof (opt as Record<string, unknown>).label === 'string'
+            ).map(opt => ({
+              label: opt.label,
+              description: typeof opt.description === 'string' ? opt.description : undefined,
+            }));
+
+            // Skip questions with fewer than 2 valid options
+            if (validOptions.length < 2) continue;
+
+            validQuestions.push({
+              question: qObj.question,
+              header: typeof qObj.header === 'string' ? qObj.header : undefined,
+              options: validOptions,
+              multiSelect: typeof qObj.multiSelect === 'boolean' ? qObj.multiSelect : false,
+            });
+          }
+
+          if (validQuestions.length === 0) {
+            return {
+              success: false,
+              error: "No valid questions provided",
+            };
+          }
+
+          const askUserTool = getAskUserTool();
+          return await askUserTool.execute(validQuestions);
+        }
+
         default:
           // Check if this is an MCP tool
           if (toolCall.function.name.startsWith("mcp__")) {
-            return await this.executeMCPTool(toolCall);
+            const mcpResult = await this.executeMCPTool(toolCall);
+            // Execute PostToolUse hooks (fire-and-forget)
+            hooksManager.executePostToolHooks(
+              toolCall.function.name,
+              args as Record<string, unknown>,
+              toolCall.id,
+              mcpResult
+            );
+            return mcpResult;
           }
 
           return {

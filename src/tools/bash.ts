@@ -211,10 +211,11 @@ export class BashTool extends EventEmitter {
               error: `Security: Command validation failed\n${validation.errors.join('\n')}\n\nAllowed commands: ${getSafeCommands().join(', ')}`
             };
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
           return {
             success: false,
-            error: `Security: ${error.message}\n\nAllowed commands: ${getSafeCommands().join(', ')}`
+            error: `Security: ${message}\n\nAllowed commands: ${getSafeCommands().join(', ')}`
           };
         }
       }
@@ -341,9 +342,10 @@ export class BashTool extends EventEmitter {
         success: true,
         output: `Changed directory to: ${this.currentDirectory}`
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Provide more helpful error message
-      const errorCode = (error as NodeJS.ErrnoException).code;
+      const nodeError = error as NodeJS.ErrnoException;
+      const errorCode = nodeError?.code;
       if (errorCode === 'ENOENT') {
         return {
           success: false,
@@ -360,9 +362,10 @@ export class BashTool extends EventEmitter {
           error: `Cannot change directory: permission denied for "${resolvedDir}". Current directory is: ${this.currentDirectory}`
         };
       }
+      const message = error instanceof Error ? error.message : String(error);
       return {
         success: false,
-        error: `Cannot change directory to "${resolvedDir}": ${error.message}. Current directory is: ${this.currentDirectory}`
+        error: `Cannot change directory to "${resolvedDir}": ${message}. Current directory is: ${this.currentDirectory}`
       };
     }
   }

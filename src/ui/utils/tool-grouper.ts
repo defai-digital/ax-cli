@@ -128,7 +128,8 @@ export type GroupedEntry = ChatEntry | ToolGroup;
  * Check if an entry is a ToolGroup
  */
 export function isToolGroup(entry: GroupedEntry): entry is ToolGroup {
-  return 'operations' in entry && Array.isArray((entry as any).operations);
+  // BUG FIX: Avoid unsafe 'any' cast - after 'in' check we know 'operations' exists
+  return 'operations' in entry && Array.isArray((entry as ToolGroup).operations);
 }
 
 /**
@@ -175,8 +176,20 @@ function getResourceFromToolCall(entry: ChatEntry): string {
 
   // File operations
   // BUG FIX: Added multi_edit and read_file tool support
-  if (toolName === 'view_file' || toolName === 'read_file' || toolName === 'str_replace_editor' || toolName === 'create_file' || toolName === 'multi_edit') {
+  if (toolName === 'view_file' || toolName === 'read_file' || toolName === 'str_replace_editor' || toolName === 'create_file') {
     return (args.path as string) || (args.file_path as string) || '';
+  }
+
+  // BUG FIX: Handle multi_edit separately - it uses a 'files' array, not single path
+  if (toolName === 'multi_edit') {
+    const files = args.files as Array<{ path?: string; file_path?: string }> | undefined;
+    if (Array.isArray(files) && files.length > 0) {
+      // Use first file as resource identifier for grouping
+      const firstFile = files[0];
+      return (firstFile.path as string) || (firstFile.file_path as string) || 'multi_edit';
+    }
+    // Fallback to single path if present (old format compatibility)
+    return (args.path as string) || (args.file_path as string) || 'multi_edit';
   }
 
   // Search operations

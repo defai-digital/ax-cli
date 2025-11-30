@@ -416,6 +416,12 @@ export class BackgroundTaskManager extends EventEmitter {
 
     try {
       const processRef = task.process;
+
+      // RACE CONDITION FIX: Set status to 'killed' BEFORE sending SIGTERM
+      // This prevents onClose from overwriting status if it fires before we set it
+      task.status = 'killed';
+      task.endTime = new Date();
+
       task.process.kill('SIGTERM');
 
       // TIMEOUT LEAK FIX: Clear any existing force-kill timeout before creating a new one
@@ -425,10 +431,12 @@ export class BackgroundTaskManager extends EventEmitter {
       }
 
       // Give it a moment, then force kill if needed
-      // Check both task status AND process reference to avoid stale operations
+      // BUG FIX: Only check process reference - status check was broken because
+      // status is already 'killed' at this point, causing SIGKILL to never be sent
       const forceKillTimeout = setTimeout(() => {
-        // Verify this is still the same process and it hasn't terminated
-        if (task.process === processRef && task.status === 'running') {
+        // Verify this is still the same process (hasn't been cleaned up)
+        // If task.process is undefined or different, the process already exited
+        if (task.process === processRef) {
           try {
             processRef.kill('SIGKILL');
           } catch {
@@ -445,8 +453,6 @@ export class BackgroundTaskManager extends EventEmitter {
       // TIMEOUT LEAK FIX: Store timeout ID for cleanup
       task.forceKillTimeout = forceKillTimeout;
 
-      task.status = 'killed';
-      task.endTime = new Date();
       this.emit('taskKilled', { taskId });
       return true;
     } catch {

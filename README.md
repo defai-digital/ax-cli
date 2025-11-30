@@ -210,6 +210,7 @@ ax-cli -c
 | **Ctrl+K** | Quick actions menu |
 | **Shift+Tab** | Toggle auto-edit mode |
 | **Ctrl+C** | Clear input (press twice to exit) |
+| **Esc×2** | Clear input (press Escape twice quickly) |
 | **↑/↓** | Navigate command history |
 
 ### Headless Mode

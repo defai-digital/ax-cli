@@ -29,7 +29,7 @@ const SHORTCUTS_BY_MODE: Record<string, Shortcut[]> = {
     { keys: "Ctrl+J", description: "new line" },
     { keys: "Ctrl+P", description: "toggle paste" },
     { keys: "Tab", description: "complete" },
-    { keys: "Esc", description: "clear" },
+    { keys: "Esc×2", description: "clear input" },
   ],
   processing: [
     { keys: "Esc", description: "interrupt" },
@@ -89,6 +89,7 @@ export const ALL_SHORTCUTS: Record<string, Shortcut[]> = {
     { keys: "Ctrl+Y", description: "Copy last response" },
     { keys: "Tab", description: "Complete command suggestion" },
     { keys: "Esc", description: "Cancel / close menu / interrupt" },
+    { keys: "Esc×2", description: "Clear input (press twice quickly)" },
     { keys: "?", description: "Show keyboard shortcuts" },
   ],
   "Confirmation Dialog": [

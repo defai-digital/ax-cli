@@ -389,6 +389,59 @@ const BASE_LLM_TOOLS: LLMTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "ask_user",
+      description: "Ask the user questions to gather preferences, clarify requirements, or get decisions on implementation choices. Use this when you need user input before proceeding. Supports multiple choice questions with 2-4 options per question.",
+      parameters: {
+        type: "object",
+        properties: {
+          questions: {
+            type: "array",
+            description: "Questions to ask the user (1-4 questions)",
+            items: {
+              type: "object",
+              properties: {
+                question: {
+                  type: "string",
+                  description: "The complete question to ask the user. Should be clear and specific.",
+                },
+                header: {
+                  type: "string",
+                  description: "Short label for the question (max 12 chars). E.g., 'Auth method', 'Library'.",
+                },
+                options: {
+                  type: "array",
+                  description: "Available choices (2-4 options). 'Other' is added automatically.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      label: {
+                        type: "string",
+                        description: "Display text for this option (1-5 words).",
+                      },
+                      description: {
+                        type: "string",
+                        description: "Explanation of what this option means.",
+                      },
+                    },
+                    required: ["label", "description"],
+                  },
+                },
+                multiSelect: {
+                  type: "boolean",
+                  description: "Allow multiple selections (default: false).",
+                },
+              },
+              required: ["question", "options"],
+            },
+          },
+        },
+        required: ["questions"],
+      },
+    },
+  },
 ];
 
 /**
