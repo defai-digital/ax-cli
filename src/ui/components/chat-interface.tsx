@@ -124,7 +124,7 @@ function ChatInterfaceWithAgent({
   const [isThinking, setIsThinking] = useState(false);
   const [axEnabled, setAxEnabled] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<TaskPlan | null>(null);
-  const scrollRef = useRef<any>();
+  // BUG FIX: Removed unused scrollRef - Ink Box doesn't support DOM scroll APIs
   const processingStartTime = useRef<number>(0);
   const lastPercentageRef = useRef<number>(0); // Store last percentage value
   const lastPercentageUpdateTime = useRef<number>(0); // Store last update timestamp
@@ -372,6 +372,10 @@ function ChatInterfaceWithAgent({
     pastedBlocks,
     currentBlockAtCursor,
     isPasting,
+    toggleVerbosity,
+    toggleAutoEdit,
+    toggleThinkingMode,
+    toggleBackgroundMode,
   } = useInputHandler({
     agent,
     chatHistory,
@@ -785,6 +789,37 @@ function ChatInterfaceWithAgent({
     if (command === "exit") {
       process.exit(0);
     }
+    if (command === "toggle:verbosity") {
+      toggleVerbosity();
+      return;
+    }
+    if (command === "toggle:autoedit") {
+      toggleAutoEdit();
+      return;
+    }
+    if (command === "toggle:thinking") {
+      toggleThinkingMode();
+      return;
+    }
+    if (command === "toggle:background") {
+      toggleBackgroundMode();
+      return;
+    }
+    if (command === "show:keyboard-shortcuts") {
+      setShowKeyboardHelp(true);
+      return;
+    }
+    if (command === "show:quick-actions") {
+      setShowQuickActions(true);
+      return;
+    }
+    if (command === "jump:latest") {
+      // BUG FIX: Ink Box doesn't support scrollTo (DOM API), so this command is not functional.
+      // Terminal scrolling is handled by the terminal emulator, not the app.
+      // Show a toast instead of silently doing nothing.
+      addToast({ message: "Use terminal scroll (Shift+PgUp/PgDn) to navigate", type: "info", icon: "ℹ" });
+      return;
+    }
     if (command === "/context") {
       setShowContextBreakdown(true);
       return;
@@ -808,7 +843,7 @@ function ChatInterfaceWithAgent({
       )}
 
       {/* Chat history */}
-      <Box flexDirection="column" ref={scrollRef}>
+      <Box flexDirection="column">
         <ChatHistory
           entries={chatHistory}
           isConfirmationActive={!!confirmationOptions}

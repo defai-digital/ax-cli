@@ -165,9 +165,8 @@ export function QuickActions({ isVisible, onSelect, onClose }: QuickActionsProps
     { isActive: isVisible }
   );
 
-  if (!isVisible) return null;
-
-  // Group actions by category with pre-calculated indices
+  // BUG FIX: Move useMemo before early return to comply with React's Rules of Hooks.
+  // Hooks must be called in the same order on every render.
   const { groupedActions, actionIndices } = useMemo(() => {
     const groups: Record<string, QuickAction[]> = {};
     const indices = new Map<string, number>();
@@ -183,6 +182,8 @@ export function QuickActions({ isVisible, onSelect, onClose }: QuickActionsProps
 
     return { groupedActions: groups, actionIndices: indices };
   }, [filteredActions]);
+
+  if (!isVisible) return null;
 
   return (
     <Box

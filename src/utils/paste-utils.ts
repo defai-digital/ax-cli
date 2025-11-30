@@ -198,7 +198,8 @@ export function generatePlaceholder(block: PastedBlock): string {
     placeholder += ` +${block.lineCount} ${block.lineCount === 1 ? 'line' : 'lines'}`;
   }
 
-  placeholder += `]`;
+  // Add Ctrl+P hint to help users discover the expand/collapse feature
+  placeholder += ` · ^P to expand]`;
 
   // Add preview if enabled
   if (showPreview && block.previewLines.length > 0) {
