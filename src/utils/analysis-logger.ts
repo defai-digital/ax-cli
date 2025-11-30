@@ -77,9 +77,12 @@ export class NoopLogger implements Logger {
 
 /**
  * Create a logger based on environment
+ *
+ * By default, only shows WARN and ERROR messages to avoid cluttering CLI output.
+ * Set DEBUG=1 to enable all log levels including INFO and DEBUG.
  */
 export function createLogger(): Logger {
   const debugMode = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
-  const level = debugMode ? LogLevel.DEBUG : LogLevel.INFO;
+  const level = debugMode ? LogLevel.DEBUG : LogLevel.WARN;
   return new ConsoleLogger(level);
 }

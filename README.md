@@ -48,6 +48,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
+- [Recent Changes (v3.12.5)](#recent-changes-v3125)
 - [Documentation](#documentation)
 
 ---
@@ -395,9 +396,30 @@ Email: **security@defai.digital** (private disclosure)
 
 - **SSOT Type System** via `@ax-cli/schemas`
 - **TypeScript strict mode** with Zod validation
-- **98%+ test coverage** (2083 tests)
+- **98%+ test coverage** (2110+ tests)
 - **Modular design** with clean separation
 - **Enterprise security** with AES-256-GCM encryption
+
+---
+
+## Recent Changes (v3.12.5)
+
+### Bug Fixes
+
+- **Fixed `[INFO]` logging pollution**: Analyzer log messages no longer appear in CLI output. Set `DEBUG=1` to enable verbose logging.
+- **Fixed `ask_user` tool**: Implemented complete interactive question dialog system with EventEmitter pattern, multi-question flow support, and graceful fallback in non-TTY mode.
+
+### New Features
+
+- **QuestionDialog UI Component**: New interactive dialog for AI to ask clarifying questions during task execution
+- **Multi-question support**: Ask multiple questions with progress indicators (e.g., "1/3")
+- **Custom input option**: Users can select "Other" to provide free-text responses
+
+### Technical Improvements
+
+- Refactored `AskUserService` to use EventEmitter pattern (consistent with `ConfirmationService`)
+- Added 13 new tests for question dialog functionality
+- Improved code quality and test coverage
 
 ---
 

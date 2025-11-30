@@ -10,6 +10,7 @@ import { StatusBar } from "./status-bar.js";
 import { QuickActions } from "./quick-actions.js";
 import { WelcomePanel } from "./welcome-panel.js";
 import ConfirmationDialog from "./confirmation-dialog.js";
+import QuestionDialog from "./question-dialog.js";
 import { KeyboardHelp } from "./keyboard-help.js";
 import { ContextBreakdown } from "./context-breakdown.js";
 import { ToastContainer, useToasts, TOAST_MESSAGES } from "./toast-notification.js";
@@ -17,6 +18,10 @@ import {
   ConfirmationService,
   ConfirmationOptions,
 } from "../../utils/confirmation-service.js";
+import {
+  getAskUserService,
+  type QuestionRequest,
+} from "../../tools/ask-user.js";
 import ApiKeyInput from "./api-key-input.js";
 import { getVersion } from "../../utils/version.js";
 import { getHistoryManager } from "../../utils/history-manager.js";
@@ -113,6 +118,7 @@ function ChatInterfaceWithAgent({
   const [showAutoPrune, setShowAutoPrune] = useState(false);
   const [confirmationOptions, setConfirmationOptions] =
     useState<ConfirmationOptions | null>(null);
+  const [questionRequest, setQuestionRequest] = useState<QuestionRequest | null>(null);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [showContextBreakdown, setShowContextBreakdown] = useState(false);
@@ -387,7 +393,7 @@ function ChatInterfaceWithAgent({
     processingStartTime,
     isProcessing,
     isStreaming,
-    isConfirmationActive: !!confirmationOptions,
+    isConfirmationActive: !!confirmationOptions || !!questionRequest,
     onQuickActionsToggle: () => setShowQuickActions((prev) => !prev),
     onVerboseModeChange: handleVerboseModeChange,
     onBackgroundModeChange: handleBackgroundModeChange,
@@ -617,6 +623,21 @@ function ChatInterfaceWithAgent({
     };
   }, [confirmationService]);
 
+  // Listen for question requests from AskUserService
+  useEffect(() => {
+    const askUserService = getAskUserService();
+
+    const handleQuestionRequest = (request: QuestionRequest) => {
+      setQuestionRequest(request);
+    };
+
+    askUserService.on("question-requested", handleQuestionRequest);
+
+    return () => {
+      askUserService.off("question-requested", handleQuestionRequest);
+    };
+  }, []);
+
   useEffect(() => {
     if (!isProcessing && !isStreaming) {
       setProcessingTime(0);
@@ -713,6 +734,29 @@ function ChatInterfaceWithAgent({
   const handleRejection = (feedback?: string) => {
     confirmationService.rejectOperation(feedback);
     setConfirmationOptions(null);
+
+    // Reset processing states when operation is cancelled
+    setIsProcessing(false);
+    setIsStreaming(false);
+    setTokenCount(0);
+    setProcessingTime(0);
+    processingStartTime.current = 0;
+  };
+
+  // Question dialog handlers
+  const handleQuestionSubmit = (answers: string[], customInput?: string) => {
+    const askUserService = getAskUserService();
+    askUserService.submitAnswer(answers, customInput);
+    // The service will emit another question-requested event if there are more questions
+    // or it will resolve the promise and close automatically
+    // We clear the current question to prepare for the next one
+    setQuestionRequest(null);
+  };
+
+  const handleQuestionCancel = () => {
+    const askUserService = getAskUserService();
+    askUserService.cancelQuestions("Questions cancelled by user");
+    setQuestionRequest(null);
 
     // Reset processing states when operation is cancelled
     setIsProcessing(false);
@@ -831,7 +875,7 @@ function ChatInterfaceWithAgent({
   return (
     <Box flexDirection="column" paddingX={2}>
       {/* Show welcome panel when no chat history */}
-      {chatHistory.length === 0 && !confirmationOptions && !showQuickActions && !showKeyboardHelp && !showContextBreakdown && (
+      {chatHistory.length === 0 && !confirmationOptions && !questionRequest && !showQuickActions && !showKeyboardHelp && !showContextBreakdown && (
         <WelcomePanel projectName={projectName} />
       )}
 
@@ -903,8 +947,19 @@ function ChatInterfaceWithAgent({
         />
       )}
 
+      {/* Question dialog for ask_user tool */}
+      {questionRequest && questionRequest.questions[questionRequest.currentQuestionIndex] && (
+        <QuestionDialog
+          question={questionRequest.questions[questionRequest.currentQuestionIndex]}
+          questionNumber={questionRequest.currentQuestionIndex + 1}
+          totalQuestions={questionRequest.questions.length}
+          onSubmit={handleQuestionSubmit}
+          onCancel={handleQuestionCancel}
+        />
+      )}
+
       {/* Main interface when no dialogs are open */}
-      {!confirmationOptions && !showQuickActions && !showKeyboardHelp && !showContextBreakdown && (
+      {!confirmationOptions && !questionRequest && !showQuickActions && !showKeyboardHelp && !showContextBreakdown && (
         <>
           <LoadingSpinner
             isActive={isProcessing || isStreaming}
