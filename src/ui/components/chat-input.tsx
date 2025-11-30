@@ -125,7 +125,8 @@ export function ChatInput({
               return (
                 <React.Fragment key={`paste-${index}`}>
                   <Box>
-                    <Text color="yellow" dimColor>│ ─── Pasted #{block.id} ({block.lineCount} lines) ───</Text>
+                    {/* BUG FIX: Use 1-based ID to match collapsed placeholder display */}
+                    <Text color="yellow" dimColor>│ ─── Pasted #{block.id + 1} ({block.lineCount} lines) ───</Text>
                   </Box>
                   <Box>
                     <Text color={isCurrentLine && isInPaste ? "yellow" : isInPaste ? "yellow" : promptColor}>

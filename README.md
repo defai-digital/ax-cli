@@ -402,7 +402,11 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
-### v3.11.6 (Latest)
+### v3.11.7 (Latest)
+
+- **Fix: Paste Block ID Display** - Fixed inconsistent paste block ID display (expanded view showed 0-based ID, collapsed showed 1-based)
+
+### v3.11.6
 
 - **Fix: File Content Vertical Layout** - Fixed `renderFileContent` in chat-history to properly wrap lines in `flexDirection="column"` Box for vertical display
 
