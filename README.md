@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <strong>GLM-Optimized CLI • Enterprise Architecture • 98%+ Test Coverage • TypeScript & Zod</strong>
+  <strong>GLM-Optimized CLI • Enterprise Architecture • 98%+ Test Coverage</strong>
 </p>
 
 ---
@@ -402,7 +402,12 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
-### v3.11.4 (Latest)
+### v3.11.5 (Latest)
+
+- **Critical Fix: Multiline Input Rendering** - Fixed multiline input displaying on single line with `│` characters instead of proper newlines
+- **Root Cause** - Added missing `flexDirection="column"` to the Ink Box component containing multiline input lines
+
+### v3.11.4
 
 - **Test Suite Fixes** - Fixed 12 failing tests in CI/CD pipeline for tool-grouper and change-summarizer modules
 - **Tool Grouper Updates** - Updated tests to reflect single-item group unwrapping behavior (returns original entry instead of wrapping in ToolGroup)

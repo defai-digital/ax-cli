@@ -103,6 +103,7 @@ export function ChatInput({
     return (
       <Box flexDirection="column">
         <Box
+          flexDirection="column"
           borderStyle="round"
           borderColor={borderColor}
           paddingY={0}
