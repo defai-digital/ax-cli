@@ -11,6 +11,7 @@ interface QuickAction {
   label: string;
   description: string;
   category: "navigation" | "settings" | "tools" | "help";
+  shortcut?: string;
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
@@ -18,11 +19,16 @@ const QUICK_ACTIONS: QuickAction[] = [
   { command: "/clear", label: "Clear", description: "Clear conversation history", category: "navigation" },
   { command: "/continue", label: "Continue", description: "Resume incomplete response", category: "navigation" },
   { command: "/exit", label: "Exit", description: "Exit ax-cli", category: "navigation" },
+  { command: "jump:latest", label: "Jump to Latest", description: "Scroll to most recent messages", category: "navigation" },
 
   // Settings
   { command: "/init", label: "Init", description: "Initialize project context (CUSTOM.md)", category: "settings" },
   { command: "/models", label: "Models", description: "List available models", category: "settings" },
   { command: "/setup", label: "Setup", description: "Configure API keys and settings", category: "settings" },
+  { command: "toggle:verbosity", label: "Toggle Verbosity", description: "Cycle Quiet → Concise → Verbose", category: "settings", shortcut: "^O" },
+  { command: "toggle:autoedit", label: "Toggle Auto-edit", description: "Enable/disable auto-approve edits", category: "settings", shortcut: "⇧⇥" },
+  { command: "toggle:thinking", label: "Toggle Thinking Mode", description: "Enable/disable reasoning mode (empty input)", category: "settings", shortcut: "Tab" },
+  { command: "toggle:background", label: "Toggle Background Mode", description: "Move next bash to background / toggle", category: "settings", shortcut: "^B" },
 
   // Tools
   { command: "/context", label: "Context", description: "Show context window breakdown", category: "tools" },
@@ -38,6 +44,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   // Help
   { command: "/help", label: "Help", description: "Show all available commands", category: "help" },
   { command: "/shortcuts", label: "Shortcuts", description: "Show keyboard shortcuts", category: "help" },
+  { command: "show:keyboard-shortcuts", label: "Keyboard Help", description: "Open keyboard shortcuts overlay", category: "help", shortcut: "^H" },
 ];
 
 interface QuickActionsProps {
@@ -241,13 +248,15 @@ export function QuickActions({ isVisible, onSelect, onClose }: QuickActionsProps
                     color={isSelected ? "black" : "cyan"}
                     backgroundColor={isSelected ? "cyan" : undefined}
                   >
-                    {action.command.padEnd(15)}
+                    {/* BUG FIX: Increased padding from 15 to 24 to fit longest command (show:keyboard-shortcuts) */}
+                    {action.command.padEnd(24)}
                   </Text>
                   <Text
                     color={isSelected ? "black" : "gray"}
                     backgroundColor={isSelected ? "cyan" : undefined}
                   >
                     {" "}{action.description}
+                    {action.shortcut && ` (${action.shortcut})`}
                   </Text>
                 </Box>
               );

@@ -279,6 +279,13 @@ function CompactStatusBar(props: StatusBarProps) {
           enabledColor="magenta"
           flash={flashBackground}
         />
+        <ModePill
+          label="Thinking"
+          enabled={thinkingModeEnabled}
+          shortcut="Tab"
+          enabledColor="cyan"
+          flash={flashThinkingMode}
+        />
         {/* Phase 2: Thinking mode indicator - only show when actively thinking */}
         {thinkingModeEnabled && isThinking && (
           <Box marginLeft={1}>
@@ -407,6 +414,13 @@ export function StatusBar(props: StatusBarProps) {
           shortcut="^B"
           enabledColor="magenta"
           flash={flashBackground}
+        />
+        <ModePill
+          label="Thinking"
+          enabled={thinkingModeEnabled}
+          shortcut="Tab"
+          enabledColor="cyan"
+          flash={flashThinkingMode}
         />
         {/* Phase 2: Thinking mode indicator - only show when actively thinking */}
         {thinkingModeEnabled && isThinking && (

@@ -78,6 +78,7 @@ export const ALL_SHORTCUTS: Record<string, Shortcut[]> = {
     { keys: "Shift+Tab", description: "Toggle auto-edit mode" },
     { keys: "Ctrl+O", description: "Toggle verbose mode" },
     { keys: "Ctrl+B", description: "Toggle background mode" },
+    { keys: "Tab", description: "Toggle thinking mode (empty input)" },
   ],
   "Actions": [
     { keys: "Enter", description: "Send message / confirm" },
