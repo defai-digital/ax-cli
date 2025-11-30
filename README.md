@@ -402,7 +402,11 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
-### v3.11.7 (Latest)
+### v3.11.8 (Latest)
+
+- **Fix: Keyboard Help Documentation** - Fixed incorrect documentation for Ctrl+D (was "Exit AX CLI", should be "Delete character after cursor")
+
+### v3.11.7
 
 - **Fix: Paste Block ID Display** - Fixed inconsistent paste block ID display (expanded view showed 0-based ID, collapsed showed 1-based)
 

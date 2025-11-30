@@ -55,8 +55,9 @@ export function KeyboardHelp({
             <Text color="gray">       Clear current input</Text>
           </Text>
           <Text>
+            {/* BUG FIX: Ctrl+D is delete char after cursor, not exit */}
             <Text color="cyan" bold>Ctrl+D</Text>
-            <Text color="gray">       Exit AX CLI</Text>
+            <Text color="gray">       Delete character after cursor</Text>
           </Text>
         </Box>
       </Box>
