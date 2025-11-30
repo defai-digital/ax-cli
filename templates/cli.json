@@ -1,0 +1,36 @@
+{
+  "id": "cli",
+  "name": "CLI Application",
+  "description": "Command-line interface application with Commander.js",
+  "version": "1.0.0",
+  "projectType": "cli",
+  "tags": ["cli", "nodejs", "typescript", "commander"],
+  "instructions": "# CLI Application - Quick Reference\n\n**Type:** cli | **Lang:** TypeScript\n**Stack:** Node.js, Commander.js, TypeScript\n\n---\n\n## 🎯 Critical Rules\n\n1. **ESM Imports:** Always use `.js` extension: `import { x } from './y.js'`\n2. **Validation:** Use zod for all CLI input validation\n3. **Types:** Explicit return types required on all functions\n4. **Error Handling:** Use proper exit codes (0 = success, 1+ = error)\n5. **Commands:** Use Commander.js for all command definitions\n\n---\n\n## 📋 Project Overview\n\n**Entry:** `dist/index.js` | **PM:** npm | **Module:** ESM\n\n**Directories:**\n- `src/` - Source code\n- `src/commands/` - CLI commands\n- `src/utils/` - Utility functions\n- `tests/` - Test files\n\n---\n\n## 🔧 Code Patterns\n\n### Command Structure\n\n✅ **DO:**\n```typescript\nimport { Command } from 'commander';\n\nexport function createMyCommand(): Command {\n  return new Command('my-command')\n    .description('Command description')\n    .option('-f, --flag <value>', 'Flag description')\n    .action(async (options) => {\n      // Implementation\n    });\n}\n```\n\n❌ **DON'T:**\n```typescript\n// Don't use any types\nfunction createMyCommand(): any { }  // ❌\n\n// Don't skip validation\nconst value = options.flag;  // ❌ Validate first\n```\n\n### Input Validation\n\n✅ **DO:**\n```typescript\nimport { z } from 'zod';\n\nconst OptionsSchema = z.object({\n  flag: z.string().min(1),\n});\n\nconst result = OptionsSchema.safeParse(options);\nif (!result.success) {\n  console.error('Invalid options:', result.error);\n  process.exit(1);\n}\n```\n\n---\n\n## 🔄 Workflow\n\n**Before:**\n- Read existing command files\n- Check tests for expected behavior\n\n**Changes:**\n- Edit existing files (never recreate)\n- Keep changes focused\n- Update tests when changing functionality\n\n**After:**\n1. Test: `npm test`\n2. Build: `npm run build`\n3. Verify: `node dist/index.js --help`\n\n---\n\n## 🐛 Troubleshooting\n\n### \"Module not found\" errors\n**Solution:** Add `.js` extension to imports\n```typescript\n// ✅ Correct\nimport { x } from './y.js';\n\n// ❌ Wrong\nimport { x } from './y';\n```\n\n### Command not showing in help\n**Solution:** Ensure command is registered in main CLI file\n```typescript\nprogram.addCommand(createMyCommand());\n```",
+  "metadata": {
+    "conventions": {
+      "moduleSystem": "esm",
+      "importExtension": ".js",
+      "testFramework": "vitest",
+      "validation": "zod"
+    },
+    "scripts": {
+      "build": "tsc",
+      "test": "vitest run",
+      "dev": "tsx src/index.ts"
+    },
+    "directories": {
+      "source": "src",
+      "commands": "src/commands",
+      "utils": "src/utils",
+      "tests": "tests"
+    },
+    "keyFiles": [
+      "package.json",
+      "tsconfig.json",
+      "src/index.ts"
+    ]
+  },
+  "createdAt": "2025-11-19T00:00:00.000Z",
+  "isBuiltIn": true,
+  "author": "AX CLI Team"
+}

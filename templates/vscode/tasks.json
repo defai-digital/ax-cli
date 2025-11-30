@@ -1,0 +1,133 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "AX: Interactive Chat",
+      "type": "shell",
+      "command": "ax-cli",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "AX: Analyze Current File",
+      "type": "shell",
+      "command": "ax-cli --prompt 'Analyze this file and suggest improvements' --file ${file} --json --vscode",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "AX: Explain Selection",
+      "type": "shell",
+      "command": "ax-cli --prompt 'Explain this code in detail' --selection '${selectedText}' --json --vscode",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "AX: Review Git Changes",
+      "type": "shell",
+      "command": "ax-cli --prompt 'Review these changes and suggest improvements' --git-diff --json --vscode",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "AX: Generate Tests for File",
+      "type": "shell",
+      "command": "ax-cli --prompt 'Generate comprehensive unit tests for this file' --file ${file} --json --vscode",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "AX: Document Selection",
+      "type": "shell",
+      "command": "ax-cli --prompt 'Generate documentation for this code' --selection '${selectedText}' --json --vscode",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "AX: Refactor Selection",
+      "type": "shell",
+      "command": "ax-cli --prompt 'Suggest refactorings to improve code quality' --selection '${selectedText}' --json --vscode",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "AX: Find Bugs in File",
+      "type": "shell",
+      "command": "ax-cli --prompt 'Analyze for potential bugs and security issues' --file ${file} --json --vscode",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "AX: Optimize Performance",
+      "type": "shell",
+      "command": "ax-cli --prompt 'Analyze for performance optimizations' --file ${file} --json --vscode",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "AX: Custom Prompt",
+      "type": "shell",
+      "command": "ax-cli --prompt '${input:customPrompt}' --file ${file} --json --vscode",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "customPrompt",
+      "type": "promptString",
+      "description": "Enter your custom prompt for AX CLI",
+      "default": "Help me with this code"
+    }
+  ]
+}

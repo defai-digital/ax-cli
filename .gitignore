@@ -1,0 +1,146 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+# Ignore alternative package manager lockfiles (npm is the standard)
+yarn.lock
+bun.lockb
+bun.lock
+
+# Build outputs
+dist/
+lib/
+build/
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Bun cache
+.bun/
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack' and 'bun pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Temporary folders
+tmp/
+temp/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Coding agents - directories
+.claude/
+.codex/
+.grok/
+.gemini/
+.specify/
+
+# AI agent instruction files (root level)
+# These contain project-specific AI instructions and should not be shared
+AGENTS.md
+AX.md
+CLAUDE.md
+GEMINI.md
+GROK.md
+SPECIFY.md
+agents.md
+ax.md
+claude.md
+gemini.md
+grok.md
+specify.md
+
+# AutomatosX - SECURITY: Completely exclude from version control
+# This folder contains internal development artifacts, PRDs, and temporary files
+.automatosx/
+automatosx/
+ax.config.json
+
+# Backup and temporary files
+*.bak
+*.backup
+test-file-*
+test-file-*.*
+
+# Test checkpoint artifacts
+.test-checkpoints-*
+
+# Local ax-cli user data (config, memory, checkpoints)
+# This directory contains user-specific settings and runtime data
+.ax-cli/
+# But allow the settings template to be tracked
+!.ax-cli/settings.json.template
+
+# Checkpoint directories (both locations)
+# These contain session-specific data and should never be committed
+checkpoints/
+.checkpoints/
+.test-tmp/

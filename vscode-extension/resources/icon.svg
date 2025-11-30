@@ -1,0 +1,23 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00D4D4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0066CC;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Hexagon background -->
+  <path d="M 64 8 L 110 32 L 110 80 L 64 104 L 18 80 L 18 32 Z" fill="url(#grad1)" stroke="none"/>
+
+  <!-- Gear/Cog icon representing automation -->
+  <g transform="translate(64, 64)">
+    <!-- Outer gear teeth -->
+    <path d="M 0,-28 L 6,-24 L 6,-32 L -6,-32 L -6,-24 Z M 28,0 L 24,6 L 32,6 L 32,-6 L 24,-6 Z M 0,28 L -6,24 L -6,32 L 6,32 L 6,24 Z M -28,0 L -24,-6 L -32,-6 L -32,6 L -24,6 Z" fill="#FFFFFF"/>
+
+    <!-- Main gear body -->
+    <circle cx="0" cy="0" r="20" fill="#FFFFFF"/>
+
+    <!-- Inner circle (hole) -->
+    <circle cx="0" cy="0" r="8" fill="url(#grad1)"/>
+  </g>
+</svg>

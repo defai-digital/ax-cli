@@ -1,0 +1,36 @@
+# Build artifacts
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+.yarnrc
+vsc-extension-quickstart.md
+**/tsconfig.json
+**/.eslintrc.json
+**/*.map
+**/*.ts
+
+# Tests
+**/test/**
+**/*.test.ts
+**/*.spec.ts
+
+# Development files
+node_modules/**
+.editorconfig
+
+# Build configuration
+esbuild.js
+vitest.config.ts
+
+# Documentation
+**/*.md
+!README.md
+
+# Git
+.git
+.github
+
+# NPM
+.npmignore
+package-lock.json

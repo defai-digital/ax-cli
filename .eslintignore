@@ -1,0 +1,21 @@
+# Node modules
+node_modules/
+
+# Build outputs
+dist/
+lib/
+build/
+*.tsbuildinfo
+
+# Examples - these are for documentation, not production code
+examples/
+
+# Test artifacts
+coverage/
+.nyc_output/
+
+# Cache files
+.eslintcache
+
+# AutomatosX temporary files and backups
+automatosx/tmp/
