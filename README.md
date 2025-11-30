@@ -402,7 +402,11 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
-### v3.11.5 (Latest)
+### v3.11.6 (Latest)
+
+- **Fix: File Content Vertical Layout** - Fixed `renderFileContent` in chat-history to properly wrap lines in `flexDirection="column"` Box for vertical display
+
+### v3.11.5
 
 - **Critical Fix: Multiline Input Rendering** - Fixed multiline input displaying on single line with `│` characters instead of proper newlines
 - **Root Cause** - Added missing `flexDirection="column"` to the Ink Box component containing multiline input lines

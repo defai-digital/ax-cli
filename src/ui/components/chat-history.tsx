@@ -55,15 +55,19 @@ const MemoizedChatEntry = React.memo(
         baseIndentation = 0;
       }
 
-      return lines.map((line, lineIdx) => {
-        const displayContent = line.substring(baseIndentation);
-        return (
-          // BUG FIX: Use more unique key with line content hash to prevent key conflicts
-          <Text key={`line-${lineIdx}`} color="gray">
-            {displayContent}
-          </Text>
-        );
-      });
+      // BUG FIX: Wrap lines in Box with flexDirection="column" to ensure vertical layout
+      return (
+        <Box flexDirection="column">
+          {lines.map((line, lineIdx) => {
+            const displayContent = line.substring(baseIndentation);
+            return (
+              <Text key={`line-${lineIdx}`} color="gray">
+                {displayContent}
+              </Text>
+            );
+          })}
+        </Box>
+      );
     };
 
     switch (entry.type) {
