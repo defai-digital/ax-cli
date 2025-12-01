@@ -1,0 +1,26 @@
+{
+  // AX CLI VSCode Integration Settings
+  "terminal.integrated.shell.osx": "/bin/zsh",
+  "terminal.integrated.shell.linux": "/bin/bash",
+  "terminal.integrated.shell.windows": "C:\\Windows\\System32\\cmd.exe",
+
+  // Make terminal output more readable
+  "terminal.integrated.fontSize": 14,
+  "terminal.integrated.fontFamily": "Monaco, 'Courier New', monospace",
+
+  // Terminal scrollback for long responses
+  "terminal.integrated.scrollback": 10000,
+
+  // File associations for AX CLI configuration
+  "files.associations": {
+    ".ax-cli/config.json": "jsonc",
+    ".ax-cli/CUSTOM.md": "markdown",
+    ".ax-cli/settings.json": "jsonc"
+  },
+
+  // Workspace-specific recommendations
+  "extensions.recommendations": [
+    "vscode.json-language-features",
+    "vscode.markdown-language-features"
+  ]
+}

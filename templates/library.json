@@ -1,0 +1,38 @@
+{
+  "id": "library",
+  "name": "Library/Package",
+  "description": "Reusable TypeScript library for npm",
+  "version": "1.0.0",
+  "projectType": "library",
+  "tags": ["library", "package", "typescript", "npm"],
+  "instructions": "# Library/Package - Quick Reference\n\n**Type:** library | **Lang:** TypeScript\n**Stack:** TypeScript, Vitest, npm\n\n---\n\n## 🎯 Critical Rules\n\n1. **ESM/CJS Dual Support:** Export both ESM and CJS formats\n2. **Validation:** Use zod for all public API inputs\n3. **Types:** Export all public types, explicit return types\n4. **Testing:** 90%+ coverage, test all public APIs\n5. **Documentation:** JSDoc comments on all exported functions\n\n---\n\n## 📋 Project Overview\n\n**Entry:** `dist/index.js` | **PM:** npm | **Module:** ESM+CJS\n\n**Directories:**\n- `src/` - Source code\n- `dist/` - Built output (ESM + CJS)\n- `tests/` - Test files\n- `types/` - TypeScript definitions\n\n---\n\n## 🔧 Code Patterns\n\n### Public API\n\n✅ **DO:**\n```typescript\nimport { z } from 'zod';\n\n/**\n * Process data with validation\n * @param input - Input data to process\n * @returns Processed result\n * @throws {Error} If validation fails\n */\nexport function process(input: unknown): ProcessedData {\n  const schema = z.object({\n    name: z.string(),\n    value: z.number(),\n  });\n  \n  const result = schema.parse(input);\n  return { ...result, processed: true };\n}\n\n// Export types\nexport type ProcessedData = {\n  name: string;\n  value: number;\n  processed: boolean;\n};\n```\n\n❌ **DON'T:**\n```typescript\n// Don't use any types in public API\nexport function process(input: any): any { }  // ❌\n\n// Don't skip JSDoc\nexport function process(input: Data) { }  // ❌ No docs\n\n// Don't export internal helpers\nexport function _internal() { }  // ❌ Private function\n```\n\n### Error Handling\n\n✅ **DO:**\n```typescript\nexport class LibraryError extends Error {\n  constructor(\n    message: string,\n    public code: string,\n    public details?: unknown\n  ) {\n    super(message);\n    this.name = 'LibraryError';\n  }\n}\n\nexport function validate(data: unknown): void {\n  if (!isValid(data)) {\n    throw new LibraryError(\n      'Validation failed',\n      'INVALID_INPUT',\n      { data }\n    );\n  }\n}\n```\n\n---\n\n## 🔄 Workflow\n\n**Before:**\n- Read public API surface\n- Check tests for expected behavior\n- Review changelog for breaking changes\n\n**Changes:**\n- Edit existing files (never recreate)\n- Keep backward compatibility\n- Update tests when changing APIs\n- Update JSDoc comments\n\n**After:**\n1. Test: `npm test`\n2. Build: `npm run build`\n3. Type check: `npm run typecheck`\n4. Verify exports: Check `dist/index.d.ts`\n\n---\n\n## 🐛 Troubleshooting\n\n### Types not exported\n**Solution:** Ensure types are exported in index.ts\n```typescript\n// ✅ Correct\nexport type { MyType } from './types.js';\nexport { myFunction } from './utils.js';\n\n// ❌ Wrong\nimport type { MyType } from './types.js';  // Not exported\n```\n\n### CJS/ESM compatibility issues\n**Solution:** Use tsconfig with dual output\n```json\n{\n  \"compilerOptions\": {\n    \"module\": \"ESNext\",\n    \"moduleResolution\": \"bundler\"\n  }\n}\n```\n\n### Tests failing in consumer projects\n**Solution:** Validate all inputs, don't assume types\n```typescript\nimport { z } from 'zod';\n\nexport function process(input: unknown) {\n  const schema = z.object({ /* ... */ });\n  return schema.parse(input);  // Validate at runtime\n}\n```",
+  "metadata": {
+    "conventions": {
+      "moduleSystem": "esm+cjs",
+      "importExtension": ".js",
+      "testFramework": "vitest",
+      "validation": "zod",
+      "documentation": "jsdoc"
+    },
+    "scripts": {
+      "build": "tsc && tsc --module commonjs --outDir dist/cjs",
+      "test": "vitest run",
+      "typecheck": "tsc --noEmit"
+    },
+    "directories": {
+      "source": "src",
+      "dist": "dist",
+      "tests": "tests",
+      "types": "types"
+    },
+    "keyFiles": [
+      "package.json",
+      "tsconfig.json",
+      "src/index.ts",
+      "README.md"
+    ]
+  },
+  "createdAt": "2025-11-19T00:00:00.000Z",
+  "isBuiltIn": true,
+  "author": "AX CLI Team"
+}
