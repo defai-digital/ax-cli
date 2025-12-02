@@ -130,6 +130,10 @@ export class TokenCounter {
           for (const part of message.content) {
             if (part.type === 'text' && part.text) {
               totalTokens += this.countTokens(part.text);
+            } else if (part.type === 'image_url') {
+              // Images consume approximately 1000 tokens each (based on z.ai docs)
+              // This is an estimate as actual cost may vary by image size
+              totalTokens += TOKEN_CONFIG.TOKENS_PER_IMAGE ?? 1000;
             }
           }
         } else {

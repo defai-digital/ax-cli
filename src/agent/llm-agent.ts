@@ -1,5 +1,5 @@
 import { LLMClient, LLMMessage, LLMToolCall, LLMTool } from "../llm/client.js";
-import type { SamplingConfig, ChatOptions, ThinkingConfig } from "../llm/types.js";
+import type { SamplingConfig, ChatOptions, ThinkingConfig, MessageContentPart } from "../llm/types.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
 import {
   getAllGrokTools,
@@ -291,7 +291,27 @@ export class LLMAgent extends EventEmitter {
       result.thinking = this.thinkingConfig;
     }
 
+    // Auto-switch to vision model if messages contain images
+    if (!result.model && this.hasMultimodalContent()) {
+      result.model = 'glm-4.5v';
+    }
+
     return result;
+  }
+
+  /**
+   * Check if current messages contain multimodal (image) content
+   * Used to auto-switch to vision model
+   */
+  private hasMultimodalContent(): boolean {
+    return this.messages.some(msg => {
+      if (typeof msg.content !== 'string' && Array.isArray(msg.content)) {
+        return msg.content.some(part =>
+          typeof part === 'object' && 'type' in part && part.type === 'image_url'
+        );
+      }
+      return false;
+    });
   }
 
   /**
@@ -1302,15 +1322,26 @@ export class LLMAgent extends EventEmitter {
   /**
    * Prepare user message and apply context management
    * Returns the calculated input tokens
+   *
+   * Supports both text-only and multimodal (with images) messages.
    */
-  private prepareUserMessageForStreaming(message: string): number {
-    // Add user message to conversation
+  private prepareUserMessageForStreaming(
+    message: string | MessageContentPart[]
+  ): number {
+    // Determine display content for chat history
+    const displayContent = typeof message === 'string'
+      ? message
+      : this.extractDisplayContent(message);
+
+    // Add user message to conversation (display format)
     const userEntry: ChatEntry = {
       type: "user",
-      content: message,
+      content: displayContent,
       timestamp: new Date(),
     };
     this.chatHistory.push(userEntry);
+
+    // Add to LLM messages (full format including images)
     this.messages.push({ role: "user", content: message });
 
     // Apply context management before sending to API
@@ -1318,6 +1349,40 @@ export class LLMAgent extends EventEmitter {
 
     // Calculate input tokens
     return this.tokenCounter.countMessageTokens(this.messages);
+  }
+
+  /**
+   * Extract display text from multimodal message content
+   * Used for chat history display (excludes binary image data)
+   */
+  private extractDisplayContent(content: MessageContentPart[]): string {
+    const parts: string[] = [];
+
+    for (const part of content) {
+      if (part.type === 'text') {
+        parts.push(part.text);
+      } else if (part.type === 'image_url') {
+        parts.push('[Image attached]');
+      }
+    }
+
+    return parts.join('\n');
+  }
+
+  /**
+   * Extract text content from message for analysis purposes
+   * Used by planning and complexity detection
+   */
+  private getTextContentFromMessage(message: string | MessageContentPart[]): string {
+    if (typeof message === 'string') {
+      return message;
+    }
+
+    // Extract only text parts from multimodal content
+    return message
+      .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+      .map(part => part.text)
+      .join('\n');
   }
 
   /**
@@ -1489,14 +1554,17 @@ export class LLMAgent extends EventEmitter {
   }
 
   async *processUserMessageStream(
-    message: string
+    message: string | MessageContentPart[]
   ): AsyncGenerator<StreamingChunk, void, unknown> {
     // Create new abort controller for this request
     this.abortController = new AbortController();
 
+    // Extract text content for analysis (planning, complexity detection)
+    const textContent = this.getTextContentFromMessage(message);
+
     // GLM-4.6 OPTIMIZATION: Auto-enable thinking mode for complex tasks
     // This detects requests that would benefit from extended reasoning
-    const autoThinkingApplied = this.applyAutoThinking(message);
+    const autoThinkingApplied = this.applyAutoThinking(textContent);
     if (autoThinkingApplied) {
       // Notify UI that thinking mode was auto-enabled
       yield {
@@ -1506,9 +1574,10 @@ export class LLMAgent extends EventEmitter {
     }
 
     // Check if this is a complex request that should use multi-phase planning
-    if (this.shouldCreatePlan(message)) {
+    // Note: Planning currently only works with text-only messages
+    if (typeof message === 'string' && this.shouldCreatePlan(textContent)) {
       // Delegate to planning processor
-      yield* this.processWithPlanning(message);
+      yield* this.processWithPlanning(textContent);
       yield { type: "done" };
       return;
     }

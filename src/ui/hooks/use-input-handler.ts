@@ -40,6 +40,7 @@ import { promptToSlashCommand, parsePromptCommand, formatPromptResult, getPrompt
 import type { MCPResource } from "../../mcp/resources.js";
 import { getPermissionManager, PermissionTier } from "../../permissions/permission-manager.js";
 import { parseFileMentions } from "../../utils/file-mentions.js";
+import { ImageInputHandler } from "../utils/image-handler.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -2193,23 +2194,57 @@ Respond with ONLY the commit message, no additional text.`;
       const hooksManager = getHooksManager();
       let processedInput = await hooksManager.processUserInput(userInput);
 
-      // Parse and expand @file mentions
-      const fileMentionResult = await parseFileMentions(processedInput, {
-        baseDir: process.cwd(),
-        maxFileSize: 100 * 1024, // 100KB limit
-        maxMentions: 10,
-        includeContents: true,
-      });
+      // Check for image references (e.g., @image.png, /path/to/image.png)
+      const imageResult = await ImageInputHandler.parseInput(processedInput, process.cwd());
 
-      // Use expanded input if file mentions were found
-      processedInput = fileMentionResult.hasMentions
-        ? fileMentionResult.expandedInput
-        : processedInput;
+      // Show image processing errors if any
+      if (imageResult.errors.length > 0) {
+        const errorEntry: ChatEntry = {
+          type: "assistant",
+          content: `⚠️ Image processing warnings:\n${imageResult.errors.map(e => `  - ${e}`).join('\n')}`,
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, errorEntry]);
+      }
+
+      // If images found, show info about model switch
+      if (imageResult.hasImages) {
+        const imageInfo = imageResult.images.map((img, i) =>
+          ImageInputHandler.formatAttachmentForDisplay(img, i + 1)
+        ).join('\n');
+
+        const infoEntry: ChatEntry = {
+          type: "assistant",
+          content: `📷 Processing ${imageResult.images.length} image(s):\n${imageInfo}\n\n*Using glm-4.5v for vision analysis*`,
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, infoEntry]);
+      }
+
+      // Parse and expand @file mentions (only if no images, to avoid conflicts)
+      if (!imageResult.hasImages) {
+        const fileMentionResult = await parseFileMentions(processedInput, {
+          baseDir: process.cwd(),
+          maxFileSize: 100 * 1024, // 100KB limit
+          maxMentions: 10,
+          includeContents: true,
+        });
+
+        // Use expanded input if file mentions were found
+        processedInput = fileMentionResult.hasMentions
+          ? fileMentionResult.expandedInput
+          : processedInput;
+      }
 
       setIsStreaming(true);
       let streamingEntry: ChatEntry | null = null;
 
-      for await (const chunk of agent.processUserMessageStream(processedInput)) {
+      // Build message content - multimodal if images, otherwise text
+      const messageContent = imageResult.hasImages
+        ? ImageInputHandler.buildMessageContent(imageResult)
+        : processedInput;
+
+      for await (const chunk of agent.processUserMessageStream(messageContent)) {
         switch (chunk.type) {
           case "content":
             if (chunk.content !== undefined) {

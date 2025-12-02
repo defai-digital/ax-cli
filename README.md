@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.14.0)](#recent-changes-v3140)
+- [Recent Changes (v3.14.1)](#recent-changes-v3141)
 - [Documentation](#documentation)
 
 ---
@@ -403,7 +403,22 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.0)
+## Recent Changes (v3.14.1)
+
+### New Features
+
+- **Image/Multimodal Support**: Send images directly in chat messages with automatic vision model switching (glm-4.5v)
+- **Image Processing**: Support for PNG, JPG, JPEG, GIF, and WebP formats up to 10MB
+- **Terminal Title**: Shows "ax-cli" instead of "node" in VS Code terminal
+
+### Improvements
+
+- **Token Counting**: Enhanced token estimation for multimodal messages
+- **Chat Display**: Images shown as `[Image attached]` in chat history
+
+---
+
+## Previous Changes (v3.14.0)
 
 ### New Features
 

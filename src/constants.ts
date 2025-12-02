@@ -227,6 +227,8 @@ export const TOKEN_CONFIG = {
   DEFAULT_ENCODING: settingsYaml.token.default_encoding,
   CACHE_MAX_SIZE: settingsYaml.token.cache_max_size,
   CHARS_PER_TOKEN_ESTIMATE: settingsYaml.token.chars_per_token_estimate,
+  /** Approximate tokens per image for multimodal messages (based on z.ai docs) */
+  TOKENS_PER_IMAGE: 1000,
 } as const;
 
 // Cache Configuration
