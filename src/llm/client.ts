@@ -275,9 +275,10 @@ export class LLMClient {
   }
 
   /**
-   * Validate max tokens for current model
+   * Validate and clamp max tokens for current model
+   * Returns the clamped value (clamps to model limit if exceeded)
    */
-  private validateMaxTokens(maxTokens: number, model: string): void {
+  private validateAndClampMaxTokens(maxTokens: number, model: string): number {
     const config = GLM_MODELS[model as SupportedModel];
 
     if (maxTokens < 1) {
@@ -287,17 +288,17 @@ export class LLMClient {
     if (!config) {
       // Custom model - allow up to 128K tokens
       if (maxTokens > 128000) {
-        throw new Error(`Max tokens ${maxTokens} exceeds reasonable limit. Maximum: 128000`);
+        return 128000; // Clamp to reasonable limit
       }
-      return;
+      return maxTokens;
     }
 
+    // Clamp to model's max output tokens (e.g., when auto-switching to vision model)
     if (maxTokens > config.maxOutputTokens) {
-      throw new Error(
-        `Max tokens ${maxTokens} exceeds limit for model ${model}. ` +
-        `Maximum: ${config.maxOutputTokens}`
-      );
+      return config.maxOutputTokens;
     }
+
+    return maxTokens;
   }
 
   /**
@@ -596,15 +597,15 @@ export class LLMClient {
       // Merge options with defaults
       const model = this.validateModel(options?.model || this.currentModel);
       const temperature = options?.temperature ?? this.defaultTemperature;
-      const maxTokens = options?.maxTokens ?? this.defaultMaxTokens;
+      const rawMaxTokens = options?.maxTokens ?? this.defaultMaxTokens;
       const thinking = options?.thinking;
       const searchOptions = options?.searchOptions;
       const responseFormat = options?.responseFormat;
       const sampling = options?.sampling;
 
-      // Validate parameters
+      // Validate parameters (clamp maxTokens to model limit)
       this.validateTemperature(temperature, model);
-      this.validateMaxTokens(maxTokens, model);
+      const maxTokens = this.validateAndClampMaxTokens(rawMaxTokens, model);
       this.validateThinking(thinking, model);
       validateSampling(sampling, temperature);
 
@@ -817,15 +818,15 @@ export class LLMClient {
       // Merge options with defaults
       const model = this.validateModel(options?.model || this.currentModel);
       const temperature = options?.temperature ?? this.defaultTemperature;
-      const maxTokens = options?.maxTokens ?? this.defaultMaxTokens;
+      const rawMaxTokens = options?.maxTokens ?? this.defaultMaxTokens;
       const thinking = options?.thinking;
       const searchOptions = options?.searchOptions;
       const responseFormat = options?.responseFormat;
       const sampling = options?.sampling;
 
-      // Validate parameters
+      // Validate parameters (clamp maxTokens to model limit)
       this.validateTemperature(temperature, model);
-      this.validateMaxTokens(maxTokens, model);
+      const maxTokens = this.validateAndClampMaxTokens(rawMaxTokens, model);
       this.validateThinking(thinking, model);
       validateSampling(sampling, temperature);
 

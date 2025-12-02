@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.14.4)](#recent-changes-v3144)
+- [Recent Changes (v3.14.6)](#recent-changes-v3146)
 - [Documentation](#documentation)
 
 ---
@@ -403,7 +403,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.4)
+## Recent Changes (v3.14.6)
+
+### Bug Fixes
+
+- **Vision Model Max Tokens**: Fixed "Max tokens exceeds limit" error when auto-switching to glm-4.5v for image processing - now automatically clamps max tokens to model limit
+
+## Previous Changes (v3.14.4)
 
 ### Improvements
 
