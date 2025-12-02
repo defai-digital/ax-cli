@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.14.9)](#recent-changes-v3149)
+- [Recent Changes (v3.14.10)](#recent-changes-v31410)
 - [Documentation](#documentation)
 
 ---
@@ -404,7 +404,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.9)
+## Recent Changes (v3.14.10)
+
+### Security Fix
+
+- **MCP SDK Update**: Updated `@modelcontextprotocol/sdk` from 1.22.0 to 1.24.0 to fix DNS rebinding protection vulnerability (GHSA-w48q-cv73-mx4w)
+
+## Previous Changes (v3.14.9)
 
 ### AST Parser Simplification
 
