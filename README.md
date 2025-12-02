@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.14.7)](#recent-changes-v3147)
+- [Recent Changes (v3.14.8)](#recent-changes-v3148)
 - [Documentation](#documentation)
 
 ---
@@ -404,7 +404,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.7)
+## Recent Changes (v3.14.8)
+
+### CI/CD Improvements
+
+- **NPM Publish Fix**: Added `--tag latest` to npm publish command to support version rollbacks in CI/CD
+
+## Previous Changes (v3.14.7)
 
 ### Code Refactoring
 
