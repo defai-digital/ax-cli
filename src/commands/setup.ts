@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
+import { execSync, spawnSync } from 'child_process';
 import enquirer from 'enquirer';
 import chalk from 'chalk';
 import { validateProviderSetup } from '../utils/setup-validator.js';
@@ -15,6 +16,73 @@ import {
   ZAI_MCP_TEMPLATES,
 } from '../mcp/index.js';
 import { addMCPServer } from '../mcp/config.js';
+
+/**
+ * Check if AutomatosX (ax) is installed
+ */
+function isAutomatosXInstalled(): boolean {
+  try {
+    const result = spawnSync('ax', ['--version'], {
+      encoding: 'utf-8',
+      timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    return result.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get AutomatosX version if installed
+ */
+function getAutomatosXVersion(): string | null {
+  try {
+    const result = spawnSync('ax', ['--version'], {
+      encoding: 'utf-8',
+      timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    if (result.status === 0 && result.stdout) {
+      // Extract version from output (e.g., "ax version 1.2.3")
+      const match = result.stdout.match(/(\d+\.\d+\.\d+)/);
+      return match ? match[1] : result.stdout.trim();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Update AutomatosX to latest version
+ */
+async function updateAutomatosX(): Promise<boolean> {
+  try {
+    execSync('ax update -y', {
+      stdio: 'inherit',
+      timeout: 120000 // 2 minutes timeout
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Install AutomatosX globally
+ */
+async function installAutomatosX(): Promise<boolean> {
+  try {
+    execSync('npm install -g @defai.digital/automatosx', {
+      stdio: 'inherit',
+      timeout: 180000 // 3 minutes timeout
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Provider configurations
@@ -400,6 +468,49 @@ export function createSetupCommand(): Command {
             console.log(chalk.dim('\n   You can enable Z.AI MCP later with: ax-cli mcp add-zai\n'));
           }
         }
+
+        // AutomatosX Integration
+        console.log(chalk.cyan('🤖 AutomatosX Agent Orchestration\n'));
+        console.log(chalk.dim('   Multi-agent AI orchestration with persistent memory and collaboration.\n'));
+
+        const axInstalled = isAutomatosXInstalled();
+
+        if (axInstalled) {
+          const currentVersion = getAutomatosXVersion();
+          console.log(chalk.green(`✓ AutomatosX detected${currentVersion ? ` (v${currentVersion})` : ''}`));
+          console.log(chalk.dim('   Checking for updates...\n'));
+
+          const updated = await updateAutomatosX();
+          if (updated) {
+            const newVersion = getAutomatosXVersion();
+            console.log(chalk.green(`✓ AutomatosX updated${newVersion ? ` to v${newVersion}` : ''}\n`));
+          } else {
+            console.log(chalk.yellow('⚠ Could not update AutomatosX. Run manually: ax update -y\n'));
+          }
+        } else {
+          const installResponse = await enquirer.prompt<{ install: boolean }>({
+            type: 'confirm',
+            name: 'install',
+            message: 'Install AutomatosX for multi-agent AI orchestration?',
+            initial: true,
+          });
+
+          if (installResponse.install) {
+            console.log(chalk.dim('\n   Installing AutomatosX...\n'));
+
+            const installed = await installAutomatosX();
+            if (installed) {
+              console.log(chalk.green('\n✓ AutomatosX installed successfully!'));
+              console.log(chalk.dim('   Run `ax list agents` to see available AI agents.\n'));
+            } else {
+              console.log(chalk.yellow('\n⚠ Could not install AutomatosX.'));
+              console.log(chalk.dim('   Install manually: npm install -g @defai.digital/automatosx\n'));
+            }
+          } else {
+            console.log(chalk.dim('\n   You can install AutomatosX later: npm install -g @defai.digital/automatosx\n'));
+          }
+        }
+
         console.log(chalk.cyan('📄 Configuration details:\n'));
         console.log(chalk.dim('   Location:    ') + chalk.white(configPath));
         console.log(chalk.dim('   Provider:    ') + chalk.white(selectedProvider.displayName));

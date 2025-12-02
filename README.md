@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.14.14)](#recent-changes-v31414)
+- [Recent Changes (v3.14.15)](#recent-changes-v31415)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.14)
+## Recent Changes (v3.14.15)
+
+### New Features
+
+- **AutomatosX Integration in Setup**: Setup wizard now detects AutomatosX and offers to update (if installed) or install (if not) for multi-agent AI orchestration with persistent memory.
+
+## Previous Changes (v3.14.14)
 
 ### Bug Fixes
 
