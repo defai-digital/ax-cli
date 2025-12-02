@@ -60,7 +60,7 @@ ax-cli
 
 | Feature | Description |
 |---------|-------------|
-| **GLM-Optimized** | Primary support for Z.AI's GLM-4.6 with 200K context window |
+| **GLM-Optimized** | Primary support for Z.AI's GLM-4.6 (200K context) and GLM-4.5v (vision) |
 | **Multi-Phase Planner** | Intelligent task decomposition for complex requests |
 | **Session Continuity** | Directory-specific conversation history with `--continue` |
 | **MCP Integration** | Model Context Protocol with 12+ production-ready templates |
@@ -70,7 +70,8 @@ ax-cli
 
 ### AI Provider Support
 
-- **Z.AI GLM-4.6** (default) - 32K max tokens, optimized for complex code generation
+- **Z.AI GLM-4.6** (default) - 200K context, optimized for complex code generation
+- **Z.AI GLM-4.5v** (vision) - 64K multimodal context, auto-switches for image analysis
 - **OpenAI** - GPT-4, GPT-3.5
 - **Anthropic** - Claude models
 - **Ollama** - Local models
