@@ -209,7 +209,7 @@ export class VSCodeIPCClient extends EventEmitter {
           safeResolve(false);
         });
 
-      } catch (error) {
+      } catch {
         safeResolve(false);
       }
     });

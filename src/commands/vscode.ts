@@ -435,7 +435,7 @@ export function createVSCodeCommand(): Command {
         console.log(chalk.green('✓ Extension installed! Reload VSCode to activate.'));
         console.log();
 
-      } catch (error) {
+      } catch {
         // Silent failure - don't interrupt CLI startup
         // User can manually install with 'ax-cli vscode install'
       }

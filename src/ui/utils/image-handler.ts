@@ -85,7 +85,7 @@ async function processImageRef(
 
     // Handle duplicate - reuse existing placeholder
     if (state.seenPaths.has(resolvedPath)) {
-      const existingIndex = state.pathToIndex.get(resolvedPath)!;
+      const existingIndex = state.pathToIndex.get(resolvedPath) ?? state.images.length + 1;
       return `[Image #${existingIndex}: ${name}]`;
     }
 

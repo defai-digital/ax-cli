@@ -71,5 +71,5 @@ export {
   type ChatHistory,
 } from './public/agent/index.js';
 
-// Additional exports will be added as we implement them:
-// - Domain schemas (Usage, API, MCP)
+// Design Module (Figma integration)
+export * from './public/design/index.js';

@@ -277,7 +277,7 @@ async function validateHttpTransport(
     if (!accessible) {
       warnings.push(`Unable to reach "${url}". Server may not be running or URL may be incorrect.`);
     }
-  } catch (error) {
+  } catch {
     errors.push(`Invalid URL format: ${url}`);
   }
 }

@@ -130,7 +130,7 @@ export async function canonicalizePath(filePath: string): Promise<string> {
     // Use fs.realpath to resolve symlinks
     const canonical = await fs.realpath(filePath);
     return canonical;
-  } catch (error) {
+  } catch {
     // If realpath fails (e.g., file doesn't exist), just resolve
     return path.resolve(filePath);
   }
@@ -156,7 +156,7 @@ export async function containsSymlinks(filePath: string): Promise<boolean> {
       if (stats.isSymbolicLink()) {
         return true;
       }
-    } catch (error) {
+    } catch {
       // If stat fails, path doesn't exist yet - not a symlink
       continue;
     }

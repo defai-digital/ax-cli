@@ -136,8 +136,8 @@ export function useInputHistory(projectDir?: string): InputHistoryHook {
       if (currentIndex === -1) {
         return null;
       } else if (currentIndex === history.length - 1) {
+        // At the most recent history item, pressing down returns to original input
         newIndex = -1;
-        return originalInput;
       } else {
         newIndex = Math.min(history.length - 1, currentIndex + 1);
       }

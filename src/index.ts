@@ -22,6 +22,7 @@ import { createModelsCommand } from "./commands/models.js";
 import { createDoctorCommand } from "./commands/doctor.js";
 import { createStatusCommand } from "./commands/status.js";
 import { createVSCodeCommand } from "./commands/vscode.js";
+import { createDesignCommand } from "./commands/design.js";
 import { getVersionString } from "./utils/version.js";
 import { migrateCommandHistory } from "./utils/history-migration.js";
 import { AGENT_CONFIG } from "./constants.js";
@@ -896,6 +897,9 @@ program.addCommand(createStatusCommand());
 
 // VSCode command
 program.addCommand(createVSCodeCommand());
+
+// Design command (Figma integration)
+program.addCommand(createDesignCommand());
 
 // Run migration for command history security fix (only runs once)
 migrateCommandHistory();

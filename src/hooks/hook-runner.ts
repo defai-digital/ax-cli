@@ -134,7 +134,7 @@ export class HookRunner extends EventEmitter {
   async initialize(): Promise<void> {
     try {
       await this.loadConfig();
-    } catch (error) {
+    } catch {
       // Use default config if loading fails
       console.warn('Using default hook configuration');
     }
@@ -503,7 +503,7 @@ export class HookRunner extends EventEmitter {
           },
         };
       }
-    } catch (error) {
+    } catch {
       // File doesn't exist or is invalid, use defaults
       this.config = DEFAULT_CONFIG;
     }

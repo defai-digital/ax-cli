@@ -818,7 +818,7 @@ export class MCPManagerV2 extends EventEmitter {
       }
 
       return Ok(serverPrompts);
-    } catch (error) {
+    } catch {
       // Server may not support prompts - return empty array
       return Ok([]);
     }

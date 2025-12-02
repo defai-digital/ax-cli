@@ -17,6 +17,7 @@ import {
   SearchTool,
 } from "../../tools/index.js";
 import { BashOutputTool } from "../../tools/bash-output.js";
+import { DesignTool } from "../../tools/design-tool.js";
 import { ArchitectureTool } from "../../tools/analysis-tools/architecture-tool.js";
 import { ValidationTool } from "../../tools/analysis-tools/validation-tool.js";
 import { getAskUserTool, type Question } from "../../tools/ask-user.js";
@@ -48,6 +49,7 @@ export class ToolExecutor {
   // Lazy-loaded tools (rarely used)
   private _architectureTool?: ArchitectureTool;
   private _validationTool?: ValidationTool;
+  private _designTool?: DesignTool;
 
   constructor(config?: ToolExecutorConfig) {
     this.textEditor = new TextEditorTool();
@@ -82,6 +84,17 @@ export class ToolExecutor {
       this._validationTool = new ValidationTool();
     }
     return this._validationTool;
+  }
+
+  /**
+   * Lazy-loaded getter for DesignTool
+   * Only instantiates when first accessed to reduce startup time
+   */
+  private get designTool(): DesignTool {
+    if (!this._designTool) {
+      this._designTool = new DesignTool();
+    }
+    return this._designTool;
   }
 
   /**
@@ -310,6 +323,72 @@ export class ToolExecutor {
 
           const askUserTool = getAskUserTool();
           return await askUserTool.execute(validQuestions);
+        }
+
+        // =====================================================================
+        // Design Tools (Figma Integration)
+        // =====================================================================
+        case "figma_map": {
+          const fileKey = getString('file_key');
+          const formatValue = args.format;
+          const validFormat = (formatValue === 'tree' || formatValue === 'json' || formatValue === 'flat') ? formatValue : undefined;
+          return await this.designTool.mapFile(fileKey, {
+            depth: getNumber('depth'),
+            format: validFormat,
+            showIds: getBoolean('show_ids'),
+            showTypes: getBoolean('show_types'),
+            framesOnly: getBoolean('frames_only'),
+          });
+        }
+
+        case "figma_tokens": {
+          const fileKey = getString('file_key');
+          const formatValue = args.format;
+          const validFormat = (formatValue === 'json' || formatValue === 'tailwind' || formatValue === 'css' || formatValue === 'scss') ? formatValue : undefined;
+          const colorFormatValue = args.color_format;
+          const validColorFormat = (colorFormatValue === 'hex' || colorFormatValue === 'rgb' || colorFormatValue === 'hsl') ? colorFormatValue : undefined;
+          const dimensionUnitValue = args.dimension_unit;
+          const validDimensionUnit = (dimensionUnitValue === 'px' || dimensionUnitValue === 'rem') ? dimensionUnitValue : undefined;
+          return await this.designTool.extractTokens(fileKey, {
+            format: validFormat,
+            colorFormat: validColorFormat,
+            dimensionUnit: validDimensionUnit,
+            remBase: getNumber('rem_base'),
+          });
+        }
+
+        case "figma_audit": {
+          const fileKey = getString('file_key');
+          const rules = Array.isArray(args.rules)
+            ? args.rules.filter((r: unknown): r is string => typeof r === 'string')
+            : undefined;
+          const excludeRules = Array.isArray(args.exclude_rules)
+            ? args.exclude_rules.filter((r: unknown): r is string => typeof r === 'string')
+            : undefined;
+          return await this.designTool.auditFile(fileKey, {
+            depth: getNumber('depth'),
+            rules,
+            excludeRules,
+          });
+        }
+
+        case "figma_search": {
+          const fileKey = getString('file_key');
+          return await this.designTool.searchNodes(fileKey, {
+            name: typeof args.name === 'string' ? args.name : undefined,
+            type: typeof args.type === 'string' ? args.type : undefined,
+            text: typeof args.text === 'string' ? args.text : undefined,
+            limit: getNumber('limit'),
+          });
+        }
+
+        case "figma_alias_list": {
+          return await this.designTool.listAliases();
+        }
+
+        case "figma_alias_resolve": {
+          const alias = getString('alias');
+          return await this.designTool.resolveAlias(alias);
         }
 
         default:

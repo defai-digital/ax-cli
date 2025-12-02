@@ -186,7 +186,7 @@ export class PermissionManager extends EventEmitter {
   async initialize(): Promise<void> {
     try {
       await this.loadConfig();
-    } catch (error) {
+    } catch {
       // Use default config if loading fails
       console.warn('Using default permission configuration');
     }
@@ -487,7 +487,7 @@ export class PermissionManager extends EventEmitter {
           },
         },
       };
-    } catch (error) {
+    } catch {
       // File doesn't exist or is invalid, use defaults
       this.config = DEFAULT_CONFIG;
     }

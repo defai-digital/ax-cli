@@ -442,6 +442,176 @@ const BASE_LLM_TOOLS: LLMTool[] = [
       },
     },
   },
+  // ==========================================================================
+  // Design Tools (Figma Integration)
+  // ==========================================================================
+  {
+    type: "function",
+    function: {
+      name: "figma_map",
+      description: "Map a Figma file structure to see its pages, frames, and components. Requires FIGMA_ACCESS_TOKEN environment variable.",
+      parameters: {
+        type: "object",
+        properties: {
+          file_key: {
+            type: "string",
+            description: "Figma file key (from the URL: figma.com/file/FILE_KEY/...)",
+          },
+          depth: {
+            type: "number",
+            description: "Maximum depth to traverse (optional)",
+          },
+          format: {
+            type: "string",
+            enum: ["tree", "json", "flat"],
+            description: "Output format (default: tree)",
+          },
+          show_ids: {
+            type: "boolean",
+            description: "Include node IDs in output",
+          },
+          show_types: {
+            type: "boolean",
+            description: "Include node types in output",
+          },
+          frames_only: {
+            type: "boolean",
+            description: "Show only frames and components",
+          },
+        },
+        required: ["file_key"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "figma_tokens",
+      description: "Extract design tokens (colors, spacing, radii) from a Figma file's variables. Requires FIGMA_ACCESS_TOKEN environment variable.",
+      parameters: {
+        type: "object",
+        properties: {
+          file_key: {
+            type: "string",
+            description: "Figma file key containing design tokens/variables",
+          },
+          format: {
+            type: "string",
+            enum: ["json", "tailwind", "css", "scss"],
+            description: "Output format (default: json)",
+          },
+          color_format: {
+            type: "string",
+            enum: ["hex", "rgb", "hsl"],
+            description: "Color output format (default: hex)",
+          },
+          dimension_unit: {
+            type: "string",
+            enum: ["px", "rem"],
+            description: "Dimension unit (default: px)",
+          },
+          rem_base: {
+            type: "number",
+            description: "Base value for rem conversion (default: 16)",
+          },
+        },
+        required: ["file_key"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "figma_audit",
+      description: "Run a design audit on a Figma file to check for naming conventions, missing auto-layout, and other best practices. Requires FIGMA_ACCESS_TOKEN environment variable.",
+      parameters: {
+        type: "object",
+        properties: {
+          file_key: {
+            type: "string",
+            description: "Figma file key to audit",
+          },
+          depth: {
+            type: "number",
+            description: "Maximum depth to traverse (optional)",
+          },
+          rules: {
+            type: "array",
+            items: { type: "string" },
+            description: "Specific rules to run (e.g., ['layer-naming', 'missing-autolayout']). Runs all by default.",
+          },
+          exclude_rules: {
+            type: "array",
+            items: { type: "string" },
+            description: "Rules to exclude from the audit",
+          },
+        },
+        required: ["file_key"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "figma_search",
+      description: "Search for nodes in a Figma file by name, type, or text content. Requires FIGMA_ACCESS_TOKEN environment variable.",
+      parameters: {
+        type: "object",
+        properties: {
+          file_key: {
+            type: "string",
+            description: "Figma file key to search in",
+          },
+          name: {
+            type: "string",
+            description: "Search by node name (partial match)",
+          },
+          type: {
+            type: "string",
+            description: "Filter by node type (e.g., FRAME, TEXT, COMPONENT)",
+          },
+          text: {
+            type: "string",
+            description: "Search text nodes by content",
+          },
+          limit: {
+            type: "number",
+            description: "Maximum results to return (default: 10)",
+          },
+        },
+        required: ["file_key"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "figma_alias_list",
+      description: "List all saved Figma design aliases (shortcuts to specific files/nodes)",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "figma_alias_resolve",
+      description: "Resolve a design alias to its Figma file key and node ID",
+      parameters: {
+        type: "object",
+        properties: {
+          alias: {
+            type: "string",
+            description: "Alias name to resolve",
+          },
+        },
+        required: ["alias"],
+      },
+    },
+  },
 ];
 
 /**

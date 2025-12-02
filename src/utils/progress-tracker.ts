@@ -153,7 +153,7 @@ export class ProgressTracker {
     if (this.spinner) {
       try {
         this.spinner.stop();
-      } catch (error) {
+      } catch {
         // Ignore errors during cleanup
       } finally {
         this.spinner = null;

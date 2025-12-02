@@ -404,7 +404,16 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.10)
+## Recent Changes (v3.14.11)
+
+### Bug Fixes
+
+- **Settings Save Fix**: Fixed issue where `ax-cli setup` would fail with "Cannot save settings: failed to decrypt existing API key" when the existing encrypted API key was corrupted or undecryptable. Now correctly uses the new API key provided by the user instead of failing.
+- **History Navigation Fix**: Fixed state management bug in input history where pressing down arrow at the last history item didn't properly reset the navigation state.
+- **Non-null Assertion Fixes**: Removed unsafe non-null assertions in `figma-map.ts` and `image-handler.ts` with proper null-safe alternatives.
+- **Type Safety Improvements**: Fixed TypeScript type errors and removed unused variable warnings across multiple files.
+
+## Previous Changes (v3.14.10)
 
 ### Security Fix
 

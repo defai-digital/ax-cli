@@ -226,9 +226,13 @@ export class SettingsManager {
       if (existsSync(this.userSettingsPath)) {
         const parseResult = parseJsonFile<UserSettings>(this.userSettingsPath);
         if (parseResult.success) {
-          // Decrypt API key if encrypted
+          // Decrypt API key if encrypted, but only if caller isn't providing a new one
+          // If caller provides new apiKey, we don't need to preserve the old one
           let apiKey: string | undefined;
-          if (parseResult.data.apiKeyEncrypted) {
+          if (settings.apiKey) {
+            // Caller is providing a new API key - use that instead of old one
+            apiKey = undefined; // Will be overwritten by settings.apiKey in merge
+          } else if (parseResult.data.apiKeyEncrypted) {
             try {
               apiKey = decrypt(parseResult.data.apiKeyEncrypted);
             } catch (error) {
@@ -242,7 +246,7 @@ export class SettingsManager {
           existingSettings = {
             ...DEFAULT_USER_SETTINGS,
             ...parseResult.data,
-            apiKey, // Use decrypted value
+            apiKey, // Use decrypted value (or undefined if caller provides new key)
             apiKeyEncrypted: undefined, // Don't keep encrypted in memory
           };
         } else {
