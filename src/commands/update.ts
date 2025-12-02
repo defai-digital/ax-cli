@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { exec } from "child_process";
+import { exec, execSync, spawnSync } from "child_process";
 import { promisify } from "util";
 import chalk from "chalk";
 import { createInterface } from "readline";
@@ -10,6 +10,37 @@ import { getSettingsManager } from "../utils/settings-manager.js";
 const execAsync = promisify(exec);
 
 export const PACKAGE_NAME = "@defai.digital/ax-cli";
+
+/**
+ * Check if AutomatosX (ax) is installed globally
+ */
+function isAutomatosXInstalled(): boolean {
+  try {
+    const result = spawnSync('ax', ['--version'], {
+      encoding: 'utf-8',
+      timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    return result.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Update AutomatosX to the latest version
+ */
+async function updateAutomatosX(): Promise<boolean> {
+  try {
+    execSync('ax update -y', {
+      stdio: 'inherit',
+      timeout: 120000 // 2 minute timeout
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Get current installed version
@@ -266,6 +297,17 @@ export function createUpdateCommand(): Command {
             chalk.cyan("ax-cli --version"),
             chalk.gray("to verify.\n")
           );
+
+          // 8. Update AutomatosX if installed
+          if (isAutomatosXInstalled()) {
+            console.log(chalk.blue("\n🔄 Updating AutomatosX...\n"));
+            const axUpdated = await updateAutomatosX();
+            if (axUpdated) {
+              console.log(chalk.green("✅ AutomatosX updated successfully!\n"));
+            } else {
+              console.log(chalk.yellow("⚠️  AutomatosX update failed. You can try manually: ax update -y\n"));
+            }
+          }
         } else {
           console.log(
             chalk.yellow(
@@ -402,8 +444,20 @@ export async function promptAndInstallUpdate(
               chalk.green.bold("✅ AX CLI updated successfully!")
             );
             console.log(chalk.gray("New version:"), chalk.cyan(latestVersion));
+
+            // Also update AutomatosX if installed
+            if (isAutomatosXInstalled()) {
+              console.log(chalk.blue("\n🔄 Updating AutomatosX...\n"));
+              const axUpdated = await updateAutomatosX();
+              if (axUpdated) {
+                console.log(chalk.green("✅ AutomatosX updated successfully!"));
+              } else {
+                console.log(chalk.yellow("⚠️  AutomatosX update failed. You can try manually: ax update -y"));
+              }
+            }
+
             console.log(
-              chalk.gray("Please restart ax-cli to use the new version.\n")
+              chalk.gray("\nPlease restart ax-cli to use the new version.\n")
             );
             resolve(true);
           } catch (error) {
