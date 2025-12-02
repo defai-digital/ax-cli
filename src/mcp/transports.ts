@@ -117,12 +117,8 @@ export class HttpTransport extends EventEmitter implements MCPTransport {
       }
     });
 
-    // Test connection
-    try {
-      await this.client.get('/health');
-    } catch {
-      // If health endpoint doesn't exist, assume connected
-    }
+    // Skip health check - MCP endpoints don't have standard health endpoints
+    // The actual connection will be verified when listTools() is called
 
     return new HttpClientTransport(this.client);
   }
@@ -185,7 +181,8 @@ class HttpClientTransport extends EventEmitter implements Transport {
 
   async send(message: any): Promise<any> {
     try {
-      const response = await this.client.post('/rpc', message);
+      // Post directly to the base URL (MCP HTTP endpoints are the full URL, not /rpc sub-path)
+      const response = await this.client.post('', message);
       return response.data;
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || error?.message || String(error);

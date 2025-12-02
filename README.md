@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.14.12)](#recent-changes-v31412)
+- [Recent Changes (v3.14.13)](#recent-changes-v31413)
 - [Documentation](#documentation)
 
 ---
@@ -404,7 +404,14 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.12)
+## Recent Changes (v3.14.13)
+
+### Bug Fixes
+
+- **Z.AI MCP HTTP Transport Fix**: Fixed HTTP transport to post directly to the endpoint URL instead of appending `/rpc`. This enables Z.AI MCP servers (web-search, web-reader) to connect properly.
+- **MCP Health Check Removed**: Removed unnecessary HTTP health check that was failing for MCP endpoints without `/health` endpoints.
+
+## Previous Changes (v3.14.12)
 
 ### Bug Fixes
 
