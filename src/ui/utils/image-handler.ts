@@ -33,8 +33,8 @@ export interface ParsedImageInput {
 /** Regex patterns (compiled once at module load) */
 // Exclude URLs (http://, https://, file://, ftp://, data:) from @ references
 const AT_REF_PATTERN = /@((?!https?:\/\/|ftp:\/\/|file:\/\/|data:)[^\s]+\.(png|jpg|jpeg|gif|webp))/gi;
-// Supports Unix (/path), relative (./path, ../path), and Windows (C:\path, D:/path)
-const DIRECT_PATH_PATTERN = /^(\/[^\s]+\.(png|jpg|jpeg|gif|webp)|\.\.?\/[^\s]+\.(png|jpg|jpeg|gif|webp)|[a-zA-Z]:[\\/][^\s]+\.(png|jpg|jpeg|gif|webp))$/i;
+// Supports Unix (/path), relative (./path, ../path), Windows (C:\path), and UNC (\\server\share)
+const DIRECT_PATH_PATTERN = /^(\/[^\s]+\.(png|jpg|jpeg|gif|webp)|\.\.?\/[^\s]+\.(png|jpg|jpeg|gif|webp)|[a-zA-Z]:[\\/][^\s]+\.(png|jpg|jpeg|gif|webp)|\\\\[^\s]+\.(png|jpg|jpeg|gif|webp))$/i;
 
 /** Parse user input for image references */
 export async function parseImageInput(
@@ -79,7 +79,8 @@ export async function parseImageInput(
       images.push({ image, preview: `[Image: ${name}]`, originalReference: trimmed });
       textContent = `Please analyze this image: ${name}`;
     } catch (error) {
-      errors.push(error instanceof ImageProcessingError ? error.message : 'Failed to process image');
+      const msg = error instanceof ImageProcessingError ? error.message : 'Failed to process image';
+      errors.push(`${trimmed}: ${msg}`);
     }
   }
 

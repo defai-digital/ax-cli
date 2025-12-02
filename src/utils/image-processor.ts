@@ -5,12 +5,13 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { TOKEN_CONFIG } from '../constants.js';
 
 // Constants
 export const SUPPORTED_IMAGE_FORMATS = ['png', 'jpg', 'jpeg', 'gif', 'webp'] as const;
 export type SupportedImageFormat = (typeof SUPPORTED_IMAGE_FORMATS)[number];
 export const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
-export const TOKENS_PER_IMAGE = 1000;
+export const TOKENS_PER_IMAGE = TOKEN_CONFIG.TOKENS_PER_IMAGE;
 
 /** Processed image data ready for API */
 export interface ProcessedImage {

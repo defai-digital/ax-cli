@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.14.1)](#recent-changes-v3141)
+- [Recent Changes (v3.14.2)](#recent-changes-v3142)
 - [Documentation](#documentation)
 
 ---
@@ -403,7 +403,18 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.1)
+## Recent Changes (v3.14.2)
+
+### Bug Fixes
+
+- **Image Path Security**: Fixed edge case where root directory as base path incorrectly rejected valid files
+- **Windows Path Support**: Added support for Windows absolute paths (`C:\path`) and UNC paths (`\\server\share`) in direct image input
+- **Error Message Consistency**: Improved error messages to consistently include file path context
+- **Token Constant Consolidation**: Unified `TOKENS_PER_IMAGE` to use single source of truth from configuration
+
+---
+
+## Previous Changes (v3.14.1)
 
 ### New Features
 

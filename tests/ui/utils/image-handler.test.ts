@@ -123,6 +123,7 @@ describe('ImageInputHandler', () => {
     it('returns true for Windows-style paths', () => {
       expect(ImageInputHandler.hasImageReferences('C:\\Users\\image.png')).toBe(true);
       expect(ImageInputHandler.hasImageReferences('D:/path/to/image.jpg')).toBe(true);
+      expect(ImageInputHandler.hasImageReferences('\\\\server\\share\\image.gif')).toBe(true);
     });
 
     it('returns false for non-image content', () => {
