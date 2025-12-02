@@ -602,6 +602,7 @@ Email: **security@defai.digital** (private disclosure)
 | [Usage](docs/usage.md) | Comprehensive usage guide |
 | [CLI Reference](docs/cli-reference.md) | Command-line reference |
 | [MCP Integration](docs/mcp.md) | Model Context Protocol guide |
+| [Figma Integration](docs/figma-guide.md) | Design-to-code workflow with Figma |
 | [Architecture](docs/architecture.md) | Technical architecture |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues |
 
