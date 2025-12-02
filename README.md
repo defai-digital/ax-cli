@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v11.0.0)](#recent-changes-v1100)
+- [Recent Changes (v3.14.7)](#recent-changes-v3147)
 - [Documentation](#documentation)
 
 ---
@@ -404,7 +404,7 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v11.0.0)
+## Recent Changes (v3.14.7)
 
 ### Code Refactoring
 
