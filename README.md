@@ -299,6 +299,21 @@ For long-running tools (e.g., AutomatosX):
 
 Connect AX CLI with Figma for design-to-code workflows:
 
+### Interactive Mode (Recommended)
+
+```bash
+# Start interactive mode
+ax-cli
+
+# Then use natural language:
+> Map my Figma file ABC123xyz
+> Extract design tokens from my Figma file and format as Tailwind
+> Audit my design for accessibility issues
+> Search for all button components in my Figma file
+```
+
+### CLI Commands
+
 ```bash
 # Authenticate with Figma
 ax-cli design auth login
@@ -310,7 +325,7 @@ ax-cli design map YOUR_FILE_KEY
 ax-cli design tokens pull YOUR_FILE_KEY --format tailwind
 
 # Audit design consistency
-ax-cli design audit landing.hero --rules all
+ax-cli design audit YOUR_FILE_KEY --rules all
 ```
 
 For the complete guide, see **[Figma Integration Guide](docs/figma-guide.md)**.

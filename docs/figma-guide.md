@@ -6,6 +6,7 @@ This guide explains how to use AX CLI with Figma to automate design-to-code work
 
 ## Table of Contents
 
+- [Interactive Mode](#interactive-mode)
 - [Quick Start](#quick-start)
 - [Authentication](#authentication)
 - [Commands](#commands)
@@ -16,6 +17,62 @@ This guide explains how to use AX CLI with Figma to automate design-to-code work
 - [Workflows](#workflows)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
+
+---
+
+## Interactive Mode
+
+The easiest way to use Figma integration is through interactive mode with natural language:
+
+```bash
+# Start interactive mode
+ax-cli
+
+# Then simply describe what you want:
+> Map my Figma file ABC123xyz
+> Extract design tokens from my Figma file as Tailwind config
+> Audit my design for accessibility and naming issues
+> Search for all button components in my design
+> List my design aliases
+```
+
+### Example Conversations
+
+**Mapping a file:**
+```
+You: Show me the structure of my Figma file ABC123xyz
+AX: Fetching Figma file... Here's the structure:
+
+Page: Landing Page
+├── Frame: Hero Section (123:456)
+│   ├── Text: Headline
+│   └── Frame: CTA Button
+└── Frame: Features (123:789)
+```
+
+**Extracting tokens:**
+```
+You: Get the design tokens from my Figma file and format them for Tailwind
+AX: Extracting tokens... Here's your Tailwind config:
+
+module.exports = {
+  theme: {
+    extend: {
+      colors: { primary: '#0066FF' },
+      spacing: { sm: '8px', md: '16px' }
+    }
+  }
+}
+```
+
+**Running an audit:**
+```
+You: Check my design for accessibility issues
+AX: Running audit... Found 2 issues:
+
+  WARNING: Color contrast ratio 4.2:1 below WCAG AA (4.5:1)
+  INFO: Frame "Card" uses fixed positioning, consider auto-layout
+```
 
 ---
 
