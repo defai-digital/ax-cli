@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.14.3)](#recent-changes-v3143)
+- [Recent Changes (v3.14.4)](#recent-changes-v3144)
 - [Documentation](#documentation)
 
 ---
@@ -403,9 +403,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.3)
+## Recent Changes (v3.14.4)
 
-### New Features
+### Improvements
+
+- **Absolute Path Access**: Images from any location (Downloads, Desktop, etc.) now accessible when using absolute paths - security checks only apply to relative paths to prevent traversal attacks
+
+### New Features (v3.14.3)
 
 - **Quoted Path Support**: Image paths with spaces now supported using quotes (`@"path with spaces/image.png"` or `'/path/file name.jpg'`)
 

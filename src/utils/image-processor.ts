@@ -92,16 +92,19 @@ export async function processImageFromPath(
     throw new ImageProcessingError(`Image not found: ${filePath}`, 'FILE_NOT_FOUND');
   }
 
-  // Security: path must be within base directory (resolve symlinks in basePath too)
-  let realBase: string;
-  try {
-    realBase = await fs.realpath(path.normalize(basePath));
-  } catch {
-    throw new ImageProcessingError('Access denied: invalid base directory', 'FILE_NOT_FOUND');
-  }
-  const baseWithSep = realBase.endsWith(path.sep) ? realBase : realBase + path.sep;
-  if (!realPath.startsWith(baseWithSep) && realPath !== realBase) {
-    throw new ImageProcessingError('Access denied: path outside working directory', 'FILE_NOT_FOUND');
+  // Security: only check path traversal for relative paths
+  // Absolute paths are explicitly provided by the user, so trust them
+  if (!path.isAbsolute(filePath)) {
+    let realBase: string;
+    try {
+      realBase = await fs.realpath(path.normalize(basePath));
+    } catch {
+      throw new ImageProcessingError('Access denied: invalid base directory', 'FILE_NOT_FOUND');
+    }
+    const baseWithSep = realBase.endsWith(path.sep) ? realBase : realBase + path.sep;
+    if (!realPath.startsWith(baseWithSep) && realPath !== realBase) {
+      throw new ImageProcessingError('Access denied: path outside working directory', 'FILE_NOT_FOUND');
+    }
   }
 
   let buffer: Buffer;
