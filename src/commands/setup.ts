@@ -15,7 +15,6 @@ import {
   ZAI_MCP_TEMPLATES,
 } from '../mcp/index.js';
 import { addMCPServer } from '../mcp/config.js';
-import { getMCPManager } from '../llm/tools.js';
 
 /**
  * Provider configurations
@@ -375,15 +374,13 @@ export function createSetupCommand(): Command {
               const serversToAdd = getRecommendedServers(status);
 
               console.log(chalk.blue('\nSetting up Z.AI MCP servers...'));
-              const manager = getMCPManager();
               let successCount = 0;
 
               for (const serverName of serversToAdd) {
                 const template = ZAI_MCP_TEMPLATES[serverName];
                 try {
                   const config = generateZAIServerConfig(serverName, apiKey);
-                  // Connect first, then save config only on success
-                  await manager.addServer(config);
+                  // Only save config during setup - don't connect (server will be connected when ax-cli runs)
                   addMCPServer(config);
                   console.log(chalk.green(`✓ ${template.displayName}`));
                   successCount++;

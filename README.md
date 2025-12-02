@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.14.10)](#recent-changes-v31410)
+- [Recent Changes (v3.14.12)](#recent-changes-v31412)
 - [Documentation](#documentation)
 
 ---
@@ -404,7 +404,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.11)
+## Recent Changes (v3.14.12)
+
+### Bug Fixes
+
+- **MCP Setup Hang Fix**: Fixed critical issue where `ax-cli setup` would hang indefinitely after enabling Z.AI MCP servers. The setup was incorrectly connecting to MCP servers (spawning long-running processes) instead of just saving the configuration.
+
+## Previous Changes (v3.14.11)
 
 ### Bug Fixes
 
