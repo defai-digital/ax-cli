@@ -12,7 +12,7 @@
 import crypto from 'crypto';
 import * as fs from 'fs/promises';
 import path from 'path';
-import { CheckpointStorage, calculateHash } from './storage.js';
+import { CheckpointStorage, calculateHash, verifyFileSnapshot } from './storage.js';
 import { validatePathSecure } from '../utils/path-security.js';
 import type {
   Checkpoint,
@@ -135,6 +135,13 @@ export class CheckpointManager {
     // Restore files
     for (const snapshot of checkpoint.files) {
       try {
+        // Verify file integrity before restoring
+        if (!verifyFileSnapshot(snapshot)) {
+          filesFailed.push(snapshot.path);
+          console.error(`Hash verification failed for ${snapshot.path}: checkpoint may be corrupted`);
+          continue;
+        }
+
         const validation = await validatePathSecure(snapshot.path);
         if (!validation.success || !validation.path) {
           filesFailed.push(snapshot.path);
@@ -241,8 +248,19 @@ export class CheckpointManager {
    * Prune old checkpoints based on config
    */
   async pruneOldCheckpoints(): Promise<number> {
+    if (!this.config.enabled) {
+      return 0;
+    }
+
+    // Validate pruneAfterDays is a positive finite number
+    const pruneAfterDays = this.config.pruneAfterDays;
+    if (!Number.isFinite(pruneAfterDays) || pruneAfterDays <= 0) {
+      console.warn(`Invalid pruneAfterDays config: ${pruneAfterDays}. Must be a positive number.`);
+      return 0;
+    }
+
     const pruneDate = new Date();
-    pruneDate.setDate(pruneDate.getDate() - this.config.pruneAfterDays);
+    pruneDate.setDate(pruneDate.getDate() - pruneAfterDays);
 
     return await this.storage.pruneOlderThan(pruneDate);
   }
@@ -251,8 +269,19 @@ export class CheckpointManager {
    * Compress old checkpoints based on config
    */
   async compressOldCheckpoints(): Promise<number> {
+    if (!this.config.enabled) {
+      return 0;
+    }
+
+    // Validate compressAfterDays is a positive finite number
+    const compressAfterDays = this.config.compressAfterDays;
+    if (!Number.isFinite(compressAfterDays) || compressAfterDays <= 0) {
+      console.warn(`Invalid compressAfterDays config: ${compressAfterDays}. Must be a positive number.`);
+      return 0;
+    }
+
     const compressDate = new Date();
-    compressDate.setDate(compressDate.getDate() - this.config.compressAfterDays);
+    compressDate.setDate(compressDate.getDate() - compressAfterDays);
 
     const checkpoints = await this.storage.listInfo();
     let compressed = 0;
@@ -271,6 +300,11 @@ export class CheckpointManager {
    * Run maintenance (pruning, compression, limit enforcement)
    */
   async runMaintenance(): Promise<void> {
+    // Skip maintenance if checkpoints are disabled
+    if (!this.config.enabled) {
+      return;
+    }
+
     // CONCURRENCY FIX: Prevent concurrent maintenance operations
     if (this.maintenanceRunning) {
       console.warn('Maintenance already running, skipping concurrent execution');
@@ -280,17 +314,33 @@ export class CheckpointManager {
     this.maintenanceRunning = true;
 
     try {
-      // Compress old checkpoints
-      await this.compressOldCheckpoints();
+      // Compress old checkpoints - catch errors to continue with other stages
+      try {
+        await this.compressOldCheckpoints();
+      } catch (error: any) {
+        console.error(`Failed to compress old checkpoints: ${error.message}`);
+      }
 
-      // Prune very old checkpoints
-      await this.pruneOldCheckpoints();
+      // Prune very old checkpoints - catch errors to continue with other stages
+      try {
+        await this.pruneOldCheckpoints();
+      } catch (error: any) {
+        console.error(`Failed to prune old checkpoints: ${error.message}`);
+      }
 
-      // Enforce max checkpoints limit
-      await this.enforceCheckpointLimit();
+      // Enforce max checkpoints limit - catch errors to continue with other stages
+      try {
+        await this.enforceCheckpointLimit();
+      } catch (error: any) {
+        console.error(`Failed to enforce checkpoint limit: ${error.message}`);
+      }
 
-      // Enforce storage limit
-      await this.enforceStorageLimit();
+      // Enforce storage limit - catch errors to continue with other stages
+      try {
+        await this.enforceStorageLimit();
+      } catch (error: any) {
+        console.error(`Failed to enforce storage limit: ${error.message}`);
+      }
     } finally {
       // Always reset flag, even if operations fail
       this.maintenanceRunning = false;
@@ -301,11 +351,19 @@ export class CheckpointManager {
    * Enforce maximum number of checkpoints
    */
   private async enforceCheckpointLimit(): Promise<void> {
-    const checkpoints = await this.storage.listInfo();
+    // Validate maxCheckpoints is a positive finite number
+    const maxCheckpoints = this.config.maxCheckpoints;
+    if (!Number.isFinite(maxCheckpoints) || maxCheckpoints < 0) {
+      console.warn(`Invalid maxCheckpoints config: ${maxCheckpoints}. Must be a non-negative number.`);
+      return;
+    }
 
-    if (checkpoints.length > this.config.maxCheckpoints) {
+    const checkpoints = await this.storage.listInfo();
+    const limit = Math.max(0, Math.floor(maxCheckpoints));
+
+    if (checkpoints.length > limit) {
       const toDelete = checkpoints
-        .slice(this.config.maxCheckpoints)
+        .slice(limit)
         .map(c => c.id);
 
       for (const id of toDelete) {
@@ -323,6 +381,11 @@ export class CheckpointManager {
 
     if (stats.totalSize > limitBytes) {
       const checkpoints = await this.storage.listInfo();
+
+      // Sort by timestamp ascending (oldest first) to ensure we delete oldest checkpoints first
+      // This prevents issues if the index is ever unsorted or corrupted
+      checkpoints.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
       let currentSize = stats.totalSize;
 
       // LOGIC FIX: Add safeguards against infinite loop
@@ -330,8 +393,8 @@ export class CheckpointManager {
       const MAX_ITERATIONS = checkpoints.length + 10; // Allow some margin
       let iterations = 0;
 
-      // Delete oldest checkpoints until under limit
-      for (let i = checkpoints.length - 1; i >= 0 && currentSize > limitBytes; i--) {
+      // Delete oldest checkpoints (from start of sorted array) until under limit
+      for (let i = 0; i < checkpoints.length && currentSize > limitBytes; i++) {
         // Safety: prevent infinite loop from corrupted data
         if (++iterations > MAX_ITERATIONS) {
           console.error(`Storage limit enforcement exceeded ${MAX_ITERATIONS} iterations, aborting to prevent infinite loop`);
@@ -377,8 +440,16 @@ export class CheckpointManager {
 
   /**
    * Update configuration
+   * Note: storageDir changes are rejected as they require re-initialization
    */
   updateConfig(config: Partial<CheckpointConfig>): void {
+    // Reject storageDir changes - would require re-initializing storage
+    if (config.storageDir && config.storageDir !== this.config.storageDir) {
+      console.warn(`Cannot change storageDir at runtime. Current: ${this.config.storageDir}, requested: ${config.storageDir}. Use initCheckpointManager() to change storage location.`);
+      const { storageDir: _ignored, ...safeConfig } = config;
+      this.config = { ...this.config, ...safeConfig };
+      return;
+    }
     this.config = { ...this.config, ...config };
   }
 

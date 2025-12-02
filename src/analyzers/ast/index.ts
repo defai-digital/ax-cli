@@ -1,17 +1,13 @@
 /**
  * AST Analysis Module
  *
- * Provides multi-language AST parsing and traversal utilities.
- * Supports: TypeScript, JavaScript, Python, Rust, Go, and 30+ more via tree-sitter.
+ * Provides AST parsing and traversal utilities.
+ * Supports TypeScript and JavaScript via ts-morph.
  */
 
 // Core parsers
 export { ASTParser } from './parser.js';
 export { MultiLanguageParser, getMultiLanguageParser, resetMultiLanguageParser } from './multi-language-parser.js';
-
-// Tree-sitter support
-export { TreeSitterParser, createTreeSitterParser, TREE_SITTER_LANGUAGES } from './tree-sitter-parser.js';
-export type { TreeSitterLanguage } from './tree-sitter-parser.js';
 
 // Language detection
 export { getLanguageFromPath, EXTENSION_TO_LANGUAGE, BaseLanguageParser } from './language-parser.js';

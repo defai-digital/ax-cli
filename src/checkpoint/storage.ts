@@ -143,7 +143,9 @@ export class CheckpointStorage {
       await fs.writeFile(compressedPath, compressed);
       await fs.unlink(filepath);
 
-      await this.updateCompressionStatus(checkpointId, true, true);
+      // Get the actual compressed file size and update the index
+      const stat = await fs.stat(compressedPath);
+      await this.updateCompressionStatus(checkpointId, true, stat.size, true);
     });
   }
 
@@ -290,7 +292,7 @@ export class CheckpointStorage {
     }
   }
 
-  private async updateCompressionStatus(checkpointId: string, compressed: boolean, locked = false): Promise<void> {
+  private async updateCompressionStatus(checkpointId: string, compressed: boolean, newSize?: number, locked = false): Promise<void> {
     const action = async () => {
       await this.loadIndex();
       if (!this.index) return;
@@ -298,6 +300,10 @@ export class CheckpointStorage {
       const info = this.index.checkpoints.find(c => c.id === checkpointId);
       if (info) {
         info.compressed = compressed;
+        // Update size if provided (for compressed file size)
+        if (newSize !== undefined) {
+          info.size = newSize;
+        }
         this.updateStats();
         await this.saveIndex();
       }
@@ -360,12 +366,24 @@ export class CheckpointStorage {
     if (!this.index) return 0;
 
     const toDelete = this.index.checkpoints.filter(c => c.timestamp < date);
+    let deletedCount = 0;
+    const failures: string[] = [];
 
     for (const checkpoint of toDelete) {
-      await this.delete(checkpoint.id);
+      try {
+        await this.delete(checkpoint.id);
+        deletedCount++;
+      } catch (error) {
+        failures.push(checkpoint.id);
+        console.error(`Failed to prune checkpoint ${checkpoint.id}: ${extractErrorMessage(error)}`);
+      }
     }
 
-    return toDelete.length;
+    if (failures.length > 0) {
+      console.warn(`Pruning completed with ${failures.length} failure(s). Successfully deleted ${deletedCount} of ${toDelete.length} checkpoints.`);
+    }
+
+    return deletedCount;
   }
 }
 

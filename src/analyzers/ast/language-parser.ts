@@ -1,8 +1,9 @@
 /**
  * Language Parser Interface
  *
- * Defines the common interface for all language parsers (ts-morph, tree-sitter)
- * This allows seamless switching between parser implementations.
+ * Defines the common interface for language parsers.
+ * Currently only TypeScript/JavaScript are fully supported via ts-morph.
+ * Other languages are detected but return empty AST info.
  */
 
 import type { FileASTInfo } from './types.js';
@@ -21,6 +22,18 @@ export type SupportedLanguage =
   | 'swift'
   | 'html'
   | 'css'
+  // Tier 1: High value, low risk
+  | 'java'
+  | 'ruby'
+  | 'php'
+  // Tier 2: High value, medium risk
+  | 'kotlin'
+  | 'dart'
+  | 'csharp'
+  // Tier 3: Config files
+  | 'json'
+  | 'yaml'
+  | 'toml'
   | 'unknown';
 
 /**
@@ -64,6 +77,32 @@ export const EXTENSION_TO_LANGUAGE: Record<string, SupportedLanguage> = {
   '.scss': 'css',
   '.sass': 'css',
   '.less': 'css',
+  // Java
+  '.java': 'java',
+  // Ruby
+  '.rb': 'ruby',
+  '.rake': 'ruby',
+  '.gemspec': 'ruby',
+  // PHP
+  '.php': 'php',
+  '.phtml': 'php',
+  '.php3': 'php',
+  '.php4': 'php',
+  '.php5': 'php',
+  '.phps': 'php',
+  // Kotlin
+  '.kt': 'kotlin',
+  '.kts': 'kotlin',
+  // Dart
+  '.dart': 'dart',
+  // C#
+  '.cs': 'csharp',
+  // Config files
+  '.json': 'json',
+  '.jsonc': 'json',
+  '.yaml': 'yaml',
+  '.yml': 'yaml',
+  '.toml': 'toml',
 };
 
 /**

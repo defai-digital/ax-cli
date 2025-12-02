@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.14.8)](#recent-changes-v3148)
+- [Recent Changes (v3.14.9)](#recent-changes-v3149)
 - [Documentation](#documentation)
 
 ---
@@ -404,7 +404,20 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.8)
+## Recent Changes (v3.14.9)
+
+### AST Parser Simplification
+
+- **Removed tree-sitter Dependency**: Simplified AST parsing to focus on TypeScript/JavaScript via ts-morph, reducing dependencies and complexity
+- **Extended Language Detection**: Added file extension detection for Java, Ruby, PHP, Kotlin, Dart, C#, JSON, YAML, and TOML
+
+### Checkpoint System Improvements
+
+- **File Integrity Verification**: Added hash verification before restoring checkpoint files to detect corruption
+- **Configuration Validation**: Improved validation for `pruneAfterDays` and `compressAfterDays` settings
+- **Error Isolation**: Maintenance operations now continue even if individual stages fail
+
+## Previous Changes (v3.14.8)
 
 ### CI/CD Improvements
 

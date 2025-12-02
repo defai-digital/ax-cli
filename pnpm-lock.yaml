@@ -77,15 +77,9 @@ importers:
       tiktoken:
         specifier: ^1.0.21
         version: 1.0.22
-      tree-sitter-wasms:
-        specifier: ^0.1.13
-        version: 0.1.13
       ts-morph:
         specifier: ^27.0.2
         version: 27.0.2
-      web-tree-sitter:
-        specifier: ^0.25.10
-        version: 0.25.10
       ws:
         specifier: ^8.18.3
         version: 8.18.3
@@ -2125,9 +2119,6 @@ packages:
     resolution: {integrity: sha512-sf4i37nQ2LBx4m3wB74y+ubopq6W/dIzXg0FDGjsYnZHVa1Da8FH853wlL2gtUhg+xJXjfk3kUZS3BRoQeoQBQ==}
     engines: {node: '>=6'}
 
-  tree-sitter-wasms@0.1.13:
-    resolution: {integrity: sha512-wT+cR6DwaIz80/vho3AvSF0N4txuNx/5bcRKoXouOfClpxh/qqrF4URNLQXbbt8MaAxeksZcZd1j8gcGjc+QxQ==}
-
   ts-api-utils@1.4.3:
     resolution: {integrity: sha512-i3eMG77UTMD0hZhgRS562pv83RC6ukSAC2GMNWc+9dieh/+jDM5u5YG+NHX6VNDRHQcHwmsTHctP9LhbC3WxVw==}
     engines: {node: '>=16'}
@@ -2273,14 +2264,6 @@ packages:
       happy-dom:
         optional: true
       jsdom:
-        optional: true
-
-  web-tree-sitter@0.25.10:
-    resolution: {integrity: sha512-Y09sF44/13XvgVKgO2cNDw5rGk6s26MgoZPXLESvMXeefBf7i6/73eFurre0IsTW6E14Y0ArIzhUMmjoc7xyzA==}
-    peerDependencies:
-      '@types/emscripten': ^1.40.0
-    peerDependenciesMeta:
-      '@types/emscripten':
         optional: true
 
   which@2.0.2:
@@ -2944,7 +2927,7 @@ snapshots:
       obug: 2.1.1
       std-env: 3.10.0
       tinyrainbow: 3.0.3
-      vitest: 4.0.14(@types/node@20.19.25)(@vitest/ui@4.0.14)(tsx@4.20.6)
+      vitest: 4.0.14(@types/node@24.10.1)(@vitest/ui@4.0.14)(tsx@4.20.6)
     transitivePeerDependencies:
       - supports-color
 
@@ -2991,7 +2974,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vitest: 4.0.14(@types/node@20.19.25)(@vitest/ui@4.0.14)(tsx@4.20.6)
+      vitest: 4.0.14(@types/node@24.10.1)(@vitest/ui@4.0.14)(tsx@4.20.6)
 
   '@vitest/utils@4.0.14':
     dependencies:
@@ -4365,8 +4348,6 @@ snapshots:
 
   totalist@3.0.1: {}
 
-  tree-sitter-wasms@0.1.13: {}
-
   ts-api-utils@1.4.3(typescript@5.9.3):
     dependencies:
       typescript: 5.9.3
@@ -4524,8 +4505,6 @@ snapshots:
       - terser
       - tsx
       - yaml
-
-  web-tree-sitter@0.25.10: {}
 
   which@2.0.2:
     dependencies:
