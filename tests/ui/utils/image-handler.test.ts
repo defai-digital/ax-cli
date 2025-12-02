@@ -126,6 +126,13 @@ describe('ImageInputHandler', () => {
       expect(ImageInputHandler.hasImageReferences('\\\\server\\share\\image.gif')).toBe(true);
     });
 
+    it('returns true for quoted paths with spaces', () => {
+      expect(ImageInputHandler.hasImageReferences('"/path/with spaces/image.png"')).toBe(true);
+      expect(ImageInputHandler.hasImageReferences("'/path/with spaces/image.jpg'")).toBe(true);
+      expect(ImageInputHandler.hasImageReferences('@"/path/with spaces/file.png"')).toBe(true);
+      expect(ImageInputHandler.hasImageReferences("@'/path/with spaces/file.gif'")).toBe(true);
+    });
+
     it('returns false for non-image content', () => {
       expect(ImageInputHandler.hasImageReferences('Hello world')).toBe(false);
       expect(ImageInputHandler.hasImageReferences('@user mention')).toBe(false);

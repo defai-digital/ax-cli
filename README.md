@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.14.2)](#recent-changes-v3142)
+- [Recent Changes (v3.14.3)](#recent-changes-v3143)
 - [Documentation](#documentation)
 
 ---
@@ -403,7 +403,11 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.2)
+## Recent Changes (v3.14.3)
+
+### New Features
+
+- **Quoted Path Support**: Image paths with spaces now supported using quotes (`@"path with spaces/image.png"` or `'/path/file name.jpg'`)
 
 ### Bug Fixes
 

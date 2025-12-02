@@ -32,9 +32,18 @@ export interface ParsedImageInput {
 
 /** Regex patterns (compiled once at module load) */
 // Exclude URLs (http://, https://, file://, ftp://, data:) from @ references
-const AT_REF_PATTERN = /@((?!https?:\/\/|ftp:\/\/|file:\/\/|data:)[^\s]+\.(png|jpg|jpeg|gif|webp))/gi;
-// Supports Unix (/path), relative (./path, ../path), Windows (C:\path), and UNC (\\server\share)
-const DIRECT_PATH_PATTERN = /^(\/[^\s]+\.(png|jpg|jpeg|gif|webp)|\.\.?\/[^\s]+\.(png|jpg|jpeg|gif|webp)|[a-zA-Z]:[\\/][^\s]+\.(png|jpg|jpeg|gif|webp)|\\\\[^\s]+\.(png|jpg|jpeg|gif|webp))$/i;
+// Supports: @path/file.png, @"path with spaces/file.png", @'path with spaces/file.png'
+const AT_REF_PATTERN = /@((?!https?:\/\/|ftp:\/\/|file:\/\/|data:)[^\s]+\.(png|jpg|jpeg|gif|webp)|"[^"]+\.(png|jpg|jpeg|gif|webp)"|'[^']+\.(png|jpg|jpeg|gif|webp)')/gi;
+// Supports Unix (/path), relative (./path, ../path), Windows (C:\path), UNC (\\server\share), and quoted paths
+const DIRECT_PATH_PATTERN = /^(\/[^\s]+\.(png|jpg|jpeg|gif|webp)|\.\.?\/[^\s]+\.(png|jpg|jpeg|gif|webp)|[a-zA-Z]:[\\/][^\s]+\.(png|jpg|jpeg|gif|webp)|\\\\[^\s]+\.(png|jpg|jpeg|gif|webp)|"[^"]+\.(png|jpg|jpeg|gif|webp)"|'[^']+\.(png|jpg|jpeg|gif|webp)')$/i;
+
+/** Strip surrounding quotes from a path */
+function stripQuotes(p: string): string {
+  if ((p.startsWith('"') && p.endsWith('"')) || (p.startsWith("'") && p.endsWith("'"))) {
+    return p.slice(1, -1);
+  }
+  return p;
+}
 
 /** Parse user input for image references */
 export async function parseImageInput(
@@ -49,19 +58,20 @@ export async function parseImageInput(
 
   for (const [fullMatch, relativePath] of input.matchAll(AT_REF_PATTERN)) {
     try {
-      const image = await processImageFromPath(relativePath, workingDir);
+      const cleanPath = stripQuotes(relativePath);
+      const image = await processImageFromPath(cleanPath, workingDir);
       const resolvedPath = image.originalPath;
 
       if (seenPaths.has(resolvedPath)) {
         // Same file referenced differently - reuse existing placeholder
         const existingIndex = pathToIndex.get(resolvedPath)!;
-        const name = path.basename(relativePath);
+        const name = path.basename(cleanPath);
         textContent = textContent.split(fullMatch).join(`[Image #${existingIndex}: ${name}]`);
         continue;
       }
 
       seenPaths.add(resolvedPath);
-      const name = path.basename(relativePath);
+      const name = path.basename(cleanPath);
       images.push({ image, preview: `[Image: ${name}]`, originalReference: fullMatch });
       pathToIndex.set(resolvedPath, images.length);
       textContent = textContent.split(fullMatch).join(`[Image #${images.length}: ${name}]`);
@@ -74,8 +84,9 @@ export async function parseImageInput(
   const trimmed = input.trim();
   if (!images.length && DIRECT_PATH_PATTERN.test(trimmed)) {
     try {
-      const image = await processImageFromPath(trimmed, workingDir);
-      const name = path.basename(trimmed);
+      const cleanPath = stripQuotes(trimmed);
+      const image = await processImageFromPath(cleanPath, workingDir);
+      const name = path.basename(cleanPath);
       images.push({ image, preview: `[Image: ${name}]`, originalReference: trimmed });
       textContent = `Please analyze this image: ${name}`;
     } catch (error) {
@@ -87,7 +98,8 @@ export async function parseImageInput(
   return { text: textContent.trim(), images, errors, hasImages: images.length > 0 };
 }
 
-const AT_REF_CHECK = /@(?!https?:\/\/|ftp:\/\/|file:\/\/|data:)[^\s]+\.(png|jpg|jpeg|gif|webp)/i;
+// Quick check for @ references (unquoted or quoted)
+const AT_REF_CHECK = /@(?:(?!https?:\/\/|ftp:\/\/|file:\/\/|data:)[^\s]+\.(png|jpg|jpeg|gif|webp)|"[^"]+\.(png|jpg|jpeg|gif|webp)"|'[^']+\.(png|jpg|jpeg|gif|webp)')/i;
 
 /** Check if input contains image references (quick check) */
 export function hasImageReferences(input: string): boolean {
@@ -109,9 +121,10 @@ export function buildMessageContent(parsed: ParsedImageInput): MessageContentPar
 
 /** Help text (static) */
 const HELP_TEXT = `Image Input Methods:
-  @path/to/image.png  - Reference image with @ prefix
-  /absolute/path.png  - Direct absolute path
-  ./relative/path.png - Direct relative path
+  @path/to/image.png      - Reference image with @ prefix
+  @"path with spaces.png" - Quoted path for names with spaces
+  /absolute/path.png      - Direct absolute path
+  "./path with spaces.png" - Quoted direct path
 
 Supported formats: ${SUPPORTED_IMAGE_FORMATS.join(', ')}
 Maximum size: ${formatBytes(MAX_IMAGE_SIZE_BYTES)}
