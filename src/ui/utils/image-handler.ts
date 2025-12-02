@@ -36,6 +36,8 @@ export interface ParsedImageInput {
 const AT_REF_PATTERN = /@((?!https?:\/\/|ftp:\/\/|file:\/\/|data:)[^\s]+\.(png|jpg|jpeg|gif|webp)|"[^"]+\.(png|jpg|jpeg|gif|webp)"|'[^']+\.(png|jpg|jpeg|gif|webp)')/gi;
 // Supports Unix (/path), relative (./path, ../path), Windows (C:\path), UNC (\\server\share), and quoted paths
 const DIRECT_PATH_PATTERN = /^(\/[^\s]+\.(png|jpg|jpeg|gif|webp)|\.\.?\/[^\s]+\.(png|jpg|jpeg|gif|webp)|[a-zA-Z]:[\\/][^\s]+\.(png|jpg|jpeg|gif|webp)|\\\\[^\s]+\.(png|jpg|jpeg|gif|webp)|"[^"]+\.(png|jpg|jpeg|gif|webp)"|'[^']+\.(png|jpg|jpeg|gif|webp)')$/i;
+// Inline quoted paths without @ prefix - allows "path.png" or 'path.png' anywhere in text
+const INLINE_QUOTED_PATH_PATTERN = /(?:^|(?<=\s))("[^"]+\.(png|jpg|jpeg|gif|webp)"|'[^']+\.(png|jpg|jpeg|gif|webp)')/gi;
 
 /** Strip surrounding quotes from a path */
 function stripQuotes(p: string): string {
@@ -56,6 +58,7 @@ export async function parseImageInput(
   const seenPaths = new Set<string>(); // Track by resolved path to avoid duplicates
   const pathToIndex = new Map<string, number>(); // Map resolved path to image index
 
+  // Process @-prefixed image references
   for (const [fullMatch, relativePath] of input.matchAll(AT_REF_PATTERN)) {
     try {
       const cleanPath = stripQuotes(relativePath);
@@ -64,6 +67,30 @@ export async function parseImageInput(
 
       if (seenPaths.has(resolvedPath)) {
         // Same file referenced differently - reuse existing placeholder
+        const existingIndex = pathToIndex.get(resolvedPath)!;
+        const name = path.basename(cleanPath);
+        textContent = textContent.split(fullMatch).join(`[Image #${existingIndex}: ${name}]`);
+        continue;
+      }
+
+      seenPaths.add(resolvedPath);
+      const name = path.basename(cleanPath);
+      images.push({ image, preview: `[Image: ${name}]`, originalReference: fullMatch });
+      pathToIndex.set(resolvedPath, images.length);
+      textContent = textContent.split(fullMatch).join(`[Image #${images.length}: ${name}]`);
+    } catch (error) {
+      errors.push(`${fullMatch}: ${error instanceof ImageProcessingError ? error.message : 'Failed to process'}`);
+    }
+  }
+
+  // Process inline quoted paths without @ prefix (e.g., '/path/to/image.png' or "/path/to/image.png")
+  for (const [fullMatch] of textContent.matchAll(INLINE_QUOTED_PATH_PATTERN)) {
+    try {
+      const cleanPath = stripQuotes(fullMatch.trim());
+      const image = await processImageFromPath(cleanPath, workingDir);
+      const resolvedPath = image.originalPath;
+
+      if (seenPaths.has(resolvedPath)) {
         const existingIndex = pathToIndex.get(resolvedPath)!;
         const name = path.basename(cleanPath);
         textContent = textContent.split(fullMatch).join(`[Image #${existingIndex}: ${name}]`);
@@ -100,10 +127,12 @@ export async function parseImageInput(
 
 // Quick check for @ references (unquoted or quoted)
 const AT_REF_CHECK = /@(?:(?!https?:\/\/|ftp:\/\/|file:\/\/|data:)[^\s]+\.(png|jpg|jpeg|gif|webp)|"[^"]+\.(png|jpg|jpeg|gif|webp)"|'[^']+\.(png|jpg|jpeg|gif|webp)')/i;
+// Quick check for inline quoted paths
+const INLINE_QUOTED_CHECK = /(?:^|\s)("[^"]+\.(png|jpg|jpeg|gif|webp)"|'[^']+\.(png|jpg|jpeg|gif|webp)')/i;
 
 /** Check if input contains image references (quick check) */
 export function hasImageReferences(input: string): boolean {
-  return AT_REF_CHECK.test(input) || DIRECT_PATH_PATTERN.test(input.trim());
+  return AT_REF_CHECK.test(input) || DIRECT_PATH_PATTERN.test(input.trim()) || INLINE_QUOTED_CHECK.test(input);
 }
 
 /** Build multimodal message content from parsed input */

@@ -105,6 +105,34 @@ describe('ImageInputHandler', () => {
       expect(result.text).toContain('and after');
       expect(result.text).toContain('[Image #1:');
     });
+
+    it('handles inline quoted paths without @ prefix', async () => {
+      const input = `'${testPngPath}' please analyze this image`;
+      const result = await ImageInputHandler.parseInput(input, process.cwd());
+
+      expect(result.hasImages).toBe(true);
+      expect(result.images).toHaveLength(1);
+      expect(result.text).toContain('please analyze this image');
+      expect(result.text).toContain('[Image #1:');
+    });
+
+    it('handles inline double-quoted paths without @ prefix', async () => {
+      const input = `"${testPngPath}" what do you see?`;
+      const result = await ImageInputHandler.parseInput(input, process.cwd());
+
+      expect(result.hasImages).toBe(true);
+      expect(result.images).toHaveLength(1);
+      expect(result.text).toContain('what do you see?');
+    });
+
+    it('handles inline quoted path with text before and after', async () => {
+      const input = `Please analyze "${testPngPath}" and describe it`;
+      const result = await ImageInputHandler.parseInput(input, process.cwd());
+
+      expect(result.hasImages).toBe(true);
+      expect(result.text).toContain('Please analyze');
+      expect(result.text).toContain('and describe it');
+    });
   });
 
   describe('hasImageReferences', () => {
@@ -131,6 +159,12 @@ describe('ImageInputHandler', () => {
       expect(ImageInputHandler.hasImageReferences("'/path/with spaces/image.jpg'")).toBe(true);
       expect(ImageInputHandler.hasImageReferences('@"/path/with spaces/file.png"')).toBe(true);
       expect(ImageInputHandler.hasImageReferences("@'/path/with spaces/file.gif'")).toBe(true);
+    });
+
+    it('returns true for inline quoted paths without @ prefix', () => {
+      expect(ImageInputHandler.hasImageReferences("'/path/to/image.png' analyze this")).toBe(true);
+      expect(ImageInputHandler.hasImageReferences('"/path/to/image.jpg" what is this')).toBe(true);
+      expect(ImageInputHandler.hasImageReferences('Please check "/path/image.png" now')).toBe(true);
     });
 
     it('returns false for non-image content', () => {
