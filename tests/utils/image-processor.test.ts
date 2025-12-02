@@ -2,9 +2,16 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import {
-  ImageProcessor,
+  detectFormat,
+  isImagePath,
+  formatBytes,
+  processImageFromPath,
+  getMimeType,
+  isSupportedFormat,
   ImageProcessingError,
   SUPPORTED_IMAGE_FORMATS,
+  MAX_IMAGE_SIZE_BYTES,
+  TOKENS_PER_IMAGE,
 } from '../../src/utils/image-processor.js';
 
 describe('ImageProcessor', () => {
@@ -70,17 +77,17 @@ describe('ImageProcessor', () => {
   describe('detectFormat', () => {
     it('detects PNG from magic bytes', () => {
       const pngBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x00]);
-      expect(ImageProcessor.detectFormat(pngBuffer)).toBe('png');
+      expect(detectFormat(pngBuffer)).toBe('png');
     });
 
     it('detects JPEG from magic bytes', () => {
       const jpgBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-      expect(ImageProcessor.detectFormat(jpgBuffer)).toBe('jpg');
+      expect(detectFormat(jpgBuffer)).toBe('jpg');
     });
 
     it('detects GIF from magic bytes', () => {
       const gifBuffer = Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-      expect(ImageProcessor.detectFormat(gifBuffer)).toBe('gif');
+      expect(detectFormat(gifBuffer)).toBe('gif');
     });
 
     it('detects WebP from magic bytes', () => {
@@ -89,80 +96,80 @@ describe('ImageProcessor', () => {
         0x00, 0x00, 0x00, 0x00, // file size
         0x57, 0x45, 0x42, 0x50, // WEBP
       ]);
-      expect(ImageProcessor.detectFormat(webpBuffer)).toBe('webp');
+      expect(detectFormat(webpBuffer)).toBe('webp');
     });
 
     it('returns null for unknown format', () => {
       const unknownBuffer = Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-      expect(ImageProcessor.detectFormat(unknownBuffer)).toBeNull();
+      expect(detectFormat(unknownBuffer)).toBeNull();
     });
 
     it('returns null for buffer too small', () => {
       const smallBuffer = Buffer.from([0x89, 0x50]);
-      expect(ImageProcessor.detectFormat(smallBuffer)).toBeNull();
+      expect(detectFormat(smallBuffer)).toBeNull();
     });
   });
 
   describe('getMimeType', () => {
     it('returns correct MIME type for PNG', () => {
-      expect(ImageProcessor.getMimeType('png')).toBe('image/png');
+      expect(getMimeType('png')).toBe('image/png');
     });
 
     it('returns correct MIME type for JPEG', () => {
-      expect(ImageProcessor.getMimeType('jpg')).toBe('image/jpeg');
-      expect(ImageProcessor.getMimeType('jpeg')).toBe('image/jpeg');
+      expect(getMimeType('jpg')).toBe('image/jpeg');
+      expect(getMimeType('jpeg')).toBe('image/jpeg');
     });
 
     it('returns correct MIME type for GIF', () => {
-      expect(ImageProcessor.getMimeType('gif')).toBe('image/gif');
+      expect(getMimeType('gif')).toBe('image/gif');
     });
 
     it('returns correct MIME type for WebP', () => {
-      expect(ImageProcessor.getMimeType('webp')).toBe('image/webp');
+      expect(getMimeType('webp')).toBe('image/webp');
     });
   });
 
   describe('isSupportedFormat', () => {
     it('returns true for supported formats', () => {
       for (const format of SUPPORTED_IMAGE_FORMATS) {
-        expect(ImageProcessor.isSupportedFormat(format)).toBe(true);
+        expect(isSupportedFormat(format)).toBe(true);
       }
     });
 
     it('returns true with leading dot', () => {
-      expect(ImageProcessor.isSupportedFormat('.png')).toBe(true);
-      expect(ImageProcessor.isSupportedFormat('.jpg')).toBe(true);
+      expect(isSupportedFormat('.png')).toBe(true);
+      expect(isSupportedFormat('.jpg')).toBe(true);
     });
 
     it('returns false for unsupported formats', () => {
-      expect(ImageProcessor.isSupportedFormat('txt')).toBe(false);
-      expect(ImageProcessor.isSupportedFormat('pdf')).toBe(false);
-      expect(ImageProcessor.isSupportedFormat('bmp')).toBe(false);
+      expect(isSupportedFormat('txt')).toBe(false);
+      expect(isSupportedFormat('pdf')).toBe(false);
+      expect(isSupportedFormat('bmp')).toBe(false);
     });
   });
 
   describe('isImagePath', () => {
     it('returns true for image file paths', () => {
-      expect(ImageProcessor.isImagePath('/path/to/image.png')).toBe(true);
-      expect(ImageProcessor.isImagePath('./image.jpg')).toBe(true);
-      expect(ImageProcessor.isImagePath('image.gif')).toBe(true);
-      expect(ImageProcessor.isImagePath('image.webp')).toBe(true);
+      expect(isImagePath('/path/to/image.png')).toBe(true);
+      expect(isImagePath('./image.jpg')).toBe(true);
+      expect(isImagePath('image.gif')).toBe(true);
+      expect(isImagePath('image.webp')).toBe(true);
     });
 
     it('returns false for non-image paths', () => {
-      expect(ImageProcessor.isImagePath('/path/to/file.txt')).toBe(false);
-      expect(ImageProcessor.isImagePath('./document.pdf')).toBe(false);
+      expect(isImagePath('/path/to/file.txt')).toBe(false);
+      expect(isImagePath('./document.pdf')).toBe(false);
     });
 
     it('handles uppercase extensions', () => {
-      expect(ImageProcessor.isImagePath('image.PNG')).toBe(true);
-      expect(ImageProcessor.isImagePath('image.JPG')).toBe(true);
+      expect(isImagePath('image.PNG')).toBe(true);
+      expect(isImagePath('image.JPG')).toBe(true);
     });
   });
 
-  describe('processFromPath', () => {
+  describe('processImageFromPath', () => {
     it('processes PNG file successfully', async () => {
-      const result = await ImageProcessor.processFromPath(testPngPath);
+      const result = await processImageFromPath(testPngPath);
 
       expect(result.format).toBe('png');
       expect(result.mimeType).toBe('image/png');
@@ -172,7 +179,7 @@ describe('ImageProcessor', () => {
     });
 
     it('processes JPEG file successfully', async () => {
-      const result = await ImageProcessor.processFromPath(testJpgPath);
+      const result = await processImageFromPath(testJpgPath);
 
       expect(result.format).toBe('jpg');
       expect(result.mimeType).toBe('image/jpeg');
@@ -181,11 +188,11 @@ describe('ImageProcessor', () => {
 
     it('throws for non-existent file', async () => {
       await expect(
-        ImageProcessor.processFromPath('/nonexistent/image.png')
+        processImageFromPath('/nonexistent/image.png')
       ).rejects.toThrow(ImageProcessingError);
 
       try {
-        await ImageProcessor.processFromPath('/nonexistent/image.png');
+        await processImageFromPath('/nonexistent/image.png');
       } catch (error) {
         expect(error).toBeInstanceOf(ImageProcessingError);
         expect((error as ImageProcessingError).code).toBe('FILE_NOT_FOUND');
@@ -194,45 +201,42 @@ describe('ImageProcessor', () => {
 
     it('resolves relative paths correctly', async () => {
       const relativePath = path.relative(process.cwd(), testPngPath);
-      const result = await ImageProcessor.processFromPath(relativePath);
+      const result = await processImageFromPath(relativePath);
 
       expect(result.originalPath).toBe(testPngPath);
     });
 
     it('rejects paths with null bytes (security)', async () => {
       await expect(
-        ImageProcessor.processFromPath('image\0.png')
+        processImageFromPath('image\0.png')
       ).rejects.toThrow('Invalid file path');
     });
 
     it('rejects path traversal attempts (security)', async () => {
-      // Attempt to access file outside working directory
       await expect(
-        ImageProcessor.processFromPath('../../../etc/passwd.png', testDir)
+        processImageFromPath('../../../etc/passwd.png', testDir)
       ).rejects.toThrow();
     });
   });
 
   describe('formatBytes', () => {
     it('formats bytes correctly', () => {
-      expect(ImageProcessor.formatBytes(0)).toBe('0 B');
-      expect(ImageProcessor.formatBytes(100)).toBe('100 B');
-      expect(ImageProcessor.formatBytes(1024)).toBe('1.0 KB');
-      expect(ImageProcessor.formatBytes(1536)).toBe('1.5 KB');
-      expect(ImageProcessor.formatBytes(1048576)).toBe('1.0 MB');
-      expect(ImageProcessor.formatBytes(1572864)).toBe('1.5 MB');
+      expect(formatBytes(0)).toBe('0 B');
+      expect(formatBytes(100)).toBe('100 B');
+      expect(formatBytes(1024)).toBe('1.0 KB');
+      expect(formatBytes(1536)).toBe('1.5 KB');
+      expect(formatBytes(1048576)).toBe('1.0 MB');
+      expect(formatBytes(1572864)).toBe('1.5 MB');
     });
   });
 
-  describe('getMaxSizeBytes', () => {
-    it('returns 10MB', () => {
-      expect(ImageProcessor.getMaxSizeBytes()).toBe(10 * 1024 * 1024);
+  describe('constants', () => {
+    it('MAX_IMAGE_SIZE_BYTES is 10MB', () => {
+      expect(MAX_IMAGE_SIZE_BYTES).toBe(10 * 1024 * 1024);
     });
-  });
 
-  describe('getEstimatedTokens', () => {
-    it('returns 1000 tokens per image', () => {
-      expect(ImageProcessor.getEstimatedTokens()).toBe(1000);
+    it('TOKENS_PER_IMAGE is 1000', () => {
+      expect(TOKENS_PER_IMAGE).toBe(1000);
     });
   });
 });

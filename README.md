@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.14.6)](#recent-changes-v3146)
+- [Recent Changes (v11.0.0)](#recent-changes-v1100)
 - [Documentation](#documentation)
 
 ---
@@ -404,7 +404,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.6)
+## Recent Changes (v11.0.0)
+
+### Code Refactoring
+
+- **Image Handler Optimization**: Consolidated duplicate regex patterns, reducing from 6 to 3 patterns with `lastIndex` reset for quick checks
+- **Simplified Message Builder**: Streamlined `buildMessageContent` function with direct `push()` calls for better readability
+- **Path Security Cleanup**: Simplified path traversal security check with improved readability using `.catch()` pattern
 
 ### Bug Fixes
 

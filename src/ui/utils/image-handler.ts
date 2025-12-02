@@ -30,14 +30,25 @@ export interface ParsedImageInput {
   hasImages: boolean;
 }
 
+/** Shared image extension pattern */
+const IMG_EXT = '(?:png|jpg|jpeg|gif|webp)';
+
 /** Regex patterns (compiled once at module load) */
-// Exclude URLs (http://, https://, file://, ftp://, data:) from @ references
-// Supports: @path/file.png, @"path with spaces/file.png", @'path with spaces/file.png'
-const AT_REF_PATTERN = /@((?!https?:\/\/|ftp:\/\/|file:\/\/|data:)[^\s]+\.(png|jpg|jpeg|gif|webp)|"[^"]+\.(png|jpg|jpeg|gif|webp)"|'[^']+\.(png|jpg|jpeg|gif|webp)')/gi;
-// Supports Unix (/path), relative (./path, ../path), Windows (C:\path), UNC (\\server\share), and quoted paths
-const DIRECT_PATH_PATTERN = /^(\/[^\s]+\.(png|jpg|jpeg|gif|webp)|\.\.?\/[^\s]+\.(png|jpg|jpeg|gif|webp)|[a-zA-Z]:[\\/][^\s]+\.(png|jpg|jpeg|gif|webp)|\\\\[^\s]+\.(png|jpg|jpeg|gif|webp)|"[^"]+\.(png|jpg|jpeg|gif|webp)"|'[^']+\.(png|jpg|jpeg|gif|webp)')$/i;
-// Inline quoted paths without @ prefix - allows "path.png" or 'path.png' anywhere in text
-const INLINE_QUOTED_PATH_PATTERN = /(?:^|(?<=\s))("[^"]+\.(png|jpg|jpeg|gif|webp)"|'[^']+\.(png|jpg|jpeg|gif|webp)')/gi;
+// @-prefixed: @path.png, @"path with spaces.png", @'path.png' (excludes URLs)
+const AT_REF_PATTERN = new RegExp(
+  `@((?!https?://|ftp://|file://|data:)[^\\s]+\\.${IMG_EXT}|"[^"]+\\.${IMG_EXT}"|'[^']+\\.${IMG_EXT}')`,
+  'gi'
+);
+// Direct paths: /path.png, ./path.png, C:\path.png, \\server\path.png, "quoted.png"
+const DIRECT_PATH_PATTERN = new RegExp(
+  `^(/[^\\s]+\\.${IMG_EXT}|\\.\\.\?/[^\\s]+\\.${IMG_EXT}|[a-zA-Z]:[\\\\/][^\\s]+\\.${IMG_EXT}|\\\\\\\\[^\\s]+\\.${IMG_EXT}|"[^"]+\\.${IMG_EXT}"|'[^']+\\.${IMG_EXT}')$`,
+  'i'
+);
+// Inline quoted: "path.png" or 'path.png' anywhere in text
+const INLINE_QUOTED_PATH_PATTERN = new RegExp(
+  `(?:^|(?<=\\s))("[^"]+\\.${IMG_EXT}"|'[^']+\\.${IMG_EXT}')`,
+  'gi'
+);
 
 /** Strip surrounding quotes from a path */
 function stripQuotes(p: string): string {
@@ -47,105 +58,111 @@ function stripQuotes(p: string): string {
   return p;
 }
 
+/** State for tracking processed images during parsing */
+interface ParseState {
+  images: ImageAttachment[];
+  errors: string[];
+  seenPaths: Set<string>;
+  pathToIndex: Map<string, number>;
+}
+
+/**
+ * Process a single image reference and update state
+ * Returns the replacement text for the match, or null if error
+ */
+async function processImageRef(
+  fullMatch: string,
+  pathStr: string,
+  workingDir: string,
+  state: ParseState
+): Promise<string> {
+  const cleanPath = stripQuotes(pathStr);
+  const name = path.basename(cleanPath);
+
+  try {
+    const image = await processImageFromPath(cleanPath, workingDir);
+    const resolvedPath = image.originalPath;
+
+    // Handle duplicate - reuse existing placeholder
+    if (state.seenPaths.has(resolvedPath)) {
+      const existingIndex = state.pathToIndex.get(resolvedPath)!;
+      return `[Image #${existingIndex}: ${name}]`;
+    }
+
+    // New image - add to collection
+    state.seenPaths.add(resolvedPath);
+    state.images.push({ image, preview: `[Image: ${name}]`, originalReference: fullMatch });
+    state.pathToIndex.set(resolvedPath, state.images.length);
+    return `[Image #${state.images.length}: ${name}]`;
+  } catch (error) {
+    const msg = error instanceof ImageProcessingError ? error.message : 'Failed to process';
+    state.errors.push(`${fullMatch}: ${msg}`);
+    return fullMatch; // Keep original on error
+  }
+}
+
 /** Parse user input for image references */
 export async function parseImageInput(
   input: string,
   workingDir: string = process.cwd()
 ): Promise<ParsedImageInput> {
-  const images: ImageAttachment[] = [];
-  const errors: string[] = [];
+  const state: ParseState = {
+    images: [],
+    errors: [],
+    seenPaths: new Set(),
+    pathToIndex: new Map(),
+  };
   let textContent = input;
-  const seenPaths = new Set<string>(); // Track by resolved path to avoid duplicates
-  const pathToIndex = new Map<string, number>(); // Map resolved path to image index
 
   // Process @-prefixed image references
   for (const [fullMatch, relativePath] of input.matchAll(AT_REF_PATTERN)) {
-    try {
-      const cleanPath = stripQuotes(relativePath);
-      const image = await processImageFromPath(cleanPath, workingDir);
-      const resolvedPath = image.originalPath;
-
-      if (seenPaths.has(resolvedPath)) {
-        // Same file referenced differently - reuse existing placeholder
-        const existingIndex = pathToIndex.get(resolvedPath)!;
-        const name = path.basename(cleanPath);
-        textContent = textContent.split(fullMatch).join(`[Image #${existingIndex}: ${name}]`);
-        continue;
-      }
-
-      seenPaths.add(resolvedPath);
-      const name = path.basename(cleanPath);
-      images.push({ image, preview: `[Image: ${name}]`, originalReference: fullMatch });
-      pathToIndex.set(resolvedPath, images.length);
-      textContent = textContent.split(fullMatch).join(`[Image #${images.length}: ${name}]`);
-    } catch (error) {
-      errors.push(`${fullMatch}: ${error instanceof ImageProcessingError ? error.message : 'Failed to process'}`);
-    }
+    const replacement = await processImageRef(fullMatch, relativePath, workingDir, state);
+    textContent = textContent.split(fullMatch).join(replacement);
   }
 
-  // Process inline quoted paths without @ prefix (e.g., '/path/to/image.png' or "/path/to/image.png")
+  // Process inline quoted paths (e.g., '/path/image.png' or "/path/image.png")
   for (const [fullMatch] of textContent.matchAll(INLINE_QUOTED_PATH_PATTERN)) {
-    try {
-      const cleanPath = stripQuotes(fullMatch.trim());
-      const image = await processImageFromPath(cleanPath, workingDir);
-      const resolvedPath = image.originalPath;
-
-      if (seenPaths.has(resolvedPath)) {
-        const existingIndex = pathToIndex.get(resolvedPath)!;
-        const name = path.basename(cleanPath);
-        textContent = textContent.split(fullMatch).join(`[Image #${existingIndex}: ${name}]`);
-        continue;
-      }
-
-      seenPaths.add(resolvedPath);
-      const name = path.basename(cleanPath);
-      images.push({ image, preview: `[Image: ${name}]`, originalReference: fullMatch });
-      pathToIndex.set(resolvedPath, images.length);
-      textContent = textContent.split(fullMatch).join(`[Image #${images.length}: ${name}]`);
-    } catch (error) {
-      errors.push(`${fullMatch}: ${error instanceof ImageProcessingError ? error.message : 'Failed to process'}`);
-    }
+    const replacement = await processImageRef(fullMatch, fullMatch.trim(), workingDir, state);
+    textContent = textContent.split(fullMatch).join(replacement);
   }
 
   // Handle direct file path as entire input
   const trimmed = input.trim();
-  if (!images.length && DIRECT_PATH_PATTERN.test(trimmed)) {
+  if (!state.images.length && DIRECT_PATH_PATTERN.test(trimmed)) {
+    const cleanPath = stripQuotes(trimmed);
+    const name = path.basename(cleanPath);
     try {
-      const cleanPath = stripQuotes(trimmed);
       const image = await processImageFromPath(cleanPath, workingDir);
-      const name = path.basename(cleanPath);
-      images.push({ image, preview: `[Image: ${name}]`, originalReference: trimmed });
+      state.images.push({ image, preview: `[Image: ${name}]`, originalReference: trimmed });
       textContent = `Please analyze this image: ${name}`;
     } catch (error) {
       const msg = error instanceof ImageProcessingError ? error.message : 'Failed to process image';
-      errors.push(`${trimmed}: ${msg}`);
+      state.errors.push(`${trimmed}: ${msg}`);
     }
   }
 
-  return { text: textContent.trim(), images, errors, hasImages: images.length > 0 };
+  return { text: textContent.trim(), images: state.images, errors: state.errors, hasImages: state.images.length > 0 };
 }
 
-// Quick check for @ references (unquoted or quoted)
-const AT_REF_CHECK = /@(?:(?!https?:\/\/|ftp:\/\/|file:\/\/|data:)[^\s]+\.(png|jpg|jpeg|gif|webp)|"[^"]+\.(png|jpg|jpeg|gif|webp)"|'[^']+\.(png|jpg|jpeg|gif|webp)')/i;
-// Quick check for inline quoted paths
-const INLINE_QUOTED_CHECK = /(?:^|\s)("[^"]+\.(png|jpg|jpeg|gif|webp)"|'[^']+\.(png|jpg|jpeg|gif|webp)')/i;
-
-/** Check if input contains image references (quick check) */
+/** Check if input contains image references (quick check using main patterns) */
 export function hasImageReferences(input: string): boolean {
-  return AT_REF_CHECK.test(input) || DIRECT_PATH_PATTERN.test(input.trim()) || INLINE_QUOTED_CHECK.test(input);
+  // Reset lastIndex for global patterns before testing
+  AT_REF_PATTERN.lastIndex = 0;
+  INLINE_QUOTED_PATH_PATTERN.lastIndex = 0;
+  return AT_REF_PATTERN.test(input) || DIRECT_PATH_PATTERN.test(input.trim()) || INLINE_QUOTED_PATH_PATTERN.test(input);
 }
 
 /** Build multimodal message content from parsed input */
 export function buildMessageContent(parsed: ParsedImageInput): MessageContentPart[] {
   const text = parsed.text.trim();
-  const textPart: MessageContentPart[] = text ? [{ type: 'text', text }] : [];
-  const imageParts: MessageContentPart[] = parsed.images.map(a => ({
-    type: 'image_url',
-    image_url: { url: a.image.dataUri },
-  }));
+  const parts: MessageContentPart[] = [];
 
-  const content = [...textPart, ...imageParts];
-  return content.length ? content : [{ type: 'text', text: 'Please analyze the provided content.' }];
+  if (text) parts.push({ type: 'text', text });
+  for (const a of parsed.images) {
+    parts.push({ type: 'image_url', image_url: { url: a.image.dataUri } });
+  }
+
+  return parts.length ? parts : [{ type: 'text', text: 'Please analyze the provided content.' }];
 }
 
 /** Help text (static) */
@@ -170,11 +187,3 @@ export function formatAttachmentForDisplay(attachment: ImageAttachment, index: n
   return `  ${index}. ${attachment.preview} (${formatBytes(attachment.image.sizeBytes)}, ~${TOKENS_PER_IMAGE} tokens)`;
 }
 
-// Legacy class wrapper for backward compatibility
-export class ImageInputHandler {
-  static parseInput = parseImageInput;
-  static hasImageReferences = hasImageReferences;
-  static buildMessageContent = buildMessageContent;
-  static getHelpText = getImageHelpText;
-  static formatAttachmentForDisplay = formatAttachmentForDisplay;
-}

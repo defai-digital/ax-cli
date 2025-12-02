@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { ImageInputHandler } from '../../../src/ui/utils/image-handler.js';
+import {
+  parseImageInput,
+  hasImageReferences,
+  buildMessageContent,
+  getImageHelpText,
+  formatAttachmentForDisplay,
+} from '../../../src/ui/utils/image-handler.js';
 
 describe('ImageInputHandler', () => {
   const testDir = path.join(process.cwd(), 'tests', 'fixtures', 'images');
@@ -35,10 +41,10 @@ describe('ImageInputHandler', () => {
     }
   });
 
-  describe('parseInput', () => {
+  describe('parseImageInput', () => {
     it('parses @-prefixed image path', async () => {
       const input = `Analyze this image @${path.relative(process.cwd(), testPngPath)}`;
-      const result = await ImageInputHandler.parseInput(input, process.cwd());
+      const result = await parseImageInput(input, process.cwd());
 
       expect(result.hasImages).toBe(true);
       expect(result.images).toHaveLength(1);
@@ -50,18 +56,16 @@ describe('ImageInputHandler', () => {
     it('parses multiple @-prefixed image paths (deduplicates same path)', async () => {
       const relativePath = path.relative(process.cwd(), testPngPath);
       const input = `Compare @${relativePath} with @${relativePath}`;
-      const result = await ImageInputHandler.parseInput(input, process.cwd());
+      const result = await parseImageInput(input, process.cwd());
 
       expect(result.hasImages).toBe(true);
-      // Same path referenced twice should only produce 1 image (deduplicated)
       expect(result.images).toHaveLength(1);
-      // Both occurrences should be replaced with the same placeholder
       expect(result.text).toContain('[Image #1:');
-      expect(result.text.match(/\[Image #1:/g)?.length).toBe(2); // Both replaced
+      expect(result.text.match(/\[Image #1:/g)?.length).toBe(2);
     });
 
     it('handles direct file path as entire input', async () => {
-      const result = await ImageInputHandler.parseInput(testPngPath, process.cwd());
+      const result = await parseImageInput(testPngPath, process.cwd());
 
       expect(result.hasImages).toBe(true);
       expect(result.images).toHaveLength(1);
@@ -70,7 +74,7 @@ describe('ImageInputHandler', () => {
 
     it('handles relative path starting with ./', async () => {
       const relativePath = './' + path.relative(process.cwd(), testPngPath);
-      const result = await ImageInputHandler.parseInput(relativePath, process.cwd());
+      const result = await parseImageInput(relativePath, process.cwd());
 
       expect(result.hasImages).toBe(true);
       expect(result.images).toHaveLength(1);
@@ -78,7 +82,7 @@ describe('ImageInputHandler', () => {
 
     it('returns errors for non-existent images', async () => {
       const input = 'Analyze @nonexistent.png';
-      const result = await ImageInputHandler.parseInput(input, process.cwd());
+      const result = await parseImageInput(input, process.cwd());
 
       expect(result.hasImages).toBe(false);
       expect(result.errors).toHaveLength(1);
@@ -87,7 +91,7 @@ describe('ImageInputHandler', () => {
 
     it('handles input with no images', async () => {
       const input = 'Hello, how are you?';
-      const result = await ImageInputHandler.parseInput(input, process.cwd());
+      const result = await parseImageInput(input, process.cwd());
 
       expect(result.hasImages).toBe(false);
       expect(result.images).toHaveLength(0);
@@ -98,7 +102,7 @@ describe('ImageInputHandler', () => {
     it('handles mixed text and image references', async () => {
       const relativePath = path.relative(process.cwd(), testPngPath);
       const input = `Here is some text before @${relativePath} and after`;
-      const result = await ImageInputHandler.parseInput(input, process.cwd());
+      const result = await parseImageInput(input, process.cwd());
 
       expect(result.hasImages).toBe(true);
       expect(result.text).toContain('Here is some text before');
@@ -108,7 +112,7 @@ describe('ImageInputHandler', () => {
 
     it('handles inline quoted paths without @ prefix', async () => {
       const input = `'${testPngPath}' please analyze this image`;
-      const result = await ImageInputHandler.parseInput(input, process.cwd());
+      const result = await parseImageInput(input, process.cwd());
 
       expect(result.hasImages).toBe(true);
       expect(result.images).toHaveLength(1);
@@ -118,7 +122,7 @@ describe('ImageInputHandler', () => {
 
     it('handles inline double-quoted paths without @ prefix', async () => {
       const input = `"${testPngPath}" what do you see?`;
-      const result = await ImageInputHandler.parseInput(input, process.cwd());
+      const result = await parseImageInput(input, process.cwd());
 
       expect(result.hasImages).toBe(true);
       expect(result.images).toHaveLength(1);
@@ -127,7 +131,7 @@ describe('ImageInputHandler', () => {
 
     it('handles inline quoted path with text before and after', async () => {
       const input = `Please analyze "${testPngPath}" and describe it`;
-      const result = await ImageInputHandler.parseInput(input, process.cwd());
+      const result = await parseImageInput(input, process.cwd());
 
       expect(result.hasImages).toBe(true);
       expect(result.text).toContain('Please analyze');
@@ -137,40 +141,40 @@ describe('ImageInputHandler', () => {
 
   describe('hasImageReferences', () => {
     it('returns true for @-prefixed image paths', () => {
-      expect(ImageInputHandler.hasImageReferences('Analyze @image.png')).toBe(true);
-      expect(ImageInputHandler.hasImageReferences('@screenshot.jpg')).toBe(true);
-      expect(ImageInputHandler.hasImageReferences('Text @path/to/image.gif more text')).toBe(true);
+      expect(hasImageReferences('Analyze @image.png')).toBe(true);
+      expect(hasImageReferences('@screenshot.jpg')).toBe(true);
+      expect(hasImageReferences('Text @path/to/image.gif more text')).toBe(true);
     });
 
     it('returns true for direct file paths', () => {
-      expect(ImageInputHandler.hasImageReferences('/path/to/image.png')).toBe(true);
-      expect(ImageInputHandler.hasImageReferences('./image.jpg')).toBe(true);
-      expect(ImageInputHandler.hasImageReferences('../images/photo.webp')).toBe(true);
+      expect(hasImageReferences('/path/to/image.png')).toBe(true);
+      expect(hasImageReferences('./image.jpg')).toBe(true);
+      expect(hasImageReferences('../images/photo.webp')).toBe(true);
     });
 
     it('returns true for Windows-style paths', () => {
-      expect(ImageInputHandler.hasImageReferences('C:\\Users\\image.png')).toBe(true);
-      expect(ImageInputHandler.hasImageReferences('D:/path/to/image.jpg')).toBe(true);
-      expect(ImageInputHandler.hasImageReferences('\\\\server\\share\\image.gif')).toBe(true);
+      expect(hasImageReferences('C:\\Users\\image.png')).toBe(true);
+      expect(hasImageReferences('D:/path/to/image.jpg')).toBe(true);
+      expect(hasImageReferences('\\\\server\\share\\image.gif')).toBe(true);
     });
 
     it('returns true for quoted paths with spaces', () => {
-      expect(ImageInputHandler.hasImageReferences('"/path/with spaces/image.png"')).toBe(true);
-      expect(ImageInputHandler.hasImageReferences("'/path/with spaces/image.jpg'")).toBe(true);
-      expect(ImageInputHandler.hasImageReferences('@"/path/with spaces/file.png"')).toBe(true);
-      expect(ImageInputHandler.hasImageReferences("@'/path/with spaces/file.gif'")).toBe(true);
+      expect(hasImageReferences('"/path/with spaces/image.png"')).toBe(true);
+      expect(hasImageReferences("'/path/with spaces/image.jpg'")).toBe(true);
+      expect(hasImageReferences('@"/path/with spaces/file.png"')).toBe(true);
+      expect(hasImageReferences("@'/path/with spaces/file.gif'")).toBe(true);
     });
 
     it('returns true for inline quoted paths without @ prefix', () => {
-      expect(ImageInputHandler.hasImageReferences("'/path/to/image.png' analyze this")).toBe(true);
-      expect(ImageInputHandler.hasImageReferences('"/path/to/image.jpg" what is this')).toBe(true);
-      expect(ImageInputHandler.hasImageReferences('Please check "/path/image.png" now')).toBe(true);
+      expect(hasImageReferences("'/path/to/image.png' analyze this")).toBe(true);
+      expect(hasImageReferences('"/path/to/image.jpg" what is this')).toBe(true);
+      expect(hasImageReferences('Please check "/path/image.png" now')).toBe(true);
     });
 
     it('returns false for non-image content', () => {
-      expect(ImageInputHandler.hasImageReferences('Hello world')).toBe(false);
-      expect(ImageInputHandler.hasImageReferences('@user mention')).toBe(false);
-      expect(ImageInputHandler.hasImageReferences('/path/to/file.txt')).toBe(false);
+      expect(hasImageReferences('Hello world')).toBe(false);
+      expect(hasImageReferences('@user mention')).toBe(false);
+      expect(hasImageReferences('/path/to/file.txt')).toBe(false);
     });
   });
 
@@ -178,8 +182,8 @@ describe('ImageInputHandler', () => {
     it('builds multimodal message content', async () => {
       const relativePath = path.relative(process.cwd(), testPngPath);
       const input = `Analyze @${relativePath}`;
-      const parsed = await ImageInputHandler.parseInput(input, process.cwd());
-      const content = ImageInputHandler.buildMessageContent(parsed);
+      const parsed = await parseImageInput(input, process.cwd());
+      const content = buildMessageContent(parsed);
 
       expect(content).toHaveLength(2);
       expect(content[0]).toEqual({ type: 'text', text: expect.any(String) });
@@ -190,17 +194,17 @@ describe('ImageInputHandler', () => {
     });
 
     it('builds text-only content when no images', async () => {
-      const parsed = await ImageInputHandler.parseInput('Hello world', process.cwd());
-      const content = ImageInputHandler.buildMessageContent(parsed);
+      const parsed = await parseImageInput('Hello world', process.cwd());
+      const content = buildMessageContent(parsed);
 
       expect(content).toHaveLength(1);
       expect(content[0]).toEqual({ type: 'text', text: 'Hello world' });
     });
   });
 
-  describe('getHelpText', () => {
+  describe('getImageHelpText', () => {
     it('returns help text with usage information', () => {
-      const help = ImageInputHandler.getHelpText();
+      const help = getImageHelpText();
 
       expect(help).toContain('Image Input Methods');
       expect(help).toContain('@path/to/image.png');
@@ -223,7 +227,7 @@ describe('ImageInputHandler', () => {
         originalReference: '@image.png',
       };
 
-      const formatted = ImageInputHandler.formatAttachmentForDisplay(mockAttachment, 1);
+      const formatted = formatAttachmentForDisplay(mockAttachment, 1);
 
       expect(formatted).toContain('1.');
       expect(formatted).toContain('[Image:');

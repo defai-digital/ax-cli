@@ -92,17 +92,13 @@ export async function processImageFromPath(
     throw new ImageProcessingError(`Image not found: ${filePath}`, 'FILE_NOT_FOUND');
   }
 
-  // Security: only check path traversal for relative paths
-  // Absolute paths are explicitly provided by the user, so trust them
+  // Security: prevent path traversal for relative paths (absolute paths trusted)
   if (!path.isAbsolute(filePath)) {
-    let realBase: string;
-    try {
-      realBase = await fs.realpath(path.normalize(basePath));
-    } catch {
+    const realBase = await fs.realpath(path.normalize(basePath)).catch(() => {
       throw new ImageProcessingError('Access denied: invalid base directory', 'FILE_NOT_FOUND');
-    }
-    const baseWithSep = realBase.endsWith(path.sep) ? realBase : realBase + path.sep;
-    if (!realPath.startsWith(baseWithSep) && realPath !== realBase) {
+    });
+    const isWithinBase = realPath === realBase || realPath.startsWith(realBase + path.sep);
+    if (!isWithinBase) {
       throw new ImageProcessingError('Access denied: path outside working directory', 'FILE_NOT_FOUND');
     }
   }
@@ -144,14 +140,12 @@ export async function processImageFromPath(
   };
 }
 
-// Legacy class wrapper
-export class ImageProcessor {
-  static detectFormat = detectFormat;
-  static isImagePath = isImagePath;
-  static formatBytes = formatBytes;
-  static processFromPath = processImageFromPath;
-  static getMimeType = (f: SupportedImageFormat) => MIME_TYPES[f];
-  static isSupportedFormat = (ext: string) => SUPPORTED_IMAGE_FORMATS.includes(ext.replace(/^\./, '').toLowerCase() as SupportedImageFormat);
-  static getMaxSizeBytes = () => MAX_IMAGE_SIZE_BYTES;
-  static getEstimatedTokens = () => TOKENS_PER_IMAGE;
+/** Get MIME type for format */
+export function getMimeType(format: SupportedImageFormat): string {
+  return MIME_TYPES[format];
+}
+
+/** Check if extension is supported */
+export function isSupportedFormat(ext: string): boolean {
+  return SUPPORTED_IMAGE_FORMATS.includes(ext.replace(/^\./, '').toLowerCase() as SupportedImageFormat);
 }

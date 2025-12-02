@@ -40,7 +40,7 @@ import { promptToSlashCommand, parsePromptCommand, formatPromptResult, getPrompt
 import type { MCPResource } from "../../mcp/resources.js";
 import { getPermissionManager, PermissionTier } from "../../permissions/permission-manager.js";
 import { parseFileMentions } from "../../utils/file-mentions.js";
-import { ImageInputHandler } from "../utils/image-handler.js";
+import { parseImageInput, formatAttachmentForDisplay, buildMessageContent } from "../utils/image-handler.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -2195,7 +2195,7 @@ Respond with ONLY the commit message, no additional text.`;
       let processedInput = await hooksManager.processUserInput(userInput);
 
       // Check for image references (e.g., @image.png, /path/to/image.png)
-      const imageResult = await ImageInputHandler.parseInput(processedInput, process.cwd());
+      const imageResult = await parseImageInput(processedInput, process.cwd());
 
       // Show image processing errors if any
       if (imageResult.errors.length > 0) {
@@ -2210,7 +2210,7 @@ Respond with ONLY the commit message, no additional text.`;
       // If images found, show info about model switch
       if (imageResult.hasImages) {
         const imageInfo = imageResult.images.map((img, i) =>
-          ImageInputHandler.formatAttachmentForDisplay(img, i + 1)
+          formatAttachmentForDisplay(img, i + 1)
         ).join('\n');
 
         const infoEntry: ChatEntry = {
@@ -2241,7 +2241,7 @@ Respond with ONLY the commit message, no additional text.`;
 
       // Build message content - multimodal if images, otherwise text
       const messageContent = imageResult.hasImages
-        ? ImageInputHandler.buildMessageContent(imageResult)
+        ? buildMessageContent(imageResult)
         : processedInput;
 
       for await (const chunk of agent.processUserMessageStream(messageContent)) {
