@@ -44,6 +44,7 @@ ax-cli
 - [Configuration](#configuration)
 - [Usage](#usage)
 - [MCP Integration](#mcp-integration)
+- [Figma Integration](#figma-integration)
 - [Project Memory](#project-memory)
 - [Multi-Phase Planner](#multi-phase-task-planner)
 - [Security](#security)
@@ -291,6 +292,28 @@ For long-running tools (e.g., AutomatosX):
   }
 }
 ```
+
+---
+
+## Figma Integration
+
+Connect AX CLI with Figma for design-to-code workflows:
+
+```bash
+# Authenticate with Figma
+ax-cli design auth login
+
+# Map your Figma file structure
+ax-cli design map YOUR_FILE_KEY
+
+# Extract design tokens
+ax-cli design tokens pull YOUR_FILE_KEY --format tailwind
+
+# Audit design consistency
+ax-cli design audit landing.hero --rules all
+```
+
+For the complete guide, see **[Figma Integration Guide](docs/figma-guide.md)**.
 
 ---
 
