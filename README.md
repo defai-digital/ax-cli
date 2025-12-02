@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.14.13)](#recent-changes-v31413)
+- [Recent Changes (v3.14.14)](#recent-changes-v31414)
 - [Documentation](#documentation)
 
 ---
@@ -404,7 +404,14 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.13)
+## Recent Changes (v3.14.14)
+
+### Bug Fixes
+
+- **MCP SDK HTTP Transport Integration**: Replaced custom HTTP transport with MCP SDK's official `StreamableHTTPClientTransport` for proper MCP protocol support. This enables Z.AI MCP servers (web-search, web-reader, vision) to connect and work correctly.
+- **MCP SSE Transport Update**: Updated SSE transport to use MCP SDK's official `SSEClientTransport` for better compatibility.
+
+## Previous Changes (v3.14.13)
 
 ### Bug Fixes
 

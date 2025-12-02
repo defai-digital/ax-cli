@@ -1,7 +1,8 @@
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport as SDKStreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { SSEClientTransport as SDKSSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { EventEmitter } from "events";
-import axios, { AxiosInstance } from "axios";
 import { ContentLengthStdioTransport } from "./content-length-transport.js";
 
 export type TransportType = 'stdio' | 'http' | 'sse' | 'streamable_http';
@@ -99,32 +100,43 @@ export class StdioTransport implements MCPTransport {
 }
 
 export class HttpTransport extends EventEmitter implements MCPTransport {
-  private client?: AxiosInstance;
+  private transport?: SDKStreamableHTTPClientTransport;
+  private url: string;
+  private headers?: Record<string, string>;
 
-  constructor(private config: TransportConfig) {
+  constructor(config: TransportConfig) {
     super();
     if (!config.url) {
       throw new Error('URL is required for HTTP transport');
     }
+    this.url = config.url;
+    this.headers = config.headers;
   }
 
   async connect(): Promise<Transport> {
-    this.client = axios.create({
-      baseURL: this.config.url,
-      headers: {
-        'Content-Type': 'application/json',
-        ...this.config.headers
-      }
-    });
+    // Use MCP SDK's StreamableHTTPClientTransport for proper MCP protocol support
+    const requestInit: RequestInit = {};
+    if (this.headers) {
+      requestInit.headers = this.headers;
+    }
 
-    // Skip health check - MCP endpoints don't have standard health endpoints
-    // The actual connection will be verified when listTools() is called
+    this.transport = new SDKStreamableHTTPClientTransport(
+      new URL(this.url),
+      { requestInit }
+    );
 
-    return new HttpClientTransport(this.client);
+    return this.transport;
   }
 
   async disconnect(): Promise<void> {
-    this.client = undefined;
+    if (this.transport) {
+      try {
+        await this.transport.close();
+      } catch {
+        // Ignore close errors during disconnect
+      }
+      this.transport = undefined;
+    }
     this.removeAllListeners();
   }
 
@@ -134,7 +146,9 @@ export class HttpTransport extends EventEmitter implements MCPTransport {
 }
 
 export class SSETransport extends EventEmitter implements MCPTransport {
+  private transport?: SDKSSEClientTransport;
   private url: string;
+  private headers?: Record<string, string>;
 
   constructor(config: TransportConfig) {
     super();
@@ -142,21 +156,33 @@ export class SSETransport extends EventEmitter implements MCPTransport {
       throw new Error('URL is required for SSE transport');
     }
     this.url = config.url;
+    this.headers = config.headers;
   }
 
   async connect(): Promise<Transport> {
-    return new Promise((resolve, reject) => {
-      try {
-        // For Node.js environment, we'll use a simple HTTP-based approach
-        // In a real implementation, you'd use a proper SSE library like 'eventsource'
-        resolve(new SSEClientTransport(this.url));
-      } catch (error) {
-        reject(error);
-      }
-    });
+    // Use MCP SDK's SSEClientTransport
+    const requestInit: RequestInit = {};
+    if (this.headers) {
+      requestInit.headers = this.headers;
+    }
+
+    this.transport = new SDKSSEClientTransport(
+      new URL(this.url),
+      { requestInit }
+    );
+
+    return this.transport;
   }
 
   async disconnect(): Promise<void> {
+    if (this.transport) {
+      try {
+        await this.transport.close();
+      } catch {
+        // Ignore close errors during disconnect
+      }
+      this.transport = undefined;
+    }
     this.removeAllListeners();
   }
 
@@ -165,62 +191,8 @@ export class SSETransport extends EventEmitter implements MCPTransport {
   }
 }
 
-// Custom HTTP Transport implementation
-class HttpClientTransport extends EventEmitter implements Transport {
-  constructor(private client: AxiosInstance) {
-    super();
-  }
-
-  async start(): Promise<void> {
-    // HTTP transport is connection-less, so we're always "started"
-  }
-
-  async close(): Promise<void> {
-    this.removeAllListeners();
-  }
-
-  async send(message: any): Promise<any> {
-    try {
-      // Post directly to the base URL (MCP HTTP endpoints are the full URL, not /rpc sub-path)
-      const response = await this.client.post('', message);
-      return response.data;
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || error?.message || String(error);
-      throw new Error(`HTTP transport error: ${errorMessage}`);
-    }
-  }
-}
-
-// Custom SSE Transport implementation
-class SSEClientTransport extends EventEmitter implements Transport {
-  constructor(private url: string) {
-    super();
-  }
-
-  async start(): Promise<void> {
-    // SSE transport is event-driven, so we're always "started"
-  }
-
-  async close(): Promise<void> {
-    this.removeAllListeners();
-  }
-
-  async send(message: any): Promise<any> {
-    // For bidirectional communication over SSE, we typically use HTTP POST
-    // for sending messages and SSE for receiving
-    try {
-      const response = await axios.post(this.url.replace('/sse', '/rpc'), message, {
-        headers: { 'Content-Type': 'application/json' }
-      });
-      return response.data;
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || error?.message || String(error);
-      throw new Error(`SSE transport error: ${errorMessage}`);
-    }
-  }
-}
-
 export class StreamableHttpTransport extends EventEmitter implements MCPTransport {
+  private transport?: SDKStreamableHTTPClientTransport;
   private url: string;
   private headers?: Record<string, string>;
 
@@ -234,45 +206,34 @@ export class StreamableHttpTransport extends EventEmitter implements MCPTranspor
   }
 
   async connect(): Promise<Transport> {
-    return new Promise((resolve, reject) => {
-      try {
-        resolve(new StreamableHttpClientTransport(this.url, this.headers));
-      } catch (error) {
-        reject(error);
-      }
-    });
+    // Use MCP SDK's StreamableHTTPClientTransport
+    const requestInit: RequestInit = {};
+    if (this.headers) {
+      requestInit.headers = this.headers;
+    }
+
+    this.transport = new SDKStreamableHTTPClientTransport(
+      new URL(this.url),
+      { requestInit }
+    );
+
+    return this.transport;
   }
 
   async disconnect(): Promise<void> {
+    if (this.transport) {
+      try {
+        await this.transport.close();
+      } catch {
+        // Ignore close errors during disconnect
+      }
+      this.transport = undefined;
+    }
     this.removeAllListeners();
   }
 
   getType(): TransportType {
     return 'streamable_http';
-  }
-}
-
-// Custom Streamable HTTP Transport implementation for GitHub Copilot MCP
-class StreamableHttpClientTransport extends EventEmitter implements Transport {
-  constructor(_url: string, _headers?: Record<string, string>) {
-    super();
-  }
-
-  async start(): Promise<void> {
-    // Streamable HTTP transport is connection-less, so we're always "started"
-  }
-
-  async close(): Promise<void> {
-    this.removeAllListeners();
-  }
-
-  async send(message: any): Promise<any> {
-    console.log('StreamableHttpTransport: SSE endpoints require persistent connections, not suitable for MCP request-response pattern');
-    console.log('StreamableHttpTransport: Message that would be sent:', JSON.stringify(message));
-
-    // For now, return a mock response to indicate the transport type is not compatible
-    // with the MCP protocol's request-response pattern
-    throw new Error('StreamableHttpTransport: SSE endpoints are not compatible with MCP request-response pattern. GitHub Copilot MCP may require a different integration approach.');
   }
 }
 
