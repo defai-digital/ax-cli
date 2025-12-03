@@ -73,6 +73,29 @@ export { Result, Ok, Err } from "./type-safety.js";
 // Resource handling
 export { resolveMCPReferences, extractMCPReferences } from "./resources.js";
 
+// Progress tracking (MCP 2025-06-18)
+export {
+  ProgressTracker,
+  getProgressTracker,
+  resetProgressTracker,
+  formatProgress,
+  formatElapsedTime,
+  type ProgressUpdate,
+  type ProgressCallback,
+} from "./progress.js";
+
+// Cancellation support (MCP 2025-06-18)
+export {
+  CancellationManager,
+  getCancellationManager,
+  resetCancellationManager,
+  isRequestCancelled,
+  createCancellationError,
+  CANCELLED_ERROR_CODE,
+  type CancellableRequest,
+  type CancellationResult,
+} from "./cancellation.js";
+
 // Z.AI MCP Integration
 export {
   ZAI_SERVER_NAMES,

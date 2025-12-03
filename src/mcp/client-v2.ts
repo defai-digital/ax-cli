@@ -356,9 +356,6 @@ export class MCPManagerV2 extends EventEmitter {
           const sdkTransport = await transport.connect();
           await client.connect(sdkTransport);
 
-          // Set up notification handlers for progress and other notifications
-          this.setupNotificationHandlers(client, serverName);
-
           // If dispose started while connecting, shut down and abort transition
           if (this.disposing || this.disposed) {
             try {
@@ -1008,55 +1005,6 @@ export class MCPManagerV2 extends EventEmitter {
 
       return Ok(false); // Unhealthy
     }
-  }
-
-  /**
-   * Set up notification handlers for MCP client
-   * MCP 2025-06-18: Handles progress notifications and resource updates
-   */
-  private setupNotificationHandlers(client: Client, serverName: ServerName): void {
-    const progressTracker = getProgressTracker();
-
-    // Handle progress notifications
-    client.setNotificationHandler(
-      { method: 'notifications/progress' },
-      (params: unknown) => {
-        const p = params as {
-          progressToken?: string | number;
-          progress?: number;
-          total?: number;
-          message?: string;
-        };
-
-        if (p.progressToken !== undefined && typeof p.progress === 'number') {
-          progressTracker.handleNotification({
-            progressToken: p.progressToken,
-            progress: p.progress,
-            total: p.total,
-            message: p.message,
-          });
-        }
-      }
-    );
-
-    // Handle resource list changed notifications
-    client.setNotificationHandler(
-      { method: 'notifications/resources/list_changed' },
-      () => {
-        this.emit('resourceListChanged', serverName);
-      }
-    );
-
-    // Handle resource updated notifications
-    client.setNotificationHandler(
-      { method: 'notifications/resources/updated' },
-      (params: unknown) => {
-        const p = params as { uri?: string };
-        if (p.uri) {
-          this.emit('resourceUpdated', serverName, p.uri);
-        }
-      }
-    );
   }
 
   /**
