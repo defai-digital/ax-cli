@@ -687,6 +687,7 @@ function disableStderrSuppression(): void {
 /**
  * Initialize MCP servers from config
  * BUG FIX: Use reference-counted stderr suppression to handle concurrent calls
+ * PERF FIX: Initialize servers in parallel so slow servers don't block others
  */
 export async function initializeMCPServers(): Promise<void> {
   const manager = getMCPManager();
@@ -696,12 +697,29 @@ export async function initializeMCPServers(): Promise<void> {
   enableStderrSuppression();
 
   try {
-    for (const serverConfig of config.servers) {
-      try {
-        await manager.addServer(serverConfig);
-      } catch (error) {
-        console.warn(`Failed to initialize MCP server ${serverConfig.name}:`, error);
-      }
+    // Initialize all servers in parallel for better performance
+    // Failed servers are logged but don't block other servers
+    const results = await Promise.allSettled(
+      config.servers.map(async (serverConfig) => {
+        try {
+          await manager.addServer(serverConfig);
+          return { name: serverConfig.name, success: true };
+        } catch (error) {
+          console.warn(`Failed to initialize MCP server ${serverConfig.name}:`, error);
+          return { name: serverConfig.name, success: false, error };
+        }
+      })
+    );
+
+    // Log summary of server initialization
+    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+    const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length;
+
+    if (failed > 0 && successful === 0) {
+      console.warn(`All ${failed} MCP server(s) failed to initialize`);
+    } else if (failed > 0) {
+      // Only log if there were failures mixed with successes
+      // Silent success is preferred for good UX
     }
   } finally {
     disableStderrSuppression();

@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.4)](#recent-changes-v3154)
+- [Recent Changes (v3.15.5)](#recent-changes-v3155)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,17 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.4)
+## Recent Changes (v3.15.5)
+
+### Bug Fixes
+
+- **MCP Parallel Initialization**: Fixed MCP server initialization blocking issue. Servers now initialize in parallel using `Promise.allSettled()`, so slow/failing servers don't block others.
+- **Stdio Transport Startup Timeout**: Added configurable startup timeout (default 30s) to `ContentLengthStdioTransport` to prevent hanging on slow `npx` commands.
+- **Improved Error Handling**: Failed MCP servers are logged but don't prevent successful servers from registering their tools.
+
+These fixes ensure Z.AI web search and web reader MCP tools are reliably available even when other MCP servers (like zai-vision) fail to initialize.
+
+## Previous Changes (v3.15.4)
 
 ### Maintenance
 

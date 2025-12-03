@@ -25,6 +25,8 @@ export interface ContentLengthStdioConfig {
   cwd?: string;
   /** Suppress stderr output from the MCP server (hides INFO/DEBUG logs) */
   quiet?: boolean;
+  /** Timeout in ms for the process to start (default: 30000) */
+  startupTimeout?: number;
 }
 
 /**
@@ -55,6 +57,7 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
 
   /**
    * Start the transport (spawn the subprocess)
+   * Includes startup timeout to prevent hanging on slow npx/npm commands
    */
   async start(): Promise<void> {
     if (this._started) {
@@ -62,7 +65,46 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
     }
     this._started = true;
 
+    const startupTimeout = this.config.startupTimeout ?? 30000; // Default 30s
+
     return new Promise((resolve, reject) => {
+      let resolved = false;
+      let timeoutId: NodeJS.Timeout | undefined;
+
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = undefined;
+        }
+      };
+
+      const handleResolve = () => {
+        if (resolved) return;
+        resolved = true;
+        cleanup();
+        resolve();
+      };
+
+      const handleReject = (error: Error) => {
+        if (resolved) return;
+        resolved = true;
+        cleanup();
+        // Kill the process if it was spawned but timed out
+        if (this.process && !this.process.killed) {
+          try {
+            this.process.kill();
+          } catch {
+            // Ignore kill errors
+          }
+        }
+        reject(error);
+      };
+
+      // Set up startup timeout
+      timeoutId = setTimeout(() => {
+        handleReject(new Error(`Process startup timeout after ${startupTimeout}ms: ${this.config.command}`));
+      }, startupTimeout);
+
       try {
         // Use "pipe" for stderr in quiet mode to suppress INFO/DEBUG logs
         // Use "inherit" otherwise to show all output (default behavior)
@@ -79,14 +121,18 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
 
         this.process.on("error", (error) => {
           this.onerror?.(error);
-          reject(error);
+          handleReject(error);
         });
 
         this.process.on("spawn", () => {
-          resolve();
+          handleResolve();
         });
 
         this.process.on("close", (code) => {
+          // If process exits before spawn event, reject
+          if (!resolved) {
+            handleReject(new Error(`Process exited with code ${code} before starting`));
+          }
           this.onclose?.();
           this.emit("close", code);
         });
@@ -104,7 +150,7 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
         });
 
       } catch (error) {
-        reject(error);
+        handleReject(error instanceof Error ? error : new Error(String(error)));
       }
     });
   }
