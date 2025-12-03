@@ -121,9 +121,10 @@ describe('Progress Notifications', () => {
       const token = 'test-token';
       tracker.onProgress(token, () => {});
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 60));
 
       const elapsed = tracker.getElapsedTime(token);
+      // Allow small tolerance for timer precision (setTimeout can fire slightly early)
       expect(elapsed).toBeGreaterThanOrEqual(50);
     });
 
