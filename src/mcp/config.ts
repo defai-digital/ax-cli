@@ -6,6 +6,7 @@ import { loadAutomatosXMCPServers, mergeConfigs, getConfigRecommendation, format
 import { migrateConfig } from "./config-migrator.js";
 import { detectConfigFormat } from "./config-detector.js";
 import { formatMCPConfigError, formatWarning, formatInfo } from "./error-formatter.js";
+import { ZAI_SERVER_NAMES, isZAIServer } from "./zai-templates.js";
 
 export interface MCPConfig {
   servers: MCPServerConfig[];
@@ -46,6 +47,30 @@ function checkReplCommand(config: MCPServerConfig): string | null {
   }
 
   return null;
+}
+
+/**
+ * Apply Z.AI-specific defaults to server configs that were created before these defaults existed.
+ * This ensures zai-vision servers get the appropriate timeout and quiet mode settings.
+ */
+function applyZAIDefaults(config: MCPServerConfig): MCPServerConfig {
+  // Only apply to Z.AI servers
+  if (!isZAIServer(config.name)) {
+    return config;
+  }
+
+  // Apply zai-vision specific defaults
+  if (config.name === ZAI_SERVER_NAMES.VISION) {
+    return {
+      ...config,
+      // Use npx-friendly timeout (2 minutes) if not explicitly set
+      initTimeout: config.initTimeout ?? 120000,
+      // Suppress INFO/DEBUG logs by default if not explicitly set
+      quiet: config.quiet ?? true,
+    };
+  }
+
+  return config;
 }
 
 /**
@@ -91,7 +116,8 @@ export function loadMCPConfig(): MCPConfig {
           }
           continue; // Skip this server instead of causing timeout
         }
-        axCliServers.push(migration.migratedConfig);
+        // Apply Z.AI-specific defaults (timeout, quiet mode)
+        axCliServers.push(applyZAIDefaults(migration.migratedConfig));
 
         if (!hasShownMigrationWarnings) {
           console.warn(
@@ -131,7 +157,8 @@ export function loadMCPConfig(): MCPConfig {
           }
           continue; // Skip this server instead of causing timeout
         }
-        axCliServers.push(result.data as MCPServerConfig);
+        // Apply Z.AI-specific defaults (timeout, quiet mode)
+        axCliServers.push(applyZAIDefaults(result.data as MCPServerConfig));
       } else {
         // Show user-friendly error instead of technical validation error
         if (!hasShownMigrationWarnings && result.error) {

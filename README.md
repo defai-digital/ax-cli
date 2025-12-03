@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.1)](#recent-changes-v3151)
+- [Recent Changes (v3.15.2)](#recent-changes-v3152)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,16 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.1)
+## Recent Changes (v3.15.2)
+
+### Bug Fixes
+
+- **Z.AI Vision Timeout Fix**: Fixed MCP timeout issue where existing `zai-vision` configs were using the default 60s timeout instead of the required 120s. Now auto-applies the correct timeout for Z.AI Vision servers.
+- **Z.AI Vision Quiet Mode Fix**: Fixed INFO log messages still appearing despite quiet mode. Now auto-applies `quiet: true` for Z.AI Vision servers to suppress console output.
+
+These fixes are backward-compatible - existing users don't need to re-run setup; the defaults are applied automatically when loading configs.
+
+## Previous Changes (v3.15.1)
 
 ### Improvements
 
