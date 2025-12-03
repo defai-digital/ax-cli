@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.2)](#recent-changes-v3152)
+- [Recent Changes (v3.15.3)](#recent-changes-v3153)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.2)
+## Recent Changes (v3.15.3)
+
+### Bug Fixes
+
+- **Z.AI MCP HTTP Transport Fix**: Fixed critical bug where Z.AI web search and web reader MCP servers couldn't connect due to missing `Accept` header. The MCP Streamable HTTP transport now correctly sets `Accept: application/json, text/event-stream` as required by the MCP specification.
+
+## Previous Changes (v3.15.2)
 
 ### Bug Fixes
 

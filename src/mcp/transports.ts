@@ -126,10 +126,17 @@ export class HttpTransport extends EventEmitter implements MCPTransport {
 
   async connect(): Promise<Transport> {
     // Use MCP SDK's StreamableHTTPClientTransport for proper MCP protocol support
-    const requestInit: RequestInit = {};
-    if (this.headers) {
-      requestInit.headers = this.headers;
-    }
+    // MCP Streamable HTTP requires Accept header with both application/json and text/event-stream
+    // See: https://spec.modelcontextprotocol.io/specification/basic/transports/#streamable-http
+    const mergedHeaders: Record<string, string> = {
+      'Accept': 'application/json, text/event-stream',
+      'Content-Type': 'application/json',
+      ...this.headers, // Allow custom headers (like Authorization) to be added
+    };
+
+    const requestInit: RequestInit = {
+      headers: mergedHeaders,
+    };
 
     this.transport = new SDKStreamableHTTPClientTransport(
       new URL(this.url),
@@ -218,10 +225,17 @@ export class StreamableHttpTransport extends EventEmitter implements MCPTranspor
 
   async connect(): Promise<Transport> {
     // Use MCP SDK's StreamableHTTPClientTransport
-    const requestInit: RequestInit = {};
-    if (this.headers) {
-      requestInit.headers = this.headers;
-    }
+    // MCP Streamable HTTP requires Accept header with both application/json and text/event-stream
+    // See: https://spec.modelcontextprotocol.io/specification/basic/transports/#streamable-http
+    const mergedHeaders: Record<string, string> = {
+      'Accept': 'application/json, text/event-stream',
+      'Content-Type': 'application/json',
+      ...this.headers, // Allow custom headers (like Authorization) to be added
+    };
+
+    const requestInit: RequestInit = {
+      headers: mergedHeaders,
+    };
 
     this.transport = new SDKStreamableHTTPClientTransport(
       new URL(this.url),
