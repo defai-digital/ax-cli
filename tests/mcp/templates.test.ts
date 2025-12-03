@@ -55,9 +55,9 @@ describe('MCP Templates', () => {
     it('should have correct basic properties', () => {
       expect(figma.name).toBe('figma');
       expect(figma.category).toBe('design');
-      expect(figma.officialServer).toBe(true);
+      expect(figma.officialServer).toBe(false); // Community package
       expect(figma.description).toContain('Figma');
-      expect(figma.description).toContain('design-to-code');
+      expect(figma.description).toContain('community'); // Uses community mcp-figma package
     });
 
     it('should require FIGMA_ACCESS_TOKEN', () => {
@@ -74,7 +74,7 @@ describe('MCP Templates', () => {
       expect(figma.config.name).toBe('figma');
       expect(figma.config.transport.type).toBe('stdio');
       expect(figma.config.transport.command).toBe('npx');
-      expect(figma.config.transport.args).toContain('@figma/mcp-server');
+      expect(figma.config.transport.args).toContain('mcp-figma'); // Community package
     });
 
     it('should have setup instructions', () => {
@@ -474,15 +474,15 @@ describe('MCP Templates', () => {
     });
 
     it('should correctly mark official servers', () => {
-      // Figma and GitHub should be official
-      expect(TEMPLATES.figma.officialServer).toBe(true);
+      // GitHub, Postgres, SQLite should be official
       expect(TEMPLATES.github.officialServer).toBe(true);
       expect(TEMPLATES.postgres.officialServer).toBe(true);
       expect(TEMPLATES.sqlite.officialServer).toBe(true);
     });
 
     it('should correctly mark community servers', () => {
-      // Vercel, Netlify should be community (hypothetical servers)
+      // Figma (uses community mcp-figma), Vercel, Netlify should be community
+      expect(TEMPLATES.figma.officialServer).toBe(false); // Community mcp-figma package
       expect(TEMPLATES.vercel.officialServer).toBe(false);
       expect(TEMPLATES.netlify.officialServer).toBe(false);
     });

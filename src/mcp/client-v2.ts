@@ -31,8 +31,13 @@ import {
 import {
   assertValidServerName
 } from "./invariants.js";
+import {
+  type ProgressUpdate,
+  type ProgressCallback
+} from "./progress.js";
 
 // Re-export types for external use
+export type { ProgressUpdate, ProgressCallback };
 export type { MCPServerConfig, MCPTransportConfig, ServerName, ToolName };
 
 /**
@@ -148,6 +153,7 @@ export interface MCPTool {
   name: ToolName;           // ✅ Branded type
   description: string;
   inputSchema: any;
+  outputSchema?: any;       // ✅ NEW: Tool output schema (MCP 2025-06-18)
   serverName: ServerName;   // ✅ Branded type
 }
 
@@ -350,6 +356,9 @@ export class MCPManagerV2 extends EventEmitter {
           const sdkTransport = await transport.connect();
           await client.connect(sdkTransport);
 
+          // Set up notification handlers for progress and other notifications
+          this.setupNotificationHandlers(client, serverName);
+
           // If dispose started while connecting, shut down and abort transition
           if (this.disposing || this.disposed) {
             try {
@@ -386,6 +395,8 @@ export class MCPManagerV2 extends EventEmitter {
               name: toolName,
               description: tool.description || `Tool from ${serverName} server`,
               inputSchema: tool.inputSchema,
+              // MCP 2025-06-18: Include output schema if provided by server
+              outputSchema: (tool as any).outputSchema,
               serverName
             };
             this.tools.set(toolName, mcpTool);
@@ -997,6 +1008,55 @@ export class MCPManagerV2 extends EventEmitter {
 
       return Ok(false); // Unhealthy
     }
+  }
+
+  /**
+   * Set up notification handlers for MCP client
+   * MCP 2025-06-18: Handles progress notifications and resource updates
+   */
+  private setupNotificationHandlers(client: Client, serverName: ServerName): void {
+    const progressTracker = getProgressTracker();
+
+    // Handle progress notifications
+    client.setNotificationHandler(
+      { method: 'notifications/progress' },
+      (params: unknown) => {
+        const p = params as {
+          progressToken?: string | number;
+          progress?: number;
+          total?: number;
+          message?: string;
+        };
+
+        if (p.progressToken !== undefined && typeof p.progress === 'number') {
+          progressTracker.handleNotification({
+            progressToken: p.progressToken,
+            progress: p.progress,
+            total: p.total,
+            message: p.message,
+          });
+        }
+      }
+    );
+
+    // Handle resource list changed notifications
+    client.setNotificationHandler(
+      { method: 'notifications/resources/list_changed' },
+      () => {
+        this.emit('resourceListChanged', serverName);
+      }
+    );
+
+    // Handle resource updated notifications
+    client.setNotificationHandler(
+      { method: 'notifications/resources/updated' },
+      (params: unknown) => {
+        const p = params as { uri?: string };
+        if (p.uri) {
+          this.emit('resourceUpdated', serverName, p.uri);
+        }
+      }
+    );
   }
 
   /**

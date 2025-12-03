@@ -70,6 +70,7 @@ export interface MCPTool {
   name: string;
   description: string;
   inputSchema: any;
+  outputSchema?: any;  // Tool output schema (MCP 2025-06-18)
   serverName: string;
 }
 

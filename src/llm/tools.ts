@@ -710,13 +710,25 @@ export async function initializeMCPServers(): Promise<void> {
 
 /**
  * Convert MCP tool format to LLM tool format
+ * MCP 2025-06-18: Includes output schema in description for LLM awareness
  */
 export function convertMCPToolToLLMTool(mcpTool: MCPTool): LLMTool {
+  // Build description with optional output schema info
+  let description = mcpTool.description;
+
+  // MCP 2025-06-18: Include output schema in description so LLM knows return format
+  if (mcpTool.outputSchema) {
+    const outputSchemaStr = typeof mcpTool.outputSchema === 'string'
+      ? mcpTool.outputSchema
+      : JSON.stringify(mcpTool.outputSchema, null, 2);
+    description += `\n\nOutput schema: ${outputSchemaStr}`;
+  }
+
   return {
     type: "function",
     function: {
       name: mcpTool.name,
-      description: mcpTool.description,
+      description,
       parameters: mcpTool.inputSchema || {
         type: "object",
         properties: {},

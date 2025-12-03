@@ -477,26 +477,33 @@ export function createSetupCommand(): Command {
             console.log(chalk.yellow('⚠ Could not update AutomatosX. Run manually: ax update -y\n'));
           }
         } else {
-          const installResponse = await enquirer.prompt<{ install: boolean }>({
-            type: 'confirm',
-            name: 'install',
-            message: 'Install AutomatosX for multi-agent AI orchestration?',
-            initial: true,
-          });
+          // Wrap in try-catch to handle non-interactive environments (e.g., CI/tests)
+          try {
+            const installResponse = await enquirer.prompt<{ install: boolean }>({
+              type: 'confirm',
+              name: 'install',
+              message: 'Install AutomatosX for multi-agent AI orchestration?',
+              initial: true,
+            });
 
-          if (installResponse.install) {
-            console.log(chalk.dim('\n   Installing AutomatosX...\n'));
+            if (installResponse?.install) {
+              console.log(chalk.dim('\n   Installing AutomatosX...\n'));
 
-            const installed = await installAutomatosX();
-            if (installed) {
-              console.log(chalk.green('\n✓ AutomatosX installed successfully!'));
-              console.log(chalk.dim('   Run `ax list agents` to see available AI agents.\n'));
+              const installed = await installAutomatosX();
+              if (installed) {
+                console.log(chalk.green('\n✓ AutomatosX installed successfully!'));
+                console.log(chalk.dim('   Run `ax list agents` to see available AI agents.\n'));
+              } else {
+                console.log(chalk.yellow('\n⚠ Could not install AutomatosX.'));
+                console.log(chalk.dim('   Install manually: npm install -g @defai.digital/automatosx\n'));
+              }
             } else {
-              console.log(chalk.yellow('\n⚠ Could not install AutomatosX.'));
-              console.log(chalk.dim('   Install manually: npm install -g @defai.digital/automatosx\n'));
+              console.log(chalk.dim('\n   You can install AutomatosX later: npm install -g @defai.digital/automatosx\n'));
             }
-          } else {
-            console.log(chalk.dim('\n   You can install AutomatosX later: npm install -g @defai.digital/automatosx\n'));
+          } catch {
+            // Skip AutomatosX prompt in non-interactive environments
+            console.log(chalk.dim('   Skipping AutomatosX setup (non-interactive mode).\n'));
+            console.log(chalk.dim('   Install manually: npm install -g @defai.digital/automatosx\n'));
           }
         }
 
