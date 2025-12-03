@@ -328,6 +328,9 @@ export const MCPServerConfigSchema: z.ZodType<any> = z.object({
   // Default: 60000ms (60 seconds) - matches MCP SDK default
   // For long-running tasks, set higher values (e.g., 2700000 for 45 minutes)
   timeout: z.number().int().positive().optional(),
+  // Suppress stderr output from the MCP server (hides INFO/DEBUG logs)
+  // Default: false (show all stderr output)
+  quiet: z.boolean().optional(),
 });
 
 // Export types

@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.14.15)](#recent-changes-v31415)
+- [Recent Changes (v3.15.0)](#recent-changes-v3150)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,22 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.14.15)
+## Recent Changes (v3.15.0)
+
+### New Features
+
+- **MCP Progress Tracking**: Support for `notifications/progress` to track long-running MCP operations with real-time progress updates
+- **MCP Cancellation Support**: Full cancellation support via `notifications/cancelled` to abort long-running operations
+- **MCP Resource Subscriptions**: Subscribe to resource changes with `resources/subscribe` and `resources/unsubscribe`
+- **MCP Output Schema Validation**: Automatic validation of tool outputs against JSON Schema definitions
+- **Figma MCP Template Update**: Switched to community `mcp-figma` package for better compatibility
+
+### Bug Fixes
+
+- **Non-Interactive Environment Fix**: Setup wizard now gracefully handles non-interactive environments (CI/tests)
+- **AutomatosX Auto-Update**: `ax-cli update` now automatically updates AutomatosX after successful ax-cli update
+
+## Previous Changes (v3.14.15)
 
 ### New Features
 

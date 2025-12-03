@@ -23,6 +23,8 @@ export interface ContentLengthStdioConfig {
   args?: string[];
   env?: Record<string, string>;
   cwd?: string;
+  /** Suppress stderr output from the MCP server (hides INFO/DEBUG logs) */
+  quiet?: boolean;
 }
 
 /**
@@ -62,8 +64,12 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
 
     return new Promise((resolve, reject) => {
       try {
+        // Use "pipe" for stderr in quiet mode to suppress INFO/DEBUG logs
+        // Use "inherit" otherwise to show all output (default behavior)
+        const stderrOption = this.config.quiet ? "pipe" : "inherit";
+
         this.process = spawn(this.config.command, this.config.args || [], {
-          stdio: ["pipe", "pipe", "inherit"], // Inherit stderr for debugging
+          stdio: ["pipe", "pipe", stderrOption],
           env: {
             ...process.env,
             ...this.config.env,

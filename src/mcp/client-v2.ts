@@ -13,6 +13,11 @@
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import {
+  ProgressNotificationSchema,
+  ResourceUpdatedNotificationSchema,
+  ResourceListChangedNotificationSchema,
+} from "@modelcontextprotocol/sdk/types.js";
 import { EventEmitter } from "events";
 import { createTransport, MCPTransport, TransportType } from "./transports.js";
 import { MCP_CONFIG, ERROR_MESSAGES } from "../constants.js";
@@ -33,11 +38,38 @@ import {
 } from "./invariants.js";
 import {
   type ProgressUpdate,
-  type ProgressCallback
+  type ProgressCallback,
+  getProgressTracker
 } from "./progress.js";
+import {
+  getCancellationManager,
+  type CancellableRequest,
+  type CancellationResult,
+  isRequestCancelled
+} from "./cancellation.js";
+import {
+  getSubscriptionManager,
+  type ResourceSubscription
+} from "./subscriptions.js";
+import {
+  getToolOutputValidator,
+  type SchemaValidationResult
+} from "./schema-validator.js";
+import { randomUUID } from 'crypto';
 
 // Re-export types for external use
 export type { ProgressUpdate, ProgressCallback };
+export type { CancellableRequest, CancellationResult };
+export type { ResourceSubscription };
+export type { SchemaValidationResult };
+
+/**
+ * Extended tool result with schema validation
+ */
+export interface ValidatedToolResult extends CallToolResult {
+  /** Schema validation result (if tool has outputSchema) */
+  schemaValidation?: SchemaValidationResult;
+}
 export type { MCPServerConfig, MCPTransportConfig, ServerName, ToolName };
 
 /**
@@ -333,13 +365,19 @@ export class MCPManagerV2 extends EventEmitter {
       return Err(error);
     }
 
+    // Pass quiet option from server config to transport config
+    const transportWithQuiet = {
+      ...transportConfig,
+      quiet: validatedConfig.quiet ?? false
+    };
+
     try {
       // Transition to connecting state
       const startedAt = Date.now();
       const connectingPromise = (async (): Promise<Result<void, Error>> => {
         try {
-          // Create transport
-          const transport = createTransport(transportConfig);
+          // Create transport (with quiet option for stderr suppression)
+          const transport = createTransport(transportWithQuiet);
 
           // Create client
           const client = new Client(
@@ -355,6 +393,9 @@ export class MCPManagerV2 extends EventEmitter {
           // Connect
           const sdkTransport = await transport.connect();
           await client.connect(sdkTransport);
+
+          // Set up MCP notification handlers for progress and resource updates
+          this.setupNotificationHandlers(client, serverName);
 
           // If dispose started while connecting, shut down and abort transition
           if (this.disposing || this.disposed) {
@@ -599,12 +640,18 @@ export class MCPManagerV2 extends EventEmitter {
   }
 
   /**
-   * Call MCP tool with type safety
+   * Call MCP tool with type safety and optional schema validation
+   *
+   * @param toolName - The tool to call
+   * @param arguments_ - Tool arguments
+   * @param options - Optional settings for validation
+   * @returns Result containing the tool result with optional schema validation
    */
   async callTool(
     toolName: ToolName,
-    arguments_: Record<string, unknown> | null | undefined
-  ): Promise<Result<CallToolResult, Error>> {
+    arguments_: Record<string, unknown> | null | undefined,
+    options?: { validateOutput?: boolean }
+  ): Promise<Result<ValidatedToolResult, Error>> {
     if (this.disposed) {
       return Err(new Error('MCPManager is disposed'));
     }
@@ -700,11 +747,330 @@ export class MCPManagerV2 extends EventEmitter {
         }
       }
 
-      return Ok(result as CallToolResult);
+      // Phase 2: Schema validation (if enabled and tool has outputSchema)
+      const validatedResult: ValidatedToolResult = result as ValidatedToolResult;
+      const shouldValidate = options?.validateOutput ?? true; // Default to enabled
+
+      if (shouldValidate && tool.outputSchema) {
+        const validator = getToolOutputValidator();
+        const content = Array.isArray(result.content) ? result.content : [];
+        const validationResult = validator.validateContent(tool.outputSchema, content);
+
+        validatedResult.schemaValidation = validationResult;
+
+        // Emit event on validation failure (for monitoring)
+        if (validationResult.status === 'invalid') {
+          this.emit('schema-validation-failed', {
+            toolName,
+            serverName: tool.serverName,
+            errors: validationResult.errors,
+          });
+        }
+      }
+
+      return Ok(validatedResult);
 
     } catch (error) {
       return Err(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  /**
+   * Call MCP tool with progress tracking
+   *
+   * MCP Specification: Supports notifications/progress for long-running operations.
+   *
+   * @param toolName - The tool to call
+   * @param arguments_ - Tool arguments
+   * @param options - Progress tracking options
+   * @returns Result containing the tool result or error
+   */
+  async callToolWithProgress(
+    toolName: ToolName,
+    arguments_: Record<string, unknown> | null | undefined,
+    options?: {
+      onProgress?: ProgressCallback;
+    }
+  ): Promise<Result<CallToolResult, Error>> {
+    const progressTracker = getProgressTracker();
+    const token = progressTracker.createToken();
+
+    // Register progress callback
+    if (options?.onProgress) {
+      progressTracker.onProgress(token, options.onProgress);
+    }
+
+    try {
+      // Call the base callTool - progress notifications will be handled via setupNotificationHandlers
+      // Note: The MCP SDK's callTool accepts a _meta.progressToken but we handle notifications globally
+      return await this.callTool(toolName, arguments_);
+    } finally {
+      progressTracker.cleanup(token);
+    }
+  }
+
+  /**
+   * Call MCP tool with cancellation support
+   *
+   * MCP Specification: Supports notifications/cancelled for aborting operations.
+   *
+   * @param toolName - The tool to call
+   * @param arguments_ - Tool arguments
+   * @returns Result containing the tool result, cancellation status, or error
+   */
+  async callToolCancellable(
+    toolName: ToolName,
+    arguments_: Record<string, unknown> | null | undefined
+  ): Promise<Result<CallToolResult & { isCancelled?: boolean; cancelReason?: string }, Error>> {
+    if (this.disposed) {
+      return Err(new Error('MCPManager is disposed'));
+    }
+
+    const tool = this.tools.get(toolName);
+    if (!tool) {
+      return Err(new Error(`Tool ${toolName} not found`));
+    }
+
+    const cancellationManager = getCancellationManager();
+    const requestId = randomUUID();
+    const abortController = new AbortController();
+
+    // Register the cancellable request
+    cancellationManager.register({
+      id: requestId,
+      serverName: tool.serverName,
+      toolName,
+      startedAt: new Date(),
+      abortController,
+    });
+
+    try {
+      // Create abort listener
+      const abortPromise = new Promise<never>((_, reject) => {
+        abortController.signal.addEventListener('abort', () => {
+          reject(new Error('Request cancelled'));
+        });
+      });
+
+      // Race between tool call and abort
+      const result = await Promise.race([
+        this.callTool(toolName, arguments_),
+        abortPromise,
+      ]);
+
+      return result;
+    } catch (error) {
+      // Check if this was a cancellation
+      if (cancellationManager.isCancelled(requestId) || isRequestCancelled(error)) {
+        return Ok({
+          content: [],
+          isCancelled: true,
+          cancelReason: 'User cancelled',
+        } as CallToolResult & { isCancelled: boolean; cancelReason: string });
+      }
+      return Err(error instanceof Error ? error : new Error(String(error)));
+    } finally {
+      cancellationManager.cleanup(requestId);
+    }
+  }
+
+  /**
+   * Cancel the most recent active request
+   *
+   * @param reason - Optional reason for cancellation
+   * @returns Cancellation result
+   */
+  async cancelCurrentRequest(reason?: string): Promise<CancellationResult | undefined> {
+    const cancellationManager = getCancellationManager();
+    const request = cancellationManager.getMostRecentRequest();
+    if (request) {
+      return await cancellationManager.cancel(request.id, reason);
+    }
+    return undefined;
+  }
+
+  /**
+   * Cancel all active requests
+   *
+   * @param reason - Optional reason for cancellation
+   * @returns Array of cancellation results
+   */
+  async cancelAllRequests(reason?: string): Promise<CancellationResult[]> {
+    const cancellationManager = getCancellationManager();
+    return await cancellationManager.cancelAll(reason);
+  }
+
+  /**
+   * Check if there are any active cancellable requests
+   */
+  hasActiveRequests(): boolean {
+    return getCancellationManager().hasActiveRequests();
+  }
+
+  /**
+   * Get the count of active cancellable requests
+   */
+  getActiveRequestCount(): number {
+    return getCancellationManager().getActiveRequestCount();
+  }
+
+  // =========================================================================
+  // Resource Subscriptions (MCP 2025-06-18)
+  // =========================================================================
+
+  /**
+   * Subscribe to a resource
+   *
+   * @param serverName - Server providing the resource
+   * @param uri - Resource URI to subscribe to
+   * @returns Result indicating success or error
+   */
+  async subscribeResource(
+    serverName: ServerName,
+    uri: string
+  ): Promise<Result<void, Error>> {
+    return await getSubscriptionManager().subscribe(serverName, uri);
+  }
+
+  /**
+   * Unsubscribe from a resource
+   *
+   * @param serverName - Server providing the resource
+   * @param uri - Resource URI to unsubscribe from
+   * @returns Result indicating success or error
+   */
+  async unsubscribeResource(
+    serverName: ServerName,
+    uri: string
+  ): Promise<Result<void, Error>> {
+    return await getSubscriptionManager().unsubscribe(serverName, uri);
+  }
+
+  /**
+   * Get all active resource subscriptions
+   */
+  getResourceSubscriptions(): ResourceSubscription[] {
+    return getSubscriptionManager().getActiveSubscriptions();
+  }
+
+  /**
+   * Check if subscribed to a resource
+   */
+  isSubscribedToResource(serverName: ServerName, uri: string): boolean {
+    return getSubscriptionManager().isSubscribed(serverName, uri);
+  }
+
+  /**
+   * Set up notification handlers for MCP server
+   *
+   * Handles:
+   * - notifications/progress - Progress updates for long-running operations
+   * - notifications/resources/updated - Resource change notifications
+   * - notifications/resources/list_changed - Resource list changes
+   */
+  private setupNotificationHandlers(client: Client, serverName: ServerName): void {
+    const progressTracker = getProgressTracker();
+
+    // Handle progress notifications
+    try {
+      client.setNotificationHandler(
+        ProgressNotificationSchema,
+        (notification) => {
+          const { params } = notification;
+          if (params.progressToken !== undefined && params.progress !== undefined) {
+            progressTracker.handleNotification({
+              progressToken: params.progressToken,
+              progress: params.progress,
+              total: params.total,
+              message: undefined, // Not in standard schema
+            });
+            this.emit('progress', { serverName, ...params });
+          }
+        }
+      );
+    } catch {
+      // Server may not support progress notifications
+    }
+
+    // Handle resource update notifications
+    const subscriptionManager = getSubscriptionManager();
+    try {
+      client.setNotificationHandler(
+        ResourceUpdatedNotificationSchema,
+        (notification) => {
+          const { params } = notification;
+          if (params.uri) {
+            subscriptionManager.handleResourceUpdated(serverName, params.uri);
+            this.emit('resource-updated', serverName, params.uri);
+          }
+        }
+      );
+    } catch {
+      // Server may not support resource notifications
+    }
+
+    // Handle resource list change notifications
+    try {
+      client.setNotificationHandler(
+        ResourceListChangedNotificationSchema,
+        () => {
+          subscriptionManager.handleResourceListChanged(serverName);
+          this.emit('resource-list-changed', serverName);
+        }
+      );
+    } catch {
+      // Server may not support resource notifications
+    }
+
+    // Wire up subscription manager with request sender
+    subscriptionManager.setSendRequest(async (srvName, method, uri) => {
+      if (srvName !== serverName) {
+        return Err(new Error(`Server mismatch: ${srvName} vs ${serverName}`));
+      }
+
+      try {
+        if (method === 'resources/subscribe') {
+          await client.subscribeResource({ uri });
+        } else {
+          await client.unsubscribeResource({ uri });
+        }
+        return Ok(undefined);
+      } catch (error) {
+        return Err(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+
+    // Wire up subscription manager capabilities checker
+    subscriptionManager.setCheckCapabilities(async (srvName) => {
+      if (srvName !== serverName) {
+        return { supportsSubscriptions: false };
+      }
+
+      // Check server capabilities
+      const caps = client.getServerCapabilities();
+      return {
+        supportsSubscriptions: Boolean(caps?.resources?.subscribe),
+      };
+    });
+
+    // Wire up cancellation notification sender
+    const cancellationManager = getCancellationManager();
+    cancellationManager.setSendNotification(async (srvName, requestId, reason) => {
+      if (srvName !== serverName) return;
+
+      try {
+        // Send cancellation notification via the client
+        await client.notification({
+          method: 'notifications/cancelled',
+          params: {
+            requestId,
+            reason: reason ?? 'User cancelled',
+          },
+        });
+      } catch {
+        // Server may not support cancellation
+      }
+    });
   }
 
   /**

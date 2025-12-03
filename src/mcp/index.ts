@@ -96,6 +96,23 @@ export {
   type CancellationResult,
 } from "./cancellation.js";
 
+// Resource subscriptions (MCP 2025-06-18)
+export {
+  SubscriptionManager,
+  getSubscriptionManager,
+  resetSubscriptionManager,
+  type ResourceSubscription,
+} from "./subscriptions.js";
+
+// Schema validation (MCP 2025-06-18)
+export {
+  ToolOutputValidator,
+  getToolOutputValidator,
+  resetToolOutputValidator,
+  type SchemaValidationResult,
+  type SchemaValidationStatus,
+} from "./schema-validator.js";
+
 // Z.AI MCP Integration
 export {
   ZAI_SERVER_NAMES,

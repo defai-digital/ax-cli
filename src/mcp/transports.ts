@@ -23,6 +23,8 @@ export interface TransportConfig {
   headers?: Record<string, string>;
   /** Framing protocol for stdio (default: 'content-length' for better compatibility) */
   framing?: StdioFraming;
+  /** Suppress stderr output from the MCP server (hides INFO/DEBUG logs) */
+  quiet?: boolean;
 }
 
 export interface MCPTransport {
@@ -37,6 +39,7 @@ export class StdioTransport implements MCPTransport {
   private args: string[];
   private env?: Record<string, string>;
   private framing: StdioFraming;
+  private quiet: boolean;
 
   constructor(config: TransportConfig) {
     if (!config.command) {
@@ -47,6 +50,8 @@ export class StdioTransport implements MCPTransport {
     this.env = config.env;
     // Default to content-length for better compatibility with servers like AutomatosX
     this.framing = config.framing || 'content-length';
+    // Suppress stderr output if quiet mode is enabled
+    this.quiet = config.quiet ?? false;
   }
 
   async connect(): Promise<Transport> {
@@ -66,16 +71,22 @@ export class StdioTransport implements MCPTransport {
       this.transport = new ContentLengthStdioTransport({
         command: this.command,
         args: this.args,
-        env
+        env,
+        quiet: this.quiet
       });
       // ContentLengthStdioTransport implements Transport directly
       return this.transport as Transport;
     } else {
       // Use NDJSON framing (MCP SDK default)
+      // Note: StdioClientTransport from MCP SDK doesn't support quiet mode directly
+      // stderr is controlled by the SDK internals
       this.transport = new StdioClientTransport({
         command: this.command,
         args: this.args,
-        env
+        env,
+        // MCP SDK's StdioClientTransport handles stderr internally
+        // Setting stderr: 'pipe' would suppress output
+        ...(this.quiet ? { stderr: 'pipe' as const } : {})
       });
       return this.transport;
     }
