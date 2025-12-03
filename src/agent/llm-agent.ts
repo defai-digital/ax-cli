@@ -268,9 +268,47 @@ export class LLMAgent extends EventEmitter {
       'MCP initialization',
       async () => {
         await initializeMCPServers();
+        // After MCP servers are initialized, update system prompt to include MCP tools
+        this.updateSystemPromptWithMCPTools();
       },
       { emitSuccess: 'MCP servers initialized successfully', warnOnError: true }
     );
+  }
+
+  /**
+   * Update the system prompt to include MCP tools after they're initialized
+   * This ensures the LLM knows about available MCP capabilities (web search, etc.)
+   */
+  private updateSystemPromptWithMCPTools(): void {
+    const mcpManager = getMCPManager();
+    const mcpTools = mcpManager?.getTools() || [];
+
+    if (mcpTools.length === 0) return; // No MCP tools to add
+
+    // Find the system message
+    const systemMessage = this.messages.find(m => m.role === 'system');
+    if (!systemMessage || typeof systemMessage.content !== 'string') return;
+
+    // Check if MCP tools are already in the prompt (avoid duplicate updates)
+    if (systemMessage.content.includes('MCP Tools (External Capabilities)')) return;
+
+    // Build MCP tools section
+    const mcpToolsList = mcpTools
+      .map(tool => {
+        const friendlyName = tool.name.replace(/^mcp__[^_]+__/, '');
+        const description = tool.description?.split('\n')[0] || 'External tool';
+        return `- ${friendlyName}: ${description}`;
+      })
+      .join('\n');
+
+    const mcpSection = [
+      '\n\nMCP Tools (External Capabilities):',
+      mcpToolsList,
+      '\nIMPORTANT: Use MCP tools for web search, fetching URLs, and external data access. You HAVE network access through these tools.',
+    ].join('\n');
+
+    // Append MCP tools section to system prompt
+    systemMessage.content += mcpSection;
   }
 
 

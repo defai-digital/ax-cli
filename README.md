@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.6)](#recent-changes-v3156)
+- [Recent Changes (v3.15.7)](#recent-changes-v3157)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.6)
+## Recent Changes (v3.15.7)
+
+### Bug Fixes
+
+- **MCP Tools Timing Fix**: Fixed critical timing issue where MCP tools weren't included in the system prompt because the prompt was built before MCP servers finished initializing. Now the system prompt is updated after MCP initialization completes, ensuring the LLM knows about web search and other MCP capabilities.
+
+## Previous Changes (v3.15.6)
 
 ### Improvements
 
