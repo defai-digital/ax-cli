@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.8)](#recent-changes-v3158)
+- [Recent Changes (v3.15.9)](#recent-changes-v3159)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.8)
+## Recent Changes (v3.15.9)
+
+### Bug Fixes
+
+- **Z.AI MCP HTTP Headers**: Fixed Z.AI MCP servers (web-search, web-reader) failing to connect due to missing required HTTP headers. Added `Accept: application/json, text/event-stream` and `Content-Type: application/json` headers required by Z.AI's MCP endpoints.
+
+## Previous Changes (v3.15.8)
 
 ### Improvements
 

@@ -88,12 +88,17 @@ export const ZAI_MCP_TEMPLATES: Record<ZAIServerName, ZAIMCPTemplate> = {
 
 /**
  * Create HTTP transport config with Z.AI authorization
+ * Note: Z.AI MCP servers require Accept header with both application/json and text/event-stream
  */
 function createHttpTransport(url: string, apiKey: string) {
   return {
     type: 'http' as const,
     url,
-    headers: { 'Authorization': `Bearer ${apiKey}` },
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Accept': 'application/json, text/event-stream',
+      'Content-Type': 'application/json',
+    },
   };
 }
 
