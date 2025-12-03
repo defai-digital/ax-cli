@@ -390,9 +390,11 @@ export class MCPManagerV2 extends EventEmitter {
             }
           );
 
-          // Connect
+          // Connect with configurable initialization timeout
+          // Default is MCP_CONFIG.DEFAULT_TIMEOUT (60s), but servers using npx may need longer
+          const initTimeout = validatedConfig.initTimeout ?? MCP_CONFIG.DEFAULT_TIMEOUT;
           const sdkTransport = await transport.connect();
-          await client.connect(sdkTransport);
+          await client.connect(sdkTransport, { timeout: initTimeout });
 
           // Set up MCP notification handlers for progress and resource updates
           this.setupNotificationHandlers(client, serverName);

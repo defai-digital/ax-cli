@@ -328,6 +328,10 @@ export const MCPServerConfigSchema: z.ZodType<any> = z.object({
   // Default: 60000ms (60 seconds) - matches MCP SDK default
   // For long-running tasks, set higher values (e.g., 2700000 for 45 minutes)
   timeout: z.number().int().positive().optional(),
+  // Initialization timeout for server startup (e.g., when using npx to download packages)
+  // Default: 60000ms (60 seconds) - but servers using npx may need 120000ms or more
+  // This timeout covers transport connection + MCP initialize handshake
+  initTimeout: z.number().int().positive().optional(),
   // Suppress stderr output from the MCP server (hides INFO/DEBUG logs)
   // Default: false (show all stderr output)
   quiet: z.boolean().optional(),

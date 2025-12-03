@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.0)](#recent-changes-v3150)
+- [Recent Changes (v3.15.1)](#recent-changes-v3151)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,14 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.0)
+## Recent Changes (v3.15.1)
+
+### Improvements
+
+- **MCP Init Timeout Configuration**: Added `initTimeout` option for MCP server initialization (separate from tool call timeout). Useful for servers that need longer startup time (e.g., npx-based servers that download packages).
+- **Z.AI Vision MCP Quiet Mode**: Suppressed INFO/DEBUG logs and npm warnings from Z.AI Vision MCP server for cleaner console output.
+
+## Previous Changes (v3.15.0)
 
 ### New Features
 

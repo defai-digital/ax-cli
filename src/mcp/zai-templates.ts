@@ -134,6 +134,10 @@ export function generateZAIServerConfig(
             'Z_AI_MODE': 'ZAI',
           },
         },
+        // Higher init timeout for npx (needs to download package if not cached)
+        initTimeout: 120000, // 2 minutes
+        // Suppress INFO/DEBUG logs from the MCP server
+        quiet: true,
       };
 
     default:
