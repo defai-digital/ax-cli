@@ -17,15 +17,9 @@ import { getAutoAcceptLogger } from '../utils/auto-accept-logger.js';
 import { TIMEOUT_CONFIG, FILE_CONFIG } from '../constants.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
 
-/**
- * @deprecated This function is deprecated and will be removed in a future version.
- * Command execution now uses whitelist validation instead of shell escaping.
- * See src/utils/command-security.ts for the new secure implementation.
- */
-export function escapeShellArg(arg: string): string {
-  // Replace single quotes with '\'' to safely escape them
-  return `'${arg.replace(/'/g, "'\\''")}'`;
-}
+// escapeShellArg moved to src/utils/input-sanitizer.ts (better cross-platform support)
+// Re-export for backward compatibility
+export { escapeShellArg } from '../utils/input-sanitizer.js';
 
 export interface BashExecuteOptions {
   timeout?: number;
@@ -298,6 +292,22 @@ export class BashTool extends EventEmitter {
   }
 
   /**
+   * Expand ~ to home directory in path
+   * @returns expanded path or null with error message if HOME not found
+   */
+  private expandHomePath(dirPath: string): { path: string } | { error: string } {
+    if (dirPath === '~') {
+      const home = homedir();
+      return home ? { path: home } : { error: 'Cannot expand ~: HOME directory not found' };
+    }
+    if (dirPath.startsWith('~/')) {
+      const home = homedir();
+      return home ? { path: dirPath.replace(/^~/, home) } : { error: 'Cannot expand ~: HOME directory not found' };
+    }
+    return { path: dirPath };
+  }
+
+  /**
    * Handle cd command separately (no spawn needed)
    */
   private handleCdCommand(command: string): ToolResult {
@@ -331,24 +341,11 @@ export class BashTool extends EventEmitter {
     }
 
     // Expand ~ to home directory
-    if (newDir.startsWith('~/')) {
-      const home = homedir();
-      if (!home) {
-        return {
-          success: false,
-          error: 'Cannot expand ~: HOME directory not found'
-        };
-      }
-      newDir = newDir.replace(/^~/, home);
-    } else if (newDir === '~') {
-      newDir = homedir();
-      if (!newDir) {
-        return {
-          success: false,
-          error: 'Cannot expand ~: HOME directory not found'
-        };
-      }
+    const expanded = this.expandHomePath(newDir);
+    if ('error' in expanded) {
+      return { success: false, error: expanded.error };
     }
+    newDir = expanded.path;
 
     // Resolve relative paths
     const resolvedDir = path.resolve(this.currentDirectory, newDir);
@@ -579,26 +576,32 @@ export class BashTool extends EventEmitter {
     return this.currentDirectory;
   }
 
-  async listFiles(directory: string = '.'): Promise<ToolResult> {
-    return this.execute(`ls -la ${escapeShellArg(directory)}`);
-  }
-
-  async findFiles(pattern: string, directory: string = '.'): Promise<ToolResult> {
-    return this.execute(`find ${escapeShellArg(directory)} -name ${escapeShellArg(pattern)} -type f`);
-  }
-
-  async grep(pattern: string, files: string = '.'): Promise<ToolResult> {
-    return this.execute(`grep -r ${escapeShellArg(pattern)} ${escapeShellArg(files)}`);
-  }
-
   /**
    * Clean up resources (kill running process, remove event listeners)
    */
   dispose(): void {
     // Kill current process if running
-    if (this.currentProcess && !this.currentProcess.killed) {
+    const processToKill = this.currentProcess;
+    if (processToKill && !processToKill.killed && processToKill.exitCode === null) {
       try {
-        this.currentProcess.kill('SIGTERM');
+        processToKill.kill('SIGTERM');
+
+        // Force kill after 2 seconds if SIGTERM doesn't work (consistent with moveToBackground)
+        const forceKillTimeout = setTimeout(() => {
+          try {
+            if (!processToKill.killed && processToKill.exitCode === null) {
+              processToKill.kill('SIGKILL');
+            }
+          } catch {
+            // Process already terminated
+          }
+        }, 2000);
+
+        // Unref to prevent keeping event loop alive during shutdown
+        forceKillTimeout.unref();
+
+        // Clear timeout when process exits
+        processToKill.once('exit', () => clearTimeout(forceKillTimeout));
       } catch {
         // Ignore errors during cleanup
       }

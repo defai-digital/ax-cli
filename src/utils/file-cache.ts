@@ -275,6 +275,17 @@ export class FileCache<T = unknown> {
   }
 
   /**
+   * Calculate total size of all cached entries
+   */
+  private calculateTotalSize(): number {
+    let total = 0;
+    for (const entry of this.cache.values()) {
+      total += entry.size;
+    }
+    return total;
+  }
+
+  /**
    * Save cache to disk
    */
   async save(): Promise<void> {
@@ -335,40 +346,24 @@ export class FileCache<T = unknown> {
     cached: CacheEntry<T>
   ): Promise<boolean> {
     try {
-      // Check if file exists
-      if (!existsSync(filePath)) {
-        return false;
-      }
+      // Fast checks first (no I/O)
+      if (cached.version !== this.metadata.version) return false;
+      if (Date.now() - cached.cachedAt > this.config.ttl) return false;
 
-      // Check version compatibility
-      if (cached.version !== this.metadata.version) {
-        return false;
-      }
-
-      // Check tool version - invalidate if current tool version differs from cached metadata
-      // BUG FIX: The comparison was wrong - metadata.toolVersion is loaded from disk
-      // and should be compared against the CURRENT config.toolVersion to detect tool upgrades
+      // Check tool version - invalidate on tool upgrades
       if (this.metadata.toolVersion && this.config.toolVersion !== this.metadata.toolVersion) {
         return false;
       }
 
-      // Check TTL
-      if (Date.now() - cached.cachedAt > this.config.ttl) {
-        return false;
-      }
+      // File existence check (minimal I/O)
+      if (!existsSync(filePath)) return false;
 
-      // Fast checks: mtime and size
+      // Fast I/O checks: mtime and size
       const fileStat = await stat(filePath);
+      if (fileStat.mtimeMs !== cached.mtime) return false;
+      if (fileStat.size !== cached.size) return false;
 
-      if (fileStat.mtimeMs !== cached.mtime) {
-        return false;
-      }
-
-      if (fileStat.size !== cached.size) {
-        return false;
-      }
-
-      // Slow but accurate: content hash
+      // Slow but accurate: content hash (only if fast checks pass)
       const currentHash = await this.hashFile(filePath);
       return currentHash === cached.hash;
     } catch {
@@ -475,13 +470,7 @@ export class FileCache<T = unknown> {
     // Update metadata
     this.metadata.totalEntries = this.cache.size;
     this.metadata.lastAccessedAt = Date.now();
-
-    // Calculate total size
-    let totalSize = 0;
-    for (const entry of this.cache.values()) {
-      totalSize += entry.size;
-    }
-    this.metadata.totalSize = totalSize;
+    this.metadata.totalSize = this.calculateTotalSize();
 
     const data = {
       metadata: this.metadata,
@@ -506,11 +495,7 @@ export class FileCache<T = unknown> {
     }
 
     // Enforce max size
-    let totalSize = 0;
-    for (const entry of this.cache.values()) {
-      totalSize += entry.size;
-    }
-
+    const totalSize = this.calculateTotalSize();
     if (totalSize > this.config.maxSize) {
       // Remove oldest entries until under limit
       const entries = Array.from(this.cache.entries());
@@ -527,12 +512,7 @@ export class FileCache<T = unknown> {
 
   private updateStats(): void {
     this.stats.totalEntries = this.cache.size;
-
-    let totalSize = 0;
-    for (const entry of this.cache.values()) {
-      totalSize += entry.size;
-    }
-    this.stats.cacheSize = totalSize;
+    this.stats.cacheSize = this.calculateTotalSize();
 
     const total = this.stats.hits + this.stats.misses;
     this.stats.hitRate = total > 0 ? this.stats.hits / total : 0;

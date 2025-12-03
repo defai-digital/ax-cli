@@ -87,6 +87,17 @@ export const ZAI_MCP_TEMPLATES: Record<ZAIServerName, ZAIMCPTemplate> = {
 } as const;
 
 /**
+ * Create HTTP transport config with Z.AI authorization
+ */
+function createHttpTransport(url: string, apiKey: string) {
+  return {
+    type: 'http' as const,
+    url,
+    headers: { 'Authorization': `Bearer ${apiKey}` },
+  };
+}
+
+/**
  * Generate MCP server config for a Z.AI server
  *
  * @param serverName - The Z.AI server name
@@ -101,25 +112,13 @@ export function generateZAIServerConfig(
     case ZAI_SERVER_NAMES.WEB_READER:
       return {
         name: ZAI_SERVER_NAMES.WEB_READER,
-        transport: {
-          type: 'http',
-          url: ZAI_ENDPOINTS.WEB_READER,
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-          },
-        },
+        transport: createHttpTransport(ZAI_ENDPOINTS.WEB_READER, apiKey),
       };
 
     case ZAI_SERVER_NAMES.WEB_SEARCH:
       return {
         name: ZAI_SERVER_NAMES.WEB_SEARCH,
-        transport: {
-          type: 'http',
-          url: ZAI_ENDPOINTS.WEB_SEARCH,
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-          },
-        },
+        transport: createHttpTransport(ZAI_ENDPOINTS.WEB_SEARCH, apiKey),
       };
 
     case ZAI_SERVER_NAMES.VISION:
@@ -133,6 +132,8 @@ export function generateZAIServerConfig(
             'Z_AI_API_KEY': apiKey,
             'Z_AI_MODE': 'ZAI',
           },
+          // @z_ai/mcp-server uses NDJSON framing (MCP SDK default), not Content-Length
+          framing: 'ndjson',
         },
         // Higher init timeout for npx (needs to download package if not cached)
         initTimeout: 120000, // 2 minutes

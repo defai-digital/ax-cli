@@ -31,7 +31,8 @@ import { Result, Ok, Err } from "./type-safety.js";
 import {
   ServerName,
   ToolName,
-  createServerName
+  createServerName,
+  createToolName
 } from "./type-safety.js";
 import {
   assertValidServerName
@@ -62,6 +63,14 @@ export type { ProgressUpdate, ProgressCallback };
 export type { CancellableRequest, CancellationResult };
 export type { ResourceSubscription };
 export type { SchemaValidationResult };
+
+/**
+ * Convert unknown error to Error instance
+ * Reduces repeated error instanceof checks throughout the codebase
+ */
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
 
 /**
  * Extended tool result with schema validation
@@ -251,6 +260,18 @@ export class MCPManagerV2 extends EventEmitter {
   }
 
   /**
+   * Transition server to failed state (reduces duplication)
+   */
+  private _setFailedState(serverName: ServerName, error: Error): void {
+    this.connections.set(serverName, {
+      status: 'failed',
+      serverName,
+      error,
+      failedAt: Date.now()
+    });
+  }
+
+  /**
    * Add MCP server with type-safe connection management
    *
    * Phase 1 improvements:
@@ -327,15 +348,9 @@ export class MCPManagerV2 extends EventEmitter {
     // Validate config with Zod
     const validationResult = MCPServerConfigSchema.safeParse(config);
     if (!validationResult.success) {
-      // Transition to failed state
-      this.connections.set(serverName, {
-        status: 'failed',
-        serverName,
-        error: new Error(`Invalid config: ${validationResult.error.message}`),
-        failedAt: Date.now()
-      });
-
-      return Err(new Error(`Invalid MCP server config: ${validationResult.error.message}`));
+      const error = new Error(`Invalid MCP server config: ${validationResult.error.message}`);
+      this._setFailedState(serverName, error);
+      return Err(error);
     }
 
     const validatedConfig = validationResult.data;
@@ -356,12 +371,7 @@ export class MCPManagerV2 extends EventEmitter {
 
     if (!transportConfig) {
       const error = new Error(ERROR_MESSAGES.TRANSPORT_CONFIG_REQUIRED);
-      this.connections.set(serverName, {
-        status: 'failed',
-        serverName,
-        error,
-        failedAt: Date.now()
-      });
+      this._setFailedState(serverName, error);
       return Err(error);
     }
 
@@ -455,18 +465,10 @@ export class MCPManagerV2 extends EventEmitter {
           return Ok(undefined);
 
         } catch (error) {
-          // Transition to failed state
-          const err = error instanceof Error ? error : new Error(String(error));
-          this.connections.set(serverName, {
-            status: 'failed',
-            serverName,
-            error: err,
-            failedAt: Date.now()
-          });
-
+          const err = toError(error);
+          this._setFailedState(serverName, err);
           this.emit('serverError', serverName, err);
 
-          // Phase 2: Schedule reconnection if enabled
           if (this.reconnectionConfig.enabled && !this.disposed) {
             this.scheduleReconnection(serverName, validatedConfig);
           }
@@ -485,15 +487,9 @@ export class MCPManagerV2 extends EventEmitter {
       return await connectingPromise;
 
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      this.connections.set(serverName, {
-        status: 'failed',
-        serverName,
-        error: err,
-        failedAt: Date.now()
-      });
+      const err = toError(error);
+      this._setFailedState(serverName, err);
 
-      // Phase 2: Schedule reconnection if enabled
       if (this.reconnectionConfig.enabled && !this.disposed) {
         this.scheduleReconnection(serverName, validatedConfig);
       }
@@ -603,7 +599,7 @@ export class MCPManagerV2 extends EventEmitter {
     } catch (error) {
       // Even if error, remove from state
       this.connections.delete(serverName);
-      return Err(error instanceof Error ? error : new Error(String(error)));
+      return Err(toError(error));
     }
   }
 
@@ -618,7 +614,7 @@ export class MCPManagerV2 extends EventEmitter {
       await client.close();
       return Ok(undefined);
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
+      const err = toError(error);
       console.warn(`Error closing MCP client ${serverName}:`, err);
       return Err(err);
     }
@@ -635,7 +631,7 @@ export class MCPManagerV2 extends EventEmitter {
       await transport.disconnect();
       return Ok(undefined);
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
+      const err = toError(error);
       console.warn(`Error disconnecting MCP transport ${serverName}:`, err);
       return Err(err);
     }
@@ -773,7 +769,7 @@ export class MCPManagerV2 extends EventEmitter {
       return Ok(validatedResult);
 
     } catch (error) {
-      return Err(error instanceof Error ? error : new Error(String(error)));
+      return Err(toError(error));
     }
   }
 
@@ -870,7 +866,7 @@ export class MCPManagerV2 extends EventEmitter {
           cancelReason: 'User cancelled',
         } as CallToolResult & { isCancelled: boolean; cancelReason: string });
       }
-      return Err(error instanceof Error ? error : new Error(String(error)));
+      return Err(toError(error));
     } finally {
       cancellationManager.cleanup(requestId);
     }
@@ -1225,8 +1221,7 @@ export class MCPManagerV2 extends EventEmitter {
         messages: result.messages || [],
       });
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      return Err(err);
+      return Err(toError(error));
     }
   }
 
@@ -1345,19 +1340,11 @@ export class MCPManagerV2 extends EventEmitter {
       await state.client.listTools();
       return Ok(true); // Healthy
     } catch (error) {
-      // Server is unhealthy
       this.emit('server-unhealthy', serverName, error);
 
-      // Transition to failed state
-      const err = error instanceof Error ? error : new Error(String(error));
-      this.connections.set(serverName, {
-        status: 'failed',
-        serverName,
-        error: err,
-        failedAt: Date.now()
-      });
+      const err = toError(error);
+      this._setFailedState(serverName, err);
 
-      // Close the connection
       try {
         await state.client.close();
         await state.transport.disconnect();
@@ -1365,13 +1352,12 @@ export class MCPManagerV2 extends EventEmitter {
         console.warn(`Error closing unhealthy server ${serverName}:`, closeError);
       }
 
-      // Schedule reconnection
       const config = this.serverConfigs.get(serverName);
       if (config && this.reconnectionConfig.enabled && !this.disposed) {
         this.scheduleReconnection(serverName, config);
       }
 
-      return Ok(false); // Unhealthy
+      return Ok(false);
     }
   }
 
@@ -1483,7 +1469,7 @@ export class MCPManagerV2 extends EventEmitter {
 
           const initErrors = initResults
             .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
-            .map(result => result.reason instanceof Error ? result.reason : new Error(String(result.reason)));
+            .map(result => toError(result.reason));
 
           if (initErrors.length > 0) {
             return Err(new AggregateError(initErrors, 'Some MCP servers failed to initialize'));
@@ -1492,7 +1478,7 @@ export class MCPManagerV2 extends EventEmitter {
 
         } catch (error) {
           console.error('Failed to initialize MCP servers:', error);
-          return Err(error instanceof Error ? error : new Error(String(error)));
+          return Err(toError(error));
         } finally {
           this.initializationPromise = null;
         }
@@ -1540,7 +1526,7 @@ export class MCPManagerV2 extends EventEmitter {
             try {
               return await state.promise;
             } catch (error) {
-              return Err(error instanceof Error ? error : new Error(String(error)));
+              return Err(toError(error));
             }
           });
         if (connectingPromises.length > 0) {
@@ -1562,19 +1548,5 @@ export class MCPManagerV2 extends EventEmitter {
   }
 }
 
-/**
- * Helper functions for creating branded types
- */
-function createToolName(name: string): ToolName | null {
-  // Tool names can have double underscores for MCP prefix
-  if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
-    return null;
-  }
-  if (name.length < 1 || name.length > 128) {
-    return null;
-  }
-  return name as ToolName;
-}
-
-// Re-export createServerName from type-safety
+// Re-export from type-safety for external use
 export { createServerName, createToolName };

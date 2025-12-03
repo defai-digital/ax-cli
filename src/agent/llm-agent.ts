@@ -78,7 +78,6 @@ export class LLMAgent extends EventEmitter {
   private contextManager: ContextManager;
   private abortController: AbortController | null = null;
   private maxToolRounds: number;
-  private recentToolCalls: Map<string, number> = new Map(); // Track recent tool calls to detect loops
   private toolCallIndexMap: Map<string, number> = new Map(); // O(1) lookup for tool call entries in chat history
   private toolCallArgsCache: Map<string, Record<string, unknown>> = new Map(); // Cache parsed tool arguments
   private checkpointManager: CheckpointManager;
@@ -707,11 +706,9 @@ export class LLMAgent extends EventEmitter {
       const stats = getLoopDetector().getStats();
       debugLoop(`🔄 Resetting tool call tracking (had ${stats.uniqueSignatures} signatures)`);
     }
-    // Reset the new intelligent loop detector
+    // Reset the intelligent loop detector
     resetLoopDetector();
-    // Also reset the legacy tracking (keep for backward compatibility during transition)
-    this.recentToolCalls.clear();
-    // Also clear the args cache to prevent memory leak
+    // Clear the args cache to prevent memory leak
     this.toolCallArgsCache.clear();
     // Clear last loop result
     this.lastLoopResult = undefined;
@@ -2143,7 +2140,6 @@ export class LLMAgent extends EventEmitter {
     this.toolExecutor.dispose();
 
     // Clear in-memory caches
-    this.recentToolCalls.clear();
     this.toolCallIndexMap.clear();
     this.toolCallArgsCache.clear();
 

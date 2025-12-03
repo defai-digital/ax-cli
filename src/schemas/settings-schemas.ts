@@ -316,6 +316,10 @@ export const MCPTransportConfigSchema = z.object({
   env: z.record(z.string()).optional(),
   url: z.string().url().optional(),
   headers: z.record(z.string()).optional(),
+  // Framing protocol for stdio transport (default: 'content-length')
+  // - 'ndjson': Newline-delimited JSON (MCP SDK default, used by most MCP servers)
+  // - 'content-length': Content-Length header framing (LSP-style, used by AutomatosX)
+  framing: z.enum(['ndjson', 'content-length']).optional(),
 });
 
 export const MCPServerConfigSchema: z.ZodType<any> = z.object({

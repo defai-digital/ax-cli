@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.7)](#recent-changes-v3157)
+- [Recent Changes (v3.15.8)](#recent-changes-v3158)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,16 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.7)
+## Recent Changes (v3.15.8)
+
+### Improvements
+
+- **MCP Client Refactoring**: Improved code quality in MCP client with extracted helper methods (`toError`, `_setFailedState`) to reduce duplication and improve maintainability.
+- **Bash Tool Cleanup**: Extracted `expandHomePath` method for better path expansion handling. Moved `escapeShellArg` to input-sanitizer.ts for improved cross-platform support.
+- **File Cache Optimization**: Simplified file caching logic with cleaner error handling.
+- **Code Quality**: General codebase cleanup with reduced code duplication (-48 lines net reduction).
+
+## Previous Changes (v3.15.7)
 
 ### Bug Fixes
 
