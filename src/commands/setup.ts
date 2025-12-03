@@ -15,7 +15,7 @@ import {
   generateZAIServerConfig,
   ZAI_MCP_TEMPLATES,
 } from '../mcp/index.js';
-import { addMCPServer } from '../mcp/config.js';
+import { addMCPServer, removeMCPServer } from '../mcp/config.js';
 
 /**
  * Check if AutomatosX (ax) is installed
@@ -433,7 +433,17 @@ export function createSetupCommand(): Command {
             const status = await detectZAIServices();
             const serversToAdd = getRecommendedServers(status);
 
-            console.log(chalk.blue('Setting up Z.AI MCP servers...'));
+            // Remove existing Z.AI MCP servers first to ensure clean state with latest config
+            // This ensures headers and other config options are always up-to-date
+            console.log(chalk.blue('Refreshing Z.AI MCP servers...'));
+            for (const serverName of serversToAdd) {
+              try {
+                removeMCPServer(serverName);
+              } catch {
+                // Ignore errors if server doesn't exist
+              }
+            }
+
             let successCount = 0;
 
             for (const serverName of serversToAdd) {
@@ -450,7 +460,7 @@ export function createSetupCommand(): Command {
             }
 
             if (successCount > 0) {
-              console.log(chalk.green(`\n✨ ${successCount} Z.AI MCP server${successCount !== 1 ? 's' : ''} enabled!\n`));
+              console.log(chalk.green(`\n✨ ${successCount} Z.AI MCP server${successCount !== 1 ? 's' : ''} configured!\n`));
             }
           } catch (error) {
             console.log(chalk.yellow('\n⚠️  Could not set up Z.AI MCP servers:'), extractErrorMessage(error));

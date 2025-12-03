@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.9)](#recent-changes-v3159)
+- [Recent Changes (v3.15.10)](#recent-changes-v31510)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.9)
+## Recent Changes (v3.15.10)
+
+### Improvements
+
+- **Setup Refreshes MCP Servers**: Running `ax-cli setup` now removes and re-adds Z.AI MCP servers to ensure configuration is always up-to-date with latest headers and settings.
+
+## Previous Changes (v3.15.9)
 
 ### Bug Fixes
 
