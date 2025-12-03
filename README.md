@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.5)](#recent-changes-v3155)
+- [Recent Changes (v3.15.6)](#recent-changes-v3156)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,14 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.5)
+## Recent Changes (v3.15.6)
+
+### Improvements
+
+- **MCP Tools in System Prompt**: The LLM now knows about available MCP tools (webSearchPrime, webReader) through the system prompt. This enables agents to use web search and URL fetching capabilities when configured.
+- **Flaky Test Fix**: Fixed timing-sensitive test that occasionally failed due to timer precision.
+
+## Previous Changes (v3.15.5)
 
 ### Bug Fixes
 

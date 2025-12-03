@@ -6,6 +6,7 @@
 
 import { loadPromptsConfig, type PromptSection } from './config-loader.js';
 import { getContextInjector } from '../memory/index.js';
+import { getMCPManager } from '../llm/tools.js';
 
 /**
  * Build the system prompt for the AI assistant
@@ -56,12 +57,29 @@ export function buildSystemPrompt(options: {
   // Tools header
   sections.push(`\n${config.system_prompt.tools_header}`);
 
-  // List tools
+  // List built-in tools
   const toolsList = config.system_prompt.tools
     .filter(tool => !tool.optional)
     .map(tool => `- ${tool.name}: ${tool.description}`)
     .join('\n');
   sections.push(toolsList);
+
+  // Add MCP tools if available
+  const mcpManager = getMCPManager();
+  const mcpTools = mcpManager?.getTools() || [];
+  if (mcpTools.length > 0) {
+    sections.push('\nMCP Tools (External Capabilities):');
+    const mcpToolsList = mcpTools
+      .map(tool => {
+        // Extract friendly name from mcp__server__toolname format
+        const friendlyName = tool.name.replace(/^mcp__[^_]+__/, '');
+        const description = tool.description?.split('\n')[0] || 'External tool';
+        return `- ${friendlyName}: ${description}`;
+      })
+      .join('\n');
+    sections.push(mcpToolsList);
+    sections.push('\nIMPORTANT: Use MCP tools for web search, fetching URLs, and external data access. You HAVE network access through these tools.');
+  }
 
   // Add all configured sections
   for (const section of Object.values(config.system_prompt.sections)) {
