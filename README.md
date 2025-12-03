@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.3)](#recent-changes-v3153)
+- [Recent Changes (v3.15.4)](#recent-changes-v3154)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.3)
+## Recent Changes (v3.15.4)
+
+### Maintenance
+
+- **Version Bump**: General maintenance release with internal improvements
+
+## Previous Changes (v3.15.3)
 
 ### Bug Fixes
 
