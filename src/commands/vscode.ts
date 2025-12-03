@@ -442,8 +442,8 @@ export function createVSCodeCommand(): Command {
     });
 
   // Default action (show status)
-  vscodeCommand.action(() => {
-    vscodeCommand.commands.find(cmd => cmd.name() === 'status')?.parseAsync(['node', 'ax', 'vscode', 'status'], { from: 'user' });
+  vscodeCommand.action(async () => {
+    await vscodeCommand.commands.find(cmd => cmd.name() === 'status')?.parseAsync(['node', 'ax', 'vscode', 'status'], { from: 'user' });
   });
 
   return vscodeCommand;

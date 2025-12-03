@@ -41,6 +41,8 @@ import type { MCPResource } from "../../mcp/resources.js";
 import { getPermissionManager, PermissionTier } from "../../permissions/permission-manager.js";
 import { parseFileMentions } from "../../utils/file-mentions.js";
 import { parseImageInput, formatAttachmentForDisplay, buildMessageContent } from "../utils/image-handler.js";
+import { routeToAgent } from "../../agent/agent-router.js";
+import { executeAgent } from "../../agent/agent-executor.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -80,6 +82,10 @@ interface UseInputHandlerProps {
   onEditorSuccess?: () => void;
   onEditorCancelled?: () => void;
   onEditorError?: (error: string) => void;
+  // Agent-First Mode props
+  agentFirstDisabled?: boolean;
+  forcedAgent?: string;
+  onAgentSelected?: (agent: string | null) => void;
 }
 
 interface CommandSuggestion {
@@ -124,6 +130,9 @@ export function useInputHandler({
   onEditorSuccess,
   onEditorCancelled,
   onEditorError,
+  agentFirstDisabled = false,
+  forcedAgent,
+  onAgentSelected,
 }: UseInputHandlerProps) {
   const [showCommandSuggestions, setShowCommandSuggestions] = useState(false);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
@@ -2234,6 +2243,100 @@ Respond with ONLY the commit message, no additional text.`;
         processedInput = fileMentionResult.hasMentions
           ? fileMentionResult.expandedInput
           : processedInput;
+      }
+
+      // Agent-First Mode: Check if we should route to an AutomatosX agent
+      // Skip for image inputs (not supported by agents) and when disabled
+      if (!agentFirstDisabled && !imageResult.hasImages) {
+        const settings = getSettingsManager();
+        const agentFirstSettings = settings.getAgentFirstSettings();
+
+        if (agentFirstSettings.enabled) {
+          // Determine which agent to use
+          const selectedAgent = forcedAgent || (() => {
+            const routerConfig = {
+              enabled: agentFirstSettings.enabled,
+              defaultAgent: agentFirstSettings.defaultAgent,
+              confidenceThreshold: agentFirstSettings.confidenceThreshold,
+              excludedAgents: agentFirstSettings.excludedAgents,
+            };
+            const routingResult = routeToAgent(processedInput, routerConfig);
+            return routingResult.agent;
+          })();
+
+          // If an agent is selected, execute via ax run
+          if (selectedAgent) {
+            onAgentSelected?.(selectedAgent);
+
+            // Add routing info to chat
+            const routingEntry: ChatEntry = {
+              type: "assistant",
+              content: `⚡ Routing to **${selectedAgent}** agent...`,
+              timestamp: new Date(),
+            };
+            setChatHistory((prev) => [...prev, routingEntry]);
+
+            setIsStreaming(true);
+            let agentOutput = '';
+
+            try {
+              for await (const chunk of executeAgent({
+                agent: selectedAgent,
+                task: processedInput,
+                streaming: true,
+              })) {
+                switch (chunk.type) {
+                  case 'output':
+                    if (chunk.content) {
+                      agentOutput += chunk.content;
+                      // Update the routing entry with accumulated output
+                      setChatHistory((prev) =>
+                        prev.map((entry, idx) =>
+                          idx === prev.length - 1
+                            ? { ...entry, content: `⚡ **${selectedAgent}** agent:\n\n${agentOutput}`, isStreaming: true }
+                            : entry
+                        )
+                      );
+                    }
+                    break;
+                  case 'error':
+                    if (chunk.content) {
+                      agentOutput += `\n⚠️ ${chunk.content}`;
+                    }
+                    break;
+                  case 'done':
+                    // Finalize the entry
+                    setChatHistory((prev) =>
+                      prev.map((entry, idx) =>
+                        idx === prev.length - 1
+                          ? { ...entry, content: `⚡ **${selectedAgent}** agent:\n\n${agentOutput}`, isStreaming: false }
+                          : entry
+                      )
+                    );
+                    break;
+                }
+              }
+              // Agent execution succeeded
+              setIsStreaming(false);
+              setIsProcessing(false);
+              onAgentSelected?.(null);
+              return; // Agent handled the request
+            } catch (agentError) {
+              // Agent execution failed, show error and fall through to direct LLM
+              const errorMessage = extractErrorMessage(agentError);
+              setChatHistory((prev) =>
+                prev.map((entry, idx) =>
+                  idx === prev.length - 1
+                    ? { ...entry, content: `⚡ **${selectedAgent}** agent failed:\n\n❌ ${errorMessage}\n\nFalling back to direct LLM...`, isStreaming: false }
+                    : entry
+                )
+              );
+              onAgentSelected?.(null);
+              setIsStreaming(false);
+              // Fall through to direct LLM processing below
+            }
+          }
+        }
       }
 
       setIsStreaming(true);

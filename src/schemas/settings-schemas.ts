@@ -188,6 +188,21 @@ export const AutoUpdateSettingsSchema = z.object({
   autoInstall: z.boolean().optional().default(false),
 }).optional();
 
+// Agent-First Mode Settings Schema
+// Routes tasks to specialized AutomatosX agents by default
+export const AgentFirstSettingsSchema = z.object({
+  // Enable/disable agent-first mode (default: true when AutomatosX available)
+  enabled: z.boolean().optional().default(true),
+  // Minimum confidence to auto-route (0.0-1.0)
+  confidenceThreshold: z.number().min(0).max(1).optional().default(0.6),
+  // Show which agent is handling the task (badge in UI)
+  showAgentIndicator: z.boolean().optional().default(true),
+  // Default agent when no keyword match (null = direct LLM)
+  defaultAgent: z.string().nullable().optional().default('standard'),
+  // Agents to exclude from auto-selection
+  excludedAgents: z.array(z.string()).optional().default([]),
+}).optional();
+
 // Security Settings Schema (for enterprise hardening)
 export const SecuritySettingsSchema = z.object({
   // Enable command whitelist validation (REQ-SEC-001)
@@ -263,6 +278,8 @@ export const UserSettingsSchema: z.ZodType<any> = z.object({
   thinkingMode: ThinkingModeSettingsSchema,
   // Auto-update settings
   autoUpdate: AutoUpdateSettingsSchema,
+  // Agent-first mode settings
+  agentFirst: AgentFirstSettingsSchema,
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Project Settings Schema
@@ -280,6 +297,8 @@ export const ProjectSettingsSchema: z.ZodType<any> = z.object({
   thinking: ThinkingSettingsSchema,
   // Project-level UI settings (overrides user settings)
   ui: UISettingsSchema,
+  // Project-level agent-first mode settings (overrides user settings)
+  agentFirst: AgentFirstSettingsSchema,
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Model Option Schema
@@ -331,3 +350,4 @@ export type AutoAcceptSettings = z.infer<typeof AutoAcceptSettingsSchema>;
 export type ExternalEditorSettings = z.infer<typeof ExternalEditorSettingsSchema>;
 export type ThinkingModeSettings = z.infer<typeof ThinkingModeSettingsSchema>;
 export type AutoUpdateSettings = z.infer<typeof AutoUpdateSettingsSchema>;
+export type AgentFirstSettings = z.infer<typeof AgentFirstSettingsSchema>;

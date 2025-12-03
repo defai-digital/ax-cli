@@ -421,51 +421,40 @@ export function createSetupCommand(): Command {
 
         console.log(chalk.green('\n✅ Configuration saved successfully!\n'));
 
-        // Offer Z.AI MCP setup for Z.AI providers
+        // Automatically enable Z.AI MCP servers for Z.AI providers (enabled by default)
         if (selectedProvider.name === 'z.ai' || selectedProvider.name === 'z.ai-free') {
           console.log(chalk.cyan('🔌 Z.AI MCP Integration\n'));
-          console.log(chalk.dim('   Z.AI offers MCP servers for enhanced capabilities:'));
+          console.log(chalk.dim('   Enabling Z.AI MCP servers for enhanced capabilities:'));
           console.log(chalk.dim('   • Web Search - Real-time web search'));
           console.log(chalk.dim('   • Web Reader - Extract content from web pages'));
           console.log(chalk.dim('   • Vision - Image/video analysis (Node.js 22+)\n'));
 
-          const enableMCP = await enquirer.prompt<{ enable: boolean }>({
-            type: 'confirm',
-            name: 'enable',
-            message: 'Enable Z.AI MCP servers?',
-            initial: true,
-          });
+          try {
+            const status = await detectZAIServices();
+            const serversToAdd = getRecommendedServers(status);
 
-          if (enableMCP.enable) {
-            try {
-              const status = await detectZAIServices();
-              const serversToAdd = getRecommendedServers(status);
+            console.log(chalk.blue('Setting up Z.AI MCP servers...'));
+            let successCount = 0;
 
-              console.log(chalk.blue('\nSetting up Z.AI MCP servers...'));
-              let successCount = 0;
-
-              for (const serverName of serversToAdd) {
-                const template = ZAI_MCP_TEMPLATES[serverName];
-                try {
-                  const config = generateZAIServerConfig(serverName, apiKey);
-                  // Only save config during setup - don't connect (server will be connected when ax-cli runs)
-                  addMCPServer(config);
-                  console.log(chalk.green(`✓ ${template.displayName}`));
-                  successCount++;
-                } catch {
-                  console.log(chalk.yellow(`⚠ ${template.displayName} (skipped)`));
-                }
+            for (const serverName of serversToAdd) {
+              const template = ZAI_MCP_TEMPLATES[serverName];
+              try {
+                const config = generateZAIServerConfig(serverName, apiKey);
+                // Only save config during setup - don't connect (server will be connected when ax-cli runs)
+                addMCPServer(config);
+                console.log(chalk.green(`✓ ${template.displayName}`));
+                successCount++;
+              } catch {
+                console.log(chalk.yellow(`⚠ ${template.displayName} (skipped)`));
               }
-
-              if (successCount > 0) {
-                console.log(chalk.green(`\n✨ ${successCount} Z.AI MCP server${successCount !== 1 ? 's' : ''} enabled!\n`));
-              }
-            } catch (error) {
-              console.log(chalk.yellow('\n⚠️  Could not set up Z.AI MCP servers:'), extractErrorMessage(error));
-              console.log(chalk.dim('   You can enable them later with: ax-cli mcp add-zai\n'));
             }
-          } else {
-            console.log(chalk.dim('\n   You can enable Z.AI MCP later with: ax-cli mcp add-zai\n'));
+
+            if (successCount > 0) {
+              console.log(chalk.green(`\n✨ ${successCount} Z.AI MCP server${successCount !== 1 ? 's' : ''} enabled!\n`));
+            }
+          } catch (error) {
+            console.log(chalk.yellow('\n⚠️  Could not set up Z.AI MCP servers:'), extractErrorMessage(error));
+            console.log(chalk.dim('   You can enable them later with: ax-cli mcp add-zai\n'));
           }
         }
 

@@ -29,6 +29,7 @@ import { getHistoryManager } from "../../utils/history-manager.js";
 import { getMcpConnectionCount } from "../../llm/tools.js";
 import { BackgroundTaskManager } from "../../utils/background-task-manager.js";
 import { isAutomatosXAvailable } from "../../utils/automatosx-detector.js";
+import { routeToAgent } from "../../agent/agent-router.js";
 import { PhaseProgress } from "./phase-progress.js";
 import { TaskPlan } from "../../planner/types.js";
 import { GLM_MODELS } from "../../constants.js";
@@ -40,6 +41,8 @@ interface ChatInterfaceProps {
   agent?: LLMAgent;
   initialMessage?: string;
   loadPreviousHistory?: boolean; // For --continue flag
+  agentFirstDisabled?: boolean; // --no-agent flag
+  forcedAgent?: string; // --agent <name> flag
 }
 
 // Get current project folder name
@@ -99,10 +102,14 @@ function ChatInterfaceWithAgent({
   agent,
   initialMessage,
   loadPreviousHistory = false,
+  agentFirstDisabled = false,
+  forcedAgent,
 }: {
   agent: LLMAgent;
   initialMessage?: string;
   loadPreviousHistory?: boolean;
+  agentFirstDisabled?: boolean;
+  forcedAgent?: string;
 }) {
   // Memoize history manager to avoid unnecessary function calls on every render
   const historyManager = useMemo(() => getHistoryManager(), []);
@@ -131,6 +138,7 @@ function ChatInterfaceWithAgent({
   const [flashThinkingMode, setFlashThinkingMode] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [axEnabled, setAxEnabled] = useState(false);
+  const [activeAgent, setActiveAgent] = useState<string | null>(forcedAgent || null);
   const [currentPlan, setCurrentPlan] = useState<TaskPlan | null>(null);
   // BUG FIX: Removed unused scrollRef - Ink Box doesn't support DOM scroll APIs
   const processingStartTime = useRef<number>(0);
@@ -419,6 +427,10 @@ function ChatInterfaceWithAgent({
     onEditorSuccess: handleEditorSuccess,
     onEditorCancelled: handleEditorCancelled,
     onEditorError: handleEditorError,
+    // Agent-First Mode props
+    agentFirstDisabled,
+    forcedAgent,
+    onAgentSelected: setActiveAgent,
   });
 
   useEffect(() => {
@@ -441,6 +453,29 @@ function ChatInterfaceWithAgent({
   useEffect(() => {
     if (!initialMessage || !agent) {
       return;
+    }
+
+    // Agent-First Mode: Set active agent for initial message
+    // Note: The actual agent execution happens in useInputHandler for subsequent messages
+    // For initial message, we just set the badge - execution goes through LLMAgent
+    if (forcedAgent) {
+      setActiveAgent(forcedAgent);
+    } else if (!agentFirstDisabled) {
+      const settings = getSettingsManager();
+      const agentFirstSettings = settings.getAgentFirstSettings();
+
+      if (agentFirstSettings.enabled) {
+        const routerConfig = {
+          enabled: agentFirstSettings.enabled,
+          defaultAgent: agentFirstSettings.defaultAgent,
+          confidenceThreshold: agentFirstSettings.confidenceThreshold,
+          excludedAgents: agentFirstSettings.excludedAgents,
+        };
+        const routingResult = routeToAgent(initialMessage, routerConfig);
+        if (routingResult.agent) {
+          setActiveAgent(routingResult.agent);
+        }
+      }
     }
 
     const userEntry: ChatEntry = {
@@ -1020,6 +1055,7 @@ function ChatInterfaceWithAgent({
             flashVerbose={flashVerbose}
             flashBackground={flashBackground}
             axEnabled={axEnabled}
+            activeAgent={activeAgent}
             thinkingModeEnabled={thinkingModeEnabled}
             flashThinkingMode={flashThinkingMode}
             isThinking={isThinking}
@@ -1046,6 +1082,8 @@ export default function ChatInterface({
   agent,
   initialMessage,
   loadPreviousHistory = false,
+  agentFirstDisabled = false,
+  forcedAgent,
 }: ChatInterfaceProps) {
   const [currentAgent, setCurrentAgent] = useState<LLMAgent | null>(
     agent || null
@@ -1064,6 +1102,8 @@ export default function ChatInterface({
       agent={currentAgent}
       initialMessage={initialMessage}
       loadPreviousHistory={loadPreviousHistory}
+      agentFirstDisabled={agentFirstDisabled}
+      forcedAgent={forcedAgent}
     />
   );
 }

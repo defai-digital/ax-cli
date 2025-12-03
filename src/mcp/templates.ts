@@ -34,15 +34,15 @@ export const TEMPLATES: Record<string, MCPServerTemplate> = {
   // ============================================
   figma: {
     name: 'figma',
-    description: 'Official Figma MCP server for design-to-code workflows',
+    description: 'Figma MCP server for accessing Figma API (community package)',
     category: 'design',
-    officialServer: true,
+    officialServer: false,
     config: {
       name: 'figma',
       transport: {
         type: 'stdio',
         command: 'npx',
-        args: ['@figma/mcp-server'],
+        args: ['-y', 'mcp-figma'],
         env: {}
       }
     },

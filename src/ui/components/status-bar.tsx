@@ -36,6 +36,8 @@ interface StatusBarProps {
   flashBackground?: boolean;
   // AutomatosX integration
   axEnabled?: boolean;
+  /** Active agent name when agent-first mode routes to a specific agent */
+  activeAgent?: string | null;
   // Phase 2: Thinking mode indicator
   thinkingModeEnabled?: boolean;
   flashThinkingMode?: boolean;
@@ -252,6 +254,7 @@ function CompactStatusBar(props: StatusBarProps) {
     flashVerbose = false,
     flashBackground = false,
     axEnabled = false,
+    activeAgent = null,
     thinkingModeEnabled = false,
     flashThinkingMode = false,
     isThinking = false,
@@ -302,7 +305,11 @@ function CompactStatusBar(props: StatusBarProps) {
           {axEnabled && (
             <>
               <Text color="gray"> • </Text>
-              <Text color="green">⚡ ax</Text>
+              {activeAgent ? (
+                <Text color="cyan" bold>⚡ {activeAgent}</Text>
+              ) : (
+                <Text color="green">⚡ ax</Text>
+              )}
             </>
           )}
         </Box>
@@ -378,6 +385,7 @@ export function StatusBar(props: StatusBarProps) {
     flashVerbose = false,
     flashBackground = false,
     axEnabled = false,
+    activeAgent = null,
     thinkingModeEnabled = false,
     flashThinkingMode = false,
     isThinking = false,
@@ -439,7 +447,11 @@ export function StatusBar(props: StatusBarProps) {
           {axEnabled && (
             <>
               <Text color="gray"> • </Text>
-              <Text color="green">⚡ ax</Text>
+              {activeAgent ? (
+                <Text color="cyan" bold>⚡ {activeAgent}</Text>
+              ) : (
+                <Text color="green">⚡ ax</Text>
+              )}
             </>
           )}
         </Box>

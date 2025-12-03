@@ -607,6 +607,9 @@ program
   .option("--line-range <range>", "include specific line range (e.g., 10-20)")
   .option("--git-diff", "include git diff as context")
   .option("--vscode", "optimize output for VSCode integration")
+  // Agent-First Mode Flags
+  .option("--no-agent", "bypass agent-first mode, use direct LLM")
+  .option("--agent <name>", "force use of specific AutomatosX agent (e.g., backend, frontend, security)")
   .action(async (message, options) => {
     if (options.directory) {
       try {
@@ -773,6 +776,8 @@ program
           agent,
           initialMessage,
           loadPreviousHistory: options.continue || false,
+          agentFirstDisabled: options.agent === false, // --no-agent flag
+          forcedAgent: typeof options.agent === 'string' ? options.agent : undefined, // --agent <name>
         })
       );
 

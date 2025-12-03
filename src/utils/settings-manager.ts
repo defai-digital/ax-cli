@@ -623,6 +623,34 @@ export class SettingsManager {
   }
 
   /**
+   * Get merged agent-first settings with priority:
+   * 1. Project settings (highest priority)
+   * 2. User settings
+   * 3. Defaults (enabled: true, confidenceThreshold: 0.6)
+   */
+  public getAgentFirstSettings(): {
+    enabled: boolean;
+    confidenceThreshold: number;
+    showAgentIndicator: boolean;
+    defaultAgent: string | null;
+    excludedAgents: string[];
+  } {
+    const userSettings = this.getUserSetting("agentFirst");
+    const projectSettings = this.getProjectSetting("agentFirst");
+
+    // Merge with project settings taking priority
+    const merged = { ...(userSettings || {}), ...(projectSettings || {}) } as Record<string, unknown>;
+
+    return {
+      enabled: (merged.enabled as boolean) ?? true,
+      confidenceThreshold: (merged.confidenceThreshold as number) ?? 0.6,
+      showAgentIndicator: (merged.showAgentIndicator as boolean) ?? true,
+      defaultAgent: (merged.defaultAgent as string | null) ?? 'standard',
+      excludedAgents: (merged.excludedAgents as string[]) ?? [],
+    };
+  }
+
+  /**
    * Get the actual user settings path being used
    */
   public getUserSettingsPath(): string {
