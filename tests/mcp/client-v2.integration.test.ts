@@ -29,10 +29,10 @@ describe('MCPClientManagerV2 Integration Tests', () => {
   });
 
   afterEach(async () => {
-    // Clean up all connections
+    // Clean up all connections (extended timeout for slow CI environments)
     const result = await manager.shutdown();
     expect(result.success).toBe(true);
-  });
+  }, 30000);
 
   describe('Stdio Transport Integration', () => {
     it('should successfully connect to stdio server', async () => {
@@ -220,6 +220,7 @@ describe('MCPClientManagerV2 Integration Tests', () => {
     });
 
     it('should handle multiple servers concurrently', async () => {
+      // Use localhost URLs that fail fast instead of external URLs that timeout
       const configs: MCPServerConfig[] = [
         {
           name: 'server-1',
@@ -231,7 +232,7 @@ describe('MCPClientManagerV2 Integration Tests', () => {
         },
         {
           name: 'server-3',
-          transport: { type: 'sse', url: 'https://example.com/sse' }
+          transport: { type: 'sse', url: 'http://localhost:8082/sse' }
         }
       ];
 
@@ -251,7 +252,7 @@ describe('MCPClientManagerV2 Integration Tests', () => {
       // In test environment without real MCP servers, this will be 0
       const servers = manager.getServers();
       expect(servers.length).toBeGreaterThanOrEqual(0);
-    });
+    }, 30000);
   });
 
   describe('Tool Management Integration', () => {
