@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.20)](#recent-changes-v31520)
+- [Recent Changes (v3.15.21)](#recent-changes-v31521)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,14 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.20)
+## Recent Changes (v3.15.21)
+
+### Bug Fixes
+
+- **Node.js deprecation fix**: Removed `shell: true` from spawn() to avoid DEP0190 deprecation warning
+- **Tool description cleanup**: Removed stale references to deleted static tools in `ax_agent` description
+
+## Previous Changes (v3.15.20)
 
 ### AutomatosX Agent Integration
 
