@@ -1,8 +1,7 @@
 # AX CLI - Enterprise-Class CLI for Vibe Coding
 
-[![npm](https://img.shields.io/npm/dt/@defai.digital/ax-cli?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
-[![Tests](https://img.shields.io/badge/tests-2112%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
-[![Coverage](https://img.shields.io/badge/coverage-98%2B%25-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli)
+[![downloads](https://img.shields.io/npm/dt/@defai.digital/ax-cli?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
+[![Tests](https://img.shields.io/badge/tests-2265%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
 [![macOS](https://img.shields.io/badge/macOS-26.0-blue?style=flat-square&logo=apple)](https://www.apple.com/macos/)
 [![Windows](https://img.shields.io/badge/Windows-10%2B-blue?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-blue?style=flat-square&logo=ubuntu)](https://ubuntu.com/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
@@ -50,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.26)](#recent-changes-v31526)
+- [Recent Changes (v4.0.0)](#recent-changes-v400)
 - [Documentation](#documentation)
 
 ---
@@ -438,35 +437,63 @@ Email: **security@defai.digital** (private disclosure)
 
 - **SSOT Type System** via `@ax-cli/schemas`
 - **TypeScript strict mode** with Zod validation
-- **98%+ test coverage** (2112+ tests)
+- **98%+ test coverage** (2265+ tests)
 - **Modular design** with clean separation
 - **Enterprise security** with AES-256-GCM encryption
 
 ---
 
-## Recent Changes (v3.15.26)
+## Recent Changes (v4.0.0)
+
+### Tool System v3.0 - Major Architecture Upgrade
+
+This major release introduces a completely redesigned tool definition system inspired by Claude Code's quality standards:
+
+#### Rich Tool Definitions (Single Source of Truth)
+
+- **Comprehensive Metadata**: Each tool now has 500+ word descriptions, usage notes, constraints, anti-patterns, and concrete examples
+- **Type-Safe Architecture**: New `ToolDefinition` interface with full TypeScript support
+- **Format Generators**: OpenAI and Anthropic formats are now derived from rich definitions, not hand-written
+
+#### New Tool Definition System
+
+| Component | Purpose |
+|-----------|---------|
+| `src/tools/types.ts` | Core type definitions (ToolDefinition, ParameterDefinition, etc.) |
+| `src/tools/format-generators.ts` | Converts rich definitions to OpenAI/Anthropic formats |
+| `src/tools/result-enhancer.ts` | Adds security reminders and contextual guidance |
+| `src/tools/definitions/*.ts` | 17 rich tool definitions with Claude Code quality |
+
+#### Tool Categories
+
+- **File Operations**: view_file, create_file, str_replace_editor, multi_edit
+- **Command Execution**: bash, bash_output
+- **Search**: search (unified text/file search)
+- **Task Management**: create_todo_list, update_todo_list
+- **User Interaction**: ask_user
+- **Agent Delegation**: ax_agent
+- **Design Tools**: figma_map, figma_tokens, figma_audit, figma_search, figma_alias_list, figma_alias_resolve
+
+#### Result Enhancer Features
+
+- **Malware Detection**: Warns about potentially malicious code patterns
+- **Sensitive Data Detection**: Identifies exposed credentials, API keys, tokens
+- **Failure Guidance**: Provides contextual help when tools fail
+- **Format Reminders**: Handles truncated output and long lines
+
+#### Benefits
+
+- **Better LLM Behavior**: Rich descriptions guide correct tool usage
+- **Reduced Errors**: Anti-patterns and constraints prevent common mistakes
+- **Easier Maintenance**: Single source of truth for all tool metadata
+- **Token Cost Tracking**: Each tool has estimated token cost for budget planning
+
+## Previous Changes (v3.15.26)
 
 ### Command Separation Clarification
 
 - **`ax-cli setup`**: Handles user-level API configuration (provider, API key, model) - stored in `~/.ax-cli/config.json`
 - **`/init` in interactive mode**: Initializes the current project - stored in `.ax-cli/`
-
-### Recommended Workflow
-
-```bash
-# First time: configure API credentials
-ax-cli setup
-
-# Start interactive mode
-ax-cli
-
-# Inside ax-cli, initialize your project
-> /init
-```
-
-The two steps serve different purposes:
-- `ax-cli setup` is run once per machine to configure your API credentials
-- `/init` is run once per project (inside ax-cli) to generate AI instructions based on project analysis
 
 ## Previous Changes (v3.15.25)
 

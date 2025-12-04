@@ -3,6 +3,8 @@ import { MCPManager, MCPTool } from "../mcp/client.js";
 import { loadMCPConfig } from "../mcp/config.js";
 import { extractErrorMessage } from "../utils/error-handler.js";
 import { TIMEOUT_CONFIG } from "../constants.js";
+import { TOOL_DEFINITIONS } from "../tools/definitions/index.js";
+import { toOpenAIFormat } from "../tools/format-generators.js";
 
 // Tool configuration constants
 const TOOL_DEFAULTS = {
@@ -24,10 +26,11 @@ const MCP_SUPPRESSED_LOG_PATTERNS = [
 ] as const;
 
 /**
- * Core tool definitions for the LLM agent
- * Named BASE_LLM_TOOLS (not GROK) to reflect actual usage
+ * Legacy tool definitions for the LLM agent
+ * @deprecated Kept for reference - now using TOOL_DEFINITIONS from definitions/index.ts
+ * Named _BASE_LLM_TOOLS (prefixed with _ to indicate unused)
  */
-const BASE_LLM_TOOLS: LLMTool[] = [
+const _BASE_LLM_TOOLS: LLMTool[] = [
   {
     type: "function",
     function: {
@@ -596,11 +599,24 @@ const BASE_LLM_TOOLS: LLMTool[] = [
 ];
 
 /**
+ * Rich tool definitions converted to OpenAI format
+ * These are derived from the TOOL_DEFINITIONS using format generators
+ */
+const RICH_LLM_TOOLS: LLMTool[] = TOOL_DEFINITIONS.map(toOpenAIFormat);
+
+/**
  * Exported tool definitions
+ * Now using rich definitions from Tool System v3.0
  * @deprecated Use LLM_TOOLS instead of GROK_TOOLS (legacy name kept for backwards compatibility)
  */
-export const GROK_TOOLS: LLMTool[] = [...BASE_LLM_TOOLS];
+export const GROK_TOOLS: LLMTool[] = [...RICH_LLM_TOOLS];
 export const LLM_TOOLS: LLMTool[] = GROK_TOOLS; // Preferred name
+
+// Keep legacy BASE_LLM_TOOLS reference for any code that imports it directly
+export { RICH_LLM_TOOLS as BASE_LLM_TOOLS_V3 };
+
+// Export legacy definitions for backward compatibility (if any code still uses them)
+export { _BASE_LLM_TOOLS as LEGACY_LLM_TOOLS };
 
 // Global MCP manager instance (singleton pattern)
 let mcpManager: MCPManager | null = null;
