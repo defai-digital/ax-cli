@@ -169,7 +169,7 @@ export function validateURL(urlString: string): SSRFValidationResult {
   let url: URL;
   try {
     url = new URL(urlString);
-  } catch (error) {
+  } catch {
     const result: SSRFValidationResult = {
       valid: false,
       error: 'Invalid URL format',

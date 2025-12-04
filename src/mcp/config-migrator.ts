@@ -244,8 +244,8 @@ export function createConfigBackup(config: any): {
   error?: string;
 } {
   try {
-    // Deep clone the config
-    const backup = JSON.parse(JSON.stringify(config));
+    // Deep clone the config (structuredClone is faster than JSON.parse/stringify)
+    const backup = structuredClone(config);
 
     // Add backup metadata
     const backupWithMetadata = {

@@ -325,7 +325,7 @@ export class AuditLogger {
       try {
         this.rotateLogFile();
         writeFileSync(this.currentLogFile, logLine, { flag: 'a' });
-      } catch (retryError: any) {
+      } catch {
         // If retry also fails, silently continue to prevent cascade failures
         // Audit logging is secondary to the main operation
         return;

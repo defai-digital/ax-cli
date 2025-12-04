@@ -636,8 +636,8 @@ export function generateConfigFromTemplate(
     throw new Error(`Template "${templateName}" not found`);
   }
 
-  // Clone the config to avoid mutating the template
-  const config: MCPServerConfig = JSON.parse(JSON.stringify(template.config));
+  // Clone the config to avoid mutating the template (structuredClone is faster)
+  const config: MCPServerConfig = structuredClone(template.config);
 
   // Inject environment variables
   if (config.transport.env) {

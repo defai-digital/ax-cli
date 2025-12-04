@@ -16,14 +16,28 @@
  * All new code should use `MCPManagerV2` for better type safety.
  * `MCPManager` is maintained for SDK backward compatibility.
  *
+ * ## Export Organization
+ *
+ * Exports are grouped by domain:
+ * 1. Core API (v1 legacy + v2 recommended)
+ * 2. Configuration (loading, templates, migration)
+ * 3. Transports (stdio, HTTP, SSE)
+ * 4. Features (progress, cancellation, subscriptions, validation)
+ * 5. Utilities (type safety, resources, prompts)
+ * 6. Z.AI Integration (templates, detection)
+ *
  * @packageDocumentation
  */
 
-// Core client - backward-compatible wrapper (v1 API)
+// ============================================================================
+// CORE API
+// ============================================================================
+
+// v1 API - backward-compatible wrapper (legacy, throws on errors)
 export { MCPManager } from "./client.js";
 export type { MCPTool, MCPServerConfig, MCPTransportConfig } from "./client.js";
 
-// Type-safe client (v2 API) - recommended for new code
+// v2 API - type-safe implementation (recommended for new code)
 export {
   MCPManagerV2,
   createServerName,
@@ -34,16 +48,11 @@ export {
 } from "./client-v2.js";
 export type { ServerName, ToolName } from "./client-v2.js";
 
-// Prompt utilities
-export {
-  parseMCPIdentifier, // Shared utility for parsing MCP identifiers
-  promptToSlashCommand,
-  parsePromptCommand,
-  formatPromptResult,
-  getPromptDescription,
-} from "./prompts.js";
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
 
-// Configuration
+// Config loading and management
 export {
   loadMCPConfig,
   addMCPServer,
@@ -54,7 +63,14 @@ export {
 } from "./config.js";
 export type { MCPConfig } from "./config.js";
 
-// Transports
+// Config detection and migration
+export { detectConfigFormat, detectMultipleConfigs, getDetectionSummary } from "./config-detector.js";
+export { migrateConfig, batchMigrateConfigs, formatBatchMigrationResult } from "./config-migrator.js";
+
+// ============================================================================
+// TRANSPORTS
+// ============================================================================
+
 export {
   createTransport,
   type MCPTransport,
@@ -63,17 +79,11 @@ export {
   type StdioFraming,
 } from "./transports.js";
 
-// Config detection and migration
-export { detectConfigFormat, detectMultipleConfigs, getDetectionSummary } from "./config-detector.js";
-export { migrateConfig, batchMigrateConfigs, formatBatchMigrationResult } from "./config-migrator.js";
+// ============================================================================
+// FEATURES (MCP 2025-06-18 Specification)
+// ============================================================================
 
-// Type safety utilities
-export { Result, Ok, Err } from "./type-safety.js";
-
-// Resource handling
-export { resolveMCPReferences, extractMCPReferences } from "./resources.js";
-
-// Progress tracking (MCP 2025-06-18)
+// Progress tracking
 export {
   ProgressTracker,
   getProgressTracker,
@@ -84,7 +94,7 @@ export {
   type ProgressCallback,
 } from "./progress.js";
 
-// Cancellation support (MCP 2025-06-18)
+// Cancellation support
 export {
   CancellationManager,
   getCancellationManager,
@@ -96,7 +106,7 @@ export {
   type CancellationResult,
 } from "./cancellation.js";
 
-// Resource subscriptions (MCP 2025-06-18)
+// Resource subscriptions
 export {
   SubscriptionManager,
   getSubscriptionManager,
@@ -104,7 +114,7 @@ export {
   type ResourceSubscription,
 } from "./subscriptions.js";
 
-// Schema validation (MCP 2025-06-18)
+// Schema validation
 export {
   ToolOutputValidator,
   getToolOutputValidator,
@@ -113,7 +123,49 @@ export {
   type SchemaValidationStatus,
 } from "./schema-validator.js";
 
-// Z.AI MCP Integration
+// ============================================================================
+// UTILITIES
+// ============================================================================
+
+// Constants
+export {
+  MCP_TIMEOUTS,
+  MCP_LIMITS,
+  MCP_ERROR_CODES,
+  MCP_RECONNECTION,
+  MCP_TRANSPORT_DEFAULTS,
+  MCP_PATTERNS,
+} from "./constants.js";
+
+// Type safety (Result types, error conversion)
+export { Result, Ok, Err, toError } from "./type-safety.js";
+
+// Error remediation (pattern matching, hints)
+export {
+  matchErrorPattern,
+  getTransportHints,
+  getEnvVarHints,
+  ERROR_REMEDIATION,
+  type Remediation
+} from "./error-remediation.js";
+
+// Resource handling
+export { resolveMCPReferences, extractMCPReferences } from "./resources.js";
+
+// Prompt utilities
+export {
+  parseMCPIdentifier,
+  promptToSlashCommand,
+  parsePromptCommand,
+  formatPromptResult,
+  getPromptDescription,
+} from "./prompts.js";
+
+// ============================================================================
+// Z.AI INTEGRATION
+// ============================================================================
+
+// Z.AI MCP templates and configuration
 export {
   ZAI_SERVER_NAMES,
   ZAI_ENDPOINTS,
@@ -129,6 +181,7 @@ export {
   type ZAIMCPTemplate,
 } from "./zai-templates.js";
 
+// Z.AI service detection and validation
 export {
   detectZAIServices,
   getEnabledZAIServers,

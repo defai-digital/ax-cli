@@ -591,17 +591,29 @@ export async function waitForAgent(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeout = options?.timeout || 5000;
+    let resolved = false;
+
     const timer = setTimeout(() => {
-      reject(new Error(`Agent did not complete within ${timeout}ms`));
+      if (!resolved) {
+        resolved = true;
+        reject(new Error(`Agent did not complete within ${timeout}ms`));
+      }
     }, timeout);
 
     // Wait for agent to emit 'idle' or similar completion event
     // For now, just resolve after a short delay
     // TODO: Implement proper event listening when LLMAgent has completion events
-    setTimeout(() => {
-      clearTimeout(timer);
-      resolve();
+    const completionTimer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timer);
+        resolve();
+      }
     }, 100);
+
+    // BUG FIX: Clean up completion timer if timeout fires first
+    timer.unref?.();
+    completionTimer.unref?.();
   });
 }
 

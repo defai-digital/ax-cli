@@ -128,8 +128,8 @@ export class LLMAgent extends EventEmitter {
       checkpointCallback: async (files, description) => {
         // BUG FIX: Check if agent is disposed before creating checkpoint
         if (this.disposed) return;
-        // Create immutable snapshot of chat history at callback time
-        const chatHistorySnapshot = JSON.parse(JSON.stringify(this.chatHistory));
+        // Create immutable snapshot of chat history at callback time (structuredClone is faster)
+        const chatHistorySnapshot = structuredClone(this.chatHistory);
         await this.checkpointManager.createCheckpoint({
           files,
           conversationState: chatHistorySnapshot,

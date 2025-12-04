@@ -1214,7 +1214,7 @@ export function useEnhancedInput({
             // Process accumulated content
             try {
               handlePasteComplete(finalContent);
-            } catch (error) {
+            } catch {
               // BUG FIX: Silently ignore - avoid cluttering CLI
             }
             return;
@@ -1265,7 +1265,7 @@ export function useEnhancedInput({
 
             try {
               handlePasteComplete(finalContent);
-            } catch (error) {
+            } catch {
               // BUG FIX: Silently ignore - avoid cluttering CLI
             }
           }, timeoutMs);
@@ -1315,7 +1315,7 @@ export function useEnhancedInput({
 
                 try {
                   handlePasteComplete(finalContent);
-                } catch (error) {
+                } catch {
                   // BUG FIX: Catch errors to prevent timeout callback crash
                   // BUG FIX: Silently ignore - avoid cluttering CLI
                 }
@@ -1383,7 +1383,7 @@ export function useEnhancedInput({
             // Process accumulated content
             try {
               handlePasteComplete(finalContent);
-            } catch (error) {
+            } catch {
               // BUG FIX: Silently ignore - avoid cluttering CLI
             }
             return;
@@ -1432,7 +1432,7 @@ export function useEnhancedInput({
             // Note: handlePasteComplete will use CURRENT input/cursor values from React state
             try {
               handlePasteComplete(finalContent);
-            } catch (error) {
+            } catch {
               // BUG FIX: Catch errors to prevent timeout callback crash
               // BUG FIX: Silently ignore - avoid cluttering CLI
               // Don't attempt fallback - state might be inconsistent

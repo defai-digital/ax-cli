@@ -12,6 +12,9 @@ import * as path from "path";
 import * as os from "os";
 import { extractErrorMessage } from "../utils/error-handler.js";
 
+// Pre-compiled regex patterns for positional arguments (avoid creating RegExp in hot path)
+const POSITIONAL_ARG_PATTERNS = Array.from({ length: 10 }, (_, i) => new RegExp(`\\$${i + 1}`, "g"));
+
 /**
  * Custom command definition
  */
@@ -288,11 +291,11 @@ export class CustomCommandsManager {
     // Replace $ARGUMENTS with the full argument string
     content = content.replace(/\$ARGUMENTS/g, args);
 
-    // Replace $1, $2, etc. with positional arguments
+    // Replace $1, $2, etc. with positional arguments (using pre-compiled patterns)
     const argParts = args.split(/\s+/).filter(Boolean);
     for (let i = 0; i < 10; i++) {
       const value = argParts[i] || "";
-      content = content.replace(new RegExp(`\\$${i + 1}`, "g"), value);
+      content = content.replace(POSITIONAL_ARG_PATTERNS[i], value);
     }
 
     return content;

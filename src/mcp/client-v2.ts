@@ -27,7 +27,7 @@ import { getTokenCounter } from "../utils/token-counter.js";
 
 // Phase 1: Import type safety utilities
 import { SafeKeyedMutex } from "./mutex-safe.js";
-import { Result, Ok, Err } from "./type-safety.js";
+import { Result, Ok, Err, toError } from "./type-safety.js";
 import {
   ServerName,
   ToolName,
@@ -63,14 +63,6 @@ export type { ProgressUpdate, ProgressCallback };
 export type { CancellableRequest, CancellationResult };
 export type { ResourceSubscription };
 export type { SchemaValidationResult };
-
-/**
- * Convert unknown error to Error instance
- * Reduces repeated error instanceof checks throughout the codebase
- */
-function toError(error: unknown): Error {
-  return error instanceof Error ? error : new Error(String(error));
-}
 
 /**
  * Extended tool result with schema validation
@@ -843,11 +835,17 @@ export class MCPManagerV2 extends EventEmitter {
     });
 
     try {
-      // Create abort listener
+      // BUG FIX: Create abort promise with no-op catch attached to prevent
+      // unhandled rejections when tool call wins the race but abort fires afterward
       const abortPromise = new Promise<never>((_, reject) => {
         abortController.signal.addEventListener('abort', () => {
           reject(new Error('Request cancelled'));
         });
+      });
+
+      // Attach a no-op catch to prevent unhandled rejection warning
+      abortPromise.catch(() => {
+        // Intentionally empty - prevents unhandled rejection warning
       });
 
       // Race between tool call and abort
@@ -1076,11 +1074,18 @@ export class MCPManagerV2 extends EventEmitter {
    * UNICODE FIX: Uses grapheme clusters
    */
   private truncateToTokenLimit(text: string, maxTokens: number): string {
+    // BUG FIX: Handle edge case where maxTokens is 0 or negative
+    if (maxTokens <= 0) {
+      return '';
+    }
+
     const chars = Array.from(text);
 
+    // BUG FIX: Initialize result to empty string, not full text
+    // This ensures that if no valid truncation is found, we return empty
     let low = 0;
     let high = chars.length;
-    let result = text;
+    let result = '';
 
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);

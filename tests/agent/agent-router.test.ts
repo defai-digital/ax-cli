@@ -15,7 +15,6 @@ import {
   type AgentRouterConfig,
 } from '../../src/agent/agent-router.js';
 import * as fs from 'fs';
-import * as path from 'path';
 
 // Mock fs module
 vi.mock('fs', () => ({

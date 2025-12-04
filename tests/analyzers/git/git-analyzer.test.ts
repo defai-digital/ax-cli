@@ -19,7 +19,7 @@ describe('GitAnalyzer', () => {
     // Verify we're in a git repository
     try {
       execSync('git rev-parse --git-dir', { cwd: REPO_PATH });
-    } catch (error) {
+    } catch {
       throw new Error('Tests must be run in a git repository');
     }
 

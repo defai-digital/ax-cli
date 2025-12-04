@@ -385,6 +385,14 @@ export function isValidConnectionState(value: unknown): value is ConnectionState
 export type AsyncResult<T, E = Error> = Promise<Result<T, E>>;
 
 /**
+ * Convert unknown error to Error instance
+ * Utility to reduce repeated error instanceof checks throughout the codebase
+ */
+export function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
+/**
  * Wrap async function to return Result
  */
 export async function tryCatch<T>(
@@ -394,7 +402,7 @@ export async function tryCatch<T>(
     const value = await fn();
     return Ok(value);
   } catch (error) {
-    return Err(error instanceof Error ? error : new Error(String(error)));
+    return Err(toError(error));
   }
 }
 

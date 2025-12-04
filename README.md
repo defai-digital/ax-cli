@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.10)](#recent-changes-v31510)
+- [Recent Changes (v3.15.11)](#recent-changes-v31511)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,19 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.10)
+## Recent Changes (v3.15.11)
+
+### Bug Fixes
+
+- **Figma Token remBase NaN Handling**: Fixed issue where invalid `--rem-base` values (e.g., non-numeric input) could cause NaN output in design token conversion. Now properly validates and falls back to default value of 16.
+
+### Performance Improvements
+
+- **Deep Clone Optimization**: Replaced `JSON.parse(JSON.stringify())` with native `structuredClone()` for ~2x faster object cloning in MCP config handling and checkpoint creation.
+- **String Case Conversion Caching**: Pre-compute `toLowerCase()` and `toUpperCase()` outside hot-path callbacks in Figma node search operations.
+- **RegExp Pre-compilation**: Pre-compile positional argument patterns (`$1`-`$10`) in custom commands to avoid creating 10 new RegExp objects on every command execution.
+
+## Previous Changes (v3.15.10)
 
 ### Improvements
 

@@ -69,7 +69,7 @@ export async function listServerResources(
       serverName,
       reference: `@mcp:${serverName}/${resource.uri}`
     }));
-  } catch (error) {
+  } catch {
     // Server doesn't support resources
     return [];
   }
@@ -169,7 +169,7 @@ export async function resolveMCPReferences(
         reference,
         `\n--- Resource: ${reference} ---\n${content}\n--- End Resource ---\n`
       );
-    } catch (error) {
+    } catch {
       // Replace with error message
       result = result.replace(
         reference,

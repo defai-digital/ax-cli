@@ -84,20 +84,23 @@ export function createMemoryCommand(): Command {
         const sections = memory.context.sections;
         const total = memory.context.token_estimate;
 
+        // BUG FIX: Guard against division by zero when total is 0
+        const calcPct = (value: number) => total > 0 ? Math.round((value / total) * 100) : 0;
+
         if (sections.structure) {
-          const pct = Math.round((sections.structure / total) * 100);
+          const pct = calcPct(sections.structure);
           console.log(`   Structure:  ${sections.structure.toLocaleString().padStart(5)} tokens (${pct}%)`);
         }
         if (sections.readme) {
-          const pct = Math.round((sections.readme / total) * 100);
+          const pct = calcPct(sections.readme);
           console.log(`   README:     ${sections.readme.toLocaleString().padStart(5)} tokens (${pct}%)`);
         }
         if (sections.config) {
-          const pct = Math.round((sections.config / total) * 100);
+          const pct = calcPct(sections.config);
           console.log(`   Config:     ${sections.config.toLocaleString().padStart(5)} tokens (${pct}%)`);
         }
         if (sections.patterns) {
-          const pct = Math.round((sections.patterns / total) * 100);
+          const pct = calcPct(sections.patterns);
           console.log(`   Patterns:   ${sections.patterns.toLocaleString().padStart(5)} tokens (${pct}%)`);
         }
 

@@ -337,7 +337,13 @@ export function createDesignCommand(): Command {
         const figmaTokens = extractTokensFromVariables(response);
 
         const localContent = readFileSync(localPath, 'utf-8');
-        const localTokens = JSON.parse(localContent);
+        let localTokens;
+        try {
+          localTokens = JSON.parse(localContent);
+        } catch {
+          console.error(`Error: Failed to parse ${localPath} as JSON. File may be corrupted.`);
+          process.exit(1);
+        }
 
         const comparison = compareTokens(figmaTokens, localTokens, fileKey, localPath);
 
@@ -387,14 +393,19 @@ export function createDesignCommand(): Command {
         const mapResult = mapFigmaFile(response, fileKey);
         const limit = parseInt(options.limit, 10);
 
+        // Pre-compute lowercase search terms once (avoid repeated toLowerCase in callback)
+        const nameLower = options.name?.toLowerCase();
+        const typeUpper = options.type?.toUpperCase();
+        const textLower = options.text?.toLowerCase();
+
         const results = findNodes(mapResult.root, (node) => {
-          if (options.name && !node.name.toLowerCase().includes(options.name.toLowerCase())) {
+          if (nameLower && !node.name.toLowerCase().includes(nameLower)) {
             return false;
           }
-          if (options.type && node.type !== options.type.toUpperCase()) {
+          if (typeUpper && node.type !== typeUpper) {
             return false;
           }
-          if (options.text && (!node.characters || !node.characters.toLowerCase().includes(options.text.toLowerCase()))) {
+          if (textLower && (!node.characters || !node.characters.toLowerCase().includes(textLower))) {
             return false;
           }
           return true;

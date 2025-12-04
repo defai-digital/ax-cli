@@ -61,16 +61,25 @@ export class GitAnalyzer {
       ? contributors[0].author
       : 'Unknown';
 
-    // Determine date range
-    let earliestDate = new Date();
-    let latestDate = new Date(0);
+    // BUG FIX: Handle empty contributors array to avoid invalid date range (from > to)
+    // When no contributors, use current date for both to create a valid empty range
+    const now = new Date();
+    let earliestDate = now;
+    let latestDate = now;
 
-    for (const contributor of contributors) {
-      if (contributor.firstCommit < earliestDate) {
-        earliestDate = contributor.firstCommit;
-      }
-      if (contributor.lastCommit > latestDate) {
-        latestDate = contributor.lastCommit;
+    if (contributors.length > 0) {
+      // Initialize with first contributor's dates
+      earliestDate = contributors[0].firstCommit;
+      latestDate = contributors[0].lastCommit;
+
+      // Find actual min/max across all contributors
+      for (const contributor of contributors) {
+        if (contributor.firstCommit < earliestDate) {
+          earliestDate = contributor.firstCommit;
+        }
+        if (contributor.lastCommit > latestDate) {
+          latestDate = contributor.lastCommit;
+        }
       }
     }
 

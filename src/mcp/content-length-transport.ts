@@ -14,6 +14,7 @@ import { spawn, ChildProcess } from "child_process";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { JSONRPCMessage, JSONRPCMessageSchema } from "@modelcontextprotocol/sdk/types.js";
 import { EventEmitter } from "events";
+import { MCP_TIMEOUTS, MCP_LIMITS } from "./constants.js";
 
 /**
  * Configuration for the Content-Length stdio transport
@@ -27,6 +28,8 @@ export interface ContentLengthStdioConfig {
   quiet?: boolean;
   /** Timeout in ms for the process to start (default: 30000) */
   startupTimeout?: number;
+  /** Maximum buffer size in bytes (default: 100MB) - protects against memory exhaustion */
+  maxBufferSize?: number;
 }
 
 /**
@@ -65,7 +68,7 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
     }
     this._started = true;
 
-    const startupTimeout = this.config.startupTimeout ?? 30000; // Default 30s
+    const startupTimeout = this.config.startupTimeout ?? MCP_TIMEOUTS.STARTUP;
 
     return new Promise((resolve, reject) => {
       let resolved = false;
@@ -159,6 +162,19 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
    * Handle incoming data with Content-Length framing
    */
   private handleData(chunk: Buffer): void {
+    const maxBufferSize = this.config.maxBufferSize ?? MCP_LIMITS.MAX_BUFFER_SIZE;
+
+    // BUG FIX: Check buffer size limit before appending to prevent memory exhaustion
+    if (this.buffer.length + chunk.length > maxBufferSize) {
+      this.onerror?.(new Error(
+        `Buffer size limit exceeded (${maxBufferSize} bytes). ` +
+        `This may indicate a malformed message or malicious server.`
+      ));
+      // Reset buffer to recover
+      this.buffer = Buffer.alloc(0);
+      return;
+    }
+
     // Append to buffer
     this.buffer = Buffer.concat([this.buffer, chunk]);
 
@@ -196,6 +212,15 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
     }
 
     const contentLength = parseInt(contentLengthMatch[1], 10);
+
+    // BUG FIX: Validate content-length is a reasonable positive number
+    const maxBufferSize = this.config.maxBufferSize ?? MCP_LIMITS.MAX_BUFFER_SIZE;
+    if (isNaN(contentLength) || contentLength < 0 || contentLength > maxBufferSize) {
+      // Invalid content-length - skip this message
+      this.buffer = this.buffer.subarray(headerEnd + 4);
+      return null;
+    }
+
     const messageStart = headerEnd + 4; // Skip \r\n\r\n
     const messageEnd = messageStart + contentLength;
 

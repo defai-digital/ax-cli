@@ -7,6 +7,11 @@
 
 import type { z } from 'zod';
 import chalk from 'chalk';
+import {
+  matchErrorPattern,
+  getTransportHints,
+  getEnvVarHints
+} from './error-remediation.js';
 
 export interface FormattedError {
   /** Main error title */
@@ -125,7 +130,10 @@ function getHintsForField(field: string, originalConfig?: any): string[] {
 
     default:
       if (field.startsWith('transport.')) {
-        hints.push(`Check the ${field.split('.')[1]} field in your transport configuration`);
+        // BUG FIX: Validate split result before accessing index to prevent undefined access
+        const fieldParts = field.split('.');
+        const subField = fieldParts.length > 1 ? fieldParts[1] : field;
+        hints.push(`Check the ${subField} field in your transport configuration`);
       }
   }
 
@@ -209,240 +217,29 @@ export function formatConnectionError(
 }
 
 /**
- * Comprehensive error code to remediation mapping
- * Maps error codes/patterns to specific troubleshooting steps
- */
-const ERROR_REMEDIATION: Record<string, { title: string; hints: string[]; command?: string }> = {
-  // Process/Command errors
-  'enoent': {
-    title: 'Command not found',
-    hints: [
-      'The MCP server command is not installed or not in PATH',
-      'Install the package: npm install -g <package-name>',
-      'Or use npx: npx <package-name>',
-      'Verify installation: which <command> or command -v <command>'
-    ],
-    command: 'npm list -g --depth=0'
-  },
-  'eacces': {
-    title: 'Permission denied',
-    hints: [
-      'The command or file lacks execute permissions',
-      'Fix permissions: chmod +x <file>',
-      'Or install globally with proper permissions',
-      'Avoid using sudo with npm - fix npm permissions instead'
-    ],
-    command: 'npm config set prefix ~/.npm-global'
-  },
-  'spawn': {
-    title: 'Failed to spawn process',
-    hints: [
-      'The command could not be started',
-      'Verify the command path is correct',
-      'Check if the binary is compatible with your system',
-      'Try running the command directly in terminal'
-    ]
-  },
-
-  // Network errors
-  'econnrefused': {
-    title: 'Connection refused',
-    hints: [
-      'The MCP server is not running or not listening',
-      'Start the server first, then retry',
-      'Check if the port is correct',
-      'Verify no firewall is blocking the connection'
-    ],
-    command: 'lsof -i :<port> # Check if port is in use'
-  },
-  'enotfound': {
-    title: 'Host not found',
-    hints: [
-      'The hostname could not be resolved',
-      'Check if the URL is spelled correctly',
-      'Verify your internet connection',
-      'Try using IP address instead of hostname'
-    ],
-    command: 'nslookup <hostname>'
-  },
-  'econnreset': {
-    title: 'Connection reset',
-    hints: [
-      'The server closed the connection unexpectedly',
-      'The server may have crashed or restarted',
-      'Check server logs for errors',
-      'Retry the connection'
-    ]
-  },
-  'etimedout': {
-    title: 'Connection timed out',
-    hints: [
-      'The server took too long to respond',
-      'Check if the server is overloaded',
-      'Verify network connectivity',
-      'Increase timeout in configuration if needed'
-    ]
-  },
-  'esockettimedout': {
-    title: 'Socket timed out',
-    hints: [
-      'The connection was established but no response received',
-      'The server may be hanging or processing slowly',
-      'For stdio: ensure command has proper args (not a REPL)',
-      'Check if the MCP server is compatible with this client'
-    ]
-  },
-
-  // SSL/TLS errors
-  'cert_': {
-    title: 'SSL Certificate error',
-    hints: [
-      'The server\'s SSL certificate is invalid or expired',
-      'For development: you can skip verification (not recommended)',
-      'For production: ensure valid certificate is installed',
-      'Check certificate chain: openssl s_client -connect <host>:443'
-    ]
-  },
-  'unable_to_verify': {
-    title: 'SSL verification failed',
-    hints: [
-      'Cannot verify the server\'s SSL certificate',
-      'The certificate may be self-signed',
-      'CA certificates may need to be updated',
-      'Set NODE_TLS_REJECT_UNAUTHORIZED=0 for development only'
-    ]
-  },
-
-  // Authentication errors
-  '401': {
-    title: 'Authentication failed',
-    hints: [
-      'The API key or token is invalid or expired',
-      'Check environment variable is set: echo $<VAR_NAME>',
-      'Regenerate the API key if expired',
-      'Verify the token has required permissions'
-    ]
-  },
-  '403': {
-    title: 'Access forbidden',
-    hints: [
-      'You don\'t have permission to access this resource',
-      'Check if your API key has the required scopes',
-      'Verify the account has access to this feature',
-      'Contact the service provider for access'
-    ]
-  },
-
-  // Server errors
-  '500': {
-    title: 'Server error',
-    hints: [
-      'The MCP server encountered an internal error',
-      'Check server logs for details',
-      'Try again later',
-      'Report the issue to the server maintainer'
-    ]
-  },
-  '502': {
-    title: 'Bad gateway',
-    hints: [
-      'The server received an invalid response from upstream',
-      'The upstream server may be down',
-      'Try again later',
-      'Check if there are known outages'
-    ]
-  },
-  '503': {
-    title: 'Service unavailable',
-    hints: [
-      'The server is temporarily unavailable',
-      'It may be overloaded or under maintenance',
-      'Wait a few minutes and retry',
-      'Check service status page'
-    ]
-  },
-
-  // MCP-specific errors
-  'initialization failed': {
-    title: 'MCP initialization failed',
-    hints: [
-      'The MCP server failed to initialize properly',
-      'Check if all required environment variables are set',
-      'Verify the server version is compatible',
-      'Try running: ax-cli mcp test <server-name>'
-    ]
-  },
-  'protocol error': {
-    title: 'MCP protocol error',
-    hints: [
-      'Invalid message format or unsupported protocol version',
-      'Ensure the server implements MCP protocol correctly',
-      'Check for server updates',
-      'Verify client and server versions are compatible'
-    ]
-  },
-  'tool not found': {
-    title: 'MCP tool not found',
-    hints: [
-      'The requested tool is not available on the server',
-      'List available tools: ax-cli mcp tools <server-name>',
-      'The server may need to be restarted',
-      'Check if the tool requires additional configuration'
-    ]
-  }
-};
-
-/**
  * Get hints for connection errors
- * Enhanced with comprehensive error code mapping
+ * Uses extracted error remediation module for pattern matching
  */
 function getConnectionErrorHints(error: Error, transportType?: string): string[] {
   const hints: string[] = [];
-  const message = error.message.toLowerCase();
-  const errorCode = (error as any).code?.toLowerCase() || '';
 
-  // Check for specific error codes first
-  for (const [pattern, remediation] of Object.entries(ERROR_REMEDIATION)) {
-    if (message.includes(pattern) || errorCode.includes(pattern)) {
-      hints.push(`${chalk.bold(remediation.title)}`);
-      hints.push(...remediation.hints);
-      if (remediation.command) {
-        hints.push(`Debug command: ${chalk.cyan(remediation.command)}`);
-      }
-      break;
+  // Check for specific error codes first using extracted module
+  const remediation = matchErrorPattern(error);
+  if (remediation) {
+    hints.push(`${chalk.bold(remediation.title)}`);
+    hints.push(...remediation.hints);
+    if (remediation.command) {
+      hints.push(`Debug command: ${chalk.cyan(remediation.command)}`);
     }
   }
 
   // If no specific match, provide transport-specific hints
   if (hints.length === 0) {
-    if (transportType === 'stdio') {
-      hints.push('For stdio transport:');
-      hints.push('• Verify command is installed: which <command>');
-      hints.push('• Ensure args include a script path (not just the runtime)');
-      hints.push('• Example: ["@modelcontextprotocol/server-github"]');
-      hints.push('• Commands like "node" without args start a REPL and hang');
-    } else if (transportType === 'http' || transportType === 'sse') {
-      hints.push('For HTTP/SSE transport:');
-      hints.push('• Verify server is running: curl <url>/health');
-      hints.push('• Check URL is accessible from your network');
-      hints.push('• Verify SSL certificate if using HTTPS');
-      hints.push('• Check authentication headers are correct');
-    } else {
-      hints.push('General troubleshooting:');
-      hints.push('• Check the server logs for more details');
-      hints.push('• Verify all required environment variables are set');
-      hints.push('• Try running ax-cli mcp test <server-name>');
-    }
+    hints.push(...getTransportHints(transportType));
   }
 
   // Add environment variable hints if relevant
-  if (message.includes('api_key') || message.includes('token') || message.includes('secret')) {
-    hints.push('');
-    hints.push('Environment variable tips:');
-    hints.push('• Set in shell: export VAR_NAME=value');
-    hints.push('• Or in .env file in project root');
-    hints.push('• Verify: echo $VAR_NAME');
-  }
+  hints.push(...getEnvVarHints(error.message));
 
   return hints;
 }

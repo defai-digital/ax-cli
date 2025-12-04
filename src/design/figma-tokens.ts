@@ -168,9 +168,11 @@ export function extractTokensFromVariables(
   const {
     colorFormat = 'hex',
     dimensionUnit = 'px',
-    remBase = 16,
+    remBase: rawRemBase = 16,
     includeDescription = true,
   } = options;
+  // BUG FIX: Handle NaN or invalid remBase values (e.g., from parseInt of non-numeric input)
+  const remBase = (typeof rawRemBase === 'number' && !isNaN(rawRemBase) && rawRemBase > 0) ? rawRemBase : 16;
 
   const tokens: ExtractedTokens = {};
   const variables = response.meta.variables;

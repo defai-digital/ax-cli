@@ -716,8 +716,8 @@ export function createMCPCommand(): Command {
           // Set up interval (uses configured health check interval)
           const watchInterval = setInterval(displayHealth, MCP_CONFIG.HEALTH_CHECK_INTERVAL);
 
-          // Handle Ctrl+C
-          process.on('SIGINT', () => {
+          // Handle Ctrl+C - use 'once' to prevent multiple handlers accumulating
+          process.once('SIGINT', () => {
             clearInterval(watchInterval);
             healthMonitor.stop();
             console.log(chalk.yellow('\n\n👋 Stopped health monitoring\n'));
