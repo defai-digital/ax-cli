@@ -194,11 +194,47 @@ function combineActiveAgents(
 }
 
 /**
- * AX Indicator Component - shows active agents or default ax indicator
+ * Agent name to role mapping for display in status bar
+ * Shows role instead of agent name for better UX
+ */
+const AGENT_ROLES: Record<string, string> = {
+  tony: "CTO",
+  bob: "Backend",
+  avery: "Architect",
+  stan: "Standards",
+  steve: "Security",
+  felix: "Fullstack",
+  frank: "Frontend",
+  queenie: "QA",
+  wendy: "Writer",
+  oliver: "DevOps",
+  paris: "Product",
+  maya: "Mobile",
+  dana: "Data Science",
+  daisy: "Data Eng",
+  debbee: "Design",
+  eric: "Executive",
+  rodman: "Research",
+  candy: "Marketing",
+  quinn: "Quantum",
+  astrid: "Aerospace",
+};
+
+/**
+ * Get display role for an agent name
+ */
+function getAgentRole(agentName: string): string {
+  const lower = agentName.toLowerCase();
+  return AGENT_ROLES[lower] || agentName;
+}
+
+/**
+ * AX Indicator Component - shows active agent roles or default ax indicator
  */
 function AXIndicator({ agents }: { agents: string[] }) {
   if (agents.length > 0) {
-    return <Text color="cyan" bold>⚡ {agents.join(", ")}</Text>;
+    const roles = agents.map(getAgentRole);
+    return <Text color="cyan" bold>⚡ {roles.join(", ")}</Text>;
   }
   return <Text color="green">⚡ ax</Text>;
 }

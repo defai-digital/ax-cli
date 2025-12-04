@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.24)](#recent-changes-v31524)
+- [Recent Changes (v3.15.25)](#recent-changes-v31525)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.24)
+## Recent Changes (v3.15.25)
+
+### UI Improvements
+
+- **Status bar agent roles**: The status bar now shows agent roles (e.g., "CTO", "Backend", "Architect") instead of agent names (e.g., "tony", "bob", "avery") for better clarity
+
+## Previous Changes (v3.15.24)
 
 ### Enhancements
 
