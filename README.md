@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.14)](#recent-changes-v31514)
+- [Recent Changes (v3.15.15)](#recent-changes-v31515)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,15 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.14)
+## Recent Changes (v3.15.15)
+
+### Code Quality Improvements
+
+- **Extracted reusable helper functions** in status-bar.tsx: `getEffectiveVerbosityLevel()`, `combineActiveAgents()`, `getContextColor()`, and `AXIndicator` component to reduce code duplication
+- **Simplified subagent state management** in chat-interface.tsx: Using modern `Array.toSpliced()` for cleaner immutable array updates
+- **Cleaner event forwarding** in llm-agent.ts: Using event mapping table instead of repetitive handlers
+
+## Previous Changes (v3.15.14)
 
 ### Setup Improvements
 

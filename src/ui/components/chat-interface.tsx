@@ -260,22 +260,16 @@ function ChatInterfaceWithAgent({
       setActiveAgents((prev) => [...prev, data.role]);
     };
 
-    const handleSubagentComplete = (data: { subagentId: string; taskId?: string; role?: string }) => {
-      // Remove the completed agent from the list
-      // Since we track by role, we remove the first occurrence
+    const handleSubagentComplete = (data: { subagentId: string; role?: string }) => {
+      if (!data.role) return;
+      // Remove first occurrence of completed agent's role
       setActiveAgents((prev) => {
-        const idx = prev.findIndex(a => a === data.role);
-        if (idx !== -1) {
-          const newAgents = [...prev];
-          newAgents.splice(idx, 1);
-          return newAgents;
-        }
-        return prev;
+        const idx = prev.indexOf(data.role!);
+        return idx === -1 ? prev : prev.toSpliced(idx, 1);
       });
     };
 
-    const handleSubagentTerminate = (_data: { id: string }) => {
-      // Clear all agents on terminate (cleanup)
+    const handleSubagentTerminate = () => {
       setActiveAgents([]);
     };
 

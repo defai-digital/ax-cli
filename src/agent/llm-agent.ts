@@ -154,19 +154,16 @@ export class LLMAgent extends EventEmitter {
     this.checkpointManager = getCheckpointManager();
     this.subagentOrchestrator = new SubagentOrchestrator({ maxConcurrentAgents: 5 });
 
-    // Forward subagent events for UI tracking
-    this.subagentOrchestrator.on('subagent-start', (data) => {
-      this.emit('subagent:start', data);
-    });
-    this.subagentOrchestrator.on('subagent-complete', (data) => {
-      this.emit('subagent:complete', data);
-    });
-    this.subagentOrchestrator.on('spawn', (data) => {
-      this.emit('subagent:spawn', data);
-    });
-    this.subagentOrchestrator.on('terminate', (data) => {
-      this.emit('subagent:terminate', data);
-    });
+    // Forward subagent events for UI tracking (orchestrator event -> agent event)
+    const subagentEventMap: Array<[string, string]> = [
+      ['subagent-start', 'subagent:start'],
+      ['subagent-complete', 'subagent:complete'],
+      ['spawn', 'subagent:spawn'],
+      ['terminate', 'subagent:terminate'],
+    ];
+    for (const [from, to] of subagentEventMap) {
+      this.subagentOrchestrator.on(from, (data) => this.emit(to, data));
+    }
 
     this.taskPlanner = getTaskPlanner();
 

@@ -90,14 +90,7 @@ function ContextBar({
   const safePercentage = Math.max(0, Math.min(100, percentage || 0));
   const filledWidth = Math.round((safePercentage / 100) * barWidth);
   const emptyWidth = barWidth - filledWidth;
-
-  // Color based on remaining context (inverted - high % = more remaining = good)
-  const getColor = () => {
-    if (safePercentage > 50) return "green";
-    if (safePercentage > 25) return "yellow";
-    return "red";
-  };
-
+  const color = getContextColor(safePercentage);
   // Warning message when context is getting low (85%+ used = 15% remaining)
   const showWarning = safePercentage <= 15;
 
@@ -113,13 +106,13 @@ function ContextBar({
 
   return (
     <Box>
-      <Text color={getColor()}>
+      <Text color={color}>
         {"█".repeat(filledWidth)}
       </Text>
       <Text color="gray" dimColor>
         {"░".repeat(emptyWidth)}
       </Text>
-      <Text color={getColor()}> {getStatusSymbol(safePercentage)} {safePercentage.toFixed(0)}%</Text>
+      <Text color={color}> {getStatusSymbol(safePercentage)} {safePercentage.toFixed(0)}%</Text>
       {/* Phase 3: Show detailed token count if available */}
       {currentTokens !== undefined && maxTokens !== undefined && (
         <Text color="gray" dimColor> ({formatTokenCount(currentTokens)}/{formatTokenCount(maxTokens)})</Text>
@@ -175,6 +168,48 @@ const VERBOSITY_NAMES: Record<VerbosityLevel, string> = {
 
 function getVerbosityName(level: VerbosityLevel): string {
   return VERBOSITY_NAMES[level] ?? "Quiet";
+}
+
+/**
+ * Get effective verbosity level from props (handles deprecated verboseMode)
+ */
+function getEffectiveVerbosityLevel(
+  verbosityLevel: VerbosityLevel | undefined,
+  verboseMode: boolean | undefined
+): VerbosityLevel {
+  return verbosityLevel !== undefined
+    ? verbosityLevel
+    : (verboseMode ? VerbosityLevel.VERBOSE : VerbosityLevel.QUIET);
+}
+
+/**
+ * Combine single activeAgent with activeAgents array, avoiding duplicates
+ */
+function combineActiveAgents(
+  activeAgent: string | null | undefined,
+  activeAgents: string[]
+): string[] {
+  if (!activeAgent) return activeAgents;
+  return [activeAgent, ...activeAgents.filter(a => a !== activeAgent)];
+}
+
+/**
+ * AX Indicator Component - shows active agents or default ax indicator
+ */
+function AXIndicator({ agents }: { agents: string[] }) {
+  if (agents.length > 0) {
+    return <Text color="cyan" bold>⚡ {agents.join(", ")}</Text>;
+  }
+  return <Text color="green">⚡ ax</Text>;
+}
+
+/**
+ * Get context bar color based on percentage
+ */
+function getContextColor(percentage: number): string {
+  if (percentage > 50) return "green";
+  if (percentage > 25) return "yellow";
+  return "red";
 }
 
 /**
@@ -263,16 +298,8 @@ function CompactStatusBar(props: StatusBarProps) {
     isThinking = false,
   } = props;
 
-  // Use verbosityLevel if available, fallback to verboseMode
-  const effectiveVerbosityLevel = verbosityLevel !== undefined
-    ? verbosityLevel
-    : (verboseMode ? VerbosityLevel.VERBOSE : VerbosityLevel.QUIET);
-
-  // Combine single activeAgent with activeAgents array for display
-  const allActiveAgents = [
-    ...(activeAgent ? [activeAgent] : []),
-    ...activeAgents.filter(a => a !== activeAgent), // Avoid duplicates
-  ];
+  const effectiveVerbosityLevel = getEffectiveVerbosityLevel(verbosityLevel, verboseMode);
+  const allActiveAgents = combineActiveAgents(activeAgent, activeAgents);
 
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -296,11 +323,7 @@ function CompactStatusBar(props: StatusBarProps) {
           {axEnabled && (
             <>
               <Text color="gray"> • </Text>
-              {allActiveAgents.length > 0 ? (
-                <Text color="cyan" bold>⚡ {allActiveAgents.join(", ")}</Text>
-              ) : (
-                <Text color="green">⚡ ax</Text>
-              )}
+              <AXIndicator agents={allActiveAgents} />
             </>
           )}
         </Box>
@@ -401,16 +424,8 @@ export function StatusBar(props: StatusBarProps) {
     isThinking = false,
   } = props;
 
-  // Use verbosityLevel if available, fallback to verboseMode
-  const effectiveVerbosityLevel = verbosityLevel !== undefined
-    ? verbosityLevel
-    : (verboseMode ? VerbosityLevel.VERBOSE : VerbosityLevel.QUIET);
-
-  // Combine single activeAgent with activeAgents array for display
-  const allActiveAgents = [
-    ...(activeAgent ? [activeAgent] : []),
-    ...activeAgents.filter(a => a !== activeAgent), // Avoid duplicates
-  ];
+  const effectiveVerbosityLevel = getEffectiveVerbosityLevel(verbosityLevel, verboseMode);
+  const allActiveAgents = combineActiveAgents(activeAgent, activeAgents);
 
   // Use compact layout for narrow terminals (< 100 columns)
   if (terminalWidth < 100) {
@@ -445,11 +460,7 @@ export function StatusBar(props: StatusBarProps) {
           {axEnabled && (
             <>
               <Text color="gray"> • </Text>
-              {allActiveAgents.length > 0 ? (
-                <Text color="cyan" bold>⚡ {allActiveAgents.join(", ")}</Text>
-              ) : (
-                <Text color="green">⚡ ax</Text>
-              )}
+              <AXIndicator agents={allActiveAgents} />
             </>
           )}
           {isProcessing && tokenCount > 0 && (
