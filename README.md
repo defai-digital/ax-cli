@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.18)](#recent-changes-v31518)
+- [Recent Changes (v3.15.19)](#recent-changes-v31519)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,21 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.18)
+## Recent Changes (v3.15.19)
+
+### Enhanced Setup Wizard UI
+
+This release modernizes the `ax setup` command with a beautiful wizard-style interface using `@clack/prompts`, matching the visual style of `ax init`:
+
+- **Modern prompts**: Replaced `enquirer` with `@clack/prompts` for consistent styling
+- **Visual progress**: Added step indicators (Step 1/5, Step 2/5, etc.)
+- **Spinners**: Added loading spinners for validation and configuration steps
+- **Information boxes**: Added styled note boxes for configuration summaries
+- **Better UX**: Improved visual hierarchy with intro/outro screens
+
+The setup wizard now provides a polished, professional experience when configuring your AI provider credentials.
+
+## Previous Changes (v3.15.18)
 
 ### Command Separation Fix
 

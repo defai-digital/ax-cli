@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { execSync, spawnSync } from 'child_process';
-import enquirer from 'enquirer';
+import * as prompts from '@clack/prompts';
 import chalk from 'chalk';
 import { validateProviderSetup } from '../utils/setup-validator.js';
 import { getSettingsManager } from '../utils/settings-manager.js';
@@ -13,7 +13,6 @@ import {
   detectZAIServices,
   getRecommendedServers,
   generateZAIServerConfig,
-  ZAI_MCP_TEMPLATES,
 } from '../mcp/index.js';
 import { addMCPServer, removeMCPServer } from '../mcp/config.js';
 
@@ -97,18 +96,6 @@ interface ProviderConfig {
   description: string;
 }
 
-/** Prompt for a new API key with validation */
-async function promptForApiKey(providerDisplayName: string, website: string): Promise<string> {
-  console.log(chalk.dim(`\nGet your API key from: ${website}\n`));
-  const response = await enquirer.prompt<{ apiKey: string }>({
-    type: 'password',
-    name: 'apiKey',
-    message: `Enter your ${providerDisplayName} API key:`,
-    validate: (value: string) => value?.trim().length > 0 || 'API key is required',
-  });
-  return response.apiKey.trim();
-}
-
 const PROVIDERS: Record<string, ProviderConfig> = {
   'z.ai': {
     name: 'z.ai',
@@ -175,16 +162,14 @@ function getProviderFromBaseURL(baseURL: string): string | null {
 export function createSetupCommand(): Command {
   const setupCommand = new Command('setup');
 
-  const STEP_TOTAL = 5;
-  const step = (index: number, title: string) => chalk.cyan(`\nStep ${index}/${STEP_TOTAL} — ${title}\n`);
-
   setupCommand
     .description('Initialize AX CLI configuration with AI provider selection')
     .option('--force', 'Overwrite existing configuration')
     .option('--no-validate', 'Skip validation of API endpoint and credentials')
     .action(async (options) => {
       try {
-        console.log(chalk.cyan('\n🚀 AX CLI Setup\n'));
+        // Show intro
+        prompts.intro(chalk.cyan('AX CLI Setup'));
 
         // Always use the NEW path ~/.ax-cli/config.json
         const configPath = CONFIG_PATHS.USER_CONFIG;
@@ -194,104 +179,130 @@ export function createSetupCommand(): Command {
         // Ensure config directory exists
         if (!existsSync(configDir)) {
           mkdirSync(configDir, { recursive: true });
-          console.log(chalk.green(`✓ Created config directory: ${configDir}`));
         }
 
         // Load existing config to check for existing API key BEFORE provider selection
-        // Use settings manager to load decrypted config (REQ-SEC-003)
         let existingConfig: UserSettings | null = null;
         let existingProviderKey: string | null = null;
 
         if (existsSync(configPath)) {
           try {
-            // Load settings through settings manager (handles decryption)
             existingConfig = settingsManager.loadUserSettings();
-
-            // Determine which provider the existing config is using
             if (existingConfig.baseURL) {
               existingProviderKey = getProviderFromBaseURL(existingConfig.baseURL);
             }
 
-            // Show existing configuration
             if (existingProviderKey && !options.force) {
               const existingProvider = PROVIDERS[existingProviderKey];
-              console.log(chalk.blue('ℹ️  Existing configuration found:'));
-              console.log(chalk.dim(`   Provider: ${existingProvider?.displayName || 'Unknown'}`));
-              console.log(chalk.dim(`   Location: ${configPath}\n`));
+              await prompts.note(
+                `Provider: ${existingProvider?.displayName || 'Unknown'}\n` +
+                `Location: ${configPath}`,
+                'Existing Configuration Found'
+              );
             }
           } catch (error) {
-            console.warn(chalk.yellow('⚠️  Failed to load existing config:'), error instanceof Error ? error.message : 'Unknown error');
-            // Continue with setup even if loading existing config fails
+            prompts.log.warn(`Failed to load existing config: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
         }
 
-        // Provider selection
-        console.log(step(1, 'Choose provider'));
+        // ═══════════════════════════════════════════════════════════════════
+        // STEP 1: Provider Selection
+        // ═══════════════════════════════════════════════════════════════════
+        prompts.log.step(chalk.bold('Step 1/5 — Choose Provider'));
 
         const providerChoices = Object.entries(PROVIDERS).map(([key, provider]) => ({
-          name: key,
-          message: `${provider.displayName} - ${provider.description}`,
-          hint: provider.website,
+          value: key,
+          label: provider.displayName,
+          hint: provider.description,
         }));
 
-        const providerResponse = await enquirer.prompt<{ provider: string }>({
-          type: 'select',
-          name: 'provider',
+        const providerKey = await prompts.select({
           message: 'Select your AI provider:',
-          choices: providerChoices,
-          initial: existingProviderKey
-            ? providerChoices.findIndex(choice => choice.name === existingProviderKey)
-            : 0,
+          options: providerChoices,
+          initialValue: existingProviderKey || 'z.ai',
         });
 
-        const selectedProvider = PROVIDERS[providerResponse.provider];
+        if (prompts.isCancel(providerKey)) {
+          prompts.cancel('Setup cancelled.');
+          process.exit(0);
+        }
 
-        // API Key prompt (if required)
+        const selectedProvider = PROVIDERS[providerKey as string];
+
+        // ═══════════════════════════════════════════════════════════════════
+        // STEP 2: API Key
+        // ═══════════════════════════════════════════════════════════════════
+        prompts.log.step(chalk.bold('Step 2/5 — API Key'));
+
         let apiKey = '';
         if (selectedProvider.requiresApiKey) {
-          console.log(step(2, 'Add API key'));
-          const isSameProvider = existingProviderKey === providerResponse.provider;
-          // existingConfig.apiKey is already decrypted string (loaded via loadUserSettings)
+          const isSameProvider = existingProviderKey === providerKey;
           const hasExistingKey = existingConfig?.apiKey && typeof existingConfig.apiKey === 'string' && existingConfig.apiKey.trim().length > 0;
 
-          // Same provider with existing API key - ask if they want to reuse it
           if (isSameProvider && hasExistingKey && existingConfig?.apiKey) {
-            console.log(chalk.green(`\n✓ Found existing API key for ${selectedProvider.displayName}`));
-            // Display masked API key (handle short keys gracefully)
-            // apiKey is guaranteed to be a string here (type guard in condition)
             const key = existingConfig.apiKey;
             const maskedKey = key.length > 12
               ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}`
               : `${key.substring(0, Math.min(4, key.length))}...`;
-            console.log(chalk.dim(`   Key: ${maskedKey}\n`));
 
-            const reuseKeyResponse = await enquirer.prompt<{ reuseKey: boolean }>({
-              type: 'confirm',
-              name: 'reuseKey',
+            await prompts.note(
+              `Key: ${maskedKey}`,
+              `Existing API Key for ${selectedProvider.displayName}`
+            );
+
+            const reuseKey = await prompts.confirm({
               message: 'Use existing API key?',
-              initial: true
+              initialValue: true,
             });
 
-            if (reuseKeyResponse.reuseKey) {
+            if (prompts.isCancel(reuseKey)) {
+              prompts.cancel('Setup cancelled.');
+              process.exit(0);
+            }
+
+            if (reuseKey) {
               apiKey = existingConfig.apiKey;
-              console.log(chalk.green('✓ Using existing API key'));
+              prompts.log.success('Using existing API key');
             } else {
-              apiKey = await promptForApiKey(`new ${selectedProvider.displayName}`, selectedProvider.website);
+              prompts.log.info(`Get your API key from: ${selectedProvider.website}`);
+              const newKey = await prompts.password({
+                message: `Enter new ${selectedProvider.displayName} API key:`,
+                validate: (value) => value?.trim().length > 0 ? undefined : 'API key is required',
+              });
+
+              if (prompts.isCancel(newKey)) {
+                prompts.cancel('Setup cancelled.');
+                process.exit(0);
+              }
+              apiKey = (newKey as string).trim();
             }
           } else {
-            // Different provider or no existing key - just ask for new key
             if (hasExistingKey && !isSameProvider && existingProviderKey) {
               const previousProvider = PROVIDERS[existingProviderKey];
-              console.log(chalk.yellow(`\n⚠️  Switching from ${previousProvider?.displayName || 'previous provider'} to ${selectedProvider.displayName}`));
+              prompts.log.warn(`Switching from ${previousProvider?.displayName || 'previous provider'} to ${selectedProvider.displayName}`);
             }
-            apiKey = await promptForApiKey(selectedProvider.displayName, selectedProvider.website);
+
+            prompts.log.info(`Get your API key from: ${selectedProvider.website}`);
+            const newKey = await prompts.password({
+              message: `Enter your ${selectedProvider.displayName} API key:`,
+              validate: (value) => value?.trim().length > 0 ? undefined : 'API key is required',
+            });
+
+            if (prompts.isCancel(newKey)) {
+              prompts.cancel('Setup cancelled.');
+              process.exit(0);
+            }
+            apiKey = (newKey as string).trim();
           }
         } else {
-          console.log(chalk.green(`\n✓ ${selectedProvider.displayName} doesn't require an API key`));
+          prompts.log.success(`${selectedProvider.displayName} doesn't require an API key`);
         }
 
-        // Model selection
-        console.log(step(3, 'Choose model'));
+        // ═══════════════════════════════════════════════════════════════════
+        // STEP 3: Model Selection
+        // ═══════════════════════════════════════════════════════════════════
+        prompts.log.step(chalk.bold('Step 3/5 — Choose Model'));
+
         const existingModel = existingConfig?.defaultModel || existingConfig?.currentModel;
         const baseModelOptions = Array.from(
           new Set([
@@ -302,37 +313,45 @@ export function createSetupCommand(): Command {
         ) as string[];
 
         const modelChoices = baseModelOptions.map(model => ({
-          name: model,
-          message: model === selectedProvider.defaultModel ? `${model} (default)` : model,
+          value: model,
+          label: model === selectedProvider.defaultModel ? `${model} (default)` : model,
         }));
+        modelChoices.push({ value: '__custom__', label: 'Other (enter manually)' });
 
-        modelChoices.push({ name: '__custom__', message: 'Other (enter manually)' });
-
-        const modelResponse = await enquirer.prompt<{ model: string }>({
-          type: 'select',
-          name: 'model',
+        const modelSelection = await prompts.select({
           message: 'Select default model:',
-          choices: modelChoices,
-          initial: Math.max(
-            0,
-            modelChoices.findIndex(choice => choice.name === (existingModel || selectedProvider.defaultModel))
-          ),
+          options: modelChoices,
+          initialValue: existingModel || selectedProvider.defaultModel,
         });
 
-        let chosenModel = modelResponse.model;
-        if (modelResponse.model === '__custom__') {
-          const manualModel = await enquirer.prompt<{ manualModel: string }>({
-            type: 'input',
-            name: 'manualModel',
-            message: 'Enter model ID:',
-            initial: selectedProvider.defaultModel,
-            validate: (value: string) => value.trim().length > 0 || 'Model is required',
-          });
-          chosenModel = manualModel.manualModel.trim();
+        if (prompts.isCancel(modelSelection)) {
+          prompts.cancel('Setup cancelled.');
+          process.exit(0);
         }
 
-        // Validate configuration before saving
-        console.log(step(4, 'Validate connection'));
+        let chosenModel = modelSelection as string;
+        if (modelSelection === '__custom__') {
+          const manualModel = await prompts.text({
+            message: 'Enter model ID:',
+            initialValue: selectedProvider.defaultModel,
+            validate: (value) => value?.trim().length > 0 ? undefined : 'Model is required',
+          });
+
+          if (prompts.isCancel(manualModel)) {
+            prompts.cancel('Setup cancelled.');
+            process.exit(0);
+          }
+          chosenModel = (manualModel as string).trim();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // STEP 4: Validate Connection
+        // ═══════════════════════════════════════════════════════════════════
+        prompts.log.step(chalk.bold('Step 4/5 — Validate Connection'));
+
+        const spinner = prompts.spinner();
+        spinner.start('Validating connection...');
+
         const validationResult = await validateProviderSetup(
           {
             baseURL: selectedProvider.baseURL,
@@ -340,50 +359,76 @@ export function createSetupCommand(): Command {
             model: chosenModel,
             providerName: selectedProvider.name,
           },
-          !options.validate // Skip if --no-validate flag is used
+          !options.validate
         );
+
+        spinner.stop('Validation complete');
 
         // If validator returned models list, offer quick re-pick
         if (validationResult.availableModels && validationResult.availableModels.length > 0) {
           const uniqueAvailable = Array.from(new Set(validationResult.availableModels));
           const availableChoices = uniqueAvailable.map(model => ({
-            name: model,
-            message: model,
+            value: model,
+            label: model,
           }));
-          availableChoices.push({ name: chosenModel, message: `${chosenModel} (keep current)` });
+          availableChoices.push({ value: chosenModel, label: `${chosenModel} (keep current)` });
 
-          const pickAvailable = await enquirer.prompt<{ altModel: string }>({
-            type: 'select',
-            name: 'altModel',
+          const altModel = await prompts.select({
             message: 'Select a validated model (or keep current):',
-            choices: availableChoices,
-            initial: availableChoices.findIndex(choice => choice.name === chosenModel),
+            options: availableChoices,
+            initialValue: chosenModel,
           });
 
-          chosenModel = pickAvailable.altModel;
+          if (prompts.isCancel(altModel)) {
+            prompts.cancel('Setup cancelled.');
+            process.exit(0);
+          }
+          chosenModel = altModel as string;
         }
 
-        // If validation failed, ask user if they want to save anyway
-        if (!validationResult.success && options.validate !== false) {
-          console.log(chalk.yellow('\n⚠️  Validation failed, but you can still save the configuration.\n'));
+        if (validationResult.success) {
+          prompts.log.success('Connection validated successfully');
+        } else if (options.validate !== false) {
+          prompts.log.warn('Validation failed, but you can still save the configuration.');
 
-          const proceedAnyway = await enquirer.prompt<{ proceed: boolean }>({
-            type: 'confirm',
-            name: 'proceed',
+          const proceedAnyway = await prompts.confirm({
             message: 'Save configuration anyway?',
-            initial: false
+            initialValue: false,
           });
 
-          if (!proceedAnyway.proceed) {
-            console.log(chalk.blue('\n✨ Setup cancelled. Please check your settings and try again.\n'));
-            return;
+          if (prompts.isCancel(proceedAnyway) || !proceedAnyway) {
+            prompts.cancel('Setup cancelled. Please check your settings and try again.');
+            process.exit(0);
           }
         }
 
-        // Create configuration object with comments
-        // Use provider-specific max tokens (32k for GLM 4.6, others use reasonable defaults)
+        // ═══════════════════════════════════════════════════════════════════
+        // STEP 5: Review & Save
+        // ═══════════════════════════════════════════════════════════════════
+        prompts.log.step(chalk.bold('Step 5/5 — Review & Save'));
+
         const maxTokens = (selectedProvider.name === 'z.ai' || selectedProvider.name === 'z.ai-free') ? 32768 : 8192;
 
+        await prompts.note(
+          `Provider:    ${selectedProvider.displayName}\n` +
+          `Base URL:    ${selectedProvider.baseURL}\n` +
+          `Model:       ${chosenModel}\n` +
+          `Max Tokens:  ${existingConfig?.maxTokens ?? maxTokens}\n` +
+          `Config path: ${configPath}`,
+          'Configuration Summary'
+        );
+
+        const confirmSave = await prompts.confirm({
+          message: 'Save these settings?',
+          initialValue: true,
+        });
+
+        if (prompts.isCancel(confirmSave) || !confirmSave) {
+          prompts.cancel('Setup cancelled. No changes saved.');
+          process.exit(0);
+        }
+
+        // Create configuration object
         const mergedConfig: UserSettings = {
           ...(existingConfig || {}),
           apiKey: apiKey,
@@ -397,45 +442,31 @@ export function createSetupCommand(): Command {
           _website: selectedProvider.website,
         } as UserSettings;
 
-        console.log(step(5, 'Review & save'));
-        console.log(chalk.white('Provider:    ') + chalk.green(selectedProvider.displayName));
-        console.log(chalk.white('Base URL:    ') + chalk.green(selectedProvider.baseURL));
-        console.log(chalk.white('Model:       ') + chalk.green(chosenModel));
-        console.log(chalk.white('Max Tokens:  ') + chalk.green((mergedConfig.maxTokens || maxTokens).toString()));
-        console.log(chalk.white('Config path: ') + chalk.green(configPath));
-
-        const confirmSave = await enquirer.prompt<{ save: boolean }>({
-          type: 'confirm',
-          name: 'save',
-          message: 'Save these settings?',
-          initial: true,
-        });
-
-        if (!confirmSave.save) {
-          console.log(chalk.yellow('\n⚠️  Setup cancelled. No changes saved.\n'));
-          return;
-        }
-
         // Persist using settings manager to ensure encryption + permissions
         settingsManager.saveUserSettings(mergedConfig);
 
-        console.log(chalk.green('\n✅ Configuration saved successfully!\n'));
+        prompts.log.success('Configuration saved successfully!');
 
-        // Automatically enable Z.AI MCP servers for Z.AI providers (enabled by default)
+        // ═══════════════════════════════════════════════════════════════════
+        // Z.AI MCP Integration
+        // ═══════════════════════════════════════════════════════════════════
         if (selectedProvider.name === 'z.ai' || selectedProvider.name === 'z.ai-free') {
-          console.log(chalk.cyan('🔌 Z.AI MCP Integration\n'));
-          console.log(chalk.dim('   Enabling Z.AI MCP servers for enhanced capabilities:'));
-          console.log(chalk.dim('   • Web Search - Real-time web search'));
-          console.log(chalk.dim('   • Web Reader - Extract content from web pages'));
-          console.log(chalk.dim('   • Vision - Image/video analysis (Node.js 22+)\n'));
+          await prompts.note(
+            'Enabling Z.AI MCP servers for enhanced capabilities:\n' +
+            '• Web Search - Real-time web search\n' +
+            '• Web Reader - Extract content from web pages\n' +
+            '• Vision - Image/video analysis (Node.js 22+)',
+            'Z.AI MCP Integration'
+          );
+
+          const mcpSpinner = prompts.spinner();
+          mcpSpinner.start('Configuring Z.AI MCP servers...');
 
           try {
             const status = await detectZAIServices();
             const serversToAdd = getRecommendedServers(status);
 
-            // Remove existing Z.AI MCP servers first to ensure clean state with latest config
-            // This ensures headers and other config options are always up-to-date
-            console.log(chalk.blue('Refreshing Z.AI MCP servers...'));
+            // Remove existing Z.AI MCP servers first
             for (const serverName of serversToAdd) {
               try {
                 removeMCPServer(serverName);
@@ -445,150 +476,159 @@ export function createSetupCommand(): Command {
             }
 
             let successCount = 0;
-
             for (const serverName of serversToAdd) {
-              const template = ZAI_MCP_TEMPLATES[serverName];
               try {
                 const config = generateZAIServerConfig(serverName, apiKey);
-                // Only save config during setup - don't connect (server will be connected when ax-cli runs)
                 addMCPServer(config);
-                console.log(chalk.green(`✓ ${template.displayName}`));
                 successCount++;
               } catch {
-                console.log(chalk.yellow(`⚠ ${template.displayName} (skipped)`));
+                // Skip failed servers
               }
             }
 
-            if (successCount > 0) {
-              console.log(chalk.green(`\n✨ ${successCount} Z.AI MCP server${successCount !== 1 ? 's' : ''} configured!\n`));
-            }
+            mcpSpinner.stop(`${successCount} Z.AI MCP server${successCount !== 1 ? 's' : ''} configured`);
           } catch (error) {
-            console.log(chalk.yellow('\n⚠️  Could not set up Z.AI MCP servers:'), extractErrorMessage(error));
-            console.log(chalk.dim('   You can enable them later with: ax-cli mcp add-zai\n'));
+            mcpSpinner.stop('Could not set up Z.AI MCP servers');
+            prompts.log.warn(`${extractErrorMessage(error)}`);
+            prompts.log.info('You can enable them later with: ax-cli mcp add-zai');
           }
         }
 
+        // ═══════════════════════════════════════════════════════════════════
         // AutomatosX Integration
-        console.log(chalk.cyan('🤖 AutomatosX Agent Orchestration\n'));
-        console.log(chalk.dim('   Multi-agent AI orchestration with persistent memory and collaboration.\n'));
+        // ═══════════════════════════════════════════════════════════════════
+        await prompts.note(
+          'Multi-agent AI orchestration with persistent memory and collaboration.',
+          'AutomatosX Agent Orchestration'
+        );
 
         const axInstalled = isAutomatosXInstalled();
 
         if (axInstalled) {
           const currentVersion = getAutomatosXVersion();
-          console.log(chalk.green(`✓ AutomatosX detected${currentVersion ? ` (v${currentVersion})` : ''}`));
-          console.log(chalk.dim('   Checking for updates...\n'));
+          prompts.log.success(`AutomatosX detected${currentVersion ? ` (v${currentVersion})` : ''}`);
+
+          const axSpinner = prompts.spinner();
+          axSpinner.start('Checking for updates...');
 
           const updated = await updateAutomatosX();
           if (updated) {
             const newVersion = getAutomatosXVersion();
-            console.log(chalk.green(`✓ AutomatosX updated${newVersion ? ` to v${newVersion}` : ''}\n`));
+            axSpinner.stop(`AutomatosX updated${newVersion ? ` to v${newVersion}` : ''}`);
           } else {
-            console.log(chalk.yellow('⚠ Could not update AutomatosX. Run manually: ax update -y\n'));
+            axSpinner.stop('Could not update AutomatosX');
+            prompts.log.info('Run manually: ax update -y');
           }
         } else {
-          // Wrap in try-catch to handle non-interactive environments (e.g., CI/tests)
           try {
-            const installResponse = await enquirer.prompt<{ install: boolean }>({
-              type: 'confirm',
-              name: 'install',
+            const installResponse = await prompts.confirm({
               message: 'Install AutomatosX for multi-agent AI orchestration?',
-              initial: true,
+              initialValue: true,
             });
 
-            if (installResponse?.install) {
-              console.log(chalk.dim('\n   Installing AutomatosX...\n'));
+            if (!prompts.isCancel(installResponse) && installResponse) {
+              const installSpinner = prompts.spinner();
+              installSpinner.start('Installing AutomatosX...');
 
               const installed = await installAutomatosX();
               if (installed) {
-                console.log(chalk.green('\n✓ AutomatosX installed successfully!'));
-                console.log(chalk.dim('   Run `ax list agents` to see available AI agents.\n'));
+                installSpinner.stop('AutomatosX installed successfully!');
+                prompts.log.info('Run `ax list agents` to see available AI agents.');
               } else {
-                console.log(chalk.yellow('\n⚠ Could not install AutomatosX.'));
-                console.log(chalk.dim('   Install manually: npm install -g @defai.digital/automatosx\n'));
+                installSpinner.stop('Could not install AutomatosX');
+                prompts.log.info('Install manually: npm install -g @defai.digital/automatosx');
               }
-            } else {
-              console.log(chalk.dim('\n   You can install AutomatosX later: npm install -g @defai.digital/automatosx\n'));
+            } else if (!prompts.isCancel(installResponse)) {
+              prompts.log.info('You can install AutomatosX later: npm install -g @defai.digital/automatosx');
             }
           } catch {
-            // Skip AutomatosX prompt in non-interactive environments
-            console.log(chalk.dim('   Skipping AutomatosX setup (non-interactive mode).\n'));
-            console.log(chalk.dim('   Install manually: npm install -g @defai.digital/automatosx\n'));
+            prompts.log.info('Skipping AutomatosX setup (non-interactive mode).');
+            prompts.log.info('Install manually: npm install -g @defai.digital/automatosx');
           }
         }
 
         // Agent-First Mode Configuration (only ask if AutomatosX is available)
         const axAvailable = isAutomatosXInstalled();
         if (axAvailable) {
-          console.log(chalk.cyan('⚡ Agent-First Mode\n'));
-          console.log(chalk.dim('   When enabled, ax-cli automatically routes tasks to specialized agents'));
-          console.log(chalk.dim('   based on keywords (e.g., "test" → testing agent, "refactor" → refactoring agent).'));
-          console.log(chalk.dim('   When disabled (default), you use the direct LLM and can invoke agents explicitly.\n'));
+          await prompts.note(
+            'When enabled, ax-cli automatically routes tasks to specialized agents\n' +
+            'based on keywords (e.g., "test" → testing agent, "refactor" → refactoring agent).\n' +
+            'When disabled (default), you use the direct LLM and can invoke agents explicitly.',
+            'Agent-First Mode'
+          );
 
           try {
-            const agentFirstResponse = await enquirer.prompt<{ enableAgentFirst: boolean }>({
-              type: 'confirm',
-              name: 'enableAgentFirst',
+            const enableAgentFirst = await prompts.confirm({
               message: 'Enable agent-first mode (auto-route to specialized agents)?',
-              initial: false,
+              initialValue: false,
             });
 
-            // Save agent-first setting
-            const currentSettings = settingsManager.loadUserSettings();
-            settingsManager.saveUserSettings({
-              ...currentSettings,
-              agentFirst: {
-                enabled: agentFirstResponse.enableAgentFirst,
-                confidenceThreshold: 0.6,
-                showAgentIndicator: true,
-                defaultAgent: 'standard',
-                excludedAgents: [],
-              },
-            });
+            if (!prompts.isCancel(enableAgentFirst)) {
+              const currentSettings = settingsManager.loadUserSettings();
+              settingsManager.saveUserSettings({
+                ...currentSettings,
+                agentFirst: {
+                  enabled: enableAgentFirst,
+                  confidenceThreshold: 0.6,
+                  showAgentIndicator: true,
+                  defaultAgent: 'standard',
+                  excludedAgents: [],
+                },
+              });
 
-            if (agentFirstResponse.enableAgentFirst) {
-              console.log(chalk.green('\n✓ Agent-first mode enabled'));
-              console.log(chalk.dim('   Tasks will be automatically routed to specialized agents.\n'));
-            } else {
-              console.log(chalk.green('\n✓ Agent-first mode disabled (default)'));
-              console.log(chalk.dim('   Use direct LLM. Invoke agents with --agent flag when needed.\n'));
+              if (enableAgentFirst) {
+                prompts.log.success('Agent-first mode enabled');
+                prompts.log.info('Tasks will be automatically routed to specialized agents.');
+              } else {
+                prompts.log.success('Agent-first mode disabled (default)');
+                prompts.log.info('Use direct LLM. Invoke agents with --agent flag when needed.');
+              }
             }
           } catch {
-            // Skip in non-interactive mode
-            console.log(chalk.dim('   Skipping agent-first configuration (non-interactive mode).\n'));
+            prompts.log.info('Skipping agent-first configuration (non-interactive mode).');
           }
         }
 
-        console.log(chalk.cyan('📄 Configuration details:\n'));
-        console.log(chalk.dim('   Location:    ') + chalk.white(configPath));
-        console.log(chalk.dim('   Provider:    ') + chalk.white(selectedProvider.displayName));
-        console.log(chalk.dim('   Base URL:    ') + chalk.white(selectedProvider.baseURL));
-        console.log(chalk.dim('   Model:       ') + chalk.white(chosenModel));
-        console.log(chalk.dim('   Max Tokens:  ') + chalk.white((mergedConfig.maxTokens || maxTokens).toString()));
-        console.log(chalk.dim('   Temperature: ') + chalk.white((mergedConfig.temperature ?? 0.7).toString()));
+        // ═══════════════════════════════════════════════════════════════════
+        // Completion Summary
+        // ═══════════════════════════════════════════════════════════════════
+        await prompts.note(
+          `Location:    ${configPath}\n` +
+          `Provider:    ${selectedProvider.displayName}\n` +
+          `Base URL:    ${selectedProvider.baseURL}\n` +
+          `Model:       ${chosenModel}\n` +
+          `Max Tokens:  ${mergedConfig.maxTokens || maxTokens}\n` +
+          `Temperature: ${mergedConfig.temperature ?? 0.7}`,
+          'Configuration Details'
+        );
 
-        console.log(chalk.cyan('\n🎯 Next steps:\n'));
-        console.log(chalk.white('   1. Start interactive mode:'));
-        console.log(chalk.dim('      $ ') + chalk.green('ax-cli'));
-        console.log(chalk.white('\n   2. Run a quick test:'));
-        console.log(chalk.dim('      $ ') + chalk.green('ax-cli -p "Hello, introduce yourself"'));
-        console.log(chalk.white('\n   3. Initialize a project:'));
-        console.log(chalk.dim('      $ ') + chalk.green('ax-cli init'));
+        await prompts.note(
+          '1. Start interactive mode:\n' +
+          '   $ ax-cli\n\n' +
+          '2. Run a quick test:\n' +
+          '   $ ax-cli -p "Hello, introduce yourself"\n\n' +
+          '3. Initialize a project:\n' +
+          '   $ ax-cli init',
+          'Next Steps'
+        );
 
-        console.log(chalk.cyan('\n💡 Tips:\n'));
-        console.log(chalk.dim('   • Edit config manually:  ') + chalk.white(configPath));
-        console.log(chalk.dim('   • See example configs:   ') + chalk.white('Check "_examples" in config file'));
-        console.log(chalk.dim('   • View help:             ') + chalk.white('ax-cli --help'));
-        console.log(chalk.dim('   • Documentation:         ') + chalk.white('https://github.com/defai-digital/ax-cli\n'));
+        await prompts.note(
+          `• Edit config manually:  ${configPath}\n` +
+          '• See example configs:   Check "_examples" in config file\n' +
+          '• View help:             ax-cli --help\n' +
+          '• Documentation:         https://github.com/defai-digital/ax-cli',
+          'Tips'
+        );
+
+        prompts.outro(chalk.green('Setup complete! Happy coding!'));
 
       } catch (error: any) {
         if (error?.message === 'canceled' || error?.name === 'canceled') {
-          console.log(chalk.yellow('\n⚠️  Setup cancelled by user.\n'));
+          prompts.cancel('Setup cancelled by user.');
           process.exit(0);
         }
 
-        console.error(chalk.red('\n❌ Setup failed:\n'));
-        console.error(chalk.dim('   ') + extractErrorMessage(error) + '\n');
+        prompts.log.error(`Setup failed: ${extractErrorMessage(error)}`);
         process.exit(1);
       }
     });
