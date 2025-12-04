@@ -44,9 +44,10 @@ const DIRECT_PATH_PATTERN = new RegExp(
   `^(/[^\\s]+\\.${IMG_EXT}|\\.\\.\?/[^\\s]+\\.${IMG_EXT}|[a-zA-Z]:[\\\\/][^\\s]+\\.${IMG_EXT}|\\\\\\\\[^\\s]+\\.${IMG_EXT}|"[^"]+\\.${IMG_EXT}"|'[^']+\\.${IMG_EXT}')$`,
   'i'
 );
-// Inline quoted: "path.png" or 'path.png' anywhere in text
+// Inline quoted: "path.png" or 'path.png' anywhere in text (at start, after space, or standalone)
+// Captures: group 1 = preceding space (if any), group 2 = quoted path
 const INLINE_QUOTED_PATH_PATTERN = new RegExp(
-  `(?:^|(?<=\\s))("[^"]+\\.${IMG_EXT}"|'[^']+\\.${IMG_EXT}')`,
+  `(^|\\s)("[^"]+\\.${IMG_EXT}"|'[^']+\\.${IMG_EXT}')(?=\\s|$)`,
   'gi'
 );
 
@@ -121,9 +122,11 @@ export async function parseImageInput(
   }
 
   // Process inline quoted paths (e.g., '/path/image.png' or "/path/image.png")
-  for (const [fullMatch] of textContent.matchAll(INLINE_QUOTED_PATH_PATTERN)) {
-    const replacement = await processImageRef(fullMatch, fullMatch.trim(), workingDir, state);
-    textContent = textContent.split(fullMatch).join(replacement);
+  // Pattern captures: [fullMatch, precedingSpace, quotedPath]
+  for (const [fullMatch, precedingSpace, quotedPath] of textContent.matchAll(INLINE_QUOTED_PATH_PATTERN)) {
+    const replacement = await processImageRef(quotedPath, quotedPath, workingDir, state);
+    // Preserve the preceding space when replacing
+    textContent = textContent.split(fullMatch).join(precedingSpace + replacement);
   }
 
   // Handle direct file path as entire input
