@@ -606,11 +606,11 @@ export function createSetupCommand(): Command {
         );
 
         await prompts.note(
-          '1. Initialize your project:\n' +
-          '   $ ax-cli init\n\n' +
-          '2. Start interactive mode:\n' +
+          '1. Start interactive mode:\n' +
           '   $ ax-cli\n\n' +
-          '3. Run a quick test:\n' +
+          '2. Initialize your project (inside ax-cli):\n' +
+          '   > /init\n\n' +
+          '3. Or run a quick test:\n' +
           '   $ ax-cli -p "Hello, introduce yourself"',
           'Next Steps'
         );

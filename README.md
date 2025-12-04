@@ -26,11 +26,11 @@ npm install -g @defai.digital/ax-cli
 # Configure API credentials (one-time setup)
 ax-cli setup
 
-# Initialize project (generates .ax-cli/CUSTOM.md)
-ax-cli init
-
 # Start interactive mode
 ax-cli
+
+# Inside interactive mode, initialize your project
+> /init
 ```
 
 **That's it!** AX CLI is now ready to help you build, debug, and ship code faster.
@@ -138,7 +138,7 @@ This interactive wizard will:
 3. Configure default model and settings
 4. Validate your configuration
 
-Then run `ax-cli init` to initialize your project and generate `.ax-cli/CUSTOM.md`.
+Then start `ax-cli` and run `/init` to initialize your project and generate `.ax-cli/CUSTOM.md`.
 
 ### Environment Variable Override
 
@@ -449,8 +449,7 @@ Email: **security@defai.digital** (private disclosure)
 ### Command Separation Clarification
 
 - **`ax-cli setup`**: Handles user-level API configuration (provider, API key, model) - stored in `~/.ax-cli/config.json`
-- **`ax-cli init`**: Handles project-level initialization (CUSTOM.md, index.json) - stored in `.ax-cli/`
-- **`/init` in interactive mode**: Same as `ax-cli init` - initializes the current project
+- **`/init` in interactive mode**: Initializes the current project - stored in `.ax-cli/`
 
 ### Recommended Workflow
 
@@ -458,16 +457,16 @@ Email: **security@defai.digital** (private disclosure)
 # First time: configure API credentials
 ax-cli setup
 
-# In each project: initialize project configuration
-ax-cli init
-
-# Start working
+# Start interactive mode
 ax-cli
+
+# Inside ax-cli, initialize your project
+> /init
 ```
 
-The two commands serve different purposes:
-- `setup` is run once per machine to configure your API credentials
-- `init` is run once per project to generate AI instructions based on project analysis
+The two steps serve different purposes:
+- `ax-cli setup` is run once per machine to configure your API credentials
+- `/init` is run once per project (inside ax-cli) to generate AI instructions based on project analysis
 
 ## Previous Changes (v3.15.25)
 
