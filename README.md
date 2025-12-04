@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.11)](#recent-changes-v31511)
+- [Recent Changes (v3.15.12)](#recent-changes-v31512)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,20 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.11)
+## Recent Changes (v3.15.12)
+
+### UI Improvements
+
+- **Multiple Active Agents Display**: Status bar now shows all concurrently running agents (e.g., `⚡ testing, documentation, analysis`) instead of just one. Agents disappear individually as they complete their tasks.
+- **AX Indicator Repositioned**: Moved the `⚡ ax` indicator to the center section, right after the AI model name, for better visibility.
+
+### Technical Changes
+
+- Added `activeAgents` prop to StatusBar component for tracking multiple concurrent agents
+- LLMAgent now forwards subagent lifecycle events (`subagent:spawn`, `subagent:complete`, `subagent:terminate`) from SubagentOrchestrator
+- Chat interface tracks active agents state and updates UI in real-time
+
+## Previous Changes (v3.15.11)
 
 ### Bug Fixes
 

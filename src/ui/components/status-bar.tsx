@@ -38,6 +38,8 @@ interface StatusBarProps {
   axEnabled?: boolean;
   /** Active agent name when agent-first mode routes to a specific agent */
   activeAgent?: string | null;
+  /** Multiple active agents running concurrently */
+  activeAgents?: string[];
   // Phase 2: Thinking mode indicator
   thinkingModeEnabled?: boolean;
   flashThinkingMode?: boolean;
@@ -255,6 +257,7 @@ function CompactStatusBar(props: StatusBarProps) {
     flashBackground = false,
     axEnabled = false,
     activeAgent = null,
+    activeAgents = [],
     thinkingModeEnabled = false,
     flashThinkingMode = false,
     isThinking = false,
@@ -264,6 +267,12 @@ function CompactStatusBar(props: StatusBarProps) {
   const effectiveVerbosityLevel = verbosityLevel !== undefined
     ? verbosityLevel
     : (verboseMode ? VerbosityLevel.VERBOSE : VerbosityLevel.QUIET);
+
+  // Combine single activeAgent with activeAgents array for display
+  const allActiveAgents = [
+    ...(activeAgent ? [activeAgent] : []),
+    ...activeAgents.filter(a => a !== activeAgent), // Avoid duplicates
+  ];
 
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -284,10 +293,20 @@ function CompactStatusBar(props: StatusBarProps) {
         <Box>
           <Text color="gray">🤖 </Text>
           <Text color="yellow">{model}</Text>
+          {axEnabled && (
+            <>
+              <Text color="gray"> • </Text>
+              {allActiveAgents.length > 0 ? (
+                <Text color="cyan" bold>⚡ {allActiveAgents.join(", ")}</Text>
+              ) : (
+                <Text color="green">⚡ ax</Text>
+              )}
+            </>
+          )}
         </Box>
       </Box>
 
-      {/* Row 2: Context, Tasks, MCP, AX */}
+      {/* Row 2: Context, Tasks, MCP */}
       <Box paddingX={1} flexDirection="row" justifyContent="space-between">
         <Box>
           <Text color="gray">ctx: </Text>
@@ -302,16 +321,6 @@ function CompactStatusBar(props: StatusBarProps) {
           <Text color={backgroundTaskCount > 0 ? "yellow" : "gray"}>bg: {backgroundTaskCount}</Text>
           <Text color="gray"> • </Text>
           <MCPIndicator mcpStatus={mcpStatus} mcpServerCount={mcpServerCount} />
-          {axEnabled && (
-            <>
-              <Text color="gray"> • </Text>
-              {activeAgent ? (
-                <Text color="cyan" bold>⚡ {activeAgent}</Text>
-              ) : (
-                <Text color="green">⚡ ax</Text>
-              )}
-            </>
-          )}
         </Box>
       </Box>
 
@@ -386,6 +395,7 @@ export function StatusBar(props: StatusBarProps) {
     flashBackground = false,
     axEnabled = false,
     activeAgent = null,
+    activeAgents = [],
     thinkingModeEnabled = false,
     flashThinkingMode = false,
     isThinking = false,
@@ -395,6 +405,12 @@ export function StatusBar(props: StatusBarProps) {
   const effectiveVerbosityLevel = verbosityLevel !== undefined
     ? verbosityLevel
     : (verboseMode ? VerbosityLevel.VERBOSE : VerbosityLevel.QUIET);
+
+  // Combine single activeAgent with activeAgents array for display
+  const allActiveAgents = [
+    ...(activeAgent ? [activeAgent] : []),
+    ...activeAgents.filter(a => a !== activeAgent), // Avoid duplicates
+  ];
 
   // Use compact layout for narrow terminals (< 100 columns)
   if (terminalWidth < 100) {
@@ -422,16 +438,26 @@ export function StatusBar(props: StatusBarProps) {
           <Text color="greenBright" bold> v{version}</Text>
         </Box>
 
-        {/* Center section: Model + Token count during processing */}
+        {/* Center section: Model + AX + Token count during processing */}
         <Box>
           <Text color="gray">🤖 </Text>
           <Text color="yellow">{model}</Text>
+          {axEnabled && (
+            <>
+              <Text color="gray"> • </Text>
+              {allActiveAgents.length > 0 ? (
+                <Text color="cyan" bold>⚡ {allActiveAgents.join(", ")}</Text>
+              ) : (
+                <Text color="green">⚡ ax</Text>
+              )}
+            </>
+          )}
           {isProcessing && tokenCount > 0 && (
             <Text color="cyan"> ({formatTokenCount(tokenCount)} tokens)</Text>
           )}
         </Box>
 
-        {/* Right section: Context (available), MCP, Background Tasks, AX */}
+        {/* Right section: Context (available), MCP, Background Tasks */}
         <Box>
           <Text color="gray">ctx avail: </Text>
           <ContextBar
@@ -444,16 +470,6 @@ export function StatusBar(props: StatusBarProps) {
           <Text color={backgroundTaskCount > 0 ? "yellow" : "gray"}>bg: {backgroundTaskCount}</Text>
           <Text color="gray"> • </Text>
           <MCPIndicator mcpStatus={mcpStatus} mcpServerCount={mcpServerCount} />
-          {axEnabled && (
-            <>
-              <Text color="gray"> • </Text>
-              {activeAgent ? (
-                <Text color="cyan" bold>⚡ {activeAgent}</Text>
-              ) : (
-                <Text color="green">⚡ ax</Text>
-              )}
-            </>
-          )}
         </Box>
       </Box>
 

@@ -139,6 +139,7 @@ function ChatInterfaceWithAgent({
   const [isThinking, setIsThinking] = useState(false);
   const [axEnabled, setAxEnabled] = useState(false);
   const [activeAgent, setActiveAgent] = useState<string | null>(forcedAgent || null);
+  const [activeAgents, setActiveAgents] = useState<string[]>([]);
   const [currentPlan, setCurrentPlan] = useState<TaskPlan | null>(null);
   // BUG FIX: Removed unused scrollRef - Ink Box doesn't support DOM scroll APIs
   const processingStartTime = useRef<number>(0);
@@ -254,6 +255,30 @@ function ChatInterfaceWithAgent({
       });
     };
 
+    // Subagent event handlers for tracking active agents
+    const handleSubagentSpawn = (data: { id: string; role: string }) => {
+      setActiveAgents((prev) => [...prev, data.role]);
+    };
+
+    const handleSubagentComplete = (data: { subagentId: string; taskId?: string; role?: string }) => {
+      // Remove the completed agent from the list
+      // Since we track by role, we remove the first occurrence
+      setActiveAgents((prev) => {
+        const idx = prev.findIndex(a => a === data.role);
+        if (idx !== -1) {
+          const newAgents = [...prev];
+          newAgents.splice(idx, 1);
+          return newAgents;
+        }
+        return prev;
+      });
+    };
+
+    const handleSubagentTerminate = (_data: { id: string }) => {
+      // Clear all agents on terminate (cleanup)
+      setActiveAgents([]);
+    };
+
     // Register event listeners
     agent.on('plan:created', handlePlanCreated);
     agent.on('plan:completed', handlePlanCompleted);
@@ -261,6 +286,9 @@ function ChatInterfaceWithAgent({
     agent.on('phase:started', handlePhaseStarted);
     agent.on('phase:completed', handlePhaseCompleted);
     agent.on('phase:failed', handlePhaseFailed);
+    agent.on('subagent:spawn', handleSubagentSpawn);
+    agent.on('subagent:complete', handleSubagentComplete);
+    agent.on('subagent:terminate', handleSubagentTerminate);
 
     // Cleanup on unmount
     return () => {
@@ -274,6 +302,9 @@ function ChatInterfaceWithAgent({
       agent.off('phase:started', handlePhaseStarted);
       agent.off('phase:completed', handlePhaseCompleted);
       agent.off('phase:failed', handlePhaseFailed);
+      agent.off('subagent:spawn', handleSubagentSpawn);
+      agent.off('subagent:complete', handleSubagentComplete);
+      agent.off('subagent:terminate', handleSubagentTerminate);
     };
   }, [agent]);
 
@@ -1056,6 +1087,7 @@ function ChatInterfaceWithAgent({
             flashBackground={flashBackground}
             axEnabled={axEnabled}
             activeAgent={activeAgent}
+            activeAgents={activeAgents}
             thinkingModeEnabled={thinkingModeEnabled}
             flashThinkingMode={flashThinkingMode}
             isThinking={isThinking}
