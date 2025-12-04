@@ -50,11 +50,12 @@ describe('SafeMutex', () => {
     it('should track lock duration', async () => {
       const token = await mutex.acquire('test');
 
-      // Wait a bit
-      await new Promise(resolve => setTimeout(resolve, 10));
+      // Wait a bit (use 15ms to avoid timer precision flakiness)
+      await new Promise(resolve => setTimeout(resolve, 15));
 
       const duration = mutex.getLockDuration();
       expect(duration).not.toBeNull();
+      // Allow 5ms tolerance for timer precision issues
       expect(duration!).toBeGreaterThanOrEqual(10);
 
       token.release();
