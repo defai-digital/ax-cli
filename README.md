@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.23)](#recent-changes-v31523)
+- [Recent Changes (v3.15.24)](#recent-changes-v31524)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.23)
+## Recent Changes (v3.15.24)
+
+### Enhancements
+
+- **Parallel agent invocation**: Updated `ax_agent` tool description to instruct LLM to invoke multiple agents in parallel when user requests collaboration with multiple agents
+
+## Previous Changes (v3.15.23)
 
 ### Bug Fixes
 
