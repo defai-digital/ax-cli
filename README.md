@@ -23,8 +23,11 @@
 # Install globally
 npm install -g @defai.digital/ax-cli
 
-# Configure API credentials and initialize project (one-time setup)
+# Configure API credentials (one-time setup)
 ax-cli setup
+
+# Initialize project (generates .ax-cli/CUSTOM.md)
+ax-cli init
 
 # Start interactive mode
 ax-cli
@@ -134,7 +137,8 @@ This interactive wizard will:
 2. Securely encrypt and store your API key (AES-256-GCM)
 3. Configure default model and settings
 4. Validate your configuration
-5. Initialize your project (generate `.ax-cli/CUSTOM.md`)
+
+Then run `ax-cli init` to initialize your project and generate `.ax-cli/CUSTOM.md`.
 
 ### Environment Variable Override
 
@@ -442,23 +446,28 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Recent Changes (v3.15.26)
 
-### Setup Command Enhancement
+### Command Separation Clarification
 
-- **Merged `init` into `setup`**: The `ax-cli setup` command now includes project initialization as the final step. After configuring your API credentials, it automatically analyzes your project and generates `.ax-cli/CUSTOM.md` with AI instructions.
-- **Deprecated `ax-cli init`**: The standalone `init` command is now deprecated and shows a migration notice pointing to `ax-cli setup`.
-- **New options for setup**:
-  - `-v, --verbose`: Show detailed output during setup
-  - `-d, --directory <dir>`: Specify project directory to initialize
-  - `--skip-project-init`: Skip project initialization step if only API configuration is needed
+- **`ax-cli setup`**: Handles user-level API configuration (provider, API key, model) - stored in `~/.ax-cli/config.json`
+- **`ax-cli init`**: Handles project-level initialization (CUSTOM.md, index.json) - stored in `.ax-cli/`
+- **`/init` in interactive mode**: Same as `ax-cli init` - initializes the current project
 
 ### Recommended Workflow
 
 ```bash
-# One command does everything
+# First time: configure API credentials
 ax-cli setup
+
+# In each project: initialize project configuration
+ax-cli init
+
+# Start working
+ax-cli
 ```
 
-The setup wizard now handles both user-level API configuration (`~/.ax-cli/config.json`) and project-level initialization (`.ax-cli/CUSTOM.md`) in a single flow.
+The two commands serve different purposes:
+- `setup` is run once per machine to configure your API credentials
+- `init` is run once per project to generate AI instructions based on project analysis
 
 ## Previous Changes (v3.15.25)
 

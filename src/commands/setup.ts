@@ -1,6 +1,6 @@
 import { Command } from 'commander';
-import { existsSync, mkdirSync, writeFileSync, renameSync, unlinkSync } from 'fs';
-import { dirname, join, resolve } from 'path';
+import { existsSync, mkdirSync } from 'fs';
+import { dirname } from 'path';
 import { execSync, spawnSync } from 'child_process';
 import * as prompts from '@clack/prompts';
 import chalk from 'chalk';
@@ -8,16 +8,13 @@ import { validateProviderSetup } from '../utils/setup-validator.js';
 import { getSettingsManager } from '../utils/settings-manager.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
 import type { UserSettings } from '../schemas/settings-schemas.js';
-import { CONFIG_PATHS, CONFIG_DIR_NAME, FILE_NAMES } from '../constants.js';
+import { CONFIG_PATHS } from '../constants.js';
 import {
   detectZAIServices,
   getRecommendedServers,
   generateZAIServerConfig,
 } from '../mcp/index.js';
 import { addMCPServer, removeMCPServer } from '../mcp/config.js';
-import { ProjectAnalyzer } from '../utils/project-analyzer.js';
-import { LLMOptimizedInstructionGenerator } from '../utils/llm-optimized-instruction-generator.js';
-import { InitValidator } from '../utils/init-validator.js';
 
 /**
  * Check if AutomatosX (ax) is installed
@@ -160,151 +157,18 @@ function getProviderFromBaseURL(baseURL: string): string | null {
 }
 
 /**
- * Project initialization options
- */
-interface ProjectInitOptions {
-  force?: boolean;
-  verbose?: boolean;
-  directory?: string;
-}
-
-/**
- * Initialize project with .ax-cli/CUSTOM.md and index.json
- * This is the core logic from the old init command, now integrated into setup
- */
-async function runProjectInit(options: ProjectInitOptions): Promise<boolean> {
-  const projectRoot = options.directory ? resolve(options.directory) : process.cwd();
-
-  // Check if in a git repo or has package.json (reasonable project indicator)
-  const hasGit = existsSync(join(projectRoot, '.git'));
-  const hasPackageJson = existsSync(join(projectRoot, 'package.json'));
-
-  if (!hasGit && !hasPackageJson) {
-    prompts.log.info('No project detected in current directory (no .git or package.json)');
-    prompts.log.info('Run "ax-cli setup" from a project directory to initialize it.');
-    return false;
-  }
-
-  // Run validation
-  const validator = new InitValidator(projectRoot);
-  const validationResult = validator.validate();
-
-  if (!validationResult.valid) {
-    if (options.verbose) {
-      prompts.log.warn('Project validation failed:');
-      prompts.log.warn(InitValidator.formatValidationResult(validationResult));
-    }
-    return false;
-  }
-
-  // Check if already initialized
-  const axCliDir = join(projectRoot, CONFIG_DIR_NAME);
-  const customMdPath = join(axCliDir, FILE_NAMES.CUSTOM_MD);
-  const indexPath = join(axCliDir, FILE_NAMES.INDEX_JSON);
-
-  if (!options.force && existsSync(customMdPath)) {
-    prompts.log.success('Project already initialized!');
-    prompts.log.info(`Custom instructions: ${customMdPath}`);
-    if (options.verbose) {
-      prompts.log.info(`Project index: ${indexPath}`);
-      prompts.log.info('Use --force to regenerate');
-    }
-    return true;
-  }
-
-  // Create config directory
-  if (!existsSync(axCliDir)) {
-    mkdirSync(axCliDir, { recursive: true });
-    if (options.verbose) {
-      prompts.log.info(`Created ${CONFIG_DIR_NAME} directory`);
-    }
-  }
-
-  // Analyze project
-  const analyzer = new ProjectAnalyzer(projectRoot);
-  const result = await analyzer.analyze();
-
-  if (!result.success || !result.projectInfo) {
-    if (options.verbose) {
-      prompts.log.warn(`Project analysis failed: ${result.error || 'Unknown error'}`);
-    }
-    return false;
-  }
-
-  const projectInfo = result.projectInfo;
-
-  // Display analysis results if verbose
-  if (options.verbose) {
-    prompts.log.info(`Project: ${projectInfo.name} (${projectInfo.projectType})`);
-    prompts.log.info(`Language: ${projectInfo.primaryLanguage}`);
-    if (projectInfo.techStack.length > 0) {
-      prompts.log.info(`Stack: ${projectInfo.techStack.join(', ')}`);
-    }
-  }
-
-  // Generate LLM-optimized instructions
-  const generator = new LLMOptimizedInstructionGenerator({
-    compressionLevel: 'moderate',
-    hierarchyEnabled: true,
-    criticalRulesCount: 5,
-    includeDODONT: true,
-    includeTroubleshooting: true,
-  });
-  const instructions = generator.generateInstructions(projectInfo);
-  const index = generator.generateIndex(projectInfo);
-
-  // Write files using atomic operations
-  const tmpCustomPath = `${customMdPath}.tmp`;
-  const tmpIndexPath = `${indexPath}.tmp`;
-
-  try {
-    writeFileSync(tmpCustomPath, instructions, 'utf-8');
-    writeFileSync(tmpIndexPath, index, 'utf-8');
-
-    // Atomic rename
-    renameSync(tmpCustomPath, customMdPath);
-    renameSync(tmpIndexPath, indexPath);
-
-    prompts.log.success(`Generated custom instructions: ${customMdPath}`);
-    if (options.verbose) {
-      prompts.log.success(`Generated project index: ${indexPath}`);
-    }
-    return true;
-  } catch (writeError) {
-    // Cleanup temp files on error
-    try {
-      if (existsSync(tmpCustomPath)) unlinkSync(tmpCustomPath);
-      if (existsSync(tmpIndexPath)) unlinkSync(tmpIndexPath);
-    } catch {
-      // Ignore cleanup errors
-    }
-    if (options.verbose) {
-      prompts.log.warn(`Failed to write project files: ${extractErrorMessage(writeError)}`);
-    }
-    return false;
-  }
-}
-
-/**
  * Setup command - Initialize ~/.ax-cli/config.json with provider selection
- * Also initializes project-level configuration (.ax-cli/CUSTOM.md)
  */
 export function createSetupCommand(): Command {
   const setupCommand = new Command('setup');
 
   setupCommand
-    .description('Initialize AX CLI configuration with AI provider selection and project setup')
+    .description('Initialize AX CLI configuration with AI provider selection')
     .option('--force', 'Overwrite existing configuration')
     .option('--no-validate', 'Skip validation of API endpoint and credentials')
-    .option('-v, --verbose', 'Verbose output showing details', false)
-    .option('-d, --directory <dir>', 'Project directory to initialize')
-    .option('--skip-project-init', 'Skip project initialization step', false)
     .action(async (options: {
       force?: boolean;
       validate?: boolean;
-      verbose?: boolean;
-      directory?: string;
-      skipProjectInit?: boolean;
     }) => {
       try {
         // Show intro
@@ -729,35 +593,6 @@ export function createSetupCommand(): Command {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // Project Initialization (integrated from init command)
-        // ═══════════════════════════════════════════════════════════════════
-        if (!options.skipProjectInit) {
-          await prompts.note(
-            'Setting up project-level configuration:\n' +
-            '• Analyzes project structure and tech stack\n' +
-            '• Generates .ax-cli/CUSTOM.md with AI instructions\n' +
-            '• Creates project index for context awareness',
-            'Project Initialization'
-          );
-
-          const initSpinner = prompts.spinner();
-          initSpinner.start('Analyzing project...');
-
-          const initResult = await runProjectInit({
-            force: options.force,
-            verbose: options.verbose,
-            directory: options.directory,
-          });
-
-          if (initResult) {
-            initSpinner.stop('Project initialized successfully');
-          } else {
-            initSpinner.stop('Project initialization skipped');
-            prompts.log.info('You can initialize a project later with: ax-cli setup -d /path/to/project');
-          }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════
         // Completion Summary
         // ═══════════════════════════════════════════════════════════════════
         await prompts.note(
@@ -771,9 +606,11 @@ export function createSetupCommand(): Command {
         );
 
         await prompts.note(
-          '1. Start interactive mode:\n' +
+          '1. Initialize your project:\n' +
+          '   $ ax-cli init\n\n' +
+          '2. Start interactive mode:\n' +
           '   $ ax-cli\n\n' +
-          '2. Run a quick test:\n' +
+          '3. Run a quick test:\n' +
           '   $ ax-cli -p "Hello, introduce yourself"',
           'Next Steps'
         );
