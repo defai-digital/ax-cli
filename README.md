@@ -23,14 +23,14 @@
 # Install globally
 npm install -g @defai.digital/ax-cli
 
-# Configure (secure API key setup)
+# Configure API credentials (one-time setup)
 ax-cli setup
 
-# Initialize your project
-ax-cli init
-
-# Start coding!
+# Start interactive mode
 ax-cli
+
+# Inside interactive mode, initialize your project
+> /init
 ```
 
 **That's it!** AX CLI is now ready to help you build, debug, and ship code faster.
@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.17)](#recent-changes-v31517)
+- [Recent Changes (v3.15.18)](#recent-changes-v31518)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,23 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.17)
+## Recent Changes (v3.15.18)
+
+### Command Separation Fix
+
+This release fixes the command flow separation between `ax setup` and `ax init`:
+
+- **`ax setup`**: Handles user-level API configuration (provider, API key, model) - stored in `~/.ax-cli/config.json`
+- **`ax init`** / **`/init`**: Handles project-level initialization (CUSTOM.md, index.json) - stored in `.ax-cli/`
+
+Previously, running `ax init` would also prompt for API configuration, which was redundant with `ax setup`. Now the init command focuses solely on project initialization.
+
+**Recommended workflow:**
+1. Run `ax setup` once to configure your API credentials
+2. Run `ax-cli` to start interactive mode
+3. Use `/init` inside interactive mode to initialize your project
+
+## Previous Changes (v3.15.17)
 
 ### Node.js 24 Compatibility (Comprehensive Review)
 

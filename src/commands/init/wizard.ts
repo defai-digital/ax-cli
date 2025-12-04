@@ -15,13 +15,6 @@ export interface WizardOptions {
   preset?: string;
 }
 
-export interface APIConfig {
-  provider: 'glm' | 'openai' | 'anthropic' | 'ollama' | 'custom';
-  apiKey?: string;
-  baseUrl?: string;
-  model: string;
-}
-
 export interface UserPreferences {
   verbose: boolean;
   autoConfirm: boolean;
@@ -29,7 +22,6 @@ export interface UserPreferences {
 }
 
 export interface WizardResult {
-  apiConfig?: APIConfig;
   preferences: UserPreferences;
   generateInstructions: boolean;
   skipWelcome: boolean;
@@ -59,14 +51,12 @@ export class InitWizard {
       await this.showWelcome();
     }
 
-    // Run wizard steps
-    const apiConfig = await this.stepAPIConfiguration();
+    // Run wizard steps (no API configuration - that's handled by 'ax setup')
     const preferences = await this.stepPreferences();
     const selectedTemplate = await this.stepTemplateSelection();
     const generateInstructions = await this.stepInstructionGeneration(selectedTemplate);
 
     return {
-      apiConfig,
       preferences,
       generateInstructions,
       skipWelcome: !this.isFirstRun,
@@ -78,147 +68,20 @@ export class InitWizard {
    * Show welcome screen for first-time users
    */
   private async showWelcome(): Promise<void> {
-    prompts.intro('Welcome to AX CLI!');
+    prompts.intro('Welcome to AX CLI Project Initialization!');
 
     await prompts.note(
-      `AX CLI is an enterprise-grade AI command line interface.\n\n` +
-      `Let's get you set up in under 60 seconds:\n\n` +
-      `  ⏩ Step 1/3: API Configuration\n` +
-      `  ⏹ Step 2/3: Preferences\n` +
-      `  ⏹ Step 3/3: Project Analysis`,
-      'First-Time Setup'
+      `This will set up your project for AX CLI.\n\n` +
+      `Steps:\n\n` +
+      `  ⏩ Step 1/2: Preferences\n` +
+      `  ⏹ Step 2/2: Project Analysis\n\n` +
+      `Note: API configuration is done via 'ax setup' command.`,
+      'Project Setup'
     );
   }
 
   /**
-   * Step 1: API Configuration
-   */
-  private async stepAPIConfiguration(): Promise<APIConfig | undefined> {
-    const group = await prompts.group(
-      {
-        provider: () =>
-          prompts.select({
-            message: 'Which AI provider do you want to use?',
-            options: [
-              {
-                value: 'glm' as const,
-                label: 'GLM (Recommended)',
-                hint: 'Fast, affordable, 200K context',
-              },
-              {
-                value: 'openai' as const,
-                label: 'OpenAI',
-                hint: 'GPT-4, GPT-3.5',
-              },
-              {
-                value: 'anthropic' as const,
-                label: 'Anthropic',
-                hint: 'Claude 3.5 Sonnet, Opus',
-              },
-              {
-                value: 'ollama' as const,
-                label: 'Ollama (Local)',
-                hint: 'Run models locally, no API key needed',
-              },
-              {
-                value: 'custom' as const,
-                label: 'Custom',
-                hint: 'Use any OpenAI-compatible API',
-              },
-            ],
-            initialValue: 'glm' as const,
-          }),
-
-        apiKey: ({ results }: { results: { provider?: string } }) => {
-          // Skip API key for Ollama (local)
-          if (results.provider === 'ollama') {
-            return Promise.resolve(undefined);
-          }
-
-          return prompts.password({
-            message: `Enter your ${results.provider?.toUpperCase()} API key:`,
-            validate: (value: string) => {
-              if (!value || value.length === 0) {
-                return 'API key is required (or use Ollama for local models)';
-              }
-              return;
-            },
-          });
-        },
-
-        baseUrl: ({ results }: { results: { provider?: string } }) => {
-          if (results.provider === 'custom') {
-            return prompts.text({
-              message: 'Enter custom API base URL:',
-              placeholder: 'https://api.example.com/v1',
-              validate: (value: string) => {
-                if (!value || !value.startsWith('http')) {
-                  return 'Please enter a valid URL';
-                }
-                return;
-              },
-            });
-          }
-          return Promise.resolve(undefined);
-        },
-
-        model: ({ results }: { results: { provider?: string } }) => {
-          const modelOptions: Record<string, Array<{ value: string; label: string; hint: string }>> = {
-            glm: [
-              { value: 'glm-4.6', label: 'glm-4.6 (Recommended)', hint: '200K context, reasoning mode' },
-              { value: 'glm-4-flash', label: 'glm-4-flash', hint: 'Faster, 32K context' },
-            ],
-            openai: [
-              { value: 'gpt-4-turbo', label: 'GPT-4 Turbo', hint: '128K context' },
-              { value: 'gpt-4', label: 'GPT-4', hint: '8K context' },
-              { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', hint: '16K context, faster' },
-            ],
-            anthropic: [
-              { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet', hint: '200K context' },
-              { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus', hint: '200K context' },
-            ],
-            ollama: [
-              { value: 'llama2', label: 'Llama 2', hint: 'Local model' },
-              { value: 'codellama', label: 'Code Llama', hint: 'Code-focused local model' },
-              { value: 'mistral', label: 'Mistral', hint: 'Fast local model' },
-            ],
-            custom: [],
-          };
-
-          const options = modelOptions[results.provider as string] || [];
-
-          if (options.length === 0) {
-            return prompts.text({
-              message: 'Enter model name:',
-              placeholder: 'model-name',
-            }) as Promise<string>;
-          }
-
-          return prompts.select({
-            message: 'Select your default model:',
-            options,
-            initialValue: options[0]?.value,
-          }) as Promise<string>;
-        },
-      },
-      {
-        onCancel: () => {
-          prompts.cancel('Operation cancelled.');
-          process.exit(0);
-        },
-      }
-    );
-
-    return {
-      provider: group.provider as 'glm' | 'openai' | 'anthropic' | 'ollama' | 'custom',
-      apiKey: group.apiKey as string | undefined,
-      baseUrl: group.baseUrl as string | undefined,
-      model: group.model as string,
-    };
-  }
-
-  /**
-   * Step 2: User Preferences
+   * Step 1: User Preferences
    */
   private async stepPreferences(): Promise<UserPreferences> {
     const group = await prompts.group(
@@ -263,7 +126,7 @@ export class InitWizard {
   }
 
   /**
-   * Step 3: Template Selection
+   * Step 2: Template Selection (optional)
    */
   private async stepTemplateSelection(): Promise<ProjectTemplate | undefined> {
     // If template is specified in options, use it
@@ -321,7 +184,7 @@ export class InitWizard {
   }
 
   /**
-   * Step 4: Instruction Generation Confirmation
+   * Instruction Generation Confirmation
    */
   private async stepInstructionGeneration(selectedTemplate?: ProjectTemplate): Promise<boolean> {
     // If using a template, skip this step (template has instructions)
@@ -346,12 +209,10 @@ export class InitWizard {
    * Show completion summary
    */
   async showCompletion(result: WizardResult, projectInfo?: ProjectInfo): Promise<void> {
-    prompts.outro('Setup complete!');
+    prompts.outro('Project initialization complete!');
 
     const summary = [
-      '📦 Configuration Summary:',
-      result.apiConfig ? `  • Provider: ${result.apiConfig.provider}` : '',
-      result.apiConfig?.model ? `  • Model: ${result.apiConfig.model}` : '',
+      '📦 Project Summary:',
       projectInfo ? `  • Project: ${projectInfo.name} (${projectInfo.projectType})` : '',
       `  • Verbose: ${result.preferences.verbose ? 'Enabled' : 'Disabled'}`,
       `  • Auto-confirm: ${result.preferences.autoConfirm ? 'Enabled' : 'Disabled'}`,
@@ -362,8 +223,7 @@ export class InitWizard {
     const nextSteps = [
       '🚀 Next Steps:',
       '  1. Review .ax-cli/CUSTOM.md and customize if needed',
-      '  2. Run: ax-cli (start interactive session)',
-      '  3. Run: ax-cli --help (view all commands)',
+      '  2. Start chatting with the AI',
     ].join('\n');
 
     await prompts.note(nextSteps, 'Get Started');
