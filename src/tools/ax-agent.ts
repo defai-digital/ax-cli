@@ -105,13 +105,13 @@ export async function executeAxAgent(options: AxAgentOptions): Promise<ToolResul
  */
 async function runAxCommand(args: string[]): Promise<{ success: boolean; output?: string; error?: string }> {
   return new Promise((resolve) => {
-    // Try 'ax' first, then 'automatosx' as fallback
+    // Run ax command without shell to avoid DEP0190 deprecation warning
     const command = "ax";
 
     const child = spawn(command, args, {
       cwd: process.cwd(),
       env: { ...process.env },
-      shell: true,
+      // Note: shell: false (default) - args are passed directly to the command
     });
 
     let stdout = "";
