@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.12)](#recent-changes-v31512)
+- [Recent Changes (v3.15.14)](#recent-changes-v31514)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,28 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.12)
+## Recent Changes (v3.15.14)
+
+### Setup Improvements
+
+- **Agent-First Mode Configuration in Setup**: Running `ax-cli setup` now prompts users to enable/disable agent-first mode when AutomatosX is available. The default is disabled, giving users explicit control over whether tasks are automatically routed to specialized agents.
+
+## Previous Changes (v3.15.13)
+
+### Behavior Change
+
+- **Agent-First Mode Disabled by Default**: The automatic agent routing is now disabled by default. Users will use the direct LLM unless they explicitly request an agent (e.g., via `--agent` flag or by enabling agent-first mode in settings). This gives users more control over when specialized agents are used.
+
+To enable agent-first mode, add to your settings:
+```json
+{
+  "agentFirst": {
+    "enabled": true
+  }
+}
+```
+
+## Previous Changes (v3.15.12)
 
 ### UI Improvements
 

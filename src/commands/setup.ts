@@ -517,6 +517,48 @@ export function createSetupCommand(): Command {
           }
         }
 
+        // Agent-First Mode Configuration (only ask if AutomatosX is available)
+        const axAvailable = isAutomatosXInstalled();
+        if (axAvailable) {
+          console.log(chalk.cyan('⚡ Agent-First Mode\n'));
+          console.log(chalk.dim('   When enabled, ax-cli automatically routes tasks to specialized agents'));
+          console.log(chalk.dim('   based on keywords (e.g., "test" → testing agent, "refactor" → refactoring agent).'));
+          console.log(chalk.dim('   When disabled (default), you use the direct LLM and can invoke agents explicitly.\n'));
+
+          try {
+            const agentFirstResponse = await enquirer.prompt<{ enableAgentFirst: boolean }>({
+              type: 'confirm',
+              name: 'enableAgentFirst',
+              message: 'Enable agent-first mode (auto-route to specialized agents)?',
+              initial: false,
+            });
+
+            // Save agent-first setting
+            const currentSettings = settingsManager.loadUserSettings();
+            settingsManager.saveUserSettings({
+              ...currentSettings,
+              agentFirst: {
+                enabled: agentFirstResponse.enableAgentFirst,
+                confidenceThreshold: 0.6,
+                showAgentIndicator: true,
+                defaultAgent: 'standard',
+                excludedAgents: [],
+              },
+            });
+
+            if (agentFirstResponse.enableAgentFirst) {
+              console.log(chalk.green('\n✓ Agent-first mode enabled'));
+              console.log(chalk.dim('   Tasks will be automatically routed to specialized agents.\n'));
+            } else {
+              console.log(chalk.green('\n✓ Agent-first mode disabled (default)'));
+              console.log(chalk.dim('   Use direct LLM. Invoke agents with --agent flag when needed.\n'));
+            }
+          } catch {
+            // Skip in non-interactive mode
+            console.log(chalk.dim('   Skipping agent-first configuration (non-interactive mode).\n'));
+          }
+        }
+
         console.log(chalk.cyan('📄 Configuration details:\n'));
         console.log(chalk.dim('   Location:    ') + chalk.white(configPath));
         console.log(chalk.dim('   Provider:    ') + chalk.white(selectedProvider.displayName));

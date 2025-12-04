@@ -189,10 +189,10 @@ export const AutoUpdateSettingsSchema = z.object({
 }).optional();
 
 // Agent-First Mode Settings Schema
-// Routes tasks to specialized AutomatosX agents by default
+// Routes tasks to specialized AutomatosX agents when explicitly requested
 export const AgentFirstSettingsSchema = z.object({
-  // Enable/disable agent-first mode (default: true when AutomatosX available)
-  enabled: z.boolean().optional().default(true),
+  // Enable/disable agent-first mode (default: false - use direct LLM unless explicitly requested)
+  enabled: z.boolean().optional().default(false),
   // Minimum confidence to auto-route (0.0-1.0)
   confidenceThreshold: z.number().min(0).max(1).optional().default(0.6),
   // Show which agent is handling the task (badge in UI)
