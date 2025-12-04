@@ -23,14 +23,11 @@
 # Install globally
 npm install -g @defai.digital/ax-cli
 
-# Configure API credentials (one-time setup)
+# Configure API credentials and initialize project (one-time setup)
 ax-cli setup
 
 # Start interactive mode
 ax-cli
-
-# Inside interactive mode, initialize your project
-> /init
 ```
 
 **That's it!** AX CLI is now ready to help you build, debug, and ship code faster.
@@ -50,7 +47,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.25)](#recent-changes-v31525)
+- [Recent Changes (v3.15.26)](#recent-changes-v31526)
 - [Documentation](#documentation)
 
 ---
@@ -137,6 +134,7 @@ This interactive wizard will:
 2. Securely encrypt and store your API key (AES-256-GCM)
 3. Configure default model and settings
 4. Validate your configuration
+5. Initialize your project (generate `.ax-cli/CUSTOM.md`)
 
 ### Environment Variable Override
 
@@ -442,7 +440,27 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.25)
+## Recent Changes (v3.15.26)
+
+### Setup Command Enhancement
+
+- **Merged `init` into `setup`**: The `ax-cli setup` command now includes project initialization as the final step. After configuring your API credentials, it automatically analyzes your project and generates `.ax-cli/CUSTOM.md` with AI instructions.
+- **Deprecated `ax-cli init`**: The standalone `init` command is now deprecated and shows a migration notice pointing to `ax-cli setup`.
+- **New options for setup**:
+  - `-v, --verbose`: Show detailed output during setup
+  - `-d, --directory <dir>`: Specify project directory to initialize
+  - `--skip-project-init`: Skip project initialization step if only API configuration is needed
+
+### Recommended Workflow
+
+```bash
+# One command does everything
+ax-cli setup
+```
+
+The setup wizard now handles both user-level API configuration (`~/.ax-cli/config.json`) and project-level initialization (`.ax-cli/CUSTOM.md`) in a single flow.
+
+## Previous Changes (v3.15.25)
 
 ### UI Improvements
 
