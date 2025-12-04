@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.16)](#recent-changes-v31516)
+- [Recent Changes (v3.15.17)](#recent-changes-v31517)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,27 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.16)
+## Recent Changes (v3.15.17)
+
+### Node.js 24 Compatibility (Comprehensive Review)
+
+This release ensures full Node.js 24 compatibility across all modules:
+
+- **Updated `@ax-cli/schemas` package**: Engines updated from `>=20.0.0` to `>=24.0.0`
+- **Updated `@types/node`** in schemas package to `^24.0.0`
+- **Verified all native modules**: fsevents, rollup bindings all compatible with Node 24 ABI
+- **Full test suite passing**: 2423 tests pass on Node 24.11.1
+
+### Node.js 24 Requirements Summary
+
+| Component | Node Requirement |
+|-----------|------------------|
+| ax-cli (main) | `>=24.0.0` |
+| @ax-cli/schemas | `>=24.0.0` |
+| CI Workflows | Node 24.x |
+| .nvmrc | 24 |
+
+## Previous Changes (v3.15.16)
 
 ### Runtime Health & DX Improvements (CTO/Bob suggestions)
 
@@ -458,8 +478,8 @@ Run `ax-cli doctor` to check for:
 - Node.js version compatibility
 - API configuration validity
 - MCP server status
-- **NEW**: Native module ABI compatibility
-- **NEW**: Directory permission issues
+- Native module ABI compatibility
+- Directory permission issues
 
 ## Previous Changes (v3.15.15)
 

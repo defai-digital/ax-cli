@@ -137,8 +137,8 @@ importers:
         version: 3.25.76
     devDependencies:
       '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.25
+        specifier: ^24.0.0
+        version: 24.10.1
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.13.0
         version: 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)(typescript@5.9.3)
@@ -156,7 +156,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.0.14
-        version: 4.0.14(@types/node@20.19.25)(@vitest/ui@4.0.14)(tsx@4.20.6)
+        version: 4.0.14(@types/node@24.10.1)(@vitest/ui@4.0.14)(tsx@4.20.6)
 
 packages:
 
@@ -630,9 +630,6 @@ packages:
 
   '@types/minimatch@5.1.2':
     resolution: {integrity: sha512-K0VQKziLUWkVKiRVrx4a40iPaxTUefQmjtkQofBkYRcoaaL/8rhwDWww9qWbrgicNOgnpIsMxyNIUM4+n6dUIA==}
-
-  '@types/node@20.19.25':
-    resolution: {integrity: sha512-ZsJzA5thDQMSQO788d7IocwwQbI8B5OPzmqNvpf3NY/+MHDAS759Wo0gd2WQeXYt5AAAQjzcrTVC6SKCuYgoCQ==}
 
   '@types/node@24.10.1':
     resolution: {integrity: sha512-GNWcUTRBgIRJD5zj+Tq0fKOJ5XZajIiBroOF0yvj2bSU1WvNdYS/dn9UxwsujGW4JX06dnHyjV2y9rRaybH0iQ==}
@@ -2166,9 +2163,6 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  undici-types@6.21.0:
-    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
-
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
@@ -2717,10 +2711,6 @@ snapshots:
 
   '@types/minimatch@5.1.2': {}
 
-  '@types/node@20.19.25':
-    dependencies:
-      undici-types: 6.21.0
-
   '@types/node@24.10.1':
     dependencies:
       undici-types: 7.16.0
@@ -2931,7 +2921,7 @@ snapshots:
       obug: 2.1.1
       std-env: 3.10.0
       tinyrainbow: 3.0.3
-      vitest: 4.0.14(@types/node@20.19.25)(@vitest/ui@4.0.14)(tsx@4.20.6)
+      vitest: 4.0.14(@types/node@24.10.1)(@vitest/ui@4.0.14)(tsx@4.20.6)
     transitivePeerDependencies:
       - supports-color
 
@@ -2943,14 +2933,6 @@ snapshots:
       '@vitest/utils': 4.0.14
       chai: 6.2.1
       tinyrainbow: 3.0.3
-
-  '@vitest/mocker@4.0.14(vite@7.2.4(@types/node@20.19.25)(tsx@4.20.6))':
-    dependencies:
-      '@vitest/spy': 4.0.14
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 7.2.4(@types/node@20.19.25)(tsx@4.20.6)
 
   '@vitest/mocker@4.0.14(vite@7.2.4(@types/node@24.10.1)(tsx@4.20.6))':
     dependencies:
@@ -2986,7 +2968,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vitest: 4.0.14(@types/node@20.19.25)(@vitest/ui@4.0.14)(tsx@4.20.6)
+      vitest: 4.0.14(@types/node@24.10.1)(@vitest/ui@4.0.14)(tsx@4.20.6)
 
   '@vitest/utils@4.0.14':
     dependencies:
@@ -4400,8 +4382,6 @@ snapshots:
 
   typescript@5.9.3: {}
 
-  undici-types@6.21.0: {}
-
   undici-types@7.16.0: {}
 
   unicode-emoji-modifier-base@1.0.0: {}
@@ -4418,19 +4398,6 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite@7.2.4(@types/node@20.19.25)(tsx@4.20.6):
-    dependencies:
-      esbuild: 0.25.12
-      fdir: 6.5.0(picomatch@4.0.3)
-      picomatch: 4.0.3
-      postcss: 8.5.6
-      rollup: 4.53.3
-      tinyglobby: 0.2.15
-    optionalDependencies:
-      '@types/node': 20.19.25
-      fsevents: 2.3.3
-      tsx: 4.20.6
-
   vite@7.2.4(@types/node@24.10.1)(tsx@4.20.6):
     dependencies:
       esbuild: 0.25.12
@@ -4443,44 +4410,6 @@ snapshots:
       '@types/node': 24.10.1
       fsevents: 2.3.3
       tsx: 4.20.6
-
-  vitest@4.0.14(@types/node@20.19.25)(@vitest/ui@4.0.14)(tsx@4.20.6):
-    dependencies:
-      '@vitest/expect': 4.0.14
-      '@vitest/mocker': 4.0.14(vite@7.2.4(@types/node@20.19.25)(tsx@4.20.6))
-      '@vitest/pretty-format': 4.0.14
-      '@vitest/runner': 4.0.14
-      '@vitest/snapshot': 4.0.14
-      '@vitest/spy': 4.0.14
-      '@vitest/utils': 4.0.14
-      es-module-lexer: 1.7.0
-      expect-type: 1.2.2
-      magic-string: 0.30.21
-      obug: 2.1.1
-      pathe: 2.0.3
-      picomatch: 4.0.3
-      std-env: 3.10.0
-      tinybench: 2.9.0
-      tinyexec: 0.3.2
-      tinyglobby: 0.2.15
-      tinyrainbow: 3.0.3
-      vite: 7.2.4(@types/node@20.19.25)(tsx@4.20.6)
-      why-is-node-running: 2.3.0
-    optionalDependencies:
-      '@types/node': 20.19.25
-      '@vitest/ui': 4.0.14(vitest@4.0.14)
-    transitivePeerDependencies:
-      - jiti
-      - less
-      - lightningcss
-      - msw
-      - sass
-      - sass-embedded
-      - stylus
-      - sugarss
-      - terser
-      - tsx
-      - yaml
 
   vitest@4.0.14(@types/node@24.10.1)(@vitest/ui@4.0.14)(tsx@4.20.6):
     dependencies:
