@@ -334,61 +334,8 @@ const BASE_LLM_TOOLS: LLMTool[] = [
       },
     },
   },
-  {
-    type: "function",
-    function: {
-      name: "analyze_architecture",
-      description:
-        "Analyze project architecture to detect design patterns (MVC, Clean Architecture, Repository), anti-patterns (God Objects), and generate improvement recommendations with confidence scores.",
-      parameters: {
-        type: "object",
-        properties: {
-          projectPath: {
-            type: "string",
-            description:
-              "Path to project root directory (default: current directory)",
-          },
-          depth: {
-            type: "string",
-            enum: ["quick", "deep"],
-            default: "quick",
-            description:
-              'Analysis depth: "quick" for pattern detection only, "deep" includes anti-pattern detection',
-          },
-        },
-        required: [],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "validate_best_practices",
-      description:
-        "Validate TypeScript/JavaScript files against best practices and coding standards. Checks for type safety issues (any types, implicit any), code quality (unused variables, error handling), maintainability (complexity, file length), and adherence to naming conventions.",
-      parameters: {
-        type: "object",
-        properties: {
-          path: {
-            type: "string",
-            description:
-              "Path to directory or file to validate (default: current directory)",
-          },
-          pattern: {
-            type: "string",
-            description:
-              "Glob pattern for files to validate (default: **/*.{ts,tsx})",
-          },
-          rules: {
-            type: "object",
-            description:
-              "Rule configuration object to enable/disable specific rules (e.g., {\"no-any-type\": {\"enabled\": false}})",
-          },
-        },
-        required: [],
-      },
-    },
-  },
+  // NOTE: analyze_architecture and validate_best_practices were removed.
+  // The backend analyzers were deleted. Use ax_agent with avery/stan instead.
   {
     type: "function",
     function: {
@@ -439,6 +386,40 @@ const BASE_LLM_TOOLS: LLMTool[] = [
           },
         },
         required: ["questions"],
+      },
+    },
+  },
+  // ==========================================================================
+  // AutomatosX Agent Invocation
+  // ==========================================================================
+  {
+    type: "function",
+    function: {
+      name: "ax_agent",
+      description: "Invoke an AutomatosX AI agent for collaborative analysis, code review, architecture advice, or strategic guidance. USE THIS when the user wants to WORK WITH a specific agent persona (Tony/CTO, Bob/Backend, Avery/Architect, Stan/Standards, Steve/Security, etc.). Returns the agent's AI-generated response. Do NOT use static analysis tools (analyze_architecture, validate_best_practices) when user explicitly asks to work with agents.",
+      parameters: {
+        type: "object",
+        properties: {
+          agent: {
+            type: "string",
+            enum: ["tony", "bob", "avery", "stan", "steve", "felix", "frank", "queenie", "wendy", "oliver", "paris", "maya", "dana", "daisy", "debbee", "eric", "rodman", "candy", "quinn", "astrid"],
+            description: "Agent to invoke: tony (CTO/strategy), bob (backend), avery (architect), stan (code standards), steve (security), felix (fullstack), frank (frontend), queenie (QA), wendy (writer), oliver (devops), paris (product), maya (mobile), dana (data science), daisy (data eng), debbee (design), eric (exec), rodman (research), candy (marketing), quinn (quantum), astrid (aerospace)",
+          },
+          task: {
+            type: "string",
+            description: "Task or question for the agent. Be specific about what you want analyzed or reviewed.",
+          },
+          format: {
+            type: "string",
+            enum: ["text", "markdown"],
+            description: "Output format (default: markdown)",
+          },
+          save: {
+            type: "string",
+            description: "Optional file path to save output (e.g., automatosx/tmp/review.md)",
+          },
+        },
+        required: ["agent", "task"],
       },
     },
   },

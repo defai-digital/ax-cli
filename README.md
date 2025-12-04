@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.19)](#recent-changes-v31519)
+- [Recent Changes (v3.15.20)](#recent-changes-v31520)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,27 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.19)
+## Recent Changes (v3.15.20)
+
+### AutomatosX Agent Integration
+
+This release adds first-class support for invoking AutomatosX AI agents directly from ax-cli:
+
+- **New `ax_agent` tool**: Invoke AI agents (Tony, Bob, Avery, Stan, etc.) for collaborative analysis
+- **Agent routing rules**: System prompt now routes agent-related requests to the `ax_agent` tool
+- **Removed orphaned static tools**: `analyze_architecture` and `validate_best_practices` removed (backend deleted)
+
+### Bug Fixes
+
+- **Race condition fix**: Fixed double-resolution bug in `ax-agent.ts` timeout handling
+- **AGENTS.md cleanup**: Removed 4x duplicate content, updated stale agent names (`backend`→`bob`, etc.)
+
+### Documentation Updates
+
+- Updated AGENTS.md with correct agent names and added missing agents (tony, avery)
+- Updated prompts.yaml with agent invocation routing rules
+
+## Previous Changes (v3.15.19)
 
 ### Enhanced Setup Wizard UI
 

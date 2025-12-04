@@ -18,9 +18,8 @@ import {
 } from "../../tools/index.js";
 import { BashOutputTool } from "../../tools/bash-output.js";
 import { DesignTool } from "../../tools/design-tool.js";
-import { ArchitectureTool } from "../../tools/analysis-tools/architecture-tool.js";
-import { ValidationTool } from "../../tools/analysis-tools/validation-tool.js";
 import { getAskUserTool, type Question } from "../../tools/ask-user.js";
+import { executeAxAgent, type AxAgentOptions } from "../../tools/ax-agent.js";
 import { extractErrorMessage } from "../../utils/error-handler.js";
 import type { ToolParseResult } from "../core/types.js";
 import { getHooksManager } from "../../hooks/index.js";
@@ -47,8 +46,6 @@ export class ToolExecutor {
   private search: SearchTool;
 
   // Lazy-loaded tools (rarely used)
-  private _architectureTool?: ArchitectureTool;
-  private _validationTool?: ValidationTool;
   private _designTool?: DesignTool;
 
   constructor(config?: ToolExecutorConfig) {
@@ -62,28 +59,6 @@ export class ToolExecutor {
     if (config?.checkpointCallback) {
       this.textEditor.setCheckpointCallback(config.checkpointCallback);
     }
-  }
-
-  /**
-   * Lazy-loaded getter for ArchitectureTool
-   * Only instantiates when first accessed to reduce startup time
-   */
-  private get architectureTool(): ArchitectureTool {
-    if (!this._architectureTool) {
-      this._architectureTool = new ArchitectureTool();
-    }
-    return this._architectureTool;
-  }
-
-  /**
-   * Lazy-loaded getter for ValidationTool
-   * Only instantiates when first accessed to reduce startup time
-   */
-  private get validationTool(): ValidationTool {
-    if (!this._validationTool) {
-      this._validationTool = new ValidationTool();
-    }
-    return this._validationTool;
   }
 
   /**
@@ -254,31 +229,6 @@ export class ToolExecutor {
           });
         }
 
-        case "analyze_architecture": {
-          const projectPath = typeof args.projectPath === 'string' ? args.projectPath : undefined;
-          const depth = typeof args.depth === 'string' ? args.depth : undefined;
-          return await this.architectureTool.execute({ projectPath, depth });
-        }
-
-        case "validate_best_practices": {
-          const path = typeof args.path === 'string' ? args.path : undefined;
-          const pattern = typeof args.pattern === 'string' ? args.pattern : undefined;
-          // BUG FIX: Properly validate rules structure instead of unsafe type assertion
-          let rules: Record<string, { enabled: boolean }> | undefined;
-          if (typeof args.rules === 'object' && args.rules !== null && !Array.isArray(args.rules)) {
-            const validatedRules: Record<string, { enabled: boolean }> = {};
-            for (const [key, value] of Object.entries(args.rules as Record<string, unknown>)) {
-              if (typeof value === 'object' && value !== null && 'enabled' in value && typeof (value as Record<string, unknown>).enabled === 'boolean') {
-                validatedRules[key] = { enabled: (value as { enabled: boolean }).enabled };
-              }
-            }
-            if (Object.keys(validatedRules).length > 0) {
-              rules = validatedRules;
-            }
-          }
-          return await this.validationTool.execute({ path, pattern, rules });
-        }
-
         case "ask_user": {
           const questions = args.questions;
           if (!Array.isArray(questions)) {
@@ -389,6 +339,26 @@ export class ToolExecutor {
         case "figma_alias_resolve": {
           const alias = getString('alias');
           return await this.designTool.resolveAlias(alias);
+        }
+
+        // =====================================================================
+        // AutomatosX Agent Invocation
+        // =====================================================================
+        case "ax_agent": {
+          const agent = getString('agent');
+          const task = getString('task');
+          const formatValue = args.format;
+          const validFormat = (formatValue === 'text' || formatValue === 'markdown') ? formatValue : 'markdown';
+          const save = typeof args.save === 'string' ? args.save : undefined;
+
+          const options: AxAgentOptions = {
+            agent,
+            task,
+            format: validFormat,
+            save,
+          };
+
+          return await executeAxAgent(options);
         }
 
         default:

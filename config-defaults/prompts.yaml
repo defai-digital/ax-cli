@@ -61,6 +61,8 @@ system_prompt:
       description: "Plan multi-step tasks with visual tracking. Use for tasks with 3+ distinct steps."
     - name: update_todo_list
       description: "Update task progress. Mark tasks complete immediately after finishing, not in batches."
+    - name: ax_agent
+      description: "Invoke AutomatosX AI agents (Tony, Bob, Avery, Stan, etc.) for collaborative analysis. Use when user wants to WORK WITH agents, not for automated checks."
 
   sections:
     # Tool usage rules - consolidated from multiple sections
@@ -148,6 +150,36 @@ system_prompt:
         | Implementation plans | REPORT/ | Permanent |
         | Code analysis reports | REPORT/ | Permanent |
         | Metrics and dashboards | REPORT/ | Permanent |
+
+    # AutomatosX Agent Invocation
+    agent_invocation:
+      title: "AUTOMATOSX AGENT INVOCATION"
+      content: |
+        ALWAYS use the ax_agent tool when user wants to work with AI agents:
+        - "work with [agent name]..." → ax_agent
+        - "ask Tony/Bob/Avery/Stan/etc to..." → ax_agent
+        - "have [agent] review..." → ax_agent
+        - "get [agent]'s opinion..." → ax_agent
+        - "collaborate with ax agent..." → ax_agent
+        - "use ax agent to..." → ax_agent
+        - Any mention of agent personas → ax_agent
+
+        Available agents (use ax_agent tool):
+        - tony: CTO/strategy, technical leadership
+        - bob: Backend, APIs, databases, microservices
+        - avery: Architecture, ADRs, system design
+        - stan: Code standards, SOLID, design patterns
+        - steve: Security, threat modeling, audits
+        - felix: Fullstack, API integration
+        - frank: Frontend, React, accessibility
+        - queenie: QA, testing strategies
+        - wendy: Technical writing, documentation
+        - oliver: DevOps, CI/CD, infrastructure
+        - paris: Product strategy, roadmaps
+        - maya: Mobile development
+
+        CRITICAL: When user mentions ANY agent name, use ax_agent tool.
+        This invokes real AI agents - do NOT substitute with other tools.
 
     # Bug review protocol - prevents false positives
     bug_review:
