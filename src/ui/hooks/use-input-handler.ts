@@ -2319,7 +2319,7 @@ Respond with ONLY the commit message, no additional text.`;
               // Agent execution succeeded
               setIsStreaming(false);
               setIsProcessing(false);
-              onAgentSelected?.(null);
+              // Keep agent name visible in status bar - don't reset to null
               return; // Agent handled the request
             } catch (agentError) {
               // Agent execution failed, show error and fall through to direct LLM
@@ -2331,7 +2331,7 @@ Respond with ONLY the commit message, no additional text.`;
                     : entry
                 )
               );
-              onAgentSelected?.(null);
+              // Keep agent name visible even on failure (shows which agent was attempted)
               setIsStreaming(false);
               // Fall through to direct LLM processing below
             }

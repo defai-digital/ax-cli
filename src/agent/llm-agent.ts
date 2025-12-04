@@ -140,6 +140,13 @@ export class LLMAgent extends EventEmitter {
           },
         });
       },
+      // Emit events when ax_agent tool starts/ends for status bar display
+      onAxAgentStart: (agentName) => {
+        this.emit('ax_agent:start', { agent: agentName });
+      },
+      onAxAgentEnd: (agentName) => {
+        this.emit('ax_agent:end', { agent: agentName });
+      },
     });
 
     // Initialize StreamHandler with callbacks (Phase 2 refactoring)

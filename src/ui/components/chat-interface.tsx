@@ -273,6 +273,18 @@ function ChatInterfaceWithAgent({
       setActiveAgents([]);
     };
 
+    // ax_agent tool event handlers for status bar display
+    const handleAxAgentStart = (data: { agent: string }) => {
+      setActiveAgents((prev) => [...prev, data.agent]);
+    };
+
+    const handleAxAgentEnd = (data: { agent: string }) => {
+      setActiveAgents((prev) => {
+        const idx = prev.indexOf(data.agent);
+        return idx === -1 ? prev : prev.toSpliced(idx, 1);
+      });
+    };
+
     // Register event listeners
     agent.on('plan:created', handlePlanCreated);
     agent.on('plan:completed', handlePlanCompleted);
@@ -283,6 +295,8 @@ function ChatInterfaceWithAgent({
     agent.on('subagent:spawn', handleSubagentSpawn);
     agent.on('subagent:complete', handleSubagentComplete);
     agent.on('subagent:terminate', handleSubagentTerminate);
+    agent.on('ax_agent:start', handleAxAgentStart);
+    agent.on('ax_agent:end', handleAxAgentEnd);
 
     // Cleanup on unmount
     return () => {
@@ -299,6 +313,8 @@ function ChatInterfaceWithAgent({
       agent.off('subagent:spawn', handleSubagentSpawn);
       agent.off('subagent:complete', handleSubagentComplete);
       agent.off('subagent:terminate', handleSubagentTerminate);
+      agent.off('ax_agent:start', handleAxAgentStart);
+      agent.off('ax_agent:end', handleAxAgentEnd);
     };
   }, [agent]);
 

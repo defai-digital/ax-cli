@@ -30,6 +30,10 @@ import { getHooksManager } from "../../hooks/index.js";
 export interface ToolExecutorConfig {
   /** Callback for checkpoint creation on file edits */
   checkpointCallback?: (files: Array<{ path: string; content: string }>, description: string) => Promise<void>;
+  /** Callback when ax_agent starts executing */
+  onAxAgentStart?: (agentName: string) => void;
+  /** Callback when ax_agent finishes executing */
+  onAxAgentEnd?: (agentName: string) => void;
 }
 
 /**
@@ -48,6 +52,10 @@ export class ToolExecutor {
   // Lazy-loaded tools (rarely used)
   private _designTool?: DesignTool;
 
+  // Callbacks for ax_agent events
+  private onAxAgentStart?: (agentName: string) => void;
+  private onAxAgentEnd?: (agentName: string) => void;
+
   constructor(config?: ToolExecutorConfig) {
     this.textEditor = new TextEditorTool();
     this.bash = new BashTool();
@@ -59,6 +67,10 @@ export class ToolExecutor {
     if (config?.checkpointCallback) {
       this.textEditor.setCheckpointCallback(config.checkpointCallback);
     }
+
+    // Set ax_agent callbacks if provided
+    this.onAxAgentStart = config?.onAxAgentStart;
+    this.onAxAgentEnd = config?.onAxAgentEnd;
   }
 
   /**
@@ -358,7 +370,16 @@ export class ToolExecutor {
             save,
           };
 
-          return await executeAxAgent(options);
+          // Notify that agent is starting
+          this.onAxAgentStart?.(agent);
+
+          try {
+            const result = await executeAxAgent(options);
+            return result;
+          } finally {
+            // Always notify agent has ended, even on error
+            this.onAxAgentEnd?.(agent);
+          }
         }
 
         default:

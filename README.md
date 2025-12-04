@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.21)](#recent-changes-v31521)
+- [Recent Changes (v3.15.22)](#recent-changes-v31522)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,15 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.21)
+## Recent Changes (v3.15.22)
+
+### Codebase Cleanup
+
+- **Removed analyzer modules**: Removed deprecated code analyzer modules (architecture, AST, best practices, code smells, dependency, git, metrics, security) that were no longer maintained
+- **Removed analysis tools**: Removed associated analysis tools (architecture-tool, validation-tool) and types
+- **Cleaned up tests**: Removed corresponding test files for deleted modules
+
+## Previous Changes (v3.15.21)
 
 ### Bug Fixes
 

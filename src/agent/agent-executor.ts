@@ -28,7 +28,7 @@ export interface AgentExecutionOptions {
   task: string;
   /** Working directory (defaults to cwd) */
   cwd?: string;
-  /** Timeout in milliseconds (default: 10 minutes) */
+  /** Timeout in milliseconds (default: 60 minutes) */
   timeout?: number;
   /** Additional environment variables */
   env?: Record<string, string>;
@@ -61,7 +61,7 @@ export async function* executeAgent(
     agent,
     task,
     cwd = process.cwd(),
-    timeout = 600000, // 10 minutes default
+    timeout = 3600000, // 60 minutes default
     env = {},
     streaming = true,
     noMemory = false,
@@ -78,6 +78,9 @@ export async function* executeAgent(
     args.push('--no-memory');
   }
 
+  // Force text format for consistent streaming output
+  args.push('--format', 'text');
+
   // Create abort controller for timeout
   const abortController = new AbortController();
   const timeoutId = setTimeout(() => {
@@ -88,10 +91,16 @@ export async function* executeAgent(
   let abortHandler: (() => void) | null = null;
 
   try {
-    // Spawn ax process
+    // Spawn ax process with unbuffered output
     process_ = spawn('ax', args, {
       cwd,
-      env: { ...process.env, ...env },
+      env: {
+        ...process.env,
+        ...env,
+        // Force unbuffered output for streaming
+        FORCE_COLOR: '1',
+        NODE_NO_WARNINGS: '1',
+      },
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: false,
     });
@@ -103,21 +112,14 @@ export async function* executeAgent(
 
     // Create event emitter for async iteration
     const emitter = new EventEmitter();
-    let buffer = '';
 
-    // Handle stdout
+    // Handle stdout - emit data immediately for real-time streaming
     process_.stdout.on('data', (data: Buffer) => {
       const text = data.toString();
-      buffer += text;
 
-      // Emit complete lines
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (line.trim()) {
-          emitter.emit('chunk', { type: 'output', content: line + '\n' });
-        }
+      // Emit immediately for real-time streaming experience
+      if (text) {
+        emitter.emit('chunk', { type: 'output', content: text });
       }
     });
 
@@ -132,10 +134,6 @@ export async function* executeAgent(
 
     // Handle process close
     process_.on('close', (code) => {
-      // Emit any remaining buffer content
-      if (buffer.trim()) {
-        emitter.emit('chunk', { type: 'output', content: buffer });
-      }
       emitter.emit('chunk', { type: 'done', exitCode: code ?? 0 });
       emitter.emit('done');
     });
