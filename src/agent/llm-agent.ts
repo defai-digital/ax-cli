@@ -41,6 +41,7 @@ import { ToolExecutor } from "./execution/index.js";
 import { StreamHandler } from "./streaming/index.js";
 import { PlanExecutor } from "./planning/index.js";
 import type { StreamResult } from "./core/index.js";
+import { partitionToolCalls } from "./parallel-tools.js";
 
 // Import and re-export types from core module (maintains backward compatibility)
 import type {
@@ -1280,14 +1281,15 @@ export class LLMAgent extends EventEmitter {
           });
 
           // Execute tool calls and update the entries
-          for (const toolCall of assistantMessage.tool_calls) {
-            const result = await this.executeTool(toolCall);
+          // Partition into parallel-safe and sequential tools
+          const { parallel, sequential } = partitionToolCalls(assistantMessage.tool_calls);
 
+          // Helper to process a tool result
+          const processResult = (toolCall: LLMToolCall, result: ToolResult) => {
             // Update the existing tool_call entry with the result (O(1) lookup)
             const entryIndex = this.toolCallIndexMap.get(toolCall.id);
 
             // Validate entryIndex is still valid after potential context pruning
-            // The index could become stale if chatHistory was modified between store and access
             if (entryIndex !== undefined &&
                 entryIndex < this.chatHistory.length &&
                 this.chatHistory[entryIndex]?.toolCall?.id === toolCall.id) {
@@ -1316,6 +1318,29 @@ export class LLMAgent extends EventEmitter {
               content: this.formatToolResultContent(result, "Success", "Error"),
               tool_call_id: toolCall.id,
             });
+          };
+
+          // Execute parallel-safe tools concurrently
+          if (parallel.length > 0) {
+            const parallelPromises = parallel.map(async (toolCall) => {
+              const result = await this.executeTool(toolCall);
+              return { toolCall, result };
+            });
+
+            const parallelResults = await Promise.allSettled(parallelPromises);
+
+            for (const settledResult of parallelResults) {
+              if (settledResult.status === "fulfilled") {
+                const { toolCall, result } = settledResult.value;
+                processResult(toolCall, result);
+              }
+            }
+          }
+
+          // Execute sequential tools one at a time
+          for (const toolCall of sequential) {
+            const result = await this.executeTool(toolCall);
+            processResult(toolCall, result);
           }
 
           // Apply context pruning after adding tool results to prevent overflow
@@ -1550,24 +1575,18 @@ export class LLMAgent extends EventEmitter {
       };
     }
 
-    // Execute tools
-    for (const toolCall of toolCalls) {
-      // Check for cancellation before executing each tool
-      if (this.isCancelled()) {
-        yield* this.yieldCancellation();
-        return;
-      }
+    // Partition tools into parallel-safe and sequential
+    const { parallel, sequential } = partitionToolCalls(toolCalls);
 
-      // Track execution timing (like Claude Code's timeout display)
-      const executionStartTime = Date.now();
-      const result = await this.executeTool(toolCall);
-      const executionDurationMs = Date.now() - executionStartTime;
-
+    // Helper to process a single tool result
+    const processToolResult = (
+      toolCall: LLMToolCall,
+      result: ToolResult,
+      executionDurationMs: number
+    ): ChatEntry => {
       // Record tool call with actual success/failure status for intelligent loop detection
-      // This enables failure-based threshold adjustment (repeated failures = lower threshold)
       const detector = getLoopDetector();
       detector.recordToolCall(toolCall, result.success);
-
       debugLoop(`📝 Recorded: ${toolCall.function.name}, success=${result.success}`);
 
       const toolResultEntry: ChatEntry = {
@@ -1576,16 +1595,9 @@ export class LLMAgent extends EventEmitter {
         timestamp: new Date(),
         toolCall: toolCall,
         toolResult: result,
-        executionDurationMs, // Add execution duration for UI display
-      };
-      this.chatHistory.push(toolResultEntry);
-
-      yield {
-        type: "tool_result",
-        toolCall,
-        toolResult: result,
         executionDurationMs,
       };
+      this.chatHistory.push(toolResultEntry);
 
       // Add tool result with proper format (needed for AI context)
       this.messages.push({
@@ -1593,6 +1605,71 @@ export class LLMAgent extends EventEmitter {
         content: this.formatToolResultContent(result, "Success", "Error"),
         tool_call_id: toolCall.id,
       });
+
+      return toolResultEntry;
+    };
+
+    // Execute parallel-safe tools concurrently
+    if (parallel.length > 0) {
+      // Check for cancellation before parallel batch
+      if (this.isCancelled()) {
+        yield* this.yieldCancellation();
+        return;
+      }
+
+      debugLoop(`🚀 Executing ${parallel.length} tools in parallel: ${parallel.map(t => t.function.name).join(", ")}`);
+
+      // Execute all parallel tools concurrently with Promise.allSettled
+      const parallelPromises = parallel.map(async (toolCall) => {
+        const executionStartTime = Date.now();
+        const result = await this.executeTool(toolCall);
+        const executionDurationMs = Date.now() - executionStartTime;
+        return { toolCall, result, executionDurationMs };
+      });
+
+      const parallelResults = await Promise.allSettled(parallelPromises);
+
+      // Process and yield results in order
+      for (const settledResult of parallelResults) {
+        if (settledResult.status === "fulfilled") {
+          const { toolCall, result, executionDurationMs } = settledResult.value;
+          processToolResult(toolCall, result, executionDurationMs);
+
+          yield {
+            type: "tool_result",
+            toolCall,
+            toolResult: result,
+            executionDurationMs,
+          };
+        } else {
+          // Handle rejected promise (shouldn't happen normally, but be safe)
+          const error = settledResult.reason;
+          debugLoop(`❌ Parallel tool execution failed: ${error}`);
+        }
+      }
+    }
+
+    // Execute sequential tools one at a time
+    for (const toolCall of sequential) {
+      // Check for cancellation before executing each tool
+      if (this.isCancelled()) {
+        yield* this.yieldCancellation();
+        return;
+      }
+
+      // Track execution timing
+      const executionStartTime = Date.now();
+      const result = await this.executeTool(toolCall);
+      const executionDurationMs = Date.now() - executionStartTime;
+
+      processToolResult(toolCall, result, executionDurationMs);
+
+      yield {
+        type: "tool_result",
+        toolCall,
+        toolResult: result,
+        executionDurationMs,
+      };
     }
 
     // Apply context pruning after adding tool results to prevent overflow

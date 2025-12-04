@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.22)](#recent-changes-v31522)
+- [Recent Changes (v3.15.23)](#recent-changes-v31523)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.22)
+## Recent Changes (v3.15.23)
+
+### Bug Fixes
+
+- **Flaky test fix**: Fixed timing-sensitive mutex duration test that occasionally failed due to timer precision issues
+
+## Previous Changes (v3.15.22)
 
 ### Codebase Cleanup
 
