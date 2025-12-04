@@ -497,6 +497,138 @@ async function checkDependencies(): Promise<CheckResult[]> {
     });
   }
 
+  // Check AutomatosX native module ABI compatibility
+  results.push(await checkAutomatosXNativeModules());
+
+  // Check file system permissions
+  results.push(...checkFileSystemPermissions());
+
+  return results;
+}
+
+/**
+ * Check AutomatosX native module ABI compatibility
+ * Native modules like better-sqlite3 are compiled for specific Node.js ABI versions
+ */
+async function checkAutomatosXNativeModules(): Promise<CheckResult> {
+  try {
+    // Check if AutomatosX is installed
+    const axCheck = await checkCommand("ax --version");
+    if (!axCheck.found) {
+      return {
+        name: "AutomatosX Native Modules",
+        status: "pass",
+        message: "Not applicable (AutomatosX not installed)",
+      };
+    }
+
+    // Try to run ax to detect ABI issues
+    const { stdout, stderr } = await execAsync("ax list agents 2>&1", { timeout: 10000 }).catch(e => ({
+      stdout: '',
+      stderr: e.message || e.stderr || ''
+    }));
+    const output = stdout + stderr;
+
+    // Check for common ABI mismatch errors
+    if (output.includes("NODE_MODULE_VERSION") || output.includes("was compiled against a different")) {
+      const moduleMatch = output.match(/NODE_MODULE_VERSION (\d+)/g);
+      const versions = moduleMatch?.map(m => m.match(/\d+/)?.[0]).filter(Boolean) || [];
+
+      return {
+        name: "AutomatosX Native Modules",
+        status: "fail",
+        message: "ABI version mismatch",
+        details: [
+          `Native modules compiled for different Node.js version`,
+          versions.length >= 2 ? `Module ABI: ${versions[0]}, Runtime ABI: ${versions[1]}` : '',
+          `Current Node.js: ${process.version}`,
+        ].filter(Boolean),
+        suggestion: "Rebuild native modules: cd ~/.automatosx && npm rebuild better-sqlite3",
+      };
+    }
+
+    return {
+      name: "AutomatosX Native Modules",
+      status: "pass",
+      message: "Compatible",
+      details: [`Node.js ${process.version} ABI compatible`],
+    };
+
+  } catch (error) {
+    return {
+      name: "AutomatosX Native Modules",
+      status: "warning",
+      message: "Could not verify",
+      details: [extractErrorMessage(error)],
+    };
+  }
+}
+
+/**
+ * Check file system permissions for required directories
+ */
+function checkFileSystemPermissions(): CheckResult[] {
+  const results: CheckResult[] = [];
+  const { accessSync, constants, mkdirSync } = require('fs');
+  const { homedir } = require('os');
+  const { join } = require('path');
+
+  // Directories to check (deduplicated)
+  const dirsToCheck = [
+    { path: CONFIG_PATHS.USER_DIR, name: 'AX CLI config directory' },
+    { path: join(homedir(), '.automatosx'), name: 'AutomatosX data directory' },
+  ];
+
+  for (const { path, name } of dirsToCheck) {
+    try {
+      // Check if directory exists
+      if (!existsSync(path)) {
+        // Try to create it
+        try {
+          mkdirSync(path, { recursive: true });
+          results.push({
+            name: `Permissions: ${name}`,
+            status: "pass",
+            message: "Created successfully",
+            details: [`Path: ${path}`],
+          });
+        } catch (createError) {
+          results.push({
+            name: `Permissions: ${name}`,
+            status: "fail",
+            message: "Cannot create directory",
+            details: [`Path: ${path}`, extractErrorMessage(createError)],
+            suggestion: `Check parent directory permissions or create manually: mkdir -p "${path}"`,
+          });
+        }
+        continue;
+      }
+
+      // Check read/write permissions
+      accessSync(path, constants.R_OK | constants.W_OK);
+      results.push({
+        name: `Permissions: ${name}`,
+        status: "pass",
+        message: "Read/write OK",
+        details: [`Path: ${path}`],
+      });
+
+    } catch (error) {
+      const errorMsg = extractErrorMessage(error);
+      const isEPERM = errorMsg.includes('EPERM') || errorMsg.includes('permission denied');
+
+      results.push({
+        name: `Permissions: ${name}`,
+        status: "fail",
+        message: isEPERM ? "Permission denied" : "Access error",
+        details: [`Path: ${path}`, errorMsg],
+        suggestion: isEPERM
+          ? `Fix permissions: chmod 755 "${path}" or check if directory is owned by current user`
+          : `Check directory access: ls -la "${path}"`,
+      });
+    }
+  }
+
   return results;
 }
 

@@ -50,7 +50,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.15.15)](#recent-changes-v31515)
+- [Recent Changes (v3.15.16)](#recent-changes-v31516)
 - [Documentation](#documentation)
 
 ---
@@ -442,7 +442,26 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v3.15.15)
+## Recent Changes (v3.15.16)
+
+### Runtime Health & DX Improvements (CTO/Bob suggestions)
+
+- **Added `.nvmrc` file**: Pins Node.js version to 24 for consistent development environment
+- **Enhanced `ax-cli doctor` command** with new checks:
+  - **Native Module ABI Check**: Detects NODE_MODULE_VERSION mismatches (e.g., better-sqlite3 compiled for wrong Node.js version) and provides rebuild instructions
+  - **File System Permission Check**: Validates read/write access to config directories (~/.ax-cli, ~/.automatosx) and provides fix suggestions for EPERM errors
+- **Actionable error messages**: Doctor command now provides specific remediation steps for common issues
+
+### Usage
+
+Run `ax-cli doctor` to check for:
+- Node.js version compatibility
+- API configuration validity
+- MCP server status
+- **NEW**: Native module ABI compatibility
+- **NEW**: Directory permission issues
+
+## Previous Changes (v3.15.15)
 
 ### Code Quality Improvements
 
