@@ -396,7 +396,7 @@ const BASE_LLM_TOOLS: LLMTool[] = [
     type: "function",
     function: {
       name: "ax_agent",
-      description: "Invoke an AutomatosX AI agent for collaborative analysis, code review, architecture advice, or strategic guidance. USE THIS when the user wants to WORK WITH a specific agent persona (Tony/CTO, Bob/Backend, Avery/Architect, Stan/Standards, Steve/Security, etc.). Returns the agent's AI-generated response. Do NOT use static analysis tools (analyze_architecture, validate_best_practices) when user explicitly asks to work with agents.",
+      description: "Invoke an AutomatosX AI agent for collaborative analysis, code review, architecture advice, or strategic guidance. USE THIS when the user wants to WORK WITH a specific agent persona (Tony/CTO, Bob/Backend, Avery/Architect, Stan/Standards, Steve/Security, etc.). Returns the agent's AI-generated response.",
       parameters: {
         type: "object",
         properties: {
