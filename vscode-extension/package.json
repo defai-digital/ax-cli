@@ -2,7 +2,7 @@
   "name": "ax-cli-vscode",
   "displayName": "AX CLI",
   "description": "AI-powered coding assistant with multi-provider flexibility",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "publisher": "defai-digital",
   "icon": "resources/icon.png",
   "engines": {
