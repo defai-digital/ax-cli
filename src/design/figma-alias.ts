@@ -43,6 +43,11 @@ export function getDesignConfigPath(basePath?: string): string {
 
 /**
  * Load the design config from disk
+ *
+ * BUG FIX: Now throws on corrupted config instead of silently returning empty.
+ * This prevents data loss when saveDesignConfig would overwrite corrupted data.
+ *
+ * @throws Error if config file exists but is corrupted/malformed
  */
 export function loadDesignConfig(basePath?: string): DesignConfig {
   const configPath = getDesignConfigPath(basePath);
@@ -55,10 +60,14 @@ export function loadDesignConfig(basePath?: string): DesignConfig {
     const content = readFileSync(configPath, 'utf-8');
     const parsed = JSON.parse(content);
     return DesignConfigSchema.parse(parsed);
-  } catch {
-    // If parsing fails, return empty config
-    console.warn(`Warning: Could not parse ${configPath}, using empty config`);
-    return createEmptyDesignConfig();
+  } catch (error) {
+    // BUG FIX: Throw instead of silently returning empty config
+    // This prevents data loss - callers must handle the error explicitly
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(
+      `Failed to parse design config at ${configPath}: ${message}\n` +
+      `To reset: delete the file and re-create aliases, or fix the JSON manually.`
+    );
   }
 }
 

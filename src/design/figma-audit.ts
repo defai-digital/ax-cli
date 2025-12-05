@@ -78,6 +78,10 @@ const GENERIC_NAMES = [
 
 /**
  * Check for generic layer names
+ *
+ * BUG FIX: Reset lastIndex before each regex test to handle global regexes safely.
+ * Global regexes maintain lastIndex state between test() calls which can cause
+ * flaky results when patterns are reused across multiple nodes.
  */
 function checkLayerNaming(
   node: SimplifiedNode,
@@ -86,7 +90,11 @@ function checkLayerNaming(
 ): AuditIssue[] {
   const issues: AuditIssue[] = [];
 
-  const isGeneric = GENERIC_NAMES.some((pattern) => pattern.test(node.name));
+  // BUG FIX: Reset lastIndex to avoid stateful behavior with global regexes
+  const isGeneric = GENERIC_NAMES.some((pattern) => {
+    pattern.lastIndex = 0;
+    return pattern.test(node.name);
+  });
 
   if (isGeneric) {
     issues.push(createIssue(

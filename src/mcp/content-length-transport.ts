@@ -410,11 +410,46 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
 
   /**
    * Close the transport
+   *
+   * BUG FIX: Now properly waits for process to terminate before resolving.
+   * This prevents resource leaks and zombie processes.
    */
   async close(): Promise<void> {
     if (this.process) {
-      this.process.kill();
+      const proc = this.process;
       this.process = undefined;
+
+      // BUG FIX: Wait for the process to actually exit, not just send kill signal
+      await new Promise<void>((resolve) => {
+        // Set up close handler first
+        const onClose = () => {
+          clearTimeout(forceKillTimeout);
+          resolve();
+        };
+
+        // If already exited, resolve immediately
+        if (proc.exitCode !== null || proc.killed) {
+          resolve();
+          return;
+        }
+
+        proc.once('close', onClose);
+        proc.once('exit', onClose);
+
+        // Send SIGTERM first for graceful shutdown
+        proc.kill('SIGTERM');
+
+        // Force kill after 5 seconds if process doesn't exit
+        const forceKillTimeout = setTimeout(() => {
+          try {
+            proc.kill('SIGKILL');
+          } catch {
+            // Process may have already exited
+          }
+          // Resolve anyway after force kill attempt
+          setTimeout(resolve, 100);
+        }, 5000);
+      });
     }
     this.buffer = Buffer.alloc(0);
     this._started = false;
