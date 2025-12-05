@@ -322,7 +322,13 @@ export class IPCServer {
    */
   private sendResponse(ws: WebSocket, response: IPCResponse): void {
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(response));
+      try {
+        ws.send(JSON.stringify(response));
+      } catch (error) {
+        // WebSocket may have closed between state check and send
+        console.warn('[AX IPC] Failed to send response:', error);
+        this.clients.delete(ws);
+      }
     }
   }
 
@@ -453,22 +459,31 @@ export class IPCServer {
    * Write port file for CLI discovery
    */
   private async writePortFile(): Promise<void> {
-    const dir = path.dirname(IPC_PORT_FILE);
+    try {
+      const dir = path.dirname(IPC_PORT_FILE);
 
-    // Ensure directory exists
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+      // Ensure directory exists
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      const content: PortFileContent = {
+        port: this.port,
+        pid: process.pid,
+        started: new Date().toISOString(),
+        version: EXTENSION_VERSION
+      };
+
+      fs.writeFileSync(IPC_PORT_FILE, JSON.stringify(content, null, 2));
+      console.log(`[AX IPC] Port file written: ${IPC_PORT_FILE}`);
+    } catch (error) {
+      // Log error but don't throw - server can still work without port file
+      // CLI will fall back to other discovery methods
+      console.error('[AX IPC] Failed to write port file:', error);
+      vscode.window.showWarningMessage(
+        'AX CLI: Failed to write IPC port file. Terminal integration may not work.'
+      );
     }
-
-    const content: PortFileContent = {
-      port: this.port,
-      pid: process.pid,
-      started: new Date().toISOString(),
-      version: EXTENSION_VERSION
-    };
-
-    fs.writeFileSync(IPC_PORT_FILE, JSON.stringify(content, null, 2));
-    console.log(`[AX IPC] Port file written: ${IPC_PORT_FILE}`);
   }
 
   /**
