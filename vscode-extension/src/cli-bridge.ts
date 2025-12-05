@@ -32,7 +32,7 @@ export interface CLIError {
 }
 
 export class CLIBridge {
-  private process: ChildProcess | null = null;
+  private activeProcesses: Map<string, ChildProcess> = new Map();
   private requestCallbacks: Map<string, (response: CLIResponse | CLIError) => void> = new Map();
 
   constructor() {
@@ -112,6 +112,9 @@ export class CLIBridge {
         cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
       });
 
+      // Track the process so dispose() can kill it
+      this.activeProcesses.set(request.id, cliProcess);
+
       let stdout = '';
       let stderr = '';
 
@@ -124,6 +127,9 @@ export class CLIBridge {
       });
 
       cliProcess.on('close', (code) => {
+        // Clean up process tracking
+        this.activeProcesses.delete(request.id);
+
         if (code === 0) {
           try {
             const response: CLIResponse = JSON.parse(stdout);
@@ -162,6 +168,9 @@ export class CLIBridge {
       });
 
       cliProcess.on('error', (error) => {
+        // Clean up process tracking on error
+        this.activeProcesses.delete(request.id);
+
         const errorResponse: CLIError = {
           id: request.id,
           error: {
@@ -178,6 +187,7 @@ export class CLIBridge {
       setTimeout(() => {
         if (this.requestCallbacks.has(request.id)) {
           cliProcess.kill();
+          this.activeProcesses.delete(request.id);
           const errorResponse: CLIError = {
             id: request.id,
             error: {
@@ -194,9 +204,10 @@ export class CLIBridge {
   }
 
   dispose(): void {
-    if (this.process) {
-      this.process.kill();
-      this.process = null;
+    // Kill all active processes
+    for (const [requestId, process] of this.activeProcesses) {
+      process.kill();
+      this.activeProcesses.delete(requestId);
     }
     this.requestCallbacks.clear();
   }
