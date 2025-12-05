@@ -443,7 +443,20 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v4.0.2)
+## Recent Changes (v4.0.3)
+
+### Theme System Bug Fixes & Improvements
+
+- **Case-insensitive Theme Names**: `/theme DARK` and `/theme Dark` now work correctly
+- **Diff Renderer Theme Support**: Diff displays now use theme-aware colors
+- **Cache Mutation Protection**: Theme colors cache is now protected from external mutation
+- **Frozen Theme Objects**: Theme registry objects are frozen to prevent accidental corruption
+- **Consistent Theme APIs**: `getCurrentThemeName()` now uses shared cache for consistency
+- **Derived Theme Names**: Theme name list is now derived from registry to prevent sync issues
+
+---
+
+## Previous Changes (v4.0.2)
 
 ### Color Theme System
 
