@@ -81,8 +81,22 @@ export class ProgressReporter extends EventEmitter {
 
   /**
    * Report a progress event
+   *
+   * @param event - Event data (timestamp will be added automatically)
+   * @throws Error if required fields (agentId, name, type) are missing or invalid
    */
   report(event: Omit<ProgressEvent, 'timestamp'>): void {
+    // Validate required fields
+    if (!event.agentId || typeof event.agentId !== 'string') {
+      throw new Error('ProgressReporter.report: agentId is required and must be a string');
+    }
+    if (!event.name || typeof event.name !== 'string') {
+      throw new Error('ProgressReporter.report: name is required and must be a string');
+    }
+    if (!event.type || !Object.values(ProgressEventType).includes(event.type)) {
+      throw new Error('ProgressReporter.report: type is required and must be a valid ProgressEventType');
+    }
+
     const fullEvent: ProgressEvent = {
       ...event,
       timestamp: Date.now(),
@@ -107,13 +121,23 @@ export class ProgressReporter extends EventEmitter {
 
   /**
    * Report task progress
+   *
+   * @param agentId - Agent identifier
+   * @param name - Task name
+   * @param progress - Progress percentage (0-100), will be clamped to valid range
+   * @param message - Optional status message
    */
   taskProgress(agentId: string, name: string, progress: number, message?: string): void {
+    // Validate progress is a valid number
+    const validProgress = typeof progress === 'number' && !isNaN(progress) && isFinite(progress)
+      ? Math.max(0, Math.min(100, progress))
+      : 0; // Default to 0 for invalid values
+
     this.report({
       type: ProgressEventType.TASK_PROGRESS,
       agentId,
       name,
-      progress: Math.max(0, Math.min(100, progress)),
+      progress: validProgress,
       message,
     });
   }

@@ -443,7 +443,33 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v4.0.3)
+## Recent Changes (v4.0.4)
+
+### VS Code Extension Bug Fixes
+
+- **IPC Server Timeout Handling**: Added timeout protection for `diff_preview` (5 min) and `chat_request` (30 sec) handlers to prevent indefinite hangs
+- **Memory Leak Fixes**: Fixed timer memory leaks in IPC message handlers with proper `clearTimeout()` cleanup
+- **DiffContentProvider Memory Management**: Added automatic cleanup of stale diff entries (10 min expiry), max entries limit (50), and proper disposal
+- **StatusBar Auto-Reset**: `updateStatus()` now auto-resets to model display after 5 seconds with proper disposal guards
+- **Cross-Platform Path Handling**: Fixed `showDiffPreview` to use `path.basename()` instead of string split for Windows compatibility
+- **Git Diff Context**: `getGitDiffContext()` now actually checks for changes instead of always returning `true`
+- **Webview Disposal Guards**: Added guards against webview disposal in message handlers
+
+### SDK Bug Fixes & Improvements
+
+- **Multiple Agent Cleanup**: Fixed `process.once()` to `process.on()` to allow multiple agents to register cleanup handlers
+- **Double Cleanup Prevention**: Manual `dispose()` now properly marks SDK internal state to prevent auto-cleanup from running again
+- **Version Parsing**: Added support for 'v' prefix, validation for negative numbers, and warnings for extra version parts
+- **UnifiedLogger Improvements**: Fixed regex `lastIndex` state issue in log filtering, added count validation in `getRecentLogs()`
+- **ToolRegistry Source Tracking**: Fixed tool overwrite not updating source tracking when registered by different source
+- **ProgressReporter Validation**: Added required field validation for `agentId`, `name`, and `type` in `report()` method
+- **MockAgent Empty Array Fix**: Fixed modulo-by-zero crash when responses array is empty
+- **MockMCPServer Error Handling**: Added try-catch wrappers for `callTool`, `readResource`, and `executePrompt` handlers
+- **Testing Utilities**: Added validation for `setResponses()` to reject empty arrays, warning for invalid settings keys
+
+---
+
+## Previous Changes (v4.0.3)
 
 ### Theme System Bug Fixes & Improvements
 

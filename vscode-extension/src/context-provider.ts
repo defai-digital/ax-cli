@@ -51,10 +51,18 @@ export class ContextProvider {
     if (config.get<boolean>('autoIncludeDiagnostics', true)) {
       try {
         const allDiagnostics = vscode.languages.getDiagnostics(editor.document.uri);
-        context.diagnostics = allDiagnostics.filter((diag: vscode.Diagnostic) =>
+        context.diagnostics = allDiagnostics.filter((diag: vscode.Diagnostic) => {
           // Guard against malformed diagnostics with missing/invalid range
-          diag.range && editor.selection.contains(diag.range)
-        );
+          if (!diag.range) {
+            return false;
+          }
+          try {
+            return editor.selection.contains(diag.range);
+          } catch {
+            // selection.contains can throw if range is malformed
+            return false;
+          }
+        });
       } catch (error) {
         console.warn('[ContextProvider] Failed to get diagnostics:', error);
         context.diagnostics = [];
@@ -65,9 +73,26 @@ export class ContextProvider {
   }
 
   async getGitDiffContext(): Promise<EditorContext> {
-    const context: EditorContext = {
-      gitDiff: true,
-    };
+    const context: EditorContext = {};
+
+    // Check if there are actual git changes before setting gitDiff: true
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (workspaceFolder) {
+      try {
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const execAsync = promisify(exec);
+
+        const { stdout } = await execAsync('git diff --stat', { cwd: workspaceFolder.uri.fsPath });
+        // Only set gitDiff to true if there are actual changes
+        context.gitDiff = stdout.trim().length > 0;
+      } catch {
+        // Git command failed (not a git repo, git not installed, etc.)
+        context.gitDiff = false;
+      }
+    } else {
+      context.gitDiff = false;
+    }
 
     return context;
   }

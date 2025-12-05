@@ -71,7 +71,10 @@ export class MockAgent extends EventEmitter {
     this.history.push(userEntry);
 
     // Get next response (cycle through)
-    const response = this.responses[this.currentResponseIndex % this.responses.length];
+    // Guard against empty responses array to prevent modulo-by-zero
+    const response = this.responses.length > 0
+      ? this.responses[this.currentResponseIndex % this.responses.length]
+      : 'No response configured';
     this.currentResponseIndex++;
 
     // Add assistant response to history
@@ -112,7 +115,10 @@ export class MockAgent extends EventEmitter {
     this.history.push(userEntry);
 
     // Get next response
-    const response = this.responses[this.currentResponseIndex % this.responses.length];
+    // Guard against empty responses array to prevent modulo-by-zero
+    const response = this.responses.length > 0
+      ? this.responses[this.currentResponseIndex % this.responses.length]
+      : 'No response configured';
     this.currentResponseIndex++;
 
     // Stream the response character by character (for realistic testing)
@@ -193,8 +199,9 @@ export class MockAgent extends EventEmitter {
 
   /**
    * Dispose of mock agent
+   * Note: Returns void to match LLMAgent.dispose() signature
    */
-  async dispose(): Promise<void> {
+  dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
 
@@ -218,10 +225,14 @@ export class MockAgent extends EventEmitter {
   /**
    * Set new responses
    *
-   * @param responses - New responses to use
+   * @param responses - New responses to use (must have at least one response)
+   * @throws Error if responses array is empty
    */
   setResponses(responses: string[]): void {
     this.checkDisposed();
+    if (!responses || responses.length === 0) {
+      throw new Error('MockAgent.setResponses: responses array must not be empty');
+    }
     this.responses = responses;
     this.currentResponseIndex = 0;
   }
@@ -315,6 +326,11 @@ export class MockSettingsManager {
   }
 
   updateUserSetting(key: string, value: unknown): void {
+    // Validate key is one of the valid settings keys
+    const validKeys = ['apiKey', 'baseURL', 'model'];
+    if (!validKeys.includes(key)) {
+      console.warn(`MockSettingsManager.updateUserSetting: '${key}' is not a recognized setting key`);
+    }
     (this.settings as any)[key] = value;
   }
 
@@ -444,6 +460,10 @@ export class MockMCPServer {
 
   /**
    * Call a tool on the mock server
+   *
+   * @param name - Tool name to call
+   * @param args - Arguments to pass to the tool
+   * @throws Error if server not connected, tool not found, or handler throws
    */
   async callTool(name: string, args: any): Promise<any> {
     if (!this.connected) {
@@ -455,7 +475,13 @@ export class MockMCPServer {
       throw new Error(`Tool not found: ${name}`);
     }
 
-    return await tool.handler(args);
+    try {
+      return await tool.handler(args);
+    } catch (error) {
+      // Wrap handler errors with context
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Tool '${name}' execution failed: ${message}`);
+    }
   }
 
   /**
@@ -475,6 +501,9 @@ export class MockMCPServer {
 
   /**
    * Read a resource from the mock server
+   *
+   * @param uri - Resource URI to read
+   * @throws Error if server not connected, resource not found, or handler throws
    */
   async readResource(uri: string): Promise<string> {
     if (!this.connected) {
@@ -486,7 +515,12 @@ export class MockMCPServer {
       throw new Error(`Resource not found: ${uri}`);
     }
 
-    return await resource.handler();
+    try {
+      return await resource.handler();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Resource '${uri}' read failed: ${message}`);
+    }
   }
 
   /**
@@ -505,6 +539,10 @@ export class MockMCPServer {
 
   /**
    * Execute a prompt
+   *
+   * @param name - Prompt name to execute
+   * @param args - Optional arguments for the prompt
+   * @throws Error if server not connected, prompt not found, or handler throws
    */
   async executePrompt(name: string, args?: any): Promise<any> {
     if (!this.connected) {
@@ -516,7 +554,12 @@ export class MockMCPServer {
       throw new Error(`Prompt not found: ${name}`);
     }
 
-    return await prompt.handler(args);
+    try {
+      return await prompt.handler(args);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Prompt '${name}' execution failed: ${message}`);
+    }
   }
 
   /**
@@ -592,10 +635,15 @@ export async function waitForAgent(
   return new Promise((resolve, reject) => {
     const timeout = options?.timeout || 5000;
     let resolved = false;
+    let completionTimer: ReturnType<typeof setTimeout> | undefined;
 
     const timer = setTimeout(() => {
       if (!resolved) {
         resolved = true;
+        // Clear completion timer to prevent memory leak
+        if (completionTimer !== undefined) {
+          clearTimeout(completionTimer);
+        }
         reject(new Error(`Agent did not complete within ${timeout}ms`));
       }
     }, timeout);
@@ -603,7 +651,7 @@ export async function waitForAgent(
     // Wait for agent to emit 'idle' or similar completion event
     // For now, just resolve after a short delay
     // TODO: Implement proper event listening when LLMAgent has completion events
-    const completionTimer = setTimeout(() => {
+    completionTimer = setTimeout(() => {
       if (!resolved) {
         resolved = true;
         clearTimeout(timer);
@@ -611,7 +659,7 @@ export async function waitForAgent(
       }
     }, 100);
 
-    // BUG FIX: Clean up completion timer if timeout fires first
+    // Allow process to exit if these are the only timers
     timer.unref?.();
     completionTimer.unref?.();
   });

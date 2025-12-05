@@ -38,7 +38,7 @@
  *   }
  * } finally {
  *   // Always cleanup resources
- *   await agent.dispose();
+ *   agent.dispose();
  * }
  * ```
  *
@@ -413,7 +413,7 @@ export interface AgentOptions {
    * // Manual cleanup control
    * const agent = await createAgent({ autoCleanup: false });
    * // ... use agent ...
-   * await agent.dispose(); // Manual cleanup
+   * agent.dispose(); // Manual cleanup
    * ```
    */
   autoCleanup?: boolean;
@@ -518,7 +518,7 @@ export interface AgentOptions {
  *   }
  * } finally {
  *   // Always cleanup resources
- *   await agent.dispose();
+ *   agent.dispose();
  * }
  * ```
  */
@@ -641,33 +641,59 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
 
   // Phase 3: Wrap dispose() to call onDispose hook
   const originalDispose = agent.dispose.bind(agent);
-  agent.dispose = async () => {
-    try {
-      // Call onDispose hook BEFORE actual disposal
-      if (onDispose) {
+  (agent as any).dispose = () => {
+    // Mark as disposed in SDK internal state to prevent auto-cleanup from running again
+    const markDisposed = (agent as any)._sdkMarkDisposed;
+    if (markDisposed) {
+      markDisposed();
+    }
+
+    // Handle onDispose hook - if async, we can't await it in synchronous dispose
+    // but we'll call it and let it run (fire-and-forget for async hooks)
+    if (onDispose) {
+      try {
         if (debug) {
           console.error('[AX SDK DEBUG] Calling onDispose hook');
         }
-        await onDispose();
+        const result = onDispose();
+        // If it's a promise, handle errors but don't block
+        if (result && typeof (result as Promise<void>).catch === 'function') {
+          (result as Promise<void>).catch((error: unknown) => {
+            if (debug) {
+              console.error('[AX SDK DEBUG] Error in async onDispose hook:', error);
+            }
+          });
+        }
+      } catch (error) {
+        if (debug) {
+          console.error('[AX SDK DEBUG] Error in onDispose hook:', error);
+        }
+        // Continue with disposal even if hook fails
       }
-    } catch (error) {
-      if (debug) {
-        console.error('[AX SDK DEBUG] Error in onDispose hook:', error);
-      }
-      // Continue with disposal even if hook fails
     }
 
-    // Call original dispose
-    return await originalDispose();
+    // Call original dispose (synchronous)
+    return originalDispose();
   };
 
   // Phase 3: Auto-cleanup on process exit (OPTIONAL)
   if (autoCleanup) {
+    // Track if this agent has been disposed to avoid double cleanup
+    let isDisposed = false;
+
     const cleanupHandler = () => {
+      // Prevent double cleanup
+      if (isDisposed) {
+        return;
+      }
+      isDisposed = true;
+
       try {
         if (debug) {
           console.error('[AX SDK DEBUG] Auto-cleanup: disposing agent on process exit');
         }
+        // Note: dispose() is synchronous in LLMAgent
+        // For clean shutdown, call agent.dispose() explicitly before process exits.
         agent.dispose();
       } catch (error) {
         // Ignore errors during emergency cleanup
@@ -677,14 +703,17 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
       }
     };
 
-    // Register cleanup on various exit signals
-    process.once('exit', cleanupHandler);
-    process.once('SIGINT', cleanupHandler);
-    process.once('SIGTERM', cleanupHandler);
-    process.once('SIGHUP', cleanupHandler);
+    // Use process.on() instead of process.once() to allow multiple agents
+    // Each agent has its own cleanup handler that tracks disposal state
+    process.on('exit', cleanupHandler);
+    process.on('SIGINT', cleanupHandler);
+    process.on('SIGTERM', cleanupHandler);
+    process.on('SIGHUP', cleanupHandler);
 
     // Store cleanup handler reference for manual removal if needed
     (agent as any)._sdkCleanupHandler = cleanupHandler;
+    (agent as any)._sdkIsDisposed = () => isDisposed;
+    (agent as any)._sdkMarkDisposed = () => { isDisposed = true; };
   } else {
     if (debug) {
       console.error('[AX SDK DEBUG] Auto-cleanup disabled, manual cleanup required');
@@ -748,7 +777,7 @@ export function createSubagent(
  * removeCleanupHandlers(agent);
  *
  * // Now you must manually dispose
- * await agent.dispose();
+ * agent.dispose();
  * ```
  *
  * @example
@@ -756,15 +785,21 @@ export function createSubagent(
  * // For manual cleanup from the start, use autoCleanup: false
  * const agent = await createAgent({ autoCleanup: false });
  * // No need to call removeCleanupHandlers
- * await agent.dispose(); // Manual cleanup
+ * agent.dispose(); // Manual cleanup
  * ```
  */
 export function removeCleanupHandlers(agent: LLMAgent): void {
   const cleanupHandler = (agent as any)._sdkCleanupHandler;
+  const markDisposed = (agent as any)._sdkMarkDisposed;
 
   if (!cleanupHandler) {
     // No cleanup handlers registered (autoCleanup was false)
     return;
+  }
+
+  // Mark as disposed to prevent cleanup handler from running if signal fires later
+  if (markDisposed) {
+    markDisposed();
   }
 
   // Remove all process event listeners
@@ -773,8 +808,10 @@ export function removeCleanupHandlers(agent: LLMAgent): void {
   process.removeListener('SIGTERM', cleanupHandler);
   process.removeListener('SIGHUP', cleanupHandler);
 
-  // Clear the reference
+  // Clear the references
   delete (agent as any)._sdkCleanupHandler;
+  delete (agent as any)._sdkIsDisposed;
+  delete (agent as any)._sdkMarkDisposed;
 }
 
 /**

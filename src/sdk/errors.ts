@@ -110,16 +110,31 @@ export class SDKError extends Error {
   }
 
   /**
-   * Convert error to JSON (excludes cause to prevent circular refs)
+   * Convert error to JSON for serialization
+   *
+   * Includes stack trace but excludes cause chain to prevent
+   * circular references and potential sensitive data leaks.
+   *
+   * @param includeStack - Whether to include stack trace (default: true)
    */
-  toJSON(): Record<string, unknown> {
-    return {
+  toJSON(includeStack = true): Record<string, unknown> {
+    const result: Record<string, unknown> = {
       name: this.name,
       code: this.code,
       message: this.message,
-      // Exclude cause to prevent circular references
-      // and avoid leaking sensitive information
     };
+
+    // Include stack trace for debugging (can be disabled for production logging)
+    if (includeStack && this.stack) {
+      result.stack = this.stack;
+    }
+
+    // Include cause message but not full cause object to prevent circular refs
+    if (this.cause) {
+      result.causedBy = this.cause.message;
+    }
+
+    return result;
   }
 
   /**

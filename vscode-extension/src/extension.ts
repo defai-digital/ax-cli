@@ -21,11 +21,17 @@ export async function activate(context: vscode.ExtensionContext) {
   secretStorage = initializeSecretStorage(context);
 
   // Migrate any existing plaintext API key to SecretStorage
-  const migrated = await secretStorage.migrateFromPlaintextSettings();
-  if (migrated) {
-    vscode.window.showInformationMessage(
-      'AX CLI: Your API key has been migrated to secure storage.'
-    );
+  // Wrap in try-catch to prevent extension activation failure
+  try {
+    const migrated = await secretStorage.migrateFromPlaintextSettings();
+    if (migrated) {
+      vscode.window.showInformationMessage(
+        'AX CLI: Your API key has been migrated to secure storage.'
+      );
+    }
+  } catch (error) {
+    // Log error but continue activation - secret storage migration is not critical
+    console.error('[AX] Failed to migrate API key to secret storage:', error);
   }
 
   // Initialize components with SDK bridge (Claude Code-like integration)
@@ -48,7 +54,8 @@ export async function activate(context: vscode.ExtensionContext) {
   // Register singleton diff content provider
   diffContentProvider = new DiffContentProvider();
   context.subscriptions.push(
-    vscode.workspace.registerTextDocumentContentProvider('ax-cli-diff', diffContentProvider)
+    vscode.workspace.registerTextDocumentContentProvider('ax-cli-diff', diffContentProvider),
+    diffContentProvider  // Add to subscriptions for proper disposal
   );
 
   // Start IPC server for CLI communication
@@ -105,7 +112,9 @@ async function startIPCServer(context: vscode.ExtensionContext) {
  * Show diff preview in VS Code and wait for user approval
  */
 async function showDiffPreview(payload: DiffPayload): Promise<boolean> {
-  const fileName = payload.file.split('/').pop() || payload.file;
+  // Use path module to handle both Windows and Unix paths
+  const path = await import('path');
+  const fileName = path.basename(payload.file) || payload.file;
 
   if (!diffContentProvider) {
     // Fallback: auto-approve if provider not initialized
@@ -179,7 +188,8 @@ function showTaskSummary(payload: TaskSummaryPayload) {
   const message = `${statusIcon} Task ${payload.status}: ${filesChanged} file(s) changed, +${payload.changes.totalLinesAdded}/-${payload.changes.totalLinesRemoved} lines (${duration}s)`;
 
   // Show notification with option to see details
-  vscode.window.showInformationMessage(
+  // Use void to explicitly ignore the promise result (VS Code's Thenable doesn't have catch)
+  void vscode.window.showInformationMessage(
     message,
     'Show Details'
   ).then(selection => {
@@ -352,12 +362,30 @@ function getTaskSummaryHtml(payload: TaskSummaryPayload): string {
 
 /**
  * Content provider for diff view - singleton that handles multiple concurrent diffs
+ * Implements vscode.Disposable for proper resource cleanup
  */
-class DiffContentProvider implements vscode.TextDocumentContentProvider {
-  private contents: Map<string, { original: string; modified: string }> = new Map();
+class DiffContentProvider implements vscode.TextDocumentContentProvider, vscode.Disposable {
+  private contents: Map<string, { original: string; modified: string; timestamp: number }> = new Map();
+  private cleanupIntervalId: ReturnType<typeof setInterval> | null = null;
+
+  // Maximum age for diff content (10 minutes) - after this, stale entries are cleaned up
+  private static readonly MAX_AGE_MS = 10 * 60 * 1000;
+  // Maximum number of entries to prevent unbounded growth
+  private static readonly MAX_ENTRIES = 50;
+  // Cleanup interval (every 2 minutes)
+  private static readonly CLEANUP_INTERVAL_MS = 2 * 60 * 1000;
+
+  constructor() {
+    // Start periodic cleanup to remove stale entries
+    this.cleanupIntervalId = setInterval(() => this.cleanupStaleEntries(), DiffContentProvider.CLEANUP_INTERVAL_MS);
+  }
 
   setContent(id: string, original: string, modified: string): void {
-    this.contents.set(id, { original, modified });
+    // Enforce max entries limit by removing oldest entries if needed
+    if (this.contents.size >= DiffContentProvider.MAX_ENTRIES) {
+      this.removeOldestEntry();
+    }
+    this.contents.set(id, { original, modified, timestamp: Date.now() });
   }
 
   removeContent(id: string): void {
@@ -379,6 +407,59 @@ class DiffContentProvider implements vscode.TextDocumentContentProvider {
     }
 
     return type === 'original' ? content.original : content.modified;
+  }
+
+  /**
+   * Remove entries older than MAX_AGE_MS
+   */
+  private cleanupStaleEntries(): void {
+    const now = Date.now();
+    const staleIds: string[] = [];
+
+    for (const [id, entry] of this.contents) {
+      if (now - entry.timestamp > DiffContentProvider.MAX_AGE_MS) {
+        staleIds.push(id);
+      }
+    }
+
+    for (const id of staleIds) {
+      this.contents.delete(id);
+    }
+
+    if (staleIds.length > 0) {
+      console.log(`[AX] Cleaned up ${staleIds.length} stale diff entries`);
+    }
+  }
+
+  /**
+   * Remove the oldest entry to make room for new ones
+   */
+  private removeOldestEntry(): void {
+    let oldestId: string | null = null;
+    let oldestTimestamp = Infinity;
+
+    for (const [id, entry] of this.contents) {
+      if (entry.timestamp < oldestTimestamp) {
+        oldestTimestamp = entry.timestamp;
+        oldestId = id;
+      }
+    }
+
+    if (oldestId) {
+      this.contents.delete(oldestId);
+      console.log(`[AX] Removed oldest diff entry to make room: ${oldestId}`);
+    }
+  }
+
+  /**
+   * Dispose resources - stops cleanup timer and clears content
+   */
+  dispose(): void {
+    if (this.cleanupIntervalId) {
+      clearInterval(this.cleanupIntervalId);
+      this.cleanupIntervalId = null;
+    }
+    this.contents.clear();
   }
 }
 

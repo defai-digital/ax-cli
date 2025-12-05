@@ -230,8 +230,17 @@ export class IPCServer {
 
       case 'diff_preview':
         if (this.diffPreviewHandler && message.payload) {
+          // Add timeout to prevent hanging indefinitely if handler never resolves
+          const DIFF_PREVIEW_TIMEOUT_MS = 300000; // 5 minutes for user to review
+          let timeoutId: ReturnType<typeof setTimeout> | undefined;
           try {
-            const approved = await this.diffPreviewHandler(message.payload as DiffPayload);
+            const timeoutPromise = new Promise<boolean>((_, reject) => {
+              timeoutId = setTimeout(() => reject(new Error('Diff preview timed out')), DIFF_PREVIEW_TIMEOUT_MS);
+            });
+            const approved = await Promise.race([
+              this.diffPreviewHandler(message.payload as DiffPayload),
+              timeoutPromise
+            ]);
             this.sendResponse(ws, {
               type: approved ? 'approved' : 'rejected',
               requestId: message.requestId
@@ -242,6 +251,11 @@ export class IPCServer {
               requestId: message.requestId,
               payload: { reason: `Error: ${error}` }
             });
+          } finally {
+            // Always clear the timeout to prevent memory leak
+            if (timeoutId !== undefined) {
+              clearTimeout(timeoutId);
+            }
           }
         } else {
           // No handler, auto-approve (for backwards compatibility)
@@ -287,8 +301,17 @@ export class IPCServer {
         // Extension is requesting a chat (sent TO CLI, not from CLI)
         // This is handled differently - see sendChatRequest method
         if (this.chatRequestHandler && message.payload) {
+          // Add timeout to prevent hanging if chat handler never resolves
+          const CHAT_REQUEST_TIMEOUT_MS = 30000; // 30 seconds to start chat
+          let timeoutId: ReturnType<typeof setTimeout> | undefined;
           try {
-            const sessionId = await this.chatRequestHandler(message.payload as ChatRequestPayload);
+            const timeoutPromise = new Promise<string>((_, reject) => {
+              timeoutId = setTimeout(() => reject(new Error('Chat request timed out')), CHAT_REQUEST_TIMEOUT_MS);
+            });
+            const sessionId = await Promise.race([
+              this.chatRequestHandler(message.payload as ChatRequestPayload),
+              timeoutPromise
+            ]);
             this.sendResponse(ws, {
               type: 'chat_started',
               requestId: message.requestId,
@@ -300,6 +323,11 @@ export class IPCServer {
               requestId: message.requestId,
               payload: { reason: `Error: ${error}` }
             });
+          } finally {
+            // Always clear the timeout to prevent memory leak
+            if (timeoutId !== undefined) {
+              clearTimeout(timeoutId);
+            }
           }
         }
         break;

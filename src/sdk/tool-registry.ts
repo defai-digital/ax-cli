@@ -105,10 +105,19 @@ export class ToolRegistry {
     const toolName = definition.function.name;
 
     // Check if tool already exists
-    if (this.tools.has(toolName) && !options.allowOverwrite) {
+    const existingTool = this.tools.get(toolName);
+    if (existingTool && !options.allowOverwrite) {
       throw new Error(
         `Tool '${toolName}' is already registered. Use allowOverwrite: true to replace it.`
       );
+    }
+
+    // If overwriting, remove from old source's set first
+    if (existingTool && existingTool.registeredBy !== source) {
+      const oldSourceSet = this.toolsBySource.get(existingTool.registeredBy);
+      if (oldSourceSet) {
+        oldSourceSet.delete(toolName);
+      }
     }
 
     const registeredTool: RegisteredTool = {
@@ -210,9 +219,20 @@ export class ToolRegistry {
       const result = await tool.executor(args, context);
       return result;
     } catch (error) {
+      // Preserve full error information for debugging
+      const errorMessage = error instanceof Error
+        ? `${error.message}${error.stack ? `\nStack: ${error.stack}` : ''}`
+        : 'Unknown execution error';
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown execution error',
+        error: errorMessage,
+        // Include structured error data for programmatic access
+        data: error instanceof Error ? {
+          errorName: error.name,
+          errorMessage: error.message,
+          errorStack: error.stack,
+        } : undefined,
       };
     }
   }
@@ -322,6 +342,10 @@ export function getToolRegistry(): ToolRegistry {
 
 /**
  * Helper: Register multiple tools at once
+ *
+ * @param source - Source system registering the tools
+ * @param tools - Array of tool definitions with executors
+ * @returns Object with success status and any errors encountered
  */
 export function registerTools(
   source: 'ax-cli' | 'automatosx',
@@ -330,11 +354,24 @@ export function registerTools(
     executor: ToolExecutor;
     options?: ToolRegistrationOptions;
   }>
-): void {
+): { registered: string[]; errors: Array<{ name: string; error: string }> } {
   const registry = getToolRegistry();
+  const registered: string[] = [];
+  const errors: Array<{ name: string; error: string }> = [];
+
   for (const { definition, executor, options } of tools) {
-    registry.registerTool(source, definition, executor, options);
+    try {
+      registry.registerTool(source, definition, executor, options);
+      registered.push(definition.function.name);
+    } catch (error) {
+      errors.push({
+        name: definition.function.name,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
+
+  return { registered, errors };
 }
 
 /**

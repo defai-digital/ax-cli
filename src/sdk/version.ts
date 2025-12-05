@@ -179,19 +179,38 @@ export function getVersionString(): string {
  * ```
  */
 export function isSDKVersionCompatible(minVersion: string): boolean {
-  // BUG FIX: Validate version string format before parsing
+  // Validate version string format before parsing
   if (typeof minVersion !== 'string' || !minVersion.trim()) {
     throw new Error(`Invalid version string: "${minVersion}"`);
   }
 
-  const parts = minVersion.split('.');
-  const [minMajor, minMinor = 0, minPatch = 0] = parts.map(Number);
-  const [curMajor, curMinor = 0, curPatch = 0] = SDK_VERSION.split('.').map(Number);
+  // Remove leading 'v' if present (e.g., "v1.2.3" -> "1.2.3")
+  const normalizedVersion = minVersion.trim().replace(/^v/i, '');
 
-  // BUG FIX: Check for NaN (invalid number in version string)
+  // Split and validate version parts
+  const parts = normalizedVersion.split('.');
+
+  // Warn about non-standard version formats (more or less than 3 parts)
+  if (parts.length > 3) {
+    console.warn(`[AX SDK] Version "${minVersion}" has more than 3 parts; extra parts will be ignored`);
+  }
+
+  const [minMajorStr, minMinorStr = '0', minPatchStr = '0'] = parts;
+  const minMajor = parseInt(minMajorStr, 10);
+  const minMinor = parseInt(minMinorStr, 10);
+  const minPatch = parseInt(minPatchStr, 10);
+
+  // Check for NaN (invalid number in version string)
   if (isNaN(minMajor) || isNaN(minMinor) || isNaN(minPatch)) {
     throw new Error(`Invalid version format: "${minVersion}" (must be semantic version like "1.2.3")`);
   }
+
+  // Validate version numbers are non-negative
+  if (minMajor < 0 || minMinor < 0 || minPatch < 0) {
+    throw new Error(`Invalid version format: "${minVersion}" (version numbers cannot be negative)`);
+  }
+
+  const [curMajor, curMinor = 0, curPatch = 0] = SDK_VERSION.split('.').map(Number);
 
   // Major version comparison
   if (curMajor > minMajor) return true;

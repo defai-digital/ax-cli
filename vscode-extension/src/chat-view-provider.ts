@@ -49,6 +49,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     // Handle messages from the webview - store disposable for cleanup
     this.messageListener = webviewView.webview.onDidReceiveMessage(async (data: any) => {
+      // Guard against disposed webview - messages may arrive after webview is disposed
+      if (!this._view) {
+        console.warn('[ChatView] Received message after webview was disposed, ignoring');
+        return;
+      }
+
       switch (data.type) {
         case 'sendMessage':
           await this.handleUserMessage(data.message, data.context);
@@ -433,39 +439,38 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   /**
    * Add git diff to context
+   * Uses promisified exec to properly handle async/await pattern
    */
   private async addGitDiffContext(): Promise<void> {
-    try {
-      const { exec } = require('child_process');
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
-      if (!workspaceFolder) {
-        vscode.window.showWarningMessage('No workspace folder open');
+    if (!workspaceFolder) {
+      vscode.window.showWarningMessage('No workspace folder open');
+      return;
+    }
+
+    try {
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+
+      const { stdout } = await execAsync('git diff', { cwd: workspaceFolder.uri.fsPath });
+
+      if (!stdout.trim()) {
+        vscode.window.showInformationMessage('No uncommitted changes found');
         return;
       }
 
-      exec('git diff', { cwd: workspaceFolder.uri.fsPath }, (error: Error | null, stdout: string, _stderr: string) => {
-        if (error) {
-          vscode.window.showWarningMessage('Failed to get git diff');
-          return;
-        }
+      // Add diff as a system message
+      const diffMessage: Message = {
+        id: this.generateId(),
+        role: 'system',
+        content: `**Git Diff (uncommitted changes):**\n\`\`\`diff\n${stdout.substring(0, 5000)}${stdout.length > 5000 ? '\n... (truncated)' : ''}\n\`\`\``,
+        timestamp: new Date().toISOString(),
+      };
 
-        if (!stdout.trim()) {
-          vscode.window.showInformationMessage('No uncommitted changes found');
-          return;
-        }
-
-        // Add diff as a system message
-        const diffMessage: Message = {
-          id: this.generateId(),
-          role: 'system',
-          content: `**Git Diff (uncommitted changes):**\n\`\`\`diff\n${stdout.substring(0, 5000)}${stdout.length > 5000 ? '\n... (truncated)' : ''}\n\`\`\``,
-          timestamp: new Date().toISOString(),
-        };
-
-        this.messages.push(diffMessage);
-        this.updateWebview();
-      });
+      this.messages.push(diffMessage);
+      this.updateWebview();
     } catch (error) {
       console.error('[ChatView] Git diff error:', error);
       vscode.window.showWarningMessage('Failed to get git diff');

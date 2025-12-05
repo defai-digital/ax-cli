@@ -160,14 +160,16 @@ export class CLIBridgeSDK {
 
           // Reuse existing terminal or create new one
           // This prevents terminal accumulation from multiple requests
-          if (!this.activeTerminal || this.activeTerminal.exitStatus !== undefined) {
+          // Note: exitStatus is undefined while terminal is active, defined when exited
+          const terminalIsActive = this.activeTerminal && this.activeTerminal.exitStatus === undefined;
+          if (!terminalIsActive) {
             this.activeTerminal = vscode.window.createTerminal({
               name: 'AX CLI',
               env: apiKey ? { AX_API_KEY: apiKey } : undefined
             });
           }
-          this.activeTerminal.show();
-          this.activeTerminal.sendText('ax');
+          this.activeTerminal!.show();
+          this.activeTerminal!.sendText('ax');
         } catch (error) {
           console.error('[AX] Failed to create terminal:', error);
           vscode.window.showErrorMessage('Failed to open terminal');

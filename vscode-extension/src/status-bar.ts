@@ -3,6 +3,8 @@ import * as vscode from 'vscode';
 export class StatusBarManager {
   private statusBarItem: vscode.StatusBarItem;
   private configChangeListener: vscode.Disposable;
+  private statusResetTimeoutId: ReturnType<typeof setTimeout> | undefined;
+  private isDisposed = false;
 
   constructor() {
     this.statusBarItem = vscode.window.createStatusBarItem(
@@ -13,6 +15,10 @@ export class StatusBarManager {
 
     // Listen for configuration changes to keep status bar in sync
     this.configChangeListener = vscode.workspace.onDidChangeConfiguration((e) => {
+      // Guard against config changes after disposal
+      if (this.isDisposed) {
+        return;
+      }
       if (e.affectsConfiguration('ax-cli.model')) {
         this.updateDisplay();
       }
@@ -22,6 +28,11 @@ export class StatusBarManager {
   }
 
   private updateDisplay(): void {
+    // Guard against updates after disposal
+    if (this.isDisposed) {
+      return;
+    }
+
     const config = vscode.workspace.getConfiguration('ax-cli');
     const model = config.get<string>('model', 'grok-code-fast-1');
 
@@ -47,11 +58,46 @@ export class StatusBarManager {
     this.updateDisplay();
   }
 
-  updateStatus(status: string): void {
+  /**
+   * Temporarily show a status message, then revert to model display
+   * @param status - The status message to show
+   * @param autoResetMs - Time in ms before reverting to model display (default: 5000, 0 = no auto-reset)
+   */
+  updateStatus(status: string, autoResetMs = 5000): void {
+    // Guard against updates after disposal
+    if (this.isDisposed) {
+      return;
+    }
+
+    // Clear any existing reset timeout
+    if (this.statusResetTimeoutId !== undefined) {
+      clearTimeout(this.statusResetTimeoutId);
+      this.statusResetTimeoutId = undefined;
+    }
+
     this.statusBarItem.text = `$(robot) AX: ${status}`;
+
+    // Auto-reset to model display after specified time
+    if (autoResetMs > 0) {
+      this.statusResetTimeoutId = setTimeout(() => {
+        this.statusResetTimeoutId = undefined;
+        this.updateDisplay();
+      }, autoResetMs);
+    }
   }
 
   setProcessing(isProcessing: boolean): void {
+    // Guard against updates after disposal
+    if (this.isDisposed) {
+      return;
+    }
+
+    // Clear any existing reset timeout when changing processing state
+    if (this.statusResetTimeoutId !== undefined) {
+      clearTimeout(this.statusResetTimeoutId);
+      this.statusResetTimeoutId = undefined;
+    }
+
     if (isProcessing) {
       this.statusBarItem.text = `$(sync~spin) AX: Processing...`;
     } else {
@@ -60,14 +106,26 @@ export class StatusBarManager {
   }
 
   show(): void {
-    this.statusBarItem.show();
+    if (!this.isDisposed) {
+      this.statusBarItem.show();
+    }
   }
 
   hide(): void {
-    this.statusBarItem.hide();
+    if (!this.isDisposed) {
+      this.statusBarItem.hide();
+    }
   }
 
   dispose(): void {
+    this.isDisposed = true;
+
+    // Clear any pending timeout
+    if (this.statusResetTimeoutId !== undefined) {
+      clearTimeout(this.statusResetTimeoutId);
+      this.statusResetTimeoutId = undefined;
+    }
+
     this.configChangeListener.dispose();
     this.statusBarItem.dispose();
   }

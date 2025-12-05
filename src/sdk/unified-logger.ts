@@ -131,9 +131,15 @@ export class UnifiedLogger extends EventEmitter {
       } : undefined,
     };
 
+    // Trim logs BEFORE adding to prevent exceeding maxLogSize
+    // This ensures the array never grows beyond the limit
+    if (this.logs.length >= this.maxLogSize) {
+      // Remove oldest entries to make room (keep last maxLogSize - 1 entries)
+      this.logs = this.logs.slice(-(this.maxLogSize - 1));
+    }
+
     // Add to logs
     this.logs.push(entry);
-    this.trimLogs();
 
     // Emit event
     this.emit('log', entry);
@@ -194,7 +200,12 @@ export class UnifiedLogger extends EventEmitter {
         if (typeof source === 'string') {
           filtered = filtered.filter(log => log.source === source);
         } else if (source instanceof RegExp) {
-          filtered = filtered.filter(log => source.test(log.source));
+          // Reset lastIndex before each filter to avoid stateful behavior with global regexes
+          // Global regexes maintain lastIndex state between test() calls which can cause flaky results
+          filtered = filtered.filter(log => {
+            source.lastIndex = 0;
+            return source.test(log.source);
+          });
         }
       }
 
@@ -214,10 +225,23 @@ export class UnifiedLogger extends EventEmitter {
 
   /**
    * Get recent logs (last N entries)
+   *
+   * @param count - Number of recent entries to return (must be positive)
+   * @param filter - Optional filter to apply before selecting recent entries
+   * @returns Array of recent log entries
    */
   getRecentLogs(count: number, filter?: LogFilter): LogEntry[] {
+    // Validate count is a positive integer
+    const validCount = typeof count === 'number' && isFinite(count) && count > 0
+      ? Math.floor(count)
+      : 0;
+
+    if (validCount === 0) {
+      return [];
+    }
+
     const logs = this.getLogs(filter);
-    return logs.slice(-count);
+    return logs.slice(-validCount);
   }
 
   /**
