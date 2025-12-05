@@ -648,6 +648,17 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
       markDisposed();
     }
 
+    // BUG FIX: Remove cleanup handlers from process event listeners to prevent memory leaks
+    // This must happen before onDispose hook in case the hook throws
+    const cleanupHandler = (agent as any)._sdkCleanupHandler;
+    if (cleanupHandler) {
+      process.removeListener('exit', cleanupHandler);
+      process.removeListener('SIGINT', cleanupHandler);
+      process.removeListener('SIGTERM', cleanupHandler);
+      process.removeListener('SIGHUP', cleanupHandler);
+      delete (agent as any)._sdkCleanupHandler;
+    }
+
     // Handle onDispose hook - if async, we can't await it in synchronous dispose
     // but we'll call it and let it run (fire-and-forget for async hooks)
     if (onDispose) {

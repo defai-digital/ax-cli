@@ -185,6 +185,8 @@ export class UnifiedLogger extends EventEmitter {
 
   /**
    * Get all logs (optionally filtered)
+   *
+   * Returns deep copies of log entries to prevent external mutation of internal state.
    */
   getLogs(filter?: LogFilter): LogEntry[] {
     let filtered = [...this.logs];
@@ -220,7 +222,14 @@ export class UnifiedLogger extends EventEmitter {
       }
     }
 
-    return filtered;
+    // BUG FIX: Return deep copies to prevent external mutation of internal log entries
+    // Without this, external code could modify the returned entries and corrupt internal state
+    return filtered.map(log => ({
+      ...log,
+      // Deep copy optional nested objects
+      data: log.data ? { ...log.data } : undefined,
+      error: log.error ? { ...log.error } : undefined,
+    }));
   }
 
   /**

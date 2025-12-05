@@ -629,32 +629,57 @@ export function createMockMCPServer(options: MockMCPServerOptions): MockMCPServe
  * ```
  */
 export async function waitForAgent(
-  _agent: any,
+  agent: any,
   options?: { timeout?: number }
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeout = options?.timeout || 5000;
     let resolved = false;
     let completionTimer: ReturnType<typeof setTimeout> | undefined;
+    let streamListener: ((chunk: any) => void) | undefined;
+
+    const cleanup = () => {
+      // BUG FIX: Always clean up both timers and event listeners to prevent memory leaks
+      if (completionTimer !== undefined) {
+        clearTimeout(completionTimer);
+        completionTimer = undefined;
+      }
+      // Remove stream listener if it was added
+      if (streamListener && agent && typeof agent.off === 'function') {
+        agent.off('stream', streamListener);
+        streamListener = undefined;
+      }
+    };
 
     const timer = setTimeout(() => {
       if (!resolved) {
         resolved = true;
-        // Clear completion timer to prevent memory leak
-        if (completionTimer !== undefined) {
-          clearTimeout(completionTimer);
-        }
+        cleanup();
         reject(new Error(`Agent did not complete within ${timeout}ms`));
       }
     }, timeout);
 
-    // Wait for agent to emit 'idle' or similar completion event
-    // For now, just resolve after a short delay
-    // TODO: Implement proper event listening when LLMAgent has completion events
+    // BUG FIX: Listen for 'done' stream event instead of arbitrary delay
+    // This properly waits for the agent to complete rather than using a fixed timeout
+    if (agent && typeof agent.on === 'function') {
+      streamListener = (chunk: any) => {
+        if (chunk && chunk.type === 'done' && !resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          cleanup();
+          resolve();
+        }
+      };
+      agent.on('stream', streamListener);
+    }
+
+    // Fallback: resolve after a short delay if no stream events
+    // This handles agents that don't emit stream events
     completionTimer = setTimeout(() => {
       if (!resolved) {
         resolved = true;
         clearTimeout(timer);
+        cleanup();
         resolve();
       }
     }, 100);
