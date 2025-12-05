@@ -153,10 +153,44 @@ export class ToolRegistry {
   }
 
   /**
+   * Deep clone an LLMTool definition to prevent external mutation
+   * @internal
+   */
+  private cloneDefinition(def: LLMTool): LLMTool {
+    return {
+      type: def.type,
+      function: {
+        name: def.function.name,
+        description: def.function.description,
+        parameters: JSON.parse(JSON.stringify(def.function.parameters)),
+      },
+    };
+  }
+
+  /**
+   * Deep clone a RegisteredTool to prevent external mutation
+   * @internal
+   */
+  private cloneTool(tool: RegisteredTool): RegisteredTool {
+    return {
+      definition: this.cloneDefinition(tool.definition),
+      executor: tool.executor, // Executor is a function, can't be cloned
+      registeredBy: tool.registeredBy,
+      registeredAt: tool.registeredAt,
+      tags: tool.tags ? [...tool.tags] : undefined,
+    };
+  }
+
+  /**
    * Get a registered tool
+   *
+   * Returns a deep copy to prevent external mutation of registry state.
+   * Note: The executor function reference is shared (cannot be cloned).
    */
   getTool(toolName: string): RegisteredTool | undefined {
-    return this.tools.get(toolName);
+    const tool = this.tools.get(toolName);
+    // BUG FIX: Return deep copy to prevent external mutation
+    return tool ? this.cloneTool(tool) : undefined;
   }
 
   /**
@@ -168,29 +202,38 @@ export class ToolRegistry {
 
   /**
    * Get all tool definitions (OpenAI format)
+   *
+   * Returns deep copies to prevent external mutation of registry state.
    */
   getAllToolDefinitions(): LLMTool[] {
-    return Array.from(this.tools.values()).map(tool => tool.definition);
+    // BUG FIX: Return deep copies to prevent external mutation
+    return Array.from(this.tools.values()).map(tool => this.cloneDefinition(tool.definition));
   }
 
   /**
    * Get tool definitions from specific source
+   *
+   * Returns deep copies to prevent external mutation of registry state.
    */
   getToolDefinitionsBySource(source: 'ax-cli' | 'automatosx'): LLMTool[] {
     const toolNames = this.toolsBySource.get(source) || new Set();
+    // BUG FIX: Return deep copies to prevent external mutation
     return Array.from(toolNames)
       .map(name => this.tools.get(name))
       .filter((tool): tool is RegisteredTool => tool !== undefined)
-      .map(tool => tool.definition);
+      .map(tool => this.cloneDefinition(tool.definition));
   }
 
   /**
    * Get tool definitions by tag
+   *
+   * Returns deep copies to prevent external mutation of registry state.
    */
   getToolDefinitionsByTag(tag: string): LLMTool[] {
+    // BUG FIX: Return deep copies to prevent external mutation
     return Array.from(this.tools.values())
       .filter(tool => tool.tags?.includes(tag))
-      .map(tool => tool.definition);
+      .map(tool => this.cloneDefinition(tool.definition));
   }
 
   /**
@@ -303,6 +346,8 @@ export class ToolRegistry {
 
   /**
    * Export registry as JSON (excluding executors)
+   *
+   * Returns deep copies to prevent external mutation of registry state.
    */
   exportDefinitions(): {
     tools: Array<{
@@ -318,12 +363,13 @@ export class ToolRegistry {
       byTag: Record<string, number>;
     };
   } {
+    // BUG FIX: Return deep copies to prevent external mutation
     const tools = Array.from(this.tools.entries()).map(([name, tool]) => ({
       name,
-      definition: tool.definition,
+      definition: this.cloneDefinition(tool.definition),
       registeredBy: tool.registeredBy,
       registeredAt: tool.registeredAt,
-      tags: tool.tags,
+      tags: tool.tags ? [...tool.tags] : undefined,
     }));
 
     return {

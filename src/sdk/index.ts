@@ -603,17 +603,23 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
     onError
   };
 
+  // BUG FIX: Track SDK-added listeners so they can be removed on dispose
+  // Without this, listeners would persist after disposal causing memory leaks
+  const sdkListeners: Array<{ event: string; listener: (...args: any[]) => void }> = [];
+
   // Enable debug mode on agent if requested
   if (debug) {
     // Add debug event listener
-    agent.on('stream', (chunk) => {
+    const debugStreamListener = (chunk: any) => {
       if (chunk.type === 'tool_calls' && chunk.toolCalls) {
         const toolNames = chunk.toolCalls.map((tc: any) => tc.function.name).join(', ');
         console.error('[AX SDK DEBUG] Tool calls:', toolNames);
       } else if (chunk.type === 'tool_result' && chunk.toolResult) {
         console.error('[AX SDK DEBUG] Tool result:', chunk.toolResult.success ? 'success' : 'failed');
       }
-    });
+    };
+    agent.on('stream', debugStreamListener);
+    sdkListeners.push({ event: 'stream', listener: debugStreamListener });
 
     console.error('[AX SDK DEBUG] Agent created successfully');
   }
@@ -634,10 +640,15 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
     };
 
     // Also listen to stream errors
-    agent.on('error', (error: Error) => {
+    const errorListener = (error: Error) => {
       onError(error);
-    });
+    };
+    agent.on('error', errorListener);
+    sdkListeners.push({ event: 'error', listener: errorListener });
   }
+
+  // Store listeners reference for cleanup
+  (agent as any)._sdkListeners = sdkListeners;
 
   // Phase 3: Wrap dispose() to call onDispose hook
   const originalDispose = agent.dispose.bind(agent);
@@ -657,6 +668,16 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
       process.removeListener('SIGTERM', cleanupHandler);
       process.removeListener('SIGHUP', cleanupHandler);
       delete (agent as any)._sdkCleanupHandler;
+    }
+
+    // BUG FIX: Remove SDK-added event listeners to prevent memory leaks
+    // These include debug stream listener and onError listener
+    const listeners = (agent as any)._sdkListeners as Array<{ event: string; listener: (...args: any[]) => void }> | undefined;
+    if (listeners && listeners.length > 0 && typeof agent.off === 'function') {
+      for (const { event, listener } of listeners) {
+        agent.off(event, listener);
+      }
+      delete (agent as any)._sdkListeners;
     }
 
     // Handle onDispose hook - if async, we can't await it in synchronous dispose
