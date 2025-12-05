@@ -386,6 +386,7 @@ export class FigmaClient {
 // =============================================================================
 
 let defaultClient: FigmaClient | null = null;
+let lastTokenUsed: string | null = null;
 
 /**
  * Create a new Figma client instance
@@ -398,20 +399,32 @@ export function createFigmaClient(config: FigmaClientConfig): FigmaClient {
  * Get the default Figma client (creates one if needed)
  *
  * Uses FIGMA_ACCESS_TOKEN environment variable if no token provided.
+ *
+ * BUG FIX: The singleton now re-initializes if the access token changes.
+ * This fixes unreliable behavior in interactive mode where the token might
+ * be set after the initial client creation, or changed during the session.
  */
 export function getFigmaClient(accessToken?: string): FigmaClient {
-  if (defaultClient) {
-    return defaultClient;
-  }
-
   const token = accessToken ?? process.env.FIGMA_ACCESS_TOKEN;
+
   if (!token) {
     throw new Error(
       'Figma access token required. Set FIGMA_ACCESS_TOKEN environment variable or pass token to createFigmaClient().'
     );
   }
 
+  // BUG FIX: Re-create client if token has changed
+  // This handles cases where:
+  // 1. Client was created with no token (would have thrown, but checking for completeness)
+  // 2. Environment variable was updated during the session
+  // 3. A different token is explicitly passed
+  if (defaultClient && lastTokenUsed === token) {
+    return defaultClient;
+  }
+
+  // Create new client with current token
   defaultClient = createFigmaClient({ accessToken: token });
+  lastTokenUsed = token;
   return defaultClient;
 }
 
@@ -420,4 +433,5 @@ export function getFigmaClient(accessToken?: string): FigmaClient {
  */
 export function resetFigmaClient(): void {
   defaultClient = null;
+  lastTokenUsed = null;
 }

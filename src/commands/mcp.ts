@@ -111,43 +111,80 @@ export function createMCPCommand(): Command {
           }
 
           if (missingEnvVarsList.length > 0) {
-            console.log(chalk.yellow('⚠️  Missing required environment variables:\n'));
-            for (const envVar of missingEnvVarsList) {
-              console.log(chalk.yellow(`   • ${chalk.bold(envVar.name)}`));
-              console.log(chalk.gray(`     ${envVar.description}`));
-              if (envVar.url) {
-                console.log(chalk.gray(`     Documentation: ${envVar.url}`));
+            // BUG FIX: If --interactive flag is set, prompt for missing env vars
+            if (options.interactive) {
+              console.log(chalk.yellow('⚠️  Missing required environment variables. Prompting for values...\n'));
+
+              for (const envVar of missingEnvVarsList) {
+                console.log(chalk.gray(`   ${envVar.description}`));
+                if (envVar.url) {
+                  console.log(chalk.gray(`   Documentation: ${envVar.url}`));
+                }
+
+                const response = await prompts.text({
+                  message: `Enter ${envVar.name}:`,
+                  placeholder: 'Paste your token here',
+                  validate: (value) => {
+                    if (!value || value.trim().length === 0) {
+                      return `${envVar.name} is required`;
+                    }
+                    return undefined;
+                  }
+                });
+
+                // Handle user cancellation (Ctrl+C)
+                if (prompts.isCancel(response)) {
+                  console.log(chalk.yellow('\n⚠️  Setup cancelled by user.\n'));
+                  process.exit(0);
+                }
+
+                envVars[envVar.name] = response as string;
+                console.log();
               }
-              console.log();
+            } else {
+              // Not interactive mode - show error message with options
+              console.log(chalk.yellow('⚠️  Missing required environment variables:\n'));
+              for (const envVar of missingEnvVarsList) {
+                console.log(chalk.yellow(`   • ${chalk.bold(envVar.name)}`));
+                console.log(chalk.gray(`     ${envVar.description}`));
+                if (envVar.url) {
+                  console.log(chalk.gray(`     Documentation: ${envVar.url}`));
+                }
+                console.log();
+              }
+
+              console.log(chalk.red('❌ Setup cannot continue without required environment variables.\n'));
+
+              // BUG FIX: Provide multiple options for setting environment variables
+              console.log(chalk.blue('Options to provide the missing variables:\n'));
+
+              // Option 1: Interactive mode (easiest)
+              console.log(chalk.white('  Option 1: Use interactive mode (easiest):'));
+              console.log(chalk.cyan(`    ax-cli mcp add ${name} --template --interactive\n`));
+
+              // Option 2: Pass directly via --env flag
+              const envFlags = missingEnvVarsList.map(e => `--env ${e.name}=YOUR_VALUE`).join(' ');
+              console.log(chalk.white('  Option 2: Pass directly with --env flag:'));
+              console.log(chalk.cyan(`    ax-cli mcp add ${name} --template ${envFlags}\n`));
+
+              // Option 3: Export in current shell
+              console.log(chalk.white('  Option 3: Export in current shell:'));
+              for (const envVar of missingEnvVarsList) {
+                console.log(chalk.cyan(`    export ${envVar.name}="your_value"`));
+              }
+              console.log(chalk.cyan(`    ax-cli mcp add ${name} --template\n`));
+
+              // Option 4: Add to shell profile
+              console.log(chalk.white('  Option 4: Add to shell profile (~/.bashrc or ~/.zshrc):'));
+              for (const envVar of missingEnvVarsList) {
+                console.log(chalk.cyan(`    export ${envVar.name}="your_value"`));
+              }
+              console.log(chalk.gray('    Then restart your terminal or run: source ~/.zshrc\n'));
+
+              console.log(chalk.blue('Full setup instructions:'));
+              console.log(template.setupInstructions);
+              process.exit(1);
             }
-
-            console.log(chalk.red('❌ Setup cannot continue without required environment variables.\n'));
-
-            // BUG FIX: Provide multiple options for setting environment variables
-            console.log(chalk.blue('Options to provide the missing variables:\n'));
-
-            // Option 1: Pass directly via --env flag
-            const envFlags = missingEnvVarsList.map(e => `--env ${e.name}=YOUR_VALUE`).join(' ');
-            console.log(chalk.white('  Option 1: Pass directly with --env flag (recommended):'));
-            console.log(chalk.cyan(`    ax-cli mcp add ${name} --template ${envFlags}\n`));
-
-            // Option 2: Export in current shell
-            console.log(chalk.white('  Option 2: Export in current shell:'));
-            for (const envVar of missingEnvVarsList) {
-              console.log(chalk.cyan(`    export ${envVar.name}="your_value"`));
-            }
-            console.log(chalk.cyan(`    ax-cli mcp add ${name} --template\n`));
-
-            // Option 3: Add to shell profile
-            console.log(chalk.white('  Option 3: Add to shell profile (~/.bashrc or ~/.zshrc):'));
-            for (const envVar of missingEnvVarsList) {
-              console.log(chalk.cyan(`    export ${envVar.name}="your_value"`));
-            }
-            console.log(chalk.gray('    Then restart your terminal or run: source ~/.zshrc\n'));
-
-            console.log(chalk.blue('Full setup instructions:'));
-            console.log(template.setupInstructions);
-            process.exit(1);
           }
 
           // Generate config from template

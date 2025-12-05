@@ -31,6 +31,56 @@ import { extractErrorMessage } from '../utils/error-handler.js';
  */
 export class DesignTool {
   /**
+   * Validate and get Figma access token
+   * Returns error result if token is not available
+   */
+  private validateFigmaToken(): ToolResult | null {
+    if (!process.env.FIGMA_ACCESS_TOKEN) {
+      return {
+        success: false,
+        error: `FIGMA_ACCESS_TOKEN environment variable not set.
+
+To fix this:
+1. Get a personal access token from https://www.figma.com/developers/api#access-tokens
+2. Set it using one of these methods:
+   - Run: export FIGMA_ACCESS_TOKEN="your_token"
+   - Add to your shell profile (~/.zshrc or ~/.bashrc)
+   - Use ax-cli mcp add figma --template --interactive`,
+      };
+    }
+    return null;
+  }
+
+  /**
+   * Format Figma API errors with helpful messages
+   */
+  private formatFigmaError(error: unknown, operation: string): string {
+    const message = extractErrorMessage(error);
+
+    // Check for common error patterns
+    if (message.includes('401') || message.includes('Unauthorized')) {
+      return `${operation}: Invalid or expired Figma access token. Please check your FIGMA_ACCESS_TOKEN.`;
+    }
+    if (message.includes('403') || message.includes('Forbidden')) {
+      return `${operation}: Access denied. You may not have permission to access this Figma file.`;
+    }
+    if (message.includes('404') || message.includes('Not Found')) {
+      return `${operation}: Figma file not found. Please check the file key is correct and you have access to the file.`;
+    }
+    if (message.includes('429') || message.includes('Rate limit')) {
+      return `${operation}: Figma API rate limit exceeded. Please wait a moment and try again.`;
+    }
+    if (message.includes('timeout') || message.includes('Timeout')) {
+      return `${operation}: Request timed out. The Figma file may be too large or the API is slow. Try again or use a smaller depth value.`;
+    }
+    if (message.includes('ENOTFOUND') || message.includes('network')) {
+      return `${operation}: Network error. Please check your internet connection.`;
+    }
+
+    return `${operation}: ${message}`;
+  }
+
+  /**
    * Map a Figma file structure
    */
   async mapFile(
@@ -43,15 +93,11 @@ export class DesignTool {
       framesOnly?: boolean;
     } = {}
   ): Promise<ToolResult> {
-    try {
-      // Check for FIGMA_ACCESS_TOKEN
-      if (!process.env.FIGMA_ACCESS_TOKEN) {
-        return {
-          success: false,
-          error: 'FIGMA_ACCESS_TOKEN environment variable not set. Please set it with your Figma personal access token.',
-        };
-      }
+    // Validate token first
+    const tokenError = this.validateFigmaToken();
+    if (tokenError) return tokenError;
 
+    try {
       const client = getFigmaClient();
       const response = await client.getFile(fileKey, {
         depth: options.depth,
@@ -78,7 +124,7 @@ export class DesignTool {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to map Figma file: ${extractErrorMessage(error)}`,
+        error: this.formatFigmaError(error, 'Failed to map Figma file'),
       };
     }
   }
@@ -95,14 +141,11 @@ export class DesignTool {
       remBase?: number;
     } = {}
   ): Promise<ToolResult> {
-    try {
-      if (!process.env.FIGMA_ACCESS_TOKEN) {
-        return {
-          success: false,
-          error: 'FIGMA_ACCESS_TOKEN environment variable not set.',
-        };
-      }
+    // Validate token first
+    const tokenError = this.validateFigmaToken();
+    if (tokenError) return tokenError;
 
+    try {
       const client = getFigmaClient();
       const response = await client.getLocalVariables(fileKey);
 
@@ -121,7 +164,7 @@ export class DesignTool {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to extract tokens: ${extractErrorMessage(error)}`,
+        error: this.formatFigmaError(error, 'Failed to extract tokens'),
       };
     }
   }
@@ -137,14 +180,11 @@ export class DesignTool {
       excludeRules?: string[];
     } = {}
   ): Promise<ToolResult> {
-    try {
-      if (!process.env.FIGMA_ACCESS_TOKEN) {
-        return {
-          success: false,
-          error: 'FIGMA_ACCESS_TOKEN environment variable not set.',
-        };
-      }
+    // Validate token first
+    const tokenError = this.validateFigmaToken();
+    if (tokenError) return tokenError;
 
+    try {
       const client = getFigmaClient();
       const response = await client.getFile(fileKey, {
         depth: options.depth,
@@ -183,7 +223,7 @@ export class DesignTool {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to audit design: ${extractErrorMessage(error)}`,
+        error: this.formatFigmaError(error, 'Failed to audit design'),
       };
     }
   }
@@ -274,21 +314,18 @@ export class DesignTool {
       limit?: number;
     }
   ): Promise<ToolResult> {
+    // Validate token first
+    const tokenError = this.validateFigmaToken();
+    if (tokenError) return tokenError;
+
+    if (!options.name && !options.type && !options.text) {
+      return {
+        success: false,
+        error: 'At least one search option required: name, type, or text',
+      };
+    }
+
     try {
-      if (!process.env.FIGMA_ACCESS_TOKEN) {
-        return {
-          success: false,
-          error: 'FIGMA_ACCESS_TOKEN environment variable not set.',
-        };
-      }
-
-      if (!options.name && !options.type && !options.text) {
-        return {
-          success: false,
-          error: 'At least one search option required: name, type, or text',
-        };
-      }
-
       const client = getFigmaClient();
       const response = await client.getFile(fileKey);
       const mapResult = mapFigmaFile(response, fileKey);
@@ -342,7 +379,7 @@ export class DesignTool {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to search nodes: ${extractErrorMessage(error)}`,
+        error: this.formatFigmaError(error, 'Failed to search nodes'),
       };
     }
   }

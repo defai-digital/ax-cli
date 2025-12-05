@@ -43,7 +43,10 @@ export const TEMPLATES: Record<string, MCPServerTemplate> = {
         type: 'stdio',
         command: 'npx',
         args: ['-y', 'mcp-figma'],
-        env: {}
+        env: {},
+        // Community mcp-figma package uses NDJSON (newline-delimited JSON) format,
+        // not Content-Length framing. This fixes JSON-RPC parsing errors.
+        framing: 'ndjson'
       }
     },
     requiredEnv: [
