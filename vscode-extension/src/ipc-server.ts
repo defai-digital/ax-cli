@@ -418,7 +418,15 @@ export class IPCServer {
         payload,
         requestId
       };
-      client.send(JSON.stringify(message));
+
+      try {
+        client.send(JSON.stringify(message));
+      } catch {
+        // Send failed - clean up handler and timeout to prevent memory leak
+        clearTimeout(timeout);
+        client.off('message', messageHandler);
+        resolve(null);
+      }
     });
   }
 
