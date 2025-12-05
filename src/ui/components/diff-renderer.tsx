@@ -133,6 +133,8 @@ export const DiffRenderer = ({
     availableTerminalHeight,
     terminalWidth,
     theme.muted,
+    theme.success,
+    theme.error,
   );
 
   return <>{renderedOutput}</>;
@@ -145,6 +147,8 @@ const renderDiffContent = (
   availableTerminalHeight: number | undefined,
   terminalWidth: number,
   mutedColor: string,
+  successColor: string,
+  errorColor: string,
 ) => {
   // 1. Normalize whitespace (replace tabs with spaces) *before* further processing
   const normalizedLines = parsedLines.map((line) => ({
@@ -223,13 +227,13 @@ const renderDiffContent = (
         switch (line.type) {
           case 'add':
             gutterNumStr = (line.newLine ?? '').toString();
-            backgroundColor = '#86efac'; // Light green for additions
+            backgroundColor = successColor; // Theme-aware green for additions
             prefixSymbol = '+';
             lastLineNumber = line.newLine ?? null;
             break;
           case 'del':
             gutterNumStr = (line.oldLine ?? '').toString();
-            backgroundColor = 'redBright'; // Light red for deletions
+            backgroundColor = errorColor; // Theme-aware red for deletions
             prefixSymbol = '-';
             // For deletions, update lastLineNumber based on oldLine if it's advancing.
             // This helps manage gaps correctly if there are multiple consecutive deletions
