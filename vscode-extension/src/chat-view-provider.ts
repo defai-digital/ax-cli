@@ -180,6 +180,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   /**
    * Show diff in VSCode native diff viewer
+   * Uses a unique scheme per diff to avoid conflicts with the global ax-cli-diff provider
    */
   private async showNativeDiff(changeId: string): Promise<void> {
     const change = this.pendingChanges.get(changeId);
@@ -188,19 +189,23 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    try {
-      // Create temporary URIs for diff viewer
-      const originalUri = vscode.Uri.parse(`ax-cli-diff:${change.file}?original&${changeId}`);
-      const modifiedUri = vscode.Uri.parse(`ax-cli-diff:${change.file}?modified&${changeId}`);
+    // Use unique scheme per diff to avoid conflicts with global provider in extension.ts
+    const uniqueScheme = `ax-cli-chat-diff-${changeId}`;
+    let registration: vscode.Disposable | undefined;
 
-      // Register content provider
+    try {
+      // Create temporary URIs for diff viewer with unique scheme
+      const originalUri = vscode.Uri.parse(`${uniqueScheme}:${change.file}?original`);
+      const modifiedUri = vscode.Uri.parse(`${uniqueScheme}:${change.file}?modified`);
+
+      // Register content provider with unique scheme
       const provider = new class implements vscode.TextDocumentContentProvider {
         provideTextDocumentContent(uri: vscode.Uri): string {
           return uri.query.includes('original') ? change.oldContent : change.newContent;
         }
       };
 
-      const registration = vscode.workspace.registerTextDocumentContentProvider('ax-cli-diff', provider);
+      registration = vscode.workspace.registerTextDocumentContentProvider(uniqueScheme, provider);
 
       // Open diff view
       await vscode.commands.executeCommand(
@@ -227,13 +232,18 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         this.pendingChanges.delete(changeId);
         vscode.window.showInformationMessage(`Changes rejected for ${change.file}`);
       }
-
-      // Clean up after a delay
-      setTimeout(() => registration.dispose(), 10000);
+      // Note: If user dismisses without action, change remains in pendingChanges
+      // This is intentional - they can retry from the chat view
 
     } catch (error) {
       console.error('[Chat View] Error showing native diff:', error);
       vscode.window.showErrorMessage(`Failed to show diff: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      // Always clean up the registration immediately after dialog closes
+      // The diff view may still be open, but VS Code caches the content
+      if (registration) {
+        registration.dispose();
+      }
     }
   }
 
