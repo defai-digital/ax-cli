@@ -18,6 +18,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   private messages: Message[] = [];
   private pendingChanges: Map<string, PendingChange> = new Map();
+  private messageListener?: vscode.Disposable;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -43,8 +44,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-    // Handle messages from the webview
-    webviewView.webview.onDidReceiveMessage(async (data: any) => {
+    // Dispose previous listener if view is being re-resolved
+    this.messageListener?.dispose();
+
+    // Handle messages from the webview - store disposable for cleanup
+    this.messageListener = webviewView.webview.onDidReceiveMessage(async (data: any) => {
       switch (data.type) {
         case 'sendMessage':
           await this.handleUserMessage(data.message, data.context);
@@ -89,7 +93,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
         case 'selectModel':
           // User wants to change model via /model command
-          vscode.commands.executeCommand('ax-cli.selectModel');
+          await vscode.commands.executeCommand('ax-cli.selectModel');
           break;
 
         case 'setExtendedThinking':
