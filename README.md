@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v4.0.2)](#recent-changes-v402)
+- [Recent Changes (v4.0.5)](#recent-changes-v405)
 - [Documentation](#documentation)
 
 ---
@@ -443,7 +443,40 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v4.0.4)
+## Recent Changes (v4.0.5)
+
+### SDK Data Mutation Bug Fixes
+
+This release focuses on comprehensive fixes for data mutation vulnerabilities across the SDK, preventing external code from corrupting internal state.
+
+**Progress Reporter & Unified Logger:**
+- **Event Isolation**: Each event emission now uses separate object copies to prevent cross-listener contamination
+- **Metadata Protection**: Deep copy metadata in `report()` to prevent external mutation after event emission
+- **Log Entry Isolation**: Stored log entries are now isolated from emitted entries to prevent listener mutations from corrupting internal state
+
+**Tool Registry:**
+- **Definition Cloning**: `registerTool()` now clones definitions and tags to prevent external mutation
+- **Execution Isolation**: `executeTool()` clones args and context before passing to executors
+- **Safe Batch Registration**: `registerTools()` now handles malformed input gracefully without crashing on remaining tools
+
+**Testing Utilities:**
+- **MockAgent**: Fixed `processUserMessage()` and `getChatHistory()` to return deep copies with cloned Date objects
+- **MockMCPServer**: Constructor now deep clones options; `listTools()` returns cloned schemas; `callTool()`/`executePrompt()` clone args before passing to handlers
+- **MockSettingsManager**: Constructor clones settings to prevent post-construction mutation
+- **waitForAgent**: Now listens for 'error' events and rejects with actual errors instead of timing out
+
+**Agent Lifecycle:**
+- **Double Disposal Guard**: `createAgent()` dispose wrapper now prevents multiple `onDispose` hook calls
+- **Non-Error Handling**: `onError` hook now fires for non-Error throwables (strings, null, etc.)
+- **Subagent Config Isolation**: `createSubagent()` clones config including `allowedTools` array
+
+### VS Code Extension
+
+- **README Update**: Updated to v0.3.3 with accurate feature documentation, removed outdated roadmap
+
+---
+
+## Previous Changes (v4.0.4)
 
 ### VS Code Extension Bug Fixes
 

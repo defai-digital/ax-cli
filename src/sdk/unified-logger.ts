@@ -118,12 +118,15 @@ export class UnifiedLogger extends EventEmitter {
       return;
     }
 
+    // BUG FIX: Clone data to prevent external mutation of stored log entries
+    // Without this, external code could modify the data object after logging
+    // and corrupt the internal log state
     const entry: LogEntry = {
       timestamp: Date.now(),
       level,
       source,
       message,
-      data,
+      data: data ? { ...data } : undefined,
       error: error ? {
         message: error.message,
         stack: error.stack,
@@ -141,9 +144,16 @@ export class UnifiedLogger extends EventEmitter {
     // Add to logs
     this.logs.push(entry);
 
-    // Emit event
-    this.emit('log', entry);
-    this.emit(LogLevel[level].toLowerCase(), entry);
+    // BUG FIX: Emit separate copies of the entry to each event channel
+    // The stored entry must not be shared with listeners, as listeners could
+    // mutate it and corrupt internal state. Each emission gets its own copy.
+    const emitEntry = (): LogEntry => ({
+      ...entry,
+      data: entry.data ? { ...entry.data } : undefined,
+      error: entry.error ? { ...entry.error } : undefined,
+    });
+    this.emit('log', emitEntry());
+    this.emit(LogLevel[level].toLowerCase(), emitEntry());
   }
 
   /**

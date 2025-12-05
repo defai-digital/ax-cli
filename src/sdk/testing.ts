@@ -47,7 +47,10 @@ export class MockAgent extends EventEmitter {
     responses?: string[];
   } = {}) {
     super();
-    this.responses = options.responses || ['Mock response'];
+    // BUG FIX: Clone responses array to prevent external mutation
+    // Without this, the caller could modify the responses array after construction
+    // and unexpectedly change the mock's behavior during tests
+    this.responses = options.responses ? [...options.responses] : ['Mock response'];
   }
 
   /**
@@ -95,7 +98,13 @@ export class MockAgent extends EventEmitter {
       type: 'done',
     } as StreamingChunk);
 
-    return [...this.history];
+    // BUG FIX: Return deep copies to prevent external mutation of internal history
+    // Without this, callers could modify the returned entries and corrupt
+    // the mock agent's internal chat history
+    return this.history.map(entry => ({
+      ...entry,
+      timestamp: new Date(entry.timestamp.getTime()),
+    }));
   }
 
   /**
@@ -145,10 +154,19 @@ export class MockAgent extends EventEmitter {
 
   /**
    * Get chat history (mock implementation)
+   *
+   * Returns deep copies of chat entries to prevent external mutation.
    */
   getChatHistory(): ChatEntry[] {
     this.checkDisposed();
-    return [...this.history];
+    // BUG FIX: Return deep copies to prevent external mutation of internal history
+    // Without this, callers could modify the returned entries and corrupt
+    // the mock agent's internal chat history (e.g., change timestamps, content)
+    return this.history.map(entry => ({
+      ...entry,
+      // Clone Date objects to prevent mutation
+      timestamp: new Date(entry.timestamp.getTime()),
+    }));
   }
 
   /**
@@ -233,7 +251,10 @@ export class MockAgent extends EventEmitter {
     if (!responses || responses.length === 0) {
       throw new Error('MockAgent.setResponses: responses array must not be empty');
     }
-    this.responses = responses;
+    // BUG FIX: Clone responses array to prevent external mutation
+    // Without this, the caller could modify the responses array after setting
+    // and unexpectedly change the mock's behavior during tests
+    this.responses = [...responses];
     this.currentResponseIndex = 0;
   }
 
@@ -302,7 +323,10 @@ export class MockSettingsManager {
     baseURL?: string;
     model?: string;
   } = {}) {
-    this.settings = settings;
+    // BUG FIX: Clone settings to prevent external mutation
+    // Without this, the caller could modify the settings object after construction
+    // and unexpectedly change the mock's behavior during tests
+    this.settings = { ...settings };
   }
 
   loadUserSettings(): void {
@@ -426,7 +450,33 @@ export class MockMCPServer {
   private connected: boolean = false;
 
   constructor(options: MockMCPServerOptions) {
-    this.options = options;
+    // BUG FIX: Deep clone options to prevent external mutation
+    // Without this, external code could modify the options after construction
+    // (e.g., modify tools array, change handlers) and unexpectedly affect
+    // the mock server's behavior during tests
+    this.options = {
+      name: options.name,
+      version: options.version,
+      // Clone arrays to prevent external mutation, but keep handler references
+      // (handlers are functions and cannot be cloned)
+      tools: options.tools ? options.tools.map(t => ({
+        name: t.name,
+        description: t.description,
+        inputSchema: JSON.parse(JSON.stringify(t.inputSchema)),
+        handler: t.handler,
+      })) : undefined,
+      resources: options.resources ? options.resources.map(r => ({
+        uri: r.uri,
+        name: r.name,
+        mimeType: r.mimeType,
+        handler: r.handler,
+      })) : undefined,
+      prompts: options.prompts ? options.prompts.map(p => ({
+        name: p.name,
+        description: p.description,
+        handler: p.handler,
+      })) : undefined,
+    };
   }
 
   /**
@@ -445,16 +495,21 @@ export class MockMCPServer {
 
   /**
    * List available tools
+   *
+   * Returns deep copies of tool definitions to prevent external mutation.
    */
   async listTools(): Promise<Array<{ name: string; description: string; inputSchema: any }>> {
     if (!this.connected) {
       throw new Error('Server not connected');
     }
 
+    // BUG FIX: Deep clone inputSchema to prevent external mutation of internal state
+    // Without this, callers could modify the returned schema and corrupt
+    // the mock server's tool definitions
     return (this.options.tools || []).map(tool => ({
       name: tool.name,
       description: tool.description,
-      inputSchema: tool.inputSchema
+      inputSchema: JSON.parse(JSON.stringify(tool.inputSchema))
     }));
   }
 
@@ -476,7 +531,12 @@ export class MockMCPServer {
     }
 
     try {
-      return await tool.handler(args);
+      // BUG FIX: Clone args before passing to handler to prevent mutation
+      // Without this, the handler could modify the caller's args object
+      const clonedArgs = args !== null && args !== undefined
+        ? JSON.parse(JSON.stringify(args))
+        : args;
+      return await tool.handler(clonedArgs);
     } catch (error) {
       // Wrap handler errors with context
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -555,7 +615,12 @@ export class MockMCPServer {
     }
 
     try {
-      return await prompt.handler(args);
+      // BUG FIX: Clone args before passing to handler to prevent mutation
+      // Without this, the handler could modify the caller's args object
+      const clonedArgs = args !== null && args !== undefined
+        ? JSON.parse(JSON.stringify(args))
+        : args;
+      return await prompt.handler(clonedArgs);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Prompt '${name}' execution failed: ${message}`);
@@ -637,6 +702,7 @@ export async function waitForAgent(
     let resolved = false;
     let completionTimer: ReturnType<typeof setTimeout> | undefined;
     let streamListener: ((chunk: any) => void) | undefined;
+    let errorListener: ((error: Error) => void) | undefined;
 
     const cleanup = () => {
       // BUG FIX: Always clean up both timers and event listeners to prevent memory leaks
@@ -648,6 +714,11 @@ export async function waitForAgent(
       if (streamListener && agent && typeof agent.off === 'function') {
         agent.off('stream', streamListener);
         streamListener = undefined;
+      }
+      // BUG FIX: Remove error listener if it was added
+      if (errorListener && agent && typeof agent.off === 'function') {
+        agent.off('error', errorListener);
+        errorListener = undefined;
       }
     };
 
@@ -671,6 +742,19 @@ export async function waitForAgent(
         }
       };
       agent.on('stream', streamListener);
+
+      // BUG FIX: Listen for error events so waitForAgent rejects with the actual error
+      // Without this, agent errors would be silently ignored and waitForAgent would
+      // either timeout or resolve via fallback, hiding the real failure
+      errorListener = (error: Error) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          cleanup();
+          reject(error);
+        }
+      };
+      agent.on('error', errorListener);
     }
 
     // Fallback: resolve after a short delay if no stream events

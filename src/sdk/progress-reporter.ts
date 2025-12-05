@@ -97,13 +97,26 @@ export class ProgressReporter extends EventEmitter {
       throw new Error('ProgressReporter.report: type is required and must be a valid ProgressEventType');
     }
 
-    const fullEvent: ProgressEvent = {
-      ...event,
-      timestamp: Date.now(),
-    };
+    // BUG FIX: Deep copy metadata to prevent external mutation of emitted events
+    // Without this, external code could modify the metadata after event emission
+    // and corrupt the event data that listeners received
+    const timestamp = Date.now();
+    const clonedMetadata = event.metadata ? { ...event.metadata } : undefined;
 
-    this.emit('progress', fullEvent);
-    this.emit(event.type, fullEvent);
+    // BUG FIX: Emit separate event objects to each channel
+    // If we emit the same object to both 'progress' and event.type, a listener
+    // on 'progress' could mutate the event and affect listeners on event.type
+    // (or vice versa). Each emission gets its own copy.
+    this.emit('progress', {
+      ...event,
+      metadata: clonedMetadata ? { ...clonedMetadata } : undefined,
+      timestamp,
+    });
+    this.emit(event.type, {
+      ...event,
+      metadata: clonedMetadata ? { ...clonedMetadata } : undefined,
+      timestamp,
+    });
   }
 
   /**

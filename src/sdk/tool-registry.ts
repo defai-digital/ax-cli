@@ -120,12 +120,15 @@ export class ToolRegistry {
       }
     }
 
+    // BUG FIX: Clone definition and tags to prevent external mutation of registry state
+    // Without this, external code could modify the definition/tags after registration
+    // and corrupt the internal registry state
     const registeredTool: RegisteredTool = {
-      definition,
+      definition: this.cloneDefinition(definition),
       executor,
       registeredBy: source,
       registeredAt: Date.now(),
-      tags: options.tags,
+      tags: options.tags ? [...options.tags] : undefined,
     };
 
     this.tools.set(toolName, registeredTool);
@@ -259,7 +262,16 @@ export class ToolRegistry {
     }
 
     try {
-      const result = await tool.executor(args, context);
+      // BUG FIX: Clone args and context before passing to executor
+      // This prevents the executor from mutating the caller's objects
+      // which could cause subtle bugs if the caller reuses them
+      const clonedArgs = JSON.parse(JSON.stringify(args));
+      const clonedContext: ToolExecutionContext = {
+        source: context.source,
+        agentId: context.agentId,
+        metadata: context.metadata ? { ...context.metadata } : undefined,
+      };
+      const result = await tool.executor(clonedArgs, clonedContext);
       return result;
     } catch (error) {
       // Preserve full error information for debugging
@@ -405,13 +417,22 @@ export function registerTools(
   const registered: string[] = [];
   const errors: Array<{ name: string; error: string }> = [];
 
-  for (const { definition, executor, options } of tools) {
+  for (let i = 0; i < tools.length; i++) {
+    const tool = tools[i];
+    // BUG FIX: Safely extract tool name to prevent crashes on malformed input
+    // Without this, accessing definition.function.name on null/undefined would throw
+    // and crash registration for all remaining tools
+    const toolName = tool?.definition?.function?.name ?? `unknown-tool-${i}`;
+
     try {
-      registry.registerTool(source, definition, executor, options);
-      registered.push(definition.function.name);
+      if (!tool || !tool.definition || !tool.executor) {
+        throw new Error('Tool definition and executor are required');
+      }
+      registry.registerTool(source, tool.definition, tool.executor, tool.options);
+      registered.push(toolName);
     } catch (error) {
       errors.push({
-        name: definition.function.name,
+        name: toolName,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }

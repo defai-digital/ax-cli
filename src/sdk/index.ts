@@ -632,10 +632,14 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
       try {
         return await originalProcessUserMessage(prompt);
       } catch (error) {
-        if (error instanceof Error) {
-          onError(error);
-        }
-        throw error; // Re-throw after calling hook
+        // BUG FIX: Handle non-Error throwables by wrapping them
+        // Without this, throwing a string/null/undefined would skip the onError hook
+        // but still propagate the error, leaving the user unaware
+        const normalizedError = error instanceof Error
+          ? error
+          : new Error(String(error ?? 'Unknown error'));
+        onError(normalizedError);
+        throw error; // Re-throw original error to preserve behavior
       }
     };
 
@@ -650,9 +654,20 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
   // Store listeners reference for cleanup
   (agent as any)._sdkListeners = sdkListeners;
 
+  // BUG FIX: Track if SDK dispose wrapper has been called to prevent double disposal
+  // Without this, calling dispose() multiple times would run cleanup logic and
+  // onDispose hook multiple times, which could cause errors or unexpected behavior
+  let sdkDisposeCompleted = false;
+
   // Phase 3: Wrap dispose() to call onDispose hook
   const originalDispose = agent.dispose.bind(agent);
   (agent as any).dispose = () => {
+    // BUG FIX: Guard against double disposal in SDK wrapper
+    if (sdkDisposeCompleted) {
+      return;
+    }
+    sdkDisposeCompleted = true;
+
     // Mark as disposed in SDK internal state to prevent auto-cleanup from running again
     const markDisposed = (agent as any)._sdkMarkDisposed;
     if (markDisposed) {
@@ -780,7 +795,15 @@ export function createSubagent(
   role: import('../agent/subagent-types.js').SubagentRole,
   config?: Partial<import('../agent/subagent-types.js').SubagentConfig>
 ): Subagent {
-  return new Subagent(role, config);
+  // BUG FIX: Clone config to prevent external mutation affecting the subagent
+  // Without this, the caller could modify config.allowedTools array after creation
+  // and unexpectedly change which tools the subagent can use
+  const clonedConfig = config ? {
+    ...config,
+    // Deep clone arrays to prevent mutation
+    allowedTools: config.allowedTools ? [...config.allowedTools] : undefined,
+  } : undefined;
+  return new Subagent(role, clonedConfig);
 }
 
 /**
