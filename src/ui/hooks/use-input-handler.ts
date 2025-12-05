@@ -501,6 +501,7 @@ export function useInputHandler({
       { command: "/memory warmup", description: "Generate project memory" },
       { command: "/memory refresh", description: "Update project memory" },
       { command: "/commands", description: "List custom commands" },
+      { command: "/theme", description: "Switch color theme (default, dark, light, dracula, monokai)" },
       { command: "/exit", description: "Exit the application" },
     ];
 
@@ -949,6 +950,10 @@ Memory Commands (z.ai GLM-4.6 caching):
   /memory          - Show project memory status
   /memory warmup   - Generate project memory context
   /memory refresh  - Update memory after changes
+
+UI Commands:
+  /theme           - Show current theme and list available themes
+  /theme <name>    - Switch color theme (default, dark, light, dracula, monokai)
 
 Enhanced Input Features:
   ↑/↓ Arrow   - Navigate command history
@@ -1551,6 +1556,76 @@ Examples:
       setIsProcessing(false);
       clearInput();
       return true;
+    }
+
+    // Theme command
+    if (trimmedInput === "/theme" || trimmedInput.startsWith("/theme ")) {
+      try {
+        const arg = trimmedInput.substring(7).trim();
+        const settings = getSettingsManager();
+        const { getAllThemes, isValidTheme } = await import("../themes/index.js");
+        const { clearThemeCache } = await import("../utils/colors.js");
+        const allThemes = getAllThemes();
+
+        if (!arg || arg === "list") {
+          // Show current theme and list available themes
+          const uiConfig = settings.getUIConfig();
+          const currentTheme = (uiConfig && uiConfig.theme) ? uiConfig.theme : 'default';
+          let themeContent = "🎨 **Color Themes**\n\n";
+          themeContent += `**Current theme:** ${currentTheme}\n\n`;
+          themeContent += "**Available themes:**\n";
+          for (const theme of allThemes) {
+            const isCurrent = theme.name === currentTheme ? " ✓" : "";
+            themeContent += `   • \`${theme.name}\` - ${theme.description}${isCurrent}\n`;
+          }
+          themeContent += "\n**Usage:** `/theme <name>` to switch themes";
+
+          const themeEntry: ChatEntry = {
+            type: "assistant",
+            content: themeContent,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, themeEntry]);
+          clearInput();
+          return true;
+        }
+
+        // Set a specific theme
+        if (isValidTheme(arg)) {
+          settings.updateUIConfig({ theme: arg });
+          clearThemeCache(); // Clear cached theme colors
+
+          const selectedTheme = allThemes.find(t => t.name === arg);
+          const themeEntry: ChatEntry = {
+            type: "assistant",
+            content: `✅ Theme changed to **${selectedTheme?.displayName}** (${selectedTheme?.description}).\n\n💡 The new theme will be applied to UI elements.`,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, themeEntry]);
+          clearInput();
+          return true;
+        } else {
+          // Invalid theme name
+          const themeEntry: ChatEntry = {
+            type: "assistant",
+            content: `❌ Unknown theme: \`${arg}\`\n\nAvailable themes: ${allThemes.map(t => t.name).join(", ")}`,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, themeEntry]);
+          clearInput();
+          return true;
+        }
+      } catch (error) {
+        const errorMessage = extractErrorMessage(error);
+        const errorEntry: ChatEntry = {
+          type: "assistant",
+          content: `❌ Failed to process theme command: ${errorMessage}`,
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, errorEntry]);
+        clearInput();
+        return true;
+      }
     }
 
     // Background task commands

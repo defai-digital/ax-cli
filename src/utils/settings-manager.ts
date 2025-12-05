@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, chmodSync } from "fs";
 import { dirname } from "path";
 import { UserSettingsSchema, ProjectSettingsSchema } from "../schemas/settings-schemas.js";
-import type { UserSettings, ProjectSettings, SamplingSettings, ThinkingSettings, InputSettings, ShortcutsSettings, PasteSettings, StatusBarSettings, AutoAcceptSettings, ExternalEditorSettings, ThinkingModeSettings, AutoUpdateSettings } from "../schemas/settings-schemas.js";
+import type { UserSettings, ProjectSettings, SamplingSettings, ThinkingSettings, InputSettings, ShortcutsSettings, PasteSettings, UISettings, StatusBarSettings, AutoAcceptSettings, ExternalEditorSettings, ThinkingModeSettings, AutoUpdateSettings } from "../schemas/settings-schemas.js";
 import { ModelIdSchema } from '@ax-cli/schemas';
 import { parseJsonFile, writeJsonFile } from "./json-utils.js";
 import { encrypt, decrypt } from "./encryption.js";
@@ -841,6 +841,42 @@ export class SettingsManager {
     } as PasteSettings;
 
     this.saveUserSettings({ ...userSettings, paste: newConfig });
+  }
+
+  // ==================== UI Configuration (Theme, Verbosity, etc.) ====================
+
+  /** Default UI configuration */
+  private static readonly UI_DEFAULTS: Required<UISettings> = {
+    verbosityLevel: 'quiet',
+    groupToolCalls: true,
+    maxGroupSize: 20,
+    groupTimeWindow: 500,
+    theme: 'default',
+  };
+
+  /**
+   * Get UI configuration with proper defaults
+   * Priority: User settings > Schema defaults
+   */
+  public getUIConfig(): Required<UISettings> {
+    const userSettings = this.loadUserSettings();
+    return getConfigWithDefaults(userSettings.ui, SettingsManager.UI_DEFAULTS);
+  }
+
+  /**
+   * Update UI configuration
+   * Merges with existing config and saves to user settings
+   */
+  public updateUIConfig(config: Partial<UISettings>): void {
+    const userSettings = this.loadUserSettings();
+    const currentConfig = this.getUIConfig();
+
+    const newConfig = {
+      ...currentConfig,
+      ...config,
+    } as UISettings;
+
+    this.saveUserSettings({ ...userSettings, ui: newConfig });
   }
 
   // ==================== Phase 2: Status Bar Configuration ====================

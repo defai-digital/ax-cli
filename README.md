@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v4.0.1)](#recent-changes-v401)
+- [Recent Changes (v4.0.2)](#recent-changes-v402)
 - [Documentation](#documentation)
 
 ---
@@ -443,7 +443,26 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v4.0.1)
+## Recent Changes (v4.0.2)
+
+### Color Theme System
+
+- **5 Built-in Themes**: Choose from `default`, `dark`, `light`, `dracula`, and `monokai` color themes
+- **Theme Command**: New `/theme` slash command to list available themes or set a new theme
+- **Semantic Colors**: Theme-aware colors for primary, secondary, success, warning, error, muted, border, accent, and info states
+- **Light/Dark Support**: Optimized visibility for both light and dark terminal backgrounds
+- **Persistent Settings**: Theme preference saved to user settings (`~/.ax-cli/config.json`)
+
+**Usage:**
+```bash
+/theme              # List all available themes
+/theme dark         # Switch to dark theme
+/theme dracula      # Switch to Dracula theme
+```
+
+---
+
+## Previous Changes (v4.0.1)
 
 ### UX Improvements & Bug Fixes
 

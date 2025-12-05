@@ -6,6 +6,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import { VerbosityLevel } from "../../constants.js";
+import { getThemeColors, type ThemeColors } from "../utils/colors.js";
 
 interface StatusBarProps {
   projectName: string;
@@ -78,26 +79,28 @@ function ContextBar({
   percentage,
   showAutoPrune,
   currentTokens,
-  maxTokens
+  maxTokens,
+  theme,
 }: {
   percentage: number;
   showAutoPrune: boolean;
   currentTokens?: number;
   maxTokens?: number;
+  theme: ThemeColors;
 }) {
   const barWidth = 15;
   // Clamp percentage to valid range [0, 100] to prevent crashes
   const safePercentage = Math.max(0, Math.min(100, percentage || 0));
   const filledWidth = Math.round((safePercentage / 100) * barWidth);
   const emptyWidth = barWidth - filledWidth;
-  const color = getContextColor(safePercentage);
+  const color = getContextColor(safePercentage, theme);
   // Warning message when context is getting low (85%+ used = 15% remaining)
   const showWarning = safePercentage <= 15;
 
   if (showAutoPrune) {
     return (
       <Box>
-        <Text color="cyan" bold>
+        <Text color={theme.primary} bold>
           ↻ auto-pruned
         </Text>
       </Box>
@@ -109,16 +112,16 @@ function ContextBar({
       <Text color={color}>
         {"█".repeat(filledWidth)}
       </Text>
-      <Text color="gray" dimColor>
+      <Text color={theme.muted} dimColor>
         {"░".repeat(emptyWidth)}
       </Text>
       <Text color={color}> {getStatusSymbol(safePercentage)} {safePercentage.toFixed(0)}%</Text>
       {/* Phase 3: Show detailed token count if available */}
       {currentTokens !== undefined && maxTokens !== undefined && (
-        <Text color="gray" dimColor> ({formatTokenCount(currentTokens)}/{formatTokenCount(maxTokens)})</Text>
+        <Text color={theme.muted} dimColor> ({formatTokenCount(currentTokens)}/{formatTokenCount(maxTokens)})</Text>
       )}
       {showWarning && (
-        <Text color="red" bold> LOW!</Text>
+        <Text color={theme.error} bold> LOW!</Text>
       )}
     </Box>
   );
@@ -134,8 +137,9 @@ function ModePill({
   enabled,
   value,
   shortcut,
-  enabledColor = "cyan",
+  enabledColor,
   flash = false,
+  theme,
 }: {
   label: string;
   enabled?: boolean;
@@ -143,16 +147,20 @@ function ModePill({
   shortcut: string;
   enabledColor?: string;
   flash?: boolean;
+  theme: ThemeColors;
 }) {
   // Flash effect: briefly highlight when toggled
-  const displayColor = flash ? "white" : (enabled !== undefined && enabled) ? enabledColor : "gray";
+  // Flash effect uses textOnHighlight for visibility on any background
+  // Default enabledColor to theme.primary if not provided
+  const effectiveEnabledColor = enabledColor ?? theme.primary;
+  const displayColor = flash ? theme.textOnHighlight : (enabled !== undefined && enabled) ? effectiveEnabledColor : theme.muted;
   const isBold = flash || (enabled !== undefined && enabled);
   const status = value !== undefined ? value : (enabled ? "On" : "Off");
 
   return (
     <Box marginRight={2}>
       <Text color={displayColor} bold={isBold}>{label}: {status}</Text>
-      <Text color="gray">
+      <Text color={theme.muted}>
         {" "}({shortcut})
       </Text>
     </Box>
@@ -231,21 +239,21 @@ function getAgentRole(agentName: string): string {
 /**
  * AX Indicator Component - shows active agent roles or default ax indicator
  */
-function AXIndicator({ agents }: { agents: string[] }) {
+function AXIndicator({ agents, theme }: { agents: string[]; theme: ThemeColors }) {
   if (agents.length > 0) {
     const roles = agents.map(getAgentRole);
-    return <Text color="cyan" bold>⚡ {roles.join(", ")}</Text>;
+    return <Text color={theme.primary} bold>⚡ {roles.join(", ")}</Text>;
   }
-  return <Text color="green">⚡ ax</Text>;
+  return <Text color={theme.success}>⚡ ax</Text>;
 }
 
 /**
- * Get context bar color based on percentage
+ * Get context bar color based on percentage (theme-aware)
  */
-function getContextColor(percentage: number): string {
-  if (percentage > 50) return "green";
-  if (percentage > 25) return "yellow";
-  return "red";
+function getContextColor(percentage: number, theme: ThemeColors): string {
+  if (percentage > 50) return theme.success;
+  if (percentage > 25) return theme.warning;
+  return theme.error;
 }
 
 /**
@@ -255,9 +263,11 @@ function getContextColor(percentage: number): string {
 function MCPIndicator({
   mcpStatus,
   mcpServerCount,
+  theme,
 }: {
   mcpStatus?: { connected: number; failed: number; connecting: number; total: number };
   mcpServerCount?: number;
+  theme: ThemeColors;
 }) {
   // Use new status if available, fallback to legacy count
   if (mcpStatus) {
@@ -265,7 +275,7 @@ function MCPIndicator({
 
     // Don't show if no servers configured
     if (total === 0) {
-      return <Text color="gray">mcp: -</Text>;
+      return <Text color={theme.muted}>mcp: -</Text>;
     }
 
     // Determine color based on status
@@ -273,16 +283,16 @@ function MCPIndicator({
     let symbol: string;
 
     if (failed > 0) {
-      color = "red";
+      color = theme.error;
       symbol = "✗";
     } else if (connecting > 0) {
-      color = "yellow";
+      color = theme.warning;
       symbol = "◐";
     } else if (connected === total) {
-      color = "green";
+      color = theme.success;
       symbol = "✓";
     } else {
-      color = "yellow";
+      color = theme.warning;
       symbol = "○";
     }
 
@@ -295,7 +305,7 @@ function MCPIndicator({
 
   // Legacy fallback: just show count
   return (
-    <Text color={mcpServerCount && mcpServerCount > 0 ? "blue" : "gray"}>
+    <Text color={mcpServerCount && mcpServerCount > 0 ? theme.info : theme.muted}>
       mcp: {mcpServerCount ?? 0}
     </Text>
   );
@@ -306,7 +316,7 @@ function MCPIndicator({
  * Compact Status Bar for narrow terminals (< 100 columns)
  * Stacks information vertically to prevent wrapping
  */
-function CompactStatusBar(props: StatusBarProps) {
+function CompactStatusBar(props: StatusBarProps & { theme: ThemeColors }) {
   const {
     projectName,
     version,
@@ -332,6 +342,7 @@ function CompactStatusBar(props: StatusBarProps) {
     thinkingModeEnabled = false,
     flashThinkingMode = false,
     isThinking = false,
+    theme,
   } = props;
 
   const effectiveVerbosityLevel = getEffectiveVerbosityLevel(verbosityLevel, verboseMode);
@@ -342,24 +353,24 @@ function CompactStatusBar(props: StatusBarProps) {
       {/* Row 1: Project & Model */}
       <Box
         borderStyle="single"
-        borderColor={isProcessing ? "yellow" : "gray"}
+        borderColor={isProcessing ? theme.warning : theme.border}
         paddingX={1}
         flexDirection="row"
         justifyContent="space-between"
       >
         <Box>
-          <Text color="magenta" bold>{projectName}</Text>
-          <Text color="gray"> • </Text>
-          <Text color="white" bold>ax-cli</Text>
-          <Text color="greenBright" bold> v{version}</Text>
+          <Text color={theme.accent} bold>{projectName}</Text>
+          <Text color={theme.muted}> • </Text>
+          <Text color={theme.info} bold>ax-cli</Text>
+          <Text color={theme.success} bold> v{version}</Text>
         </Box>
         <Box>
-          <Text color="gray">🤖 </Text>
-          <Text color="yellow">{model}</Text>
+          <Text color={theme.muted}>🤖 </Text>
+          <Text color={theme.warning}>{model}</Text>
           {axEnabled && (
             <>
-              <Text color="gray"> • </Text>
-              <AXIndicator agents={allActiveAgents} />
+              <Text color={theme.muted}> • </Text>
+              <AXIndicator agents={allActiveAgents} theme={theme} />
             </>
           )}
         </Box>
@@ -368,18 +379,19 @@ function CompactStatusBar(props: StatusBarProps) {
       {/* Row 2: Context, Tasks, MCP */}
       <Box paddingX={1} flexDirection="row" justifyContent="space-between">
         <Box>
-          <Text color="gray">ctx: </Text>
+          <Text color={theme.muted}>ctx: </Text>
           <ContextBar
             percentage={contextPercentage}
             showAutoPrune={showAutoPrune}
             currentTokens={currentTokens}
             maxTokens={maxTokens}
+            theme={theme}
           />
         </Box>
         <Box>
-          <Text color={backgroundTaskCount > 0 ? "yellow" : "gray"}>bg: {backgroundTaskCount}</Text>
-          <Text color="gray"> • </Text>
-          <MCPIndicator mcpStatus={mcpStatus} mcpServerCount={mcpServerCount} />
+          <Text color={backgroundTaskCount > 0 ? theme.warning : theme.muted}>bg: {backgroundTaskCount}</Text>
+          <Text color={theme.muted}> • </Text>
+          <MCPIndicator mcpStatus={mcpStatus} mcpServerCount={mcpServerCount} theme={theme} />
         </Box>
       </Box>
 
@@ -389,36 +401,40 @@ function CompactStatusBar(props: StatusBarProps) {
           label="Auto-Edit"
           enabled={autoEditEnabled}
           shortcut="⇧⇥"
-          enabledColor="yellow"
+          enabledColor={theme.warning}
           flash={flashAutoEdit}
+          theme={theme}
         />
         <ModePill
           label="Verbosity"
           value={getVerbosityName(effectiveVerbosityLevel)}
           enabled={effectiveVerbosityLevel !== VerbosityLevel.QUIET}
           shortcut="^O"
-          enabledColor="yellow"
+          enabledColor={theme.warning}
           flash={flashVerbose}
+          theme={theme}
         />
         <ModePill
           label="Background"
           enabled={backgroundMode}
           shortcut="^B"
-          enabledColor="magenta"
+          enabledColor={theme.accent}
           flash={flashBackground}
+          theme={theme}
         />
         <ModePill
           label="Thinking"
           enabled={thinkingModeEnabled}
           shortcut="Tab"
-          enabledColor="cyan"
+          enabledColor={theme.primary}
           flash={flashThinkingMode}
+          theme={theme}
         />
         {/* Phase 2: Thinking mode indicator - only show when actively thinking */}
         {thinkingModeEnabled && isThinking && (
           <Box marginLeft={1}>
             <Text
-              color={flashThinkingMode ? "white" : "cyan"}
+              color={flashThinkingMode ? theme.textOnHighlight : theme.primary}
               bold
             >
               🤔 THINKING...
@@ -460,12 +476,16 @@ export function StatusBar(props: StatusBarProps) {
     isThinking = false,
   } = props;
 
+  // Get theme colors directly - caching is handled by getThemeColors()
+  // Don't use useMemo with empty deps as theme can change via /theme command
+  const theme = getThemeColors();
+
   const effectiveVerbosityLevel = getEffectiveVerbosityLevel(verbosityLevel, verboseMode);
   const allActiveAgents = combineActiveAgents(activeAgent, activeAgents);
 
   // Use compact layout for narrow terminals (< 100 columns)
   if (terminalWidth < 100) {
-    return <CompactStatusBar {...props} />;
+    return <CompactStatusBar {...props} theme={theme} />;
   }
 
   // Full layout for wide terminals
@@ -474,49 +494,50 @@ export function StatusBar(props: StatusBarProps) {
       {/* Primary status row */}
       <Box
         borderStyle="single"
-        borderColor={isProcessing ? "yellow" : "gray"}
+        borderColor={isProcessing ? theme.warning : theme.border}
         paddingX={1}
         flexDirection="row"
         justifyContent="space-between"
       >
         {/* Left section: Project & Version */}
         <Box>
-          <Text color="magenta" bold>
+          <Text color={theme.accent} bold>
             {projectName}
           </Text>
-          <Text color="gray"> • </Text>
-          <Text color="white" bold>ax-cli</Text>
-          <Text color="greenBright" bold> v{version}</Text>
+          <Text color={theme.muted}> • </Text>
+          <Text color={theme.info} bold>ax-cli</Text>
+          <Text color={theme.success} bold> v{version}</Text>
         </Box>
 
         {/* Center section: Model + AX + Token count during processing */}
         <Box>
-          <Text color="gray">🤖 </Text>
-          <Text color="yellow">{model}</Text>
+          <Text color={theme.muted}>🤖 </Text>
+          <Text color={theme.warning}>{model}</Text>
           {axEnabled && (
             <>
-              <Text color="gray"> • </Text>
-              <AXIndicator agents={allActiveAgents} />
+              <Text color={theme.muted}> • </Text>
+              <AXIndicator agents={allActiveAgents} theme={theme} />
             </>
           )}
           {isProcessing && tokenCount > 0 && (
-            <Text color="cyan"> ({formatTokenCount(tokenCount)} tokens)</Text>
+            <Text color={theme.primary}> ({formatTokenCount(tokenCount)} tokens)</Text>
           )}
         </Box>
 
         {/* Right section: Context (available), MCP, Background Tasks */}
         <Box>
-          <Text color="gray">ctx avail: </Text>
+          <Text color={theme.muted}>ctx avail: </Text>
           <ContextBar
             percentage={contextPercentage}
             showAutoPrune={showAutoPrune}
             currentTokens={currentTokens}
             maxTokens={maxTokens}
+            theme={theme}
           />
-          <Text color="gray"> • </Text>
-          <Text color={backgroundTaskCount > 0 ? "yellow" : "gray"}>bg: {backgroundTaskCount}</Text>
-          <Text color="gray"> • </Text>
-          <MCPIndicator mcpStatus={mcpStatus} mcpServerCount={mcpServerCount} />
+          <Text color={theme.muted}> • </Text>
+          <Text color={backgroundTaskCount > 0 ? theme.warning : theme.muted}>bg: {backgroundTaskCount}</Text>
+          <Text color={theme.muted}> • </Text>
+          <MCPIndicator mcpStatus={mcpStatus} mcpServerCount={mcpServerCount} theme={theme} />
         </Box>
       </Box>
 
@@ -526,36 +547,40 @@ export function StatusBar(props: StatusBarProps) {
           label="Auto-Edit"
           enabled={autoEditEnabled}
           shortcut="⇧⇥"
-          enabledColor="yellow"
+          enabledColor={theme.warning}
           flash={flashAutoEdit}
+          theme={theme}
         />
         <ModePill
           label="Verbosity"
           value={getVerbosityName(effectiveVerbosityLevel)}
           enabled={effectiveVerbosityLevel !== VerbosityLevel.QUIET}
           shortcut="^O"
-          enabledColor="yellow"
+          enabledColor={theme.warning}
           flash={flashVerbose}
+          theme={theme}
         />
         <ModePill
           label="Background"
           enabled={backgroundMode}
           shortcut="^B"
-          enabledColor="magenta"
+          enabledColor={theme.accent}
           flash={flashBackground}
+          theme={theme}
         />
         <ModePill
           label="Thinking"
           enabled={thinkingModeEnabled}
           shortcut="Tab"
-          enabledColor="cyan"
+          enabledColor={theme.primary}
           flash={flashThinkingMode}
+          theme={theme}
         />
         {/* Phase 2: Thinking mode indicator - only show when actively thinking */}
         {thinkingModeEnabled && isThinking && (
           <Box marginLeft={1}>
             <Text
-              color={flashThinkingMode ? "white" : "cyan"}
+              color={flashThinkingMode ? theme.textOnHighlight : theme.primary}
               bold
             >
               🤔 THINKING...
@@ -565,7 +590,7 @@ export function StatusBar(props: StatusBarProps) {
         {/* Show quick hints only when not processing and not in auto-edit mode */}
         {!isProcessing && !autoEditEnabled && (
           <Box marginLeft={1}>
-            <Text color="gray" dimColor>
+            <Text color={theme.muted} dimColor>
               • ^K quick actions • /help commands
             </Text>
           </Box>

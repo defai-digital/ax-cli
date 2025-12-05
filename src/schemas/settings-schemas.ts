@@ -88,6 +88,10 @@ export const ShortcutsSettingsSchema = z.object({
   customBindings: z.record(z.string(), z.string()).optional(),
 }).optional();
 
+// Theme names enum for type safety
+export const ThemeNameSchema = z.enum(['default', 'dark', 'light', 'dracula', 'monokai']);
+export type ThemeName = z.infer<typeof ThemeNameSchema>;
+
 // UI Settings Schema (for verbosity levels and tool grouping)
 export const UISettingsSchema = z.object({
   // Verbosity level: quiet (0), concise (1), verbose (2)
@@ -98,6 +102,8 @@ export const UISettingsSchema = z.object({
   maxGroupSize: z.number().int().min(1).max(50).optional().default(20),
   // Time window for grouping consecutive operations (ms)
   groupTimeWindow: z.number().int().min(0).max(5000).optional().default(500),
+  // Color theme for the CLI interface
+  theme: ThemeNameSchema.optional().default('default'),
 }).optional();
 
 // Status Bar Settings Schema - Phase 2
