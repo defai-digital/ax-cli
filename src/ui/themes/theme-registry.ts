@@ -168,14 +168,15 @@ const monokaiTheme = createTheme({
 
 /**
  * Registry of all available themes
+ * Frozen to prevent accidental modification of the registry
  */
-export const themes: Record<ThemeName, Theme> = {
+export const themes: Readonly<Record<ThemeName, Theme>> = Object.freeze({
   default: defaultTheme,
   dark: darkTheme,
   light: lightTheme,
   dracula: draculaTheme,
   monokai: monokaiTheme,
-};
+});
 
 /**
  * List of available theme names
@@ -200,7 +201,8 @@ export function getAllThemes(): Theme[] {
 
 /**
  * Check if a theme name is valid
+ * Uses Object.hasOwn to avoid prototype chain pollution
  */
 export function isValidTheme(name: string): name is ThemeName {
-  return name in themes;
+  return Object.hasOwn(themes, name);
 }
