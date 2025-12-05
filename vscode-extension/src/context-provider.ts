@@ -21,7 +21,12 @@ export class ContextProvider {
     }
 
     if (autoIncludeDiagnostics) {
-      context.diagnostics = vscode.languages.getDiagnostics(editor.document.uri);
+      try {
+        context.diagnostics = vscode.languages.getDiagnostics(editor.document.uri);
+      } catch (error) {
+        console.warn('[ContextProvider] Failed to get diagnostics:', error);
+        context.diagnostics = [];
+      }
     }
 
     return context;
@@ -44,10 +49,16 @@ export class ContextProvider {
     // Include diagnostics for selected range
     const config = vscode.workspace.getConfiguration('ax-cli');
     if (config.get<boolean>('autoIncludeDiagnostics', true)) {
-      const allDiagnostics = vscode.languages.getDiagnostics(editor.document.uri);
-      context.diagnostics = allDiagnostics.filter((diag: vscode.Diagnostic) =>
-        editor.selection.contains(diag.range)
-      );
+      try {
+        const allDiagnostics = vscode.languages.getDiagnostics(editor.document.uri);
+        context.diagnostics = allDiagnostics.filter((diag: vscode.Diagnostic) =>
+          // Guard against malformed diagnostics with missing/invalid range
+          diag.range && editor.selection.contains(diag.range)
+        );
+      } catch (error) {
+        console.warn('[ContextProvider] Failed to get diagnostics:', error);
+        context.diagnostics = [];
+      }
     }
 
     return context;
@@ -69,7 +80,8 @@ export class ContextProvider {
     if (openEditors.length > 0) {
       // Use the active editor if available
       const activeEditor = vscode.window.activeTextEditor;
-      if (activeEditor) {
+      // Guard against null document (can happen during editor transitions)
+      if (activeEditor?.document) {
         context.file = activeEditor.document.uri.fsPath;
       }
     }
