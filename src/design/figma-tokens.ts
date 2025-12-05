@@ -282,17 +282,27 @@ export function extractTokensFromVariables(
     let current = tokens[category]!;
     const tokenPath = path.slice(1); // Remove category
 
-    for (let i = 0; i < tokenPath.length - 1; i++) {
-      const key = tokenPath[i];
-      if (!current[key]) {
-        current[key] = {};
+    // BUG FIX: Handle case when tokenPath is empty (variable name has only category)
+    // In this case, tokenPath.length - 1 = -1 and tokenPath[-1] = undefined
+    // We should use the original variable name (without path) or a sanitized fallback
+    if (tokenPath.length === 0) {
+      // Variable name only has category, use sanitized variable name as token name
+      const sanitizedName = variable.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'default';
+      current[sanitizedName] = token;
+    } else {
+      // Normal case: build nested path
+      for (let i = 0; i < tokenPath.length - 1; i++) {
+        const key = tokenPath[i];
+        if (!current[key]) {
+          current[key] = {};
+        }
+        current = current[key] as TokenCollection;
       }
-      current = current[key] as TokenCollection;
-    }
 
-    // Set the token value
-    const tokenName = tokenPath[tokenPath.length - 1] || variable.name;
-    current[tokenName] = token;
+      // Set the token value
+      const tokenName = tokenPath[tokenPath.length - 1];
+      current[tokenName] = token;
+    }
   }
 
   return tokens;

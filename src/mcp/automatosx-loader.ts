@@ -77,26 +77,42 @@ export function automatosXConfigExists(projectRoot?: string): boolean {
 }
 
 /**
- * Load AutomatosX configuration file
+ * Result of loading AutomatosX config file
  */
-export function loadAutomatosXConfigFile(projectRoot?: string): AutomatosXConfig | null {
+export interface AutomatosXConfigLoadResult {
+  /** Whether loading was successful */
+  success: boolean;
+  /** Loaded config (if successful) */
+  config?: AutomatosXConfig;
+  /** Error message (if failed) */
+  error?: string;
+}
+
+/**
+ * Load AutomatosX configuration file
+ *
+ * BUG FIX: Now returns structured result with error details instead of
+ * silently returning null on parse errors. This prevents confusing situations
+ * where config exists but is silently ignored due to JSON errors.
+ */
+export function loadAutomatosXConfigFile(projectRoot?: string): AutomatosXConfigLoadResult {
   const configPath = getAutomatosXConfigPath(projectRoot);
 
   if (!fs.existsSync(configPath)) {
-    return null;
+    return { success: false, error: 'Config file not found' };
   }
 
   try {
     const raw = fs.readFileSync(configPath, 'utf-8');
     const data = JSON.parse(raw) as AutomatosXConfig;
-    return data;
+    return { success: true, config: data };
   } catch (error) {
-    console.warn(
-      `Failed to load AutomatosX config from ${configPath}: ${
-        extractErrorMessage(error)
-      }`
-    );
-    return null;
+    // BUG FIX: Return error details instead of silently returning null
+    const errorMessage = extractErrorMessage(error);
+    return {
+      success: false,
+      error: `Failed to parse AutomatosX config: ${errorMessage}`
+    };
   }
 }
 
@@ -122,11 +138,12 @@ export function loadAutomatosXMCPServers(projectRoot?: string): AutomatosXLoadRe
     };
   }
 
-  // Load config
-  const config = loadAutomatosXConfigFile(projectRoot);
+  // Load config - now returns structured result with error details
+  const loadResult = loadAutomatosXConfigFile(projectRoot);
 
-  if (!config) {
-    errors.push('Failed to load AutomatosX config');
+  if (!loadResult.success || !loadResult.config) {
+    // BUG FIX: Include the actual error message from the load result
+    errors.push(loadResult.error || 'Failed to load AutomatosX config');
     return {
       found: true,
       configPath,
@@ -136,6 +153,8 @@ export function loadAutomatosXMCPServers(projectRoot?: string): AutomatosXLoadRe
       errors
     };
   }
+
+  const config = loadResult.config;
 
   // Extract MCP servers
   if (!config.mcpServers || typeof config.mcpServers !== 'object') {

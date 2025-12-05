@@ -55,6 +55,8 @@ export class ProgressTracker extends EventEmitter {
   private callbacks = new Map<string | number, ProgressCallback>();
   private startTimes = new Map<string | number, number>();
   private lastUpdates = new Map<string | number, ProgressUpdate>();
+  // BUG FIX: Track cleanup timers so they can be cleared on reset
+  private cleanupTimers = new Map<string | number, NodeJS.Timeout>();
 
   /**
    * Create a unique progress token
@@ -156,20 +158,40 @@ export class ProgressTracker extends EventEmitter {
   cleanup(token: string | number): void {
     this.callbacks.delete(token);
     this.startTimes.delete(token);
+
+    // BUG FIX: Clear any existing timer for this token to prevent duplicates
+    const existingTimer = this.cleanupTimers.get(token);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      this.cleanupTimers.delete(token);
+    }
+
     // Keep last update briefly for final status queries
-    setTimeout(() => {
+    // BUG FIX: Store timer reference so it can be cleared on reset
+    const timer = setTimeout(() => {
       this.lastUpdates.delete(token);
+      this.cleanupTimers.delete(token);
     }, 5000);
+
+    this.cleanupTimers.set(token, timer);
   }
 
   /**
    * Cleanup all progress tracking
+   *
+   * BUG FIX: Now also clears all pending cleanup timers to prevent memory leaks
    */
   cleanupAll(): void {
-    const tokens = this.getActiveTokens();
-    for (const token of tokens) {
-      this.cleanup(token);
+    // BUG FIX: Clear all pending timers first
+    for (const timer of this.cleanupTimers.values()) {
+      clearTimeout(timer);
     }
+    this.cleanupTimers.clear();
+
+    // Clear all tracking data
+    this.callbacks.clear();
+    this.startTimes.clear();
+    this.lastUpdates.clear();
   }
 
   /**
