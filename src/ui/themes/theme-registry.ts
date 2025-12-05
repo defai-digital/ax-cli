@@ -44,10 +44,20 @@ export interface Theme {
 }
 
 /**
+ * Helper to create a frozen theme (prevents accidental mutation)
+ */
+function createTheme(theme: Theme): Readonly<Theme> {
+  return Object.freeze({
+    ...theme,
+    colors: Object.freeze(theme.colors),
+  });
+}
+
+/**
  * Default theme - current ax-cli colors
  * Cyan-based with standard terminal colors
  */
-const defaultTheme: Theme = {
+const defaultTheme = createTheme({
   name: 'default',
   displayName: 'Default',
   description: 'Standard ax-cli theme with cyan accents',
@@ -64,12 +74,12 @@ const defaultTheme: Theme = {
     // White for flash effects on dark terminal backgrounds
     textOnHighlight: 'white',
   },
-};
+});
 
 /**
  * Dark theme - deeper, muted colors optimized for dark terminals
  */
-const darkTheme: Theme = {
+const darkTheme = createTheme({
   name: 'dark',
   displayName: 'Dark',
   description: 'Muted colors optimized for dark terminal backgrounds',
@@ -86,12 +96,12 @@ const darkTheme: Theme = {
     // White for flash effects on dark terminal backgrounds
     textOnHighlight: 'white',
   },
-};
+});
 
 /**
  * Light theme - adapted for light terminal backgrounds
  */
-const lightTheme: Theme = {
+const lightTheme = createTheme({
   name: 'light',
   displayName: 'Light',
   description: 'Colors adapted for light terminal backgrounds',
@@ -108,13 +118,13 @@ const lightTheme: Theme = {
     // Use black for flash/highlight on light backgrounds (high contrast)
     textOnHighlight: 'black',
   },
-};
+});
 
 /**
  * Dracula theme - popular purple-based dark theme
  * Inspired by https://draculatheme.com/
  */
-const draculaTheme: Theme = {
+const draculaTheme = createTheme({
   name: 'dracula',
   displayName: 'Dracula',
   description: 'Purple-based theme inspired by Dracula',
@@ -131,13 +141,13 @@ const draculaTheme: Theme = {
     // White for flash effects on dark terminal backgrounds
     textOnHighlight: 'white',
   },
-};
+});
 
 /**
  * Monokai theme - warm orange/yellow accents
  * Inspired by the Monokai color scheme
  */
-const monokaiTheme: Theme = {
+const monokaiTheme = createTheme({
   name: 'monokai',
   displayName: 'Monokai',
   description: 'Warm theme with orange and yellow accents',
@@ -154,7 +164,7 @@ const monokaiTheme: Theme = {
     // White for flash effects on dark terminal backgrounds
     textOnHighlight: 'white',
   },
-};
+});
 
 /**
  * Registry of all available themes

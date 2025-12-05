@@ -81,17 +81,12 @@ export function clearThemeCache(): void {
 
 /**
  * Get the current theme name
+ * Uses the cache from getThemeColors() to ensure consistency
  * Falls back to 'default' if settings cannot be loaded
  */
 export function getCurrentThemeName(): ThemeName {
-  try {
-    const settings = getSettingsManager();
-    const uiConfig = settings.getUIConfig();
-    if (uiConfig && uiConfig.theme !== undefined) {
-      return uiConfig.theme;
-    }
-    return 'default';
-  } catch {
-    return 'default';
-  }
+  // Ensure cache is current by calling getThemeColors()
+  // This guarantees cachedThemeName is set and in sync
+  getThemeColors();
+  return cachedThemeName ?? 'default';
 }
