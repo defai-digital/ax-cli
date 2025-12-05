@@ -21,6 +21,7 @@ export class SecretStorageService {
   private secretStorage: vscode.SecretStorage;
   private context: vscode.ExtensionContext;
   private onDidChangeEmitter = new vscode.EventEmitter<void>();
+  private secretChangeListener: vscode.Disposable;
 
   /**
    * Event fired when the API key changes
@@ -31,8 +32,8 @@ export class SecretStorageService {
     this.context = context;
     this.secretStorage = context.secrets;
 
-    // Listen for secret changes
-    this.secretStorage.onDidChange((e) => {
+    // Listen for secret changes - store disposable for cleanup
+    this.secretChangeListener = this.secretStorage.onDidChange((e) => {
       if (e.key === API_KEY_SECRET_KEY) {
         this.onDidChangeEmitter.fire();
       }
@@ -192,6 +193,7 @@ export class SecretStorageService {
    * Dispose resources
    */
   dispose(): void {
+    this.secretChangeListener.dispose();
     this.onDidChangeEmitter.dispose();
   }
 }
