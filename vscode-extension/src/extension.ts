@@ -382,6 +382,18 @@ class DiffContentProvider implements vscode.TextDocumentContentProvider {
   }
 }
 
+/**
+ * Helper to safely get context provider with proper error handling
+ * Returns undefined and shows error message if not initialized
+ */
+function getContextProviderSafe(): ContextProvider | undefined {
+  if (!contextProvider) {
+    vscode.window.showErrorMessage('AX CLI: Extension not fully initialized. Please try again.');
+    return undefined;
+  }
+  return contextProvider;
+}
+
 function registerCommands(context: vscode.ExtensionContext) {
   // Open chat command
   context.subscriptions.push(
@@ -399,8 +411,11 @@ function registerCommands(context: vscode.ExtensionContext) {
         return;
       }
 
-      const context = await contextProvider!.getCurrentFileContext(editor);
-      chatProvider?.sendMessage('Analyze this file and suggest improvements', context);
+      const provider = getContextProviderSafe();
+      if (!provider) return;
+
+      const ctx = await provider.getCurrentFileContext(editor);
+      chatProvider?.sendMessage('Analyze this file and suggest improvements', ctx);
       vscode.commands.executeCommand('ax-cli.chatView.focus');
     })
   );
@@ -414,8 +429,11 @@ function registerCommands(context: vscode.ExtensionContext) {
         return;
       }
 
-      const context = await contextProvider!.getSelectionContext(editor);
-      chatProvider?.sendMessage('Explain this code in detail', context);
+      const provider = getContextProviderSafe();
+      if (!provider) return;
+
+      const ctx = await provider.getSelectionContext(editor);
+      chatProvider?.sendMessage('Explain this code in detail', ctx);
       vscode.commands.executeCommand('ax-cli.chatView.focus');
     })
   );
@@ -429,8 +447,11 @@ function registerCommands(context: vscode.ExtensionContext) {
         return;
       }
 
-      const context = await contextProvider!.getCurrentFileContext(editor);
-      chatProvider?.sendMessage('Generate comprehensive unit tests for this file', context);
+      const provider = getContextProviderSafe();
+      if (!provider) return;
+
+      const ctx = await provider.getCurrentFileContext(editor);
+      chatProvider?.sendMessage('Generate comprehensive unit tests for this file', ctx);
       vscode.commands.executeCommand('ax-cli.chatView.focus');
     })
   );
@@ -444,8 +465,11 @@ function registerCommands(context: vscode.ExtensionContext) {
         return;
       }
 
-      const context = await contextProvider!.getSelectionContext(editor);
-      chatProvider?.sendMessage('Suggest refactorings to improve code quality', context);
+      const provider = getContextProviderSafe();
+      if (!provider) return;
+
+      const ctx = await provider.getSelectionContext(editor);
+      chatProvider?.sendMessage('Suggest refactorings to improve code quality', ctx);
       vscode.commands.executeCommand('ax-cli.chatView.focus');
     })
   );
@@ -459,8 +483,11 @@ function registerCommands(context: vscode.ExtensionContext) {
         return;
       }
 
-      const context = await contextProvider!.getSelectionContext(editor);
-      chatProvider?.sendMessage('Generate documentation for this code', context);
+      const provider = getContextProviderSafe();
+      if (!provider) return;
+
+      const ctx = await provider.getSelectionContext(editor);
+      chatProvider?.sendMessage('Generate documentation for this code', ctx);
       vscode.commands.executeCommand('ax-cli.chatView.focus');
     })
   );
@@ -474,8 +501,11 @@ function registerCommands(context: vscode.ExtensionContext) {
         return;
       }
 
-      const context = await contextProvider!.getCurrentFileContext(editor);
-      chatProvider?.sendMessage('Analyze for potential bugs and security issues', context);
+      const provider = getContextProviderSafe();
+      if (!provider) return;
+
+      const ctx = await provider.getCurrentFileContext(editor);
+      chatProvider?.sendMessage('Analyze for potential bugs and security issues', ctx);
       vscode.commands.executeCommand('ax-cli.chatView.focus');
     })
   );
@@ -483,13 +513,16 @@ function registerCommands(context: vscode.ExtensionContext) {
   // Review git changes
   context.subscriptions.push(
     vscode.commands.registerCommand('ax-cli.reviewChanges', async () => {
-      const context = await contextProvider!.getGitDiffContext();
-      if (!context.gitDiff) {
+      const provider = getContextProviderSafe();
+      if (!provider) return;
+
+      const ctx = await provider.getGitDiffContext();
+      if (!ctx.gitDiff) {
         vscode.window.showInformationMessage('No uncommitted changes found');
         return;
       }
 
-      chatProvider?.sendMessage('Review these changes and suggest improvements', context);
+      chatProvider?.sendMessage('Review these changes and suggest improvements', ctx);
       vscode.commands.executeCommand('ax-cli.chatView.focus');
     })
   );
