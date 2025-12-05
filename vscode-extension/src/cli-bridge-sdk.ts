@@ -74,6 +74,7 @@ interface StreamingChunk {
 export class CLIBridgeSDK {
   private pendingChanges: Map<string, PendingChange> = new Map();
   private secretStorage: SecretStorageService | undefined;
+  private activeTerminal: vscode.Terminal | undefined;
 
   constructor(secretStorage?: SecretStorageService) {
     this.secretStorage = secretStorage;
@@ -108,64 +109,95 @@ export class CLIBridgeSDK {
     request: CLIRequest,
     _onStream?: (chunk: StreamingChunk) => void
   ): Promise<CLIResponse | CLIError> {
-    // Check if API key is configured
-    const hasApiKey = this.secretStorage ? await this.secretStorage.hasApiKey() : false;
+    try {
+      // Check if API key is configured
+      let hasApiKey = false;
+      try {
+        hasApiKey = this.secretStorage ? await this.secretStorage.hasApiKey() : false;
+      } catch (error) {
+        console.error('[AX] Failed to check API key:', error);
+      }
 
-    if (!hasApiKey) {
-      const selection = await vscode.window.showWarningMessage(
-        'No API key configured. Please set your API key first.',
-        'Set API Key',
+      if (!hasApiKey) {
+        const selection = await vscode.window.showWarningMessage(
+          'No API key configured. Please set your API key first.',
+          'Set API Key',
+          'Learn More'
+        );
+
+        if (selection === 'Set API Key') {
+          try {
+            await this.secretStorage?.promptForApiKey();
+          } catch (error) {
+            console.error('[AX] Failed to prompt for API key:', error);
+          }
+        } else if (selection === 'Learn More') {
+          await vscode.env.openExternal(vscode.Uri.parse('https://github.com/defai-digital/ax-cli#configuration'));
+        }
+
+        return {
+          id: request.id,
+          error: {
+            message: 'No API key configured',
+            type: 'ConfigurationError',
+          },
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      // Show info message directing to terminal
+      const selection = await vscode.window.showInformationMessage(
+        'For the best experience, run "ax" in the integrated terminal. ' +
+        'File changes will show as diffs in VS Code for approval.',
+        'Open Terminal',
         'Learn More'
       );
 
-      if (selection === 'Set API Key') {
-        await this.secretStorage?.promptForApiKey();
+      if (selection === 'Open Terminal') {
+        try {
+          // Get API key from secure storage and pass via environment variable
+          const apiKey = await this.secretStorage?.getApiKey();
+
+          // Reuse existing terminal or create new one
+          // This prevents terminal accumulation from multiple requests
+          if (!this.activeTerminal || this.activeTerminal.exitStatus !== undefined) {
+            this.activeTerminal = vscode.window.createTerminal({
+              name: 'AX CLI',
+              env: apiKey ? { AX_API_KEY: apiKey } : undefined
+            });
+          }
+          this.activeTerminal.show();
+          this.activeTerminal.sendText('ax');
+        } catch (error) {
+          console.error('[AX] Failed to create terminal:', error);
+          vscode.window.showErrorMessage('Failed to open terminal');
+        }
       } else if (selection === 'Learn More') {
-        vscode.env.openExternal(vscode.Uri.parse('https://github.com/defai-digital/ax-cli#configuration'));
+        await vscode.env.openExternal(vscode.Uri.parse('https://github.com/defai-digital/ax-cli#vscode-integration'));
       }
 
+      // Return stub response
+      return {
+        id: request.id,
+        messages: [{
+          role: 'assistant',
+          content: 'Please use the `ax` command in the integrated terminal for full functionality. ' +
+                   'File changes will appear as diffs in VS Code for you to accept or reject.'
+        }],
+        model: 'stub',
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('[AX] Unexpected error in sendRequest:', error);
       return {
         id: request.id,
         error: {
-          message: 'No API key configured',
-          type: 'ConfigurationError',
+          message: error instanceof Error ? error.message : 'Unknown error',
+          type: 'UnexpectedError',
         },
         timestamp: new Date().toISOString()
       };
     }
-
-    // Show info message directing to terminal
-    const selection = await vscode.window.showInformationMessage(
-      'For the best experience, run "ax" in the integrated terminal. ' +
-      'File changes will show as diffs in VS Code for approval.',
-      'Open Terminal',
-      'Learn More'
-    );
-
-    if (selection === 'Open Terminal') {
-      // Get API key from secure storage and pass via environment variable
-      const apiKey = await this.secretStorage?.getApiKey();
-      const terminal = vscode.window.createTerminal({
-        name: 'AX CLI',
-        env: apiKey ? { AX_API_KEY: apiKey } : undefined
-      });
-      terminal.show();
-      terminal.sendText('ax');
-    } else if (selection === 'Learn More') {
-      vscode.env.openExternal(vscode.Uri.parse('https://github.com/defai-digital/ax-cli#vscode-integration'));
-    }
-
-    // Return stub response
-    return {
-      id: request.id,
-      messages: [{
-        role: 'assistant',
-        content: 'Please use the `ax` command in the integrated terminal for full functionality. ' +
-                 'File changes will appear as diffs in VS Code for you to accept or reject.'
-      }],
-      model: 'stub',
-      timestamp: new Date().toISOString()
-    };
   }
 
   /**
@@ -194,6 +226,11 @@ export class CLIBridgeSDK {
    */
   dispose(): void {
     this.pendingChanges.clear();
+    // Dispose active terminal if it exists
+    if (this.activeTerminal) {
+      this.activeTerminal.dispose();
+      this.activeTerminal = undefined;
+    }
   }
 
   /**
