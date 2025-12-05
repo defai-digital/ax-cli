@@ -49,7 +49,7 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v4.0.0)](#recent-changes-v400)
+- [Recent Changes (v4.0.1)](#recent-changes-v401)
 - [Documentation](#documentation)
 
 ---
@@ -443,7 +443,18 @@ Email: **security@defai.digital** (private disclosure)
 
 ---
 
-## Recent Changes (v4.0.0)
+## Recent Changes (v4.0.1)
+
+### UX Improvements & Bug Fixes
+
+- **Enhanced CLI UX**: Applied `@clack/prompts` library to `doctor`, `mcp health`, `cache show`, and `usage show` commands for beautiful interactive output with spinners, note boxes, and formatted summaries
+- **Parallel Agent Execution**: New `ax_agents_parallel` tool enables concurrent execution of multiple AutomatosX AI agents for faster multi-perspective reviews
+- **Bug Fix**: Fixed global regex `lastIndex` state contamination in image handler that caused flaky tests when run in sequence
+- **Tool System Refinements**: Renamed `getAllGrokTools` to `getAllTools` for clarity
+
+---
+
+## Previous Changes (v4.0.0)
 
 ### Tool System v3.0 - Major Architecture Upgrade
 

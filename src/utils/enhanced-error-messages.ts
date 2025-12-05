@@ -89,7 +89,7 @@ const FILE_ERROR_PATTERNS: Record<string, ErrorMessageTemplate> = {
 };
 
 /**
- * API error templates
+ * API error templates with actionable ax-cli commands
  */
 const API_ERROR_PATTERNS: Record<number, ErrorMessageTemplate> = {
   400: {
@@ -97,7 +97,7 @@ const API_ERROR_PATTERNS: Record<number, ErrorMessageTemplate> = {
     description: 'The API request was malformed or invalid',
     suggestions: [
       'Check the request parameters',
-      'Verify the model name is correct',
+      'Verify the model name: ax-cli models',
       'Ensure the input is properly formatted',
       'Review the API documentation',
     ],
@@ -106,10 +106,10 @@ const API_ERROR_PATTERNS: Record<number, ErrorMessageTemplate> = {
     title: 'Authentication Failed',
     description: 'Your API key is invalid or missing',
     suggestions: [
-      'Run "ax setup" to configure your API key',
+      '→ Run: ax-cli setup (to configure your API key)',
+      '→ Or run: ax-cli config set apiKey YOUR_API_KEY',
       'Verify your API key at the provider dashboard',
-      'Check if your API key has expired',
-      'Ensure the API key matches your provider',
+      'Check if your API key has expired and regenerate if needed',
     ],
     learnMore: 'https://docs.ax-cli.dev/configuration#api-keys',
   },
@@ -117,20 +117,20 @@ const API_ERROR_PATTERNS: Record<number, ErrorMessageTemplate> = {
     title: 'Access Forbidden',
     description: 'You do not have permission to access this resource',
     suggestions: [
-      'Verify your account has access to this model',
-      'Check your subscription plan',
+      'Verify your account has access to this model: ax-cli models',
+      'Check your subscription plan at the provider dashboard',
+      '→ Run: ax-cli doctor (to diagnose configuration issues)',
       'Ensure your API key has the correct permissions',
-      'Contact your provider support',
     ],
   },
   404: {
     title: 'Resource Not Found',
     description: 'The requested model or endpoint does not exist',
     suggestions: [
-      'Verify the model name using: ax models',
-      'Check the base URL in your configuration',
+      '→ Run: ax-cli models (to see available models)',
+      '→ Run: ax-cli config get baseUrl (to check your API endpoint)',
       'Ensure the provider supports this model',
-      'Update to the latest version of ax-cli',
+      '→ Run: ax-cli doctor (to verify configuration)',
     ],
   },
   429: {
@@ -139,8 +139,8 @@ const API_ERROR_PATTERNS: Record<number, ErrorMessageTemplate> = {
     suggestions: [
       'Wait a few minutes before retrying',
       'Check your rate limits at the provider dashboard',
+      '→ Run: ax-cli usage (to check your usage)',
       'Consider upgrading your API plan',
-      'Reduce the frequency of requests',
     ],
     learnMore: 'https://docs.ax-cli.dev/troubleshooting#rate-limits',
   },
@@ -150,7 +150,7 @@ const API_ERROR_PATTERNS: Record<number, ErrorMessageTemplate> = {
     suggestions: [
       'Wait a few moments and try again',
       'Check provider status page for outages',
-      'Try again with a smaller request',
+      '→ Run: ax-cli doctor (to verify your configuration)',
       'Contact provider support if it persists',
     ],
   },
@@ -185,18 +185,18 @@ const API_ERROR_PATTERNS: Record<number, ErrorMessageTemplate> = {
 };
 
 /**
- * MCP error templates
+ * MCP error templates with actionable ax-cli commands
  */
 const MCP_ERROR_PATTERNS: Record<string, ErrorMessageTemplate> = {
   CONNECTION_FAILED: {
     title: 'MCP Server Connection Failed',
     description: 'Unable to connect to the MCP server',
     suggestions: [
-      'Check if the MCP server is running',
-      'Verify the server configuration in .ax-cli/settings.json',
-      'Ensure the server command/URL is correct',
+      '→ Run: ax-cli mcp list (to see configured servers)',
+      '→ Run: ax-cli mcp test <server-name> (to test connection)',
+      '→ Run: ax-cli mcp health (to check all server status)',
       'Check server logs for errors',
-      'Try restarting the MCP server',
+      '→ Run: ax-cli mcp remove <server-name> && ax-cli mcp add <server-name> --template (to reinstall)',
     ],
     learnMore: 'https://docs.ax-cli.dev/mcp#troubleshooting',
   },
@@ -204,20 +204,40 @@ const MCP_ERROR_PATTERNS: Record<string, ErrorMessageTemplate> = {
     title: 'Invalid MCP Server Response',
     description: 'The MCP server returned an unexpected response',
     suggestions: [
+      '→ Run: ax-cli mcp test <server-name> (to verify server)',
+      '→ Run: ax-cli mcp tools <server-name> (to see available tools)',
       'Ensure the MCP server is up to date',
-      'Check server logs for errors',
-      'Verify the server implements the MCP protocol correctly',
-      'Try restarting the MCP server',
+      'Check if the server implements the MCP protocol correctly',
     ],
   },
   TIMEOUT: {
     title: 'MCP Server Timeout',
     description: 'The MCP server did not respond in time',
     suggestions: [
+      '→ Run: ax-cli mcp health <server-name> (to check server status)',
+      '→ Run: ax-cli mcp test <server-name> (to test connection)',
       'Check if the server is overloaded',
-      'Increase the timeout in settings',
-      'Verify the server is running properly',
       'Try restarting the MCP server',
+    ],
+  },
+  AUTH_FAILED: {
+    title: 'MCP Server Authentication Failed',
+    description: 'The MCP server rejected the authentication credentials',
+    suggestions: [
+      '→ Run: ax-cli mcp add <server-name> --template --env TOKEN=YOUR_TOKEN (to re-add with token)',
+      'Verify your API token/key is valid and not expired',
+      'Check the environment variable is set correctly',
+      '→ Run: ax-cli mcp validate <server-name> (to check configuration)',
+    ],
+  },
+  ENV_MISSING: {
+    title: 'Missing Environment Variable',
+    description: 'A required environment variable is not set',
+    suggestions: [
+      '→ Run: ax-cli mcp add <name> --template --env VAR_NAME=VALUE (to provide directly)',
+      'Or set in your shell: export VAR_NAME="your_value"',
+      'Or add to ~/.bashrc or ~/.zshrc for persistence',
+      '→ Run: ax-cli mcp templates (to see required variables for each template)',
     ],
   },
 };

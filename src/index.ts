@@ -554,6 +554,9 @@ program
     "Enterprise-Class AI Command Line Interface - Primary support for GLM (General Language Model) with multi-provider AI orchestration"
   )
   .version(getVersionString(), "-v, --version", "output the current version")
+  // Enable positional options parsing - options after a subcommand are parsed by that subcommand
+  // This fixes conflicts between global --json and subcommand --json options
+  .enablePositionalOptions()
   .argument("[message...]", "Initial message to send to AI")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
   .option("-k, --api-key <key>", "AI API key (or set YOUR_API_KEY env var)")

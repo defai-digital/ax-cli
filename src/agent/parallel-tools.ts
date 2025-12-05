@@ -30,6 +30,7 @@ export const TOOL_CLASSIFICATION: Record<string, ToolExecutionMode> = {
 
   // External process tools - isolated, safe to parallelize
   ax_agent: "parallel",
+  ax_agents_parallel: "parallel", // Internally manages its own parallelism
 
   // Write tools - must be sequential to prevent conflicts
   create_file: "sequential",

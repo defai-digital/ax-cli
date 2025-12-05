@@ -181,6 +181,11 @@ system_prompt:
         CRITICAL: When user mentions ANY agent name, use ax_agent tool.
         This invokes real AI agents - do NOT substitute with other tools.
 
+        PARALLEL EXECUTION: When user asks to work with MULTIPLE agents (e.g., "work with Tony and Bob"),
+        invoke ALL agents IN PARALLEL by making multiple ax_agent tool calls in the SAME response.
+        They execute concurrently for faster results. Example: "work with CTO and backend" →
+        make TWO ax_agent calls (tony + bob) in one response, NOT sequentially.
+
     # Bug review protocol - prevents false positives
     bug_review:
       title: "BUG REVIEW PROTOCOL"

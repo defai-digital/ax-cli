@@ -30,63 +30,59 @@ export class TemplateManager {
   }
 
   /**
-   * List all available templates (built-in + user)
+   * Atomic file write - writes to temp file then renames
    */
-  static listTemplates(): TemplateListItem[] {
-    const templates: TemplateListItem[] = [];
-
-    // Load built-in templates
-    if (fs.existsSync(this.BUILTIN_TEMPLATES_DIR)) {
-      const builtinFiles = fs.readdirSync(this.BUILTIN_TEMPLATES_DIR)
-        .filter(f => f.endsWith('.json'));
-
-      for (const file of builtinFiles) {
-        try {
-          const templatePath = path.join(this.BUILTIN_TEMPLATES_DIR, file);
-          const template = this.loadTemplate(templatePath);
-          if (template) {
-            templates.push({
-              id: template.id,
-              name: template.name,
-              description: template.description,
-              projectType: template.projectType,
-              tags: template.tags,
-              isBuiltIn: true,
-            });
-          }
-        } catch (error) {
-          // Skip invalid templates
-          console.warn(`Failed to load built-in template ${file}:`, error);
-        }
+  private static atomicWrite(filePath: string, content: string): void {
+    const tmpPath = `${filePath}.tmp`;
+    try {
+      fs.writeFileSync(tmpPath, content, 'utf-8');
+      fs.renameSync(tmpPath, filePath);
+    } catch (error) {
+      // Cleanup temp file on error
+      if (fs.existsSync(tmpPath)) {
+        try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
       }
+      throw error;
     }
+  }
 
-    // Load user templates
-    this.ensureUserTemplatesDir();
-    const userFiles = fs.readdirSync(this.USER_TEMPLATES_DIR)
-      .filter(f => f.endsWith('.json'));
+  /**
+   * Load templates from a directory
+   */
+  private static loadTemplatesFromDir(dir: string, isBuiltIn: boolean): TemplateListItem[] {
+    if (!fs.existsSync(dir)) return [];
 
-    for (const file of userFiles) {
-      try {
-        const templatePath = path.join(this.USER_TEMPLATES_DIR, file);
-        const template = this.loadTemplate(templatePath);
-        if (template) {
-          templates.push({
+    return fs.readdirSync(dir)
+      .filter(f => f.endsWith('.json'))
+      .map(file => {
+        try {
+          const template = this.loadTemplate(path.join(dir, file));
+          if (!template) return null;
+          return {
             id: template.id,
             name: template.name,
             description: template.description,
             projectType: template.projectType,
             tags: template.tags,
-            isBuiltIn: false,
-          });
+            isBuiltIn,
+          };
+        } catch (error) {
+          console.warn(`Failed to load template ${file}:`, error);
+          return null;
         }
-      } catch (error) {
-        // Skip invalid templates
-        console.warn(`Failed to load user template ${file}:`, error);
-      }
-    }
+      })
+      .filter((t): t is TemplateListItem => t !== null);
+  }
 
-    return templates;
+  /**
+   * List all available templates (built-in + user)
+   */
+  static listTemplates(): TemplateListItem[] {
+    this.ensureUserTemplatesDir();
+    return [
+      ...this.loadTemplatesFromDir(this.BUILTIN_TEMPLATES_DIR, true),
+      ...this.loadTemplatesFromDir(this.USER_TEMPLATES_DIR, false),
+    ];
   }
 
   /**
@@ -133,39 +129,20 @@ export class TemplateManager {
    */
   static saveTemplate(template: ProjectTemplate): boolean {
     try {
-      // Only save user templates (not built-in)
       if (template.isBuiltIn) {
         console.error('Cannot modify built-in templates');
         return false;
       }
 
-      this.ensureUserTemplatesDir();
-      const templatePath = path.join(this.USER_TEMPLATES_DIR, `${template.id}.json`);
-
-      // Validate template before saving
       const result = safeValidateProjectTemplate(template);
       if (!result.success) {
         console.error('Invalid template data:', result.error);
         return false;
       }
 
-      // Atomic write using temporary file
-      const tmpPath = `${templatePath}.tmp`;
-      try {
-        fs.writeFileSync(tmpPath, JSON.stringify(template, null, 2), 'utf-8');
-        fs.renameSync(tmpPath, templatePath); // Atomic operation on POSIX systems
-      } catch (writeError) {
-        // Cleanup temp file on error
-        if (fs.existsSync(tmpPath)) {
-          try {
-            fs.unlinkSync(tmpPath);
-          } catch {
-            // Ignore cleanup errors
-          }
-        }
-        throw writeError;
-      }
-
+      this.ensureUserTemplatesDir();
+      const templatePath = path.join(this.USER_TEMPLATES_DIR, `${template.id}.json`);
+      this.atomicWrite(templatePath, JSON.stringify(template, null, 2));
       return true;
     } catch (error) {
       console.error('Failed to save template:', error);
@@ -305,29 +282,12 @@ export class TemplateManager {
   static exportTemplate(templateId: string, outputPath: string): boolean {
     try {
       const template = this.getTemplate(templateId);
-
       if (!template) {
         console.error(`Template '${templateId}' not found`);
         return false;
       }
 
-      // Atomic write using temporary file
-      const tmpPath = `${outputPath}.tmp`;
-      try {
-        fs.writeFileSync(tmpPath, JSON.stringify(template, null, 2), 'utf-8');
-        fs.renameSync(tmpPath, outputPath); // Atomic operation
-      } catch (writeError) {
-        // Cleanup temp file on error
-        if (fs.existsSync(tmpPath)) {
-          try {
-            fs.unlinkSync(tmpPath);
-          } catch {
-            // Ignore cleanup errors
-          }
-        }
-        throw writeError;
-      }
-
+      this.atomicWrite(outputPath, JSON.stringify(template, null, 2));
       return true;
     } catch (error) {
       console.error('Failed to export template:', error);
@@ -427,18 +387,12 @@ export class TemplateManager {
   static applyTemplate(template: ProjectTemplate, projectRoot: string): boolean {
     try {
       const axCliDir = path.join(projectRoot, CONFIG_DIR_NAME);
-
       if (!fs.existsSync(axCliDir)) {
         fs.mkdirSync(axCliDir, { recursive: true });
       }
 
-      // Write CUSTOM.md using atomic operation
       const customMdPath = path.join(axCliDir, FILE_NAMES.CUSTOM_MD);
-      const tmpCustomPath = `${customMdPath}.tmp`;
-
-      // Write index.json with template metadata
       const indexPath = path.join(axCliDir, FILE_NAMES.INDEX_JSON);
-      const tmpIndexPath = `${indexPath}.tmp`;
 
       const indexData = {
         projectName: template.name,
@@ -449,24 +403,8 @@ export class TemplateManager {
         templateAppliedAt: new Date().toISOString(),
       };
 
-      try {
-        // Write to temp files first
-        fs.writeFileSync(tmpCustomPath, template.instructions, 'utf-8');
-        fs.writeFileSync(tmpIndexPath, JSON.stringify(indexData, null, 2), 'utf-8');
-
-        // Atomic rename
-        fs.renameSync(tmpCustomPath, customMdPath);
-        fs.renameSync(tmpIndexPath, indexPath);
-      } catch (writeError) {
-        // Cleanup temp files on error
-        try {
-          if (fs.existsSync(tmpCustomPath)) fs.unlinkSync(tmpCustomPath);
-          if (fs.existsSync(tmpIndexPath)) fs.unlinkSync(tmpIndexPath);
-        } catch {
-          // Ignore cleanup errors
-        }
-        throw writeError;
-      }
+      this.atomicWrite(customMdPath, template.instructions);
+      this.atomicWrite(indexPath, JSON.stringify(indexData, null, 2));
 
       return true;
     } catch (error) {

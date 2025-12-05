@@ -42,6 +42,17 @@ export class ProjectAnalyzer {
     this.projectRoot = projectRoot;
   }
 
+  /** Helper to check if path exists relative to project root */
+  private pathExists(...segments: string[]): boolean {
+    return fs.existsSync(path.join(this.projectRoot, ...segments));
+  }
+
+  /** Helper to get stat if path is directory */
+  private isDirectory(...segments: string[]): boolean {
+    const fullPath = path.join(this.projectRoot, ...segments);
+    return fs.existsSync(fullPath) && fs.statSync(fullPath).isDirectory();
+  }
+
   /**
    * Helper: Read and cache package.json
    * Reduces file I/O from 8 reads to 1 read
@@ -94,17 +105,17 @@ export class ProjectAnalyzer {
       this.warnings = [];
 
       const projectInfo: ProjectInfo = {
-        name: await this.detectProjectName(),
-        version: await this.detectVersion(),
-        primaryLanguage: await this.detectPrimaryLanguage(),
-        techStack: await this.detectTechStack(),
-        projectType: await this.detectProjectType(),
-        entryPoint: await this.detectEntryPoint(),
-        directories: await this.detectDirectories(),
-        keyFiles: await this.detectKeyFiles(),
-        conventions: await this.detectConventions(),
-        scripts: await this.detectScripts(),
-        packageManager: await this.detectPackageManager(),
+        name: this.detectProjectName(),
+        version: this.detectVersion(),
+        primaryLanguage: this.detectPrimaryLanguage(),
+        techStack: this.detectTechStack(),
+        projectType: this.detectProjectType(),
+        entryPoint: this.detectEntryPoint(),
+        directories: this.detectDirectories(),
+        keyFiles: this.detectKeyFiles(),
+        conventions: this.detectConventions(),
+        scripts: this.detectScripts(),
+        packageManager: this.detectPackageManager(),
         lastAnalyzed: new Date().toISOString(),
       };
 
@@ -122,109 +133,57 @@ export class ProjectAnalyzer {
     }
   }
 
-  private async detectProjectName(): Promise<string> {
-    const packageJson = this.getPackageJson();
-    if (packageJson?.name) {
-      return packageJson.name;
-    }
-
-    // Fallback to directory name
-    return path.basename(this.projectRoot);
+  private detectProjectName(): string {
+    return this.getPackageJson()?.name ?? path.basename(this.projectRoot);
   }
 
-  private async detectVersion(): Promise<string | undefined> {
-    const packageJson = this.getPackageJson();
-    return packageJson?.version;
+  private detectVersion(): string | undefined {
+    return this.getPackageJson()?.version;
   }
 
-  private async detectPrimaryLanguage(): Promise<string> {
-    // Check for config files to determine language
-    if (fs.existsSync(path.join(this.projectRoot, 'tsconfig.json'))) {
-      return 'TypeScript';
-    }
-    if (fs.existsSync(path.join(this.projectRoot, 'package.json'))) {
-      return 'JavaScript';
-    }
-    if (fs.existsSync(path.join(this.projectRoot, 'requirements.txt')) ||
-        fs.existsSync(path.join(this.projectRoot, 'setup.py')) ||
-        fs.existsSync(path.join(this.projectRoot, 'pyproject.toml'))) {
+  private detectPrimaryLanguage(): string {
+    if (this.pathExists('tsconfig.json')) return 'TypeScript';
+    if (this.pathExists('package.json')) return 'JavaScript';
+    if (this.pathExists('requirements.txt') || this.pathExists('setup.py') || this.pathExists('pyproject.toml')) {
       return 'Python';
     }
-    if (fs.existsSync(path.join(this.projectRoot, 'go.mod'))) {
-      return 'Go';
-    }
-    if (fs.existsSync(path.join(this.projectRoot, 'Cargo.toml'))) {
-      return 'Rust';
-    }
-
+    if (this.pathExists('go.mod')) return 'Go';
+    if (this.pathExists('Cargo.toml')) return 'Rust';
     return 'Unknown';
   }
 
-  private async detectTechStack(): Promise<string[]> {
+  private detectTechStack(): string[] {
     const stack: string[] = [];
     const packageJson = this.getPackageJson();
 
     if (packageJson) {
-      const allDeps = {
-        ...packageJson.dependencies,
-        ...packageJson.devDependencies,
+      const allDeps = { ...packageJson.dependencies, ...packageJson.devDependencies };
+
+      // Dependency-to-stack-name mapping
+      const depMap: Record<string, string> = {
+        'react': 'React', 'vue': 'Vue', '@angular/core': 'Angular', 'svelte': 'Svelte',
+        'next': 'Next.js', 'nuxt': 'Nuxt',
+        'express': 'Express', 'fastify': 'Fastify', 'koa': 'Koa', '@nestjs/core': 'NestJS',
+        'vitest': 'Vitest', 'jest': 'Jest', 'mocha': 'Mocha', 'playwright': 'Playwright', 'cypress': 'Cypress',
+        'vite': 'Vite', 'webpack': 'Webpack', 'esbuild': 'ESBuild', 'rollup': 'Rollup',
+        'zod': 'Zod', 'yup': 'Yup', 'joi': 'Joi',
+        'commander': 'Commander', 'yargs': 'Yargs', 'ink': 'Ink',
+        'prisma': 'Prisma', 'typeorm': 'TypeORM', 'mongoose': 'Mongoose',
       };
 
-      // Framework detection
-      if (allDeps['react']) stack.push('React');
-      if (allDeps['vue']) stack.push('Vue');
-      if (allDeps['@angular/core']) stack.push('Angular');
-      if (allDeps['svelte']) stack.push('Svelte');
-      if (allDeps['next']) stack.push('Next.js');
-      if (allDeps['nuxt']) stack.push('Nuxt');
+      for (const [dep, name] of Object.entries(depMap)) {
+        if (allDeps[dep]) stack.push(name);
+      }
 
-      // Backend frameworks
-      if (allDeps['express']) stack.push('Express');
-      if (allDeps['fastify']) stack.push('Fastify');
-      if (allDeps['koa']) stack.push('Koa');
-      if (allDeps['@nestjs/core']) stack.push('NestJS');
-
-      // Testing
-      if (allDeps['vitest']) stack.push('Vitest');
-      if (allDeps['jest']) stack.push('Jest');
-      if (allDeps['mocha']) stack.push('Mocha');
-      if (allDeps['playwright']) stack.push('Playwright');
-      if (allDeps['cypress']) stack.push('Cypress');
-
-      // Build tools
-      if (allDeps['vite']) stack.push('Vite');
-      if (allDeps['webpack']) stack.push('Webpack');
-      if (allDeps['esbuild']) stack.push('ESBuild');
-      if (allDeps['rollup']) stack.push('Rollup');
-
-      // Validation
-      if (allDeps['zod']) stack.push('Zod');
-      if (allDeps['yup']) stack.push('Yup');
-      if (allDeps['joi']) stack.push('Joi');
-
-      // CLI
-      if (allDeps['commander']) stack.push('Commander');
-      if (allDeps['yargs']) stack.push('Yargs');
-      if (allDeps['ink']) stack.push('Ink');
-
-      // Database
-      if (allDeps['prisma']) stack.push('Prisma');
-      if (allDeps['typeorm']) stack.push('TypeORM');
-      if (allDeps['mongoose']) stack.push('Mongoose');
-
-      // Runtime
       if (packageJson.type === 'module') stack.push('ESM');
     }
 
-    // TypeScript detection
-    if (fs.existsSync(path.join(this.projectRoot, 'tsconfig.json'))) {
-      stack.push('TypeScript');
-    }
+    if (this.pathExists('tsconfig.json')) stack.push('TypeScript');
 
     return stack;
   }
 
-  private async detectProjectType(): Promise<string> {
+  private detectProjectType(): string {
     const packageJson = this.getPackageJson();
 
     if (packageJson) {
@@ -252,20 +211,15 @@ export class ProjectAnalyzer {
     return 'application';
   }
 
-  private async detectEntryPoint(): Promise<string | undefined> {
+  private detectEntryPoint(): string | undefined {
     const packageJson = this.getPackageJson();
 
     if (packageJson) {
       // CLI tools
       if (packageJson.bin) {
-        if (typeof packageJson.bin === 'string') {
-          return packageJson.bin;
-        }
-        // Get first bin entry (with bounds check)
+        if (typeof packageJson.bin === 'string') return packageJson.bin;
         const binValues = Object.values(packageJson.bin);
-        if (binValues.length > 0) {
-          return binValues[0] as string;
-        }
+        if (binValues.length > 0) return binValues[0] as string;
       }
 
       // Libraries
@@ -283,62 +237,30 @@ export class ProjectAnalyzer {
 
     // Common entry points
     const commonEntries = ['src/index.ts', 'src/index.js', 'index.ts', 'index.js', 'src/main.ts', 'src/main.js'];
-    for (const entry of commonEntries) {
-      if (fs.existsSync(path.join(this.projectRoot, entry))) {
-        return entry;
-      }
-    }
-
-    return undefined;
+    return commonEntries.find(entry => this.pathExists(entry));
   }
 
-  private async detectDirectories(): Promise<ProjectInfo['directories']> {
+  /** Helper to find first matching directory */
+  private findFirstDir(candidates: string[]): string | undefined {
+    return candidates.find(dir => this.isDirectory(dir));
+  }
+
+  private detectDirectories(): ProjectInfo['directories'] {
     const dirs: ProjectInfo['directories'] = {};
 
-    // Source directory
-    const sourceDirs = ['src', 'lib', 'source'];
-    for (const dir of sourceDirs) {
-      const dirPath = path.join(this.projectRoot, dir);
-      if (fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory()) {
-        dirs.source = dir;
-        break;
-      }
-    }
+    dirs.source = this.findFirstDir(['src', 'lib', 'source']);
+    dirs.tests = this.findFirstDir(['tests', 'test', '__tests__', 'spec']);
+    dirs.config = this.findFirstDir(['config', 'configs', '.config']);
 
-    // Test directory
-    const testDirs = ['tests', 'test', '__tests__', 'spec'];
-    for (const dir of testDirs) {
-      const dirPath = path.join(this.projectRoot, dir);
-      if (fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory()) {
-        dirs.tests = dir;
-        break;
-      }
-    }
-
-    // Config directory
-    const configDirs = ['config', 'configs', '.config'];
-    for (const dir of configDirs) {
-      const dirPath = path.join(this.projectRoot, dir);
-      if (fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory()) {
-        dirs.config = dir;
-        break;
-      }
-    }
-
-    // Tools directory (normalize for cross-platform compatibility)
-    if (dirs.source) {
-      const toolsPath = path.join(this.projectRoot, dirs.source, 'tools');
-      if (fs.existsSync(toolsPath) && fs.statSync(toolsPath).isDirectory()) {
-        dirs.tools = normalizePath(path.join(dirs.source, 'tools'));
-      }
+    // Tools directory
+    if (dirs.source && this.isDirectory(dirs.source, 'tools')) {
+      dirs.tools = normalizePath(path.join(dirs.source, 'tools'));
     }
 
     return dirs;
   }
 
-  private async detectKeyFiles(): Promise<Record<string, string>> {
-    const keyFiles: Record<string, string> = {};
-
+  private detectKeyFiles(): Record<string, string> {
     const fileMap: Record<string, string> = {
       'package.json': 'Node.js package configuration',
       'tsconfig.json': 'TypeScript configuration',
@@ -353,16 +275,14 @@ export class ProjectAnalyzer {
       'webpack.config.js': 'Webpack build configuration',
     };
 
+    const keyFiles: Record<string, string> = {};
     for (const [file, description] of Object.entries(fileMap)) {
-      if (fs.existsSync(path.join(this.projectRoot, file))) {
-        keyFiles[file] = description;
-      }
+      if (this.pathExists(file)) keyFiles[file] = description;
     }
-
     return keyFiles;
   }
 
-  private async detectConventions(): Promise<CodeConventions> {
+  private detectConventions(): CodeConventions {
     const conventions: CodeConventions = {};
 
     // Module system from package.json (use cached version)
@@ -386,52 +306,48 @@ export class ProjectAnalyzer {
     }
 
     // Testing framework
-    if (fs.existsSync(path.join(this.projectRoot, 'vitest.config.ts')) ||
-        fs.existsSync(path.join(this.projectRoot, 'vitest.config.js'))) {
+    if (this.pathExists('vitest.config.ts') || this.pathExists('vitest.config.js')) {
       conventions.testFramework = 'vitest';
-    } else if (fs.existsSync(path.join(this.projectRoot, 'jest.config.js')) ||
-               fs.existsSync(path.join(this.projectRoot, 'jest.config.ts'))) {
+    } else if (this.pathExists('jest.config.js') || this.pathExists('jest.config.ts')) {
       conventions.testFramework = 'jest';
     }
 
     // Linter
-    if (fs.existsSync(path.join(this.projectRoot, '.eslintrc.js')) ||
-        fs.existsSync(path.join(this.projectRoot, '.eslintrc.json')) ||
-        fs.existsSync(path.join(this.projectRoot, 'eslint.config.js'))) {
+    if (this.pathExists('.eslintrc.js') || this.pathExists('.eslintrc.json') || this.pathExists('eslint.config.js')) {
       conventions.linter = 'eslint';
     }
 
-    // Validation library from package.json (reuse cached packageJson)
+    // Validation library
     if (packageJson) {
       const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
-
-      if (deps['zod']) conventions.validation = 'zod';
-      else if (deps['yup']) conventions.validation = 'yup';
-      else if (deps['joi']) conventions.validation = 'joi';
+      conventions.validation = deps['zod'] ? 'zod' : deps['yup'] ? 'yup' : deps['joi'] ? 'joi' : undefined;
     }
 
     return conventions;
   }
 
-  private async detectScripts(): Promise<ProjectInfo['scripts']> {
-    const scripts: ProjectInfo['scripts'] = {};
+  private detectScripts(): ProjectInfo['scripts'] {
     const packageJson = this.getPackageJson();
+    if (!packageJson?.scripts) return {};
 
-    if (packageJson?.scripts) {
-      scripts.build = packageJson.scripts.build;
-      scripts.test = packageJson.scripts.test;
-      scripts.lint = packageJson.scripts.lint;
-      scripts.dev = packageJson.scripts.dev || packageJson.scripts.start;
-    }
-
-    return scripts;
+    return {
+      build: packageJson.scripts.build,
+      test: packageJson.scripts.test,
+      lint: packageJson.scripts.lint,
+      dev: packageJson.scripts.dev || packageJson.scripts.start,
+    };
   }
 
-  private async detectPackageManager(): Promise<string | undefined> {
-    if (fs.existsSync(path.join(this.projectRoot, 'bun.lockb'))) return 'bun';
-    if (fs.existsSync(path.join(this.projectRoot, 'pnpm-lock.yaml'))) return 'pnpm';
-    if (fs.existsSync(path.join(this.projectRoot, 'yarn.lock'))) return 'yarn';
-    if (fs.existsSync(path.join(this.projectRoot, 'package-lock.json'))) return 'npm';
+  private detectPackageManager(): string | undefined {
+    const lockFiles: Record<string, string> = {
+      'bun.lockb': 'bun',
+      'pnpm-lock.yaml': 'pnpm',
+      'yarn.lock': 'yarn',
+      'package-lock.json': 'npm',
+    };
+    for (const [file, pm] of Object.entries(lockFiles)) {
+      if (this.pathExists(file)) return pm;
+    }
     return undefined;
   }
 }

@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
+import * as prompts from '@clack/prompts';
 import { readdir, stat, rm } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
@@ -32,6 +33,7 @@ export function createCacheCommand(): Command {
         const stats = cache.getStats();
         const metadata = cache.getMetadata();
 
+        // JSON mode - plain output for scripting
         if (options.json) {
           console.log(JSON.stringify({
             namespace: options.namespace,
@@ -41,53 +43,55 @@ export function createCacheCommand(): Command {
           return;
         }
 
-        // Display in human-readable format
-        console.log();
-        console.log(chalk.bold.blue('📦 Cache Statistics'));
-        console.log(chalk.gray('─'.repeat(60)));
-        console.log();
+        // Interactive mode with @clack/prompts
+        prompts.intro(chalk.cyan('Cache Statistics'));
 
-        console.log(chalk.bold('Namespace:'), chalk.cyan(options.namespace));
-        console.log(chalk.bold('Version:'), metadata.version);
-        if (metadata.toolVersion) {
-          console.log(chalk.bold('Tool Version:'), metadata.toolVersion);
-        }
-        console.log();
+        // Namespace info
+        const namespaceInfo = [
+          `Namespace: ${chalk.cyan(options.namespace)}`,
+          `Version: ${metadata.version}`,
+          metadata.toolVersion ? `Tool Version: ${metadata.toolVersion}` : null,
+        ].filter(Boolean).join('\n');
+        prompts.note(namespaceInfo, 'Configuration');
 
-        console.log(chalk.bold('Statistics:'));
-        console.log(`  Total Entries:       ${chalk.cyan(stats.totalEntries.toLocaleString())}`);
-        console.log(`  Cache Size:          ${chalk.cyan(formatBytes(stats.cacheSize))}`);
-        console.log(`  Cache Hits:          ${chalk.green(stats.hits.toLocaleString())}`);
-        console.log(`  Cache Misses:        ${chalk.yellow(stats.misses.toLocaleString())}`);
-        console.log(`  Invalidations:       ${chalk.red(stats.invalidations.toLocaleString())}`);
-
+        // Statistics
         const hitRatePercent = (stats.hitRate * 100).toFixed(1);
         const hitRateColor = stats.hitRate > 0.7 ? chalk.green : stats.hitRate > 0.4 ? chalk.yellow : chalk.red;
-        console.log(`  Hit Rate:            ${hitRateColor(hitRatePercent + '%')}`);
-        console.log();
 
-        console.log(chalk.bold('Metadata:'));
-        console.log(`  Created At:          ${formatDate(metadata.createdAt)}`);
-        console.log(`  Last Accessed:       ${formatDate(metadata.lastAccessedAt)}`);
-        console.log(`  Total Cached Size:   ${chalk.cyan(formatBytes(metadata.totalSize))}`);
-        console.log();
+        const statsInfo = [
+          `Total Entries:     ${chalk.cyan(stats.totalEntries.toLocaleString())}`,
+          `Cache Size:        ${chalk.cyan(formatBytes(stats.cacheSize))}`,
+          `Cache Hits:        ${chalk.green(stats.hits.toLocaleString())}`,
+          `Cache Misses:      ${chalk.yellow(stats.misses.toLocaleString())}`,
+          `Invalidations:     ${chalk.red(stats.invalidations.toLocaleString())}`,
+          `Hit Rate:          ${hitRateColor(hitRatePercent + '%')}`,
+        ].join('\n');
+        prompts.note(statsInfo, 'Statistics');
 
+        // Metadata
+        const metaInfo = [
+          `Created At:        ${formatDate(metadata.createdAt)}`,
+          `Last Accessed:     ${formatDate(metadata.lastAccessedAt)}`,
+          `Total Cached Size: ${chalk.cyan(formatBytes(metadata.totalSize))}`,
+        ].join('\n');
+        prompts.note(metaInfo, 'Metadata');
+
+        // Performance insights
         if (stats.totalEntries === 0) {
-          console.log(chalk.yellow('💡 Cache is empty. Files will be cached on first analysis.'));
-          console.log();
+          prompts.log.info('Cache is empty. Files will be cached on first analysis.');
         } else if (stats.hitRate > 0.7) {
-          console.log(chalk.green('✨ Excellent cache performance! Most files are being reused.'));
-          console.log();
+          prompts.log.success('Excellent cache performance! Most files are being reused.');
         } else if (stats.hitRate < 0.3 && stats.hits + stats.misses > 10) {
-          console.log(chalk.yellow('⚠️  Low cache hit rate. Consider:'));
-          console.log(chalk.gray('   - Files may be changing frequently'));
-          console.log(chalk.gray('   - Cache may need to be cleared'));
-          console.log(chalk.gray('   - Tool version may have changed'));
-          console.log();
+          prompts.log.warn('Low cache hit rate. Consider:');
+          console.log(chalk.dim('  • Files may be changing frequently'));
+          console.log(chalk.dim('  • Cache may need to be cleared'));
+          console.log(chalk.dim('  • Tool version may have changed'));
         }
 
+        prompts.outro(chalk.dim('Use "ax cache clear" to reset or "ax cache prune" to remove expired entries'));
+
       } catch (error: unknown) {
-        ConsoleMessenger.error('cache_commands.error_showing_cache', { error: extractErrorMessage(error) });
+        prompts.log.error(`Error: ${extractErrorMessage(error)}`);
         process.exit(1);
       }
     });

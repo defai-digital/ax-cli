@@ -199,3 +199,147 @@ export function listAgents(): string {
 
   return lines.join("\n");
 }
+
+/**
+ * Options for parallel agent execution
+ */
+export interface AxAgentsParallelOptions {
+  agents: Array<{
+    agent: string;
+    task: string;
+    format?: "text" | "markdown";
+    save?: string;
+  }>;
+}
+
+/**
+ * Result of a single agent in parallel execution
+ */
+export interface ParallelAgentResult {
+  agent: string;
+  task: string;
+  success: boolean;
+  output?: string;
+  error?: string;
+  executionTime: number;
+}
+
+/**
+ * Execute multiple AutomatosX agents in parallel
+ *
+ * This function spawns all agents concurrently using Promise.allSettled,
+ * enabling true parallel execution for improved performance.
+ *
+ * @param options Parallel agent invocation options
+ * @returns Tool result with aggregated agent responses
+ */
+export async function executeAxAgentsParallel(
+  options: AxAgentsParallelOptions
+): Promise<ToolResult> {
+  const { agents } = options;
+
+  if (!agents || agents.length === 0) {
+    return {
+      success: false,
+      error: "No agents specified. Provide an array of {agent, task} objects.",
+    };
+  }
+
+  // Validate all agent names upfront
+  const invalidAgents: string[] = [];
+  for (const agentConfig of agents) {
+    const agentLower = agentConfig.agent.toLowerCase();
+    if (!AGENT_REGISTRY[agentLower]) {
+      invalidAgents.push(agentConfig.agent);
+    }
+  }
+
+  if (invalidAgents.length > 0) {
+    const availableAgents = Object.keys(AGENT_REGISTRY).join(", ");
+    return {
+      success: false,
+      error: `Unknown agent(s): ${invalidAgents.join(", ")}. Available agents: ${availableAgents}`,
+    };
+  }
+
+  // Execute all agents in parallel
+  const startTime = Date.now();
+  const promises = agents.map(async (agentConfig): Promise<ParallelAgentResult> => {
+    const agentStartTime = Date.now();
+    const result = await executeAxAgent({
+      agent: agentConfig.agent,
+      task: agentConfig.task,
+      format: agentConfig.format,
+      save: agentConfig.save,
+    });
+
+    return {
+      agent: agentConfig.agent,
+      task: agentConfig.task,
+      success: result.success,
+      output: result.output,
+      error: result.error,
+      executionTime: Date.now() - agentStartTime,
+    };
+  });
+
+  const settledResults = await Promise.allSettled(promises);
+  const totalTime = Date.now() - startTime;
+
+  // Process results
+  const results: ParallelAgentResult[] = settledResults.map((settled, index) => {
+    if (settled.status === "fulfilled") {
+      return settled.value;
+    } else {
+      const agentConfig = agents[index];
+      return {
+        agent: agentConfig.agent,
+        task: agentConfig.task,
+        success: false,
+        error: settled.reason?.message || "Unknown error",
+        executionTime: 0,
+      };
+    }
+  });
+
+  // Count successes and failures
+  const successCount = results.filter((r) => r.success).length;
+  const failureCount = results.length - successCount;
+
+  // Build aggregated output
+  const outputParts: string[] = [
+    `## Parallel Agent Execution Results`,
+    ``,
+    `**Summary:** ${successCount}/${results.length} agents completed successfully`,
+    `**Total Time:** ${(totalTime / 1000).toFixed(2)}s (parallel execution)`,
+    ``,
+    `---`,
+    ``,
+  ];
+
+  for (const result of results) {
+    const agentInfo = AGENT_REGISTRY[result.agent.toLowerCase()];
+    const status = result.success ? "✓" : "✗";
+    const timeStr = `${(result.executionTime / 1000).toFixed(2)}s`;
+
+    outputParts.push(`### ${status} ${agentInfo?.persona || result.agent} (${timeStr})`);
+    outputParts.push(`**Task:** ${result.task}`);
+    outputParts.push(``);
+
+    if (result.success && result.output) {
+      outputParts.push(result.output);
+    } else if (result.error) {
+      outputParts.push(`**Error:** ${result.error}`);
+    }
+
+    outputParts.push(``);
+    outputParts.push(`---`);
+    outputParts.push(``);
+  }
+
+  return {
+    success: failureCount === 0,
+    output: outputParts.join("\n"),
+    error: failureCount > 0 ? `${failureCount} agent(s) failed` : undefined,
+  };
+}

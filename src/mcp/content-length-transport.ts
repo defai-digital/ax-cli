@@ -195,9 +195,72 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
 
   /**
    * Read a single Content-Length framed message from buffer
+   *
+   * BUG FIX: Now supports both Content-Length framing (LSP-style) and NDJSON fallback.
+   * This handles community MCP servers that don't implement proper JSON-RPC 2.0 stdio spec.
+   *
+   * Supported formats:
+   * 1. Content-Length framing: `Content-Length: N\r\n\r\n{...json...}`
+   * 2. NDJSON fallback: `{...json...}\n` (newline-delimited JSON)
    */
   private readMessage(): unknown | null {
-    // Look for Content-Length header
+    // Skip any leading whitespace/newlines (common in NDJSON streams)
+    while (this.buffer.length > 0) {
+      const firstByte = this.buffer[0];
+      // Skip whitespace: space (32), tab (9), CR (13), LF (10)
+      if (firstByte === 32 || firstByte === 9 || firstByte === 13 || firstByte === 10) {
+        this.buffer = this.buffer.subarray(1);
+      } else {
+        break;
+      }
+    }
+
+    if (this.buffer.length === 0) {
+      return null;
+    }
+
+    // Check if this looks like Content-Length framing or raw JSON
+    const bufferStr = this.buffer.toString("utf8", 0, Math.min(50, this.buffer.length));
+    const startsWithContentLength = /^Content-Length:\s*\d+/i.test(bufferStr);
+    const startsWithJson = bufferStr.trimStart().startsWith("{");
+
+    if (startsWithContentLength) {
+      // Content-Length framing (LSP-style)
+      return this.readContentLengthMessage();
+    } else if (startsWithJson) {
+      // NDJSON fallback - try to parse as newline-delimited JSON
+      return this.readNdjsonMessage();
+    } else {
+      // Unknown format - skip until we find something parseable
+      // Look for either Content-Length or { character
+      const nextContentLength = this.buffer.indexOf("Content-Length:");
+      const nextJsonStart = this.buffer.indexOf("{");
+
+      let skipTo = -1;
+      if (nextContentLength >= 0 && nextJsonStart >= 0) {
+        skipTo = Math.min(nextContentLength, nextJsonStart);
+      } else if (nextContentLength >= 0) {
+        skipTo = nextContentLength;
+      } else if (nextJsonStart >= 0) {
+        skipTo = nextJsonStart;
+      }
+
+      if (skipTo > 0) {
+        // Skip to the next potentially valid message
+        this.buffer = this.buffer.subarray(skipTo);
+        return null; // Caller will retry
+      } else {
+        // No valid message found - clear buffer (corrupted data)
+        this.buffer = Buffer.alloc(0);
+        return null;
+      }
+    }
+  }
+
+  /**
+   * Read a Content-Length framed message (LSP-style)
+   */
+  private readContentLengthMessage(): unknown | null {
     const headerEnd = this.buffer.indexOf("\r\n\r\n");
     if (headerEnd === -1) return null;
 
@@ -206,14 +269,14 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
     const contentLengthMatch = headerSection.match(/Content-Length:\s*(\d+)/i);
 
     if (!contentLengthMatch) {
-      // Invalid format - try to find next message
+      // Invalid format - skip header section
       this.buffer = this.buffer.subarray(headerEnd + 4);
       return null;
     }
 
     const contentLength = parseInt(contentLengthMatch[1], 10);
 
-    // BUG FIX: Validate content-length is a reasonable positive number
+    // Validate content-length is a reasonable positive number
     const maxBufferSize = this.config.maxBufferSize ?? MCP_LIMITS.MAX_BUFFER_SIZE;
     if (isNaN(contentLength) || contentLength < 0 || contentLength > maxBufferSize) {
       // Invalid content-length - skip this message
@@ -239,6 +302,70 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
     try {
       return JSON.parse(messageStr);
     } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Read a NDJSON (newline-delimited JSON) message
+   *
+   * BUG FIX: Fallback for MCP servers that don't use Content-Length framing
+   * (e.g., community mcp-figma package)
+   */
+  private readNdjsonMessage(): unknown | null {
+    // Find end of JSON object by looking for newline after complete JSON
+    // We need to handle nested braces properly
+    const bufferStr = this.buffer.toString("utf8");
+
+    let braceCount = 0;
+    let inString = false;
+    let escaped = false;
+    let endIndex = -1;
+
+    for (let i = 0; i < bufferStr.length; i++) {
+      const char = bufferStr[i];
+
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (char === '\\' && inString) {
+        escaped = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+
+      if (inString) continue;
+
+      if (char === '{') {
+        braceCount++;
+      } else if (char === '}') {
+        braceCount--;
+        if (braceCount === 0) {
+          endIndex = i + 1;
+          break;
+        }
+      }
+    }
+
+    if (endIndex === -1) {
+      return null; // Incomplete JSON - wait for more data
+    }
+
+    const jsonStr = bufferStr.substring(0, endIndex);
+
+    // Remove processed data from buffer
+    this.buffer = this.buffer.subarray(Buffer.byteLength(jsonStr, "utf8"));
+
+    try {
+      return JSON.parse(jsonStr);
+    } catch {
+      // JSON parse error - skip this malformed message
       return null;
     }
   }

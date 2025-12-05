@@ -5,6 +5,7 @@ import { getMCPManager } from '../llm/tools.js';
 import { MCPServerConfig } from '../mcp/client.js';
 import { MCPServerIdSchema } from '@ax-cli/schemas';
 import chalk from 'chalk';
+import * as prompts from '@clack/prompts';
 import { ConsoleMessenger } from '../utils/console-messenger.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
 import { validateServerConfig, formatValidationResult } from '../mcp/validation.js';
@@ -61,6 +62,19 @@ export function createMCPCommand(): Command {
     .option('-e, --env [env...]', 'Environment variables (key=value format)', [])
     .action(async (name: string, options) => {
       try {
+        // BUG FIX: Parse command-line --env options first to supplement process.env
+        // This handles the case where environment variables were set in a way
+        // that the current process doesn't see (e.g., exported in a subshell)
+        const cliEnvVars: Record<string, string> = {};
+        for (const envVar of options.env || []) {
+          const eqIndex = envVar.indexOf('=');
+          if (eqIndex > 0) {
+            const key = envVar.slice(0, eqIndex);
+            const value = envVar.slice(eqIndex + 1);
+            cliEnvVars[key] = value;
+          }
+        }
+
         // Check if using template
         if (options.template) {
           const template = getTemplate(name);
@@ -82,28 +96,56 @@ export function createMCPCommand(): Command {
           console.log();
 
           // Check required environment variables
+          // BUG FIX: Check both process.env AND command-line --env options
           const envVars: Record<string, string> = {};
-          let missingEnvVars = false;
+          const missingEnvVarsList: Array<{ name: string; description: string; url?: string }> = [];
 
           for (const envVar of template.requiredEnv) {
-            const value = process.env[envVar.name];
+            // Priority: CLI --env flag > process.env
+            const value = cliEnvVars[envVar.name] || process.env[envVar.name];
             if (!value) {
-              console.log(chalk.yellow(`⚠️  Missing environment variable: ${chalk.bold(envVar.name)}`));
-              console.log(chalk.gray(`   ${envVar.description}`));
-              if (envVar.url) {
-                console.log(chalk.gray(`   More info: ${envVar.url}`));
-              }
-              console.log();
-              missingEnvVars = true;
+              missingEnvVarsList.push(envVar);
             } else {
               envVars[envVar.name] = value;
             }
           }
 
-          if (missingEnvVars) {
-            console.log(chalk.red('❌ Setup cannot continue without required environment variables.'));
-            console.log();
-            console.log(chalk.blue('Setup instructions:'));
+          if (missingEnvVarsList.length > 0) {
+            console.log(chalk.yellow('⚠️  Missing required environment variables:\n'));
+            for (const envVar of missingEnvVarsList) {
+              console.log(chalk.yellow(`   • ${chalk.bold(envVar.name)}`));
+              console.log(chalk.gray(`     ${envVar.description}`));
+              if (envVar.url) {
+                console.log(chalk.gray(`     Documentation: ${envVar.url}`));
+              }
+              console.log();
+            }
+
+            console.log(chalk.red('❌ Setup cannot continue without required environment variables.\n'));
+
+            // BUG FIX: Provide multiple options for setting environment variables
+            console.log(chalk.blue('Options to provide the missing variables:\n'));
+
+            // Option 1: Pass directly via --env flag
+            const envFlags = missingEnvVarsList.map(e => `--env ${e.name}=YOUR_VALUE`).join(' ');
+            console.log(chalk.white('  Option 1: Pass directly with --env flag (recommended):'));
+            console.log(chalk.cyan(`    ax-cli mcp add ${name} --template ${envFlags}\n`));
+
+            // Option 2: Export in current shell
+            console.log(chalk.white('  Option 2: Export in current shell:'));
+            for (const envVar of missingEnvVarsList) {
+              console.log(chalk.cyan(`    export ${envVar.name}="your_value"`));
+            }
+            console.log(chalk.cyan(`    ax-cli mcp add ${name} --template\n`));
+
+            // Option 3: Add to shell profile
+            console.log(chalk.white('  Option 3: Add to shell profile (~/.bashrc or ~/.zshrc):'));
+            for (const envVar of missingEnvVarsList) {
+              console.log(chalk.cyan(`    export ${envVar.name}="your_value"`));
+            }
+            console.log(chalk.gray('    Then restart your terminal or run: source ~/.zshrc\n'));
+
+            console.log(chalk.blue('Full setup instructions:'));
             console.log(template.setupInstructions);
             process.exit(1);
           }
@@ -654,10 +696,19 @@ export function createMCPCommand(): Command {
         const manager = getMCPManager();
         const healthMonitor = new MCPHealthMonitor(manager);
 
+        // JSON mode - plain output
+        if (options.json) {
+          const health = serverName
+            ? filterValidHealth([await healthMonitor.getServerStatus(serverName)])
+            : await healthMonitor.getHealthReport();
+          console.log(JSON.stringify(health, null, 2));
+          return;
+        }
+
         if (options.watch) {
           // Continuous monitoring mode
-          console.log(chalk.blue.bold('\n📊 MCP Server Health Monitoring\n'));
-          console.log(chalk.gray('Press Ctrl+C to stop\n'));
+          prompts.intro(chalk.cyan('MCP Server Health Monitoring'));
+          prompts.log.info('Press Ctrl+C to stop');
 
           // Start monitoring (uses configured health check interval)
           healthMonitor.start(MCP_CONFIG.HEALTH_CHECK_INTERVAL);
@@ -665,49 +716,51 @@ export function createMCPCommand(): Command {
           // Display initial report
           const displayHealth = async () => {
             console.clear();
-            console.log(chalk.blue.bold('📊 MCP Server Health Report\n'));
-            console.log(chalk.gray(`Last updated: ${new Date().toLocaleTimeString()}\n`));
+            prompts.intro(chalk.cyan('MCP Server Health Report'));
+            prompts.log.message(`Last updated: ${new Date().toLocaleTimeString()}`);
 
             const health = serverName
               ? filterValidHealth([await healthMonitor.getServerStatus(serverName)])
               : await healthMonitor.getHealthReport();
 
             if (health.length === 0) {
-              console.log(chalk.yellow('No servers connected'));
+              prompts.log.warn('No servers connected');
               return;
             }
 
             for (const server of health) {
               const statusIcon = server.connected ? '✓' : '✗';
-              const statusColor = server.connected ? chalk.green : chalk.red;
               const statusText = server.connected ? 'Connected' : 'Disconnected';
 
-              console.log(statusColor(`${statusIcon} ${chalk.bold(server.serverName)} (${statusText})`));
-              console.log(chalk.gray(`  Transport: MCP`));
+              // Build server info
+              const serverInfo: string[] = [];
+              serverInfo.push(`Transport: MCP`);
               if (server.uptime) {
-                console.log(chalk.gray(`  Uptime: ${MCPHealthMonitor.formatUptime(server.uptime)}`));
+                serverInfo.push(`Uptime: ${MCPHealthMonitor.formatUptime(server.uptime)}`);
               }
-              console.log(chalk.gray(`  Tools: ${server.toolCount} available`));
+              serverInfo.push(`Tools: ${server.toolCount} available`);
 
               if (server.avgLatency) {
-                console.log(chalk.gray(`  Latency: avg ${MCPHealthMonitor.formatLatency(server.avgLatency)}, p95 ${MCPHealthMonitor.formatLatency(server.p95Latency || 0)}`));
+                serverInfo.push(`Latency: avg ${MCPHealthMonitor.formatLatency(server.avgLatency)}, p95 ${MCPHealthMonitor.formatLatency(server.p95Latency || 0)}`);
               }
 
               const successRateColor = server.successRate >= 95 ? chalk.green :
                                        server.successRate >= 80 ? chalk.yellow : chalk.red;
-              console.log(chalk.gray(`  Success Rate: ${successRateColor(`${server.successRate.toFixed(1)}%`)} (${server.successCount}/${server.successCount + server.failureCount} calls)`));
+              serverInfo.push(`Success Rate: ${successRateColor(`${server.successRate.toFixed(1)}%`)} (${server.successCount}/${server.successCount + server.failureCount} calls)`);
 
               if (server.lastError) {
-                console.log(chalk.red(`  Last Error: ${server.lastError}`));
+                serverInfo.push(chalk.red(`Last Error: ${server.lastError}`));
                 if (server.lastErrorAt) {
                   const timeSinceError = Date.now() - server.lastErrorAt;
-                  console.log(chalk.gray(`    ${MCPHealthMonitor.formatUptime(timeSinceError)} ago`));
+                  serverInfo.push(`  ${MCPHealthMonitor.formatUptime(timeSinceError)} ago`);
                 }
               }
-              console.log();
+
+              const titleColor = server.connected ? chalk.green : chalk.red;
+              prompts.note(serverInfo.join('\n'), titleColor(`${statusIcon} ${server.serverName} (${statusText})`));
             }
 
-            console.log(chalk.gray('Next update in 60 seconds...'));
+            prompts.log.message(chalk.dim('Next update in 60 seconds...'));
           };
 
           // Display immediately
@@ -720,77 +773,85 @@ export function createMCPCommand(): Command {
           process.once('SIGINT', () => {
             clearInterval(watchInterval);
             healthMonitor.stop();
-            console.log(chalk.yellow('\n\n👋 Stopped health monitoring\n'));
+            prompts.outro(chalk.yellow('Stopped health monitoring'));
             process.exit(0);
           });
 
         } else {
-          // One-time health check
+          // One-time health check with @clack/prompts
+          prompts.intro(chalk.cyan('MCP Server Health'));
+
+          const spinner = prompts.spinner();
+          spinner.start('Checking server health...');
+
           const health = serverName
             ? filterValidHealth([await healthMonitor.getServerStatus(serverName)])
             : await healthMonitor.getHealthReport();
 
-          if (options.json) {
-            console.log(JSON.stringify(health, null, 2));
-            return;
-          }
+          spinner.stop('Health check complete');
 
           if (health.length === 0) {
             if (serverName) {
-              console.log(chalk.yellow(`\n⚠️  Server "${serverName}" not found\n`));
+              prompts.log.warn(`Server "${serverName}" not found`);
             } else {
-              console.log(chalk.yellow('\n⚠️  No MCP servers connected\n'));
-              console.log(chalk.blue('To add a server:'));
-              console.log(chalk.cyan('  ax-cli mcp add figma --template'));
-              console.log();
+              prompts.log.warn('No MCP servers connected');
+              prompts.log.info('To add a server: ax-cli mcp add figma --template');
             }
+            prompts.outro('');
             return;
           }
 
-          console.log(chalk.blue.bold('\n📊 MCP Server Health Report\n'));
-
+          // Display each server's health
           for (const server of health) {
             const statusIcon = server.connected ? '✓' : '✗';
-            const statusColor = server.connected ? chalk.green : chalk.red;
             const statusText = server.connected ? 'Connected' : 'Disconnected';
 
-            console.log(statusColor(`${statusIcon} ${chalk.bold(server.serverName)} (${statusText})`));
-            console.log(chalk.gray(`  Transport: MCP`));
+            // Build server info
+            const serverInfo: string[] = [];
+            serverInfo.push(`Transport: MCP`);
             if (server.uptime) {
-              console.log(chalk.gray(`  Uptime: ${MCPHealthMonitor.formatUptime(server.uptime)}`));
+              serverInfo.push(`Uptime: ${MCPHealthMonitor.formatUptime(server.uptime)}`);
             }
-            console.log(chalk.gray(`  Tools: ${server.toolCount} available`));
+            serverInfo.push(`Tools: ${server.toolCount} available`);
 
             if (server.avgLatency) {
-              console.log(chalk.gray(`  Latency: avg ${MCPHealthMonitor.formatLatency(server.avgLatency)}, p95 ${MCPHealthMonitor.formatLatency(server.p95Latency || 0)}`));
+              serverInfo.push(`Latency: avg ${MCPHealthMonitor.formatLatency(server.avgLatency)}, p95 ${MCPHealthMonitor.formatLatency(server.p95Latency || 0)}`);
             }
 
             const successRateColor = server.successRate >= 95 ? chalk.green :
                                      server.successRate >= 80 ? chalk.yellow : chalk.red;
-            console.log(chalk.gray(`  Success Rate: ${successRateColor(`${server.successRate.toFixed(1)}%`)} (${server.successCount}/${server.successCount + server.failureCount} calls)`));
+            serverInfo.push(`Success Rate: ${successRateColor(`${server.successRate.toFixed(1)}%`)} (${server.successCount}/${server.successCount + server.failureCount} calls)`);
 
             if (server.lastError) {
-              console.log(chalk.red(`  Last Error: ${server.lastError}`));
+              serverInfo.push(chalk.red(`Last Error: ${server.lastError}`));
               if (server.lastErrorAt) {
                 const timeSinceError = Date.now() - server.lastErrorAt;
-                console.log(chalk.gray(`    ${MCPHealthMonitor.formatUptime(timeSinceError)} ago`));
+                serverInfo.push(`  ${MCPHealthMonitor.formatUptime(timeSinceError)} ago`);
               }
             }
 
             if (server.lastSuccess) {
               const timeSinceSuccess = Date.now() - server.lastSuccess;
-              console.log(chalk.gray(`  Last Successful Call: ${MCPHealthMonitor.formatUptime(timeSinceSuccess)} ago`));
+              serverInfo.push(`Last Successful Call: ${MCPHealthMonitor.formatUptime(timeSinceSuccess)} ago`);
             }
 
-            console.log();
+            const titleColor = server.connected ? chalk.green : chalk.red;
+            prompts.note(serverInfo.join('\n'), titleColor(`${statusIcon} ${server.serverName} (${statusText})`));
           }
 
-          console.log(chalk.gray('💡 Tip: Use --watch to continuously monitor server health'));
-          console.log();
+          // Summary
+          const connectedCount = health.filter(s => s.connected).length;
+          const totalCount = health.length;
+
+          if (connectedCount === totalCount) {
+            prompts.outro(chalk.green(`All ${totalCount} server(s) healthy. Use --watch to monitor.`));
+          } else {
+            prompts.outro(chalk.yellow(`${connectedCount}/${totalCount} server(s) connected. Use --watch to monitor.`));
+          }
         }
 
       } catch (error: unknown) {
-        console.error(chalk.red(`\n❌ Error: ${extractErrorMessage(error)}\n`));
+        prompts.log.error(`Error: ${extractErrorMessage(error)}`);
         process.exit(1);
       }
     });

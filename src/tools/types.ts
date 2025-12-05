@@ -183,85 +183,6 @@ export interface ToolDefinition {
 }
 
 /**
- * Result from tool execution
- */
-export interface ToolResult {
-  /** Whether the tool executed successfully */
-  success: boolean;
-
-  /** Output content (success message or error description) */
-  output: string;
-
-  /** Error message if success is false */
-  error?: string;
-
-  /** Additional structured data */
-  data?: Record<string, unknown>;
-}
-
-/**
- * Enhanced result with embedded instructions
- */
-export interface EnhancedToolResult {
-  /** Original tool result content */
-  content: string;
-
-  /** Whether the execution was successful */
-  success: boolean;
-
-  /** Reminders to inject into context */
-  reminders: string[];
-}
-
-/**
- * Tool implementation interface
- * All tool implementations must implement this interface
- */
-export interface ToolImplementation {
-  /** Execute the tool with given arguments */
-  execute(args: Record<string, unknown>): Promise<ToolResult>;
-}
-
-/**
- * Configuration for the result enhancer
- */
-export interface ResultEnhancerConfig {
-  /** Include security reminders based on content patterns */
-  securityReminders: boolean;
-
-  /** Include failure guidance from tool constraints */
-  toolGuidance: boolean;
-
-  /** Include format reminders (truncation, etc.) */
-  formatReminders: boolean;
-}
-
-/**
- * Pre-execution hook result
- */
-export interface PreHookResult {
-  /** Whether to allow execution */
-  allow: boolean;
-
-  /** Modified arguments (if any) */
-  args: Record<string, unknown>;
-
-  /** Reason for blocking (if allow is false) */
-  blockReason?: string;
-
-  /** Reminders to add to result */
-  reminders: string[];
-}
-
-/**
- * Post-execution hook result
- */
-export interface PostHookResult {
-  /** Reminders to add to result */
-  reminders: string[];
-}
-
-/**
  * OpenAI function calling format (derived from ToolDefinition)
  */
 export interface OpenAITool {
@@ -290,16 +211,3 @@ export interface AnthropicTool {
   };
 }
 
-/**
- * Tool execution result with context
- */
-export interface ToolExecutionResult {
-  /** Whether the tool executed successfully */
-  success: boolean;
-
-  /** Result content */
-  result: string;
-
-  /** Reminders to include in context */
-  reminders: string[];
-}

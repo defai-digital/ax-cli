@@ -53,7 +53,7 @@ describe('Enhanced Error Messages', () => {
 
       expect(error).toContain('🔑'); // Key icon
       expect(error).toContain('Authentication Failed');
-      expect(error).toContain('Run "ax setup" to configure your API key');
+      expect(error).toContain('ax-cli setup'); // Updated to use ax-cli command
       expect(error).toContain('📚 Learn more:');
     });
 
@@ -80,7 +80,7 @@ describe('Enhanced Error Messages', () => {
 
       expect(error).toContain('🔌'); // Plug icon
       expect(error).toContain('MCP Server Connection Failed');
-      expect(error).toContain('Check if the MCP server is running');
+      expect(error).toContain('ax-cli mcp'); // Updated to use ax-cli mcp commands
     });
 
     it('should format bash command not found error', () => {
@@ -182,7 +182,7 @@ describe('Enhanced Error Messages', () => {
 
       expect(error).toContain('Authentication Failed');
       expect(error).toContain('API key');
-      expect(error).toContain('ax setup');
+      expect(error).toContain('ax-cli setup');
     });
 
     it('should create rate limit error', () => {

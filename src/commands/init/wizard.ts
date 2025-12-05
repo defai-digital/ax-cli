@@ -8,6 +8,14 @@ import { TemplateManager } from '../../utils/template-manager.js';
 import type { ProjectInfo } from '../../types/project-analysis.js';
 import type { ProjectTemplate } from '../../schemas/index.js';
 
+/** Handle user cancellation - exits process if cancelled */
+function exitIfCancelled<T>(value: T | symbol): asserts value is T {
+  if (prompts.isCancel(value)) {
+    prompts.cancel('Operation cancelled.');
+    process.exit(0);
+  }
+}
+
 export interface WizardOptions {
   nonInteractive?: boolean;
   yes?: boolean;
@@ -143,11 +151,7 @@ export class InitWizard {
       message: 'Use a project template?',
       initialValue: false,
     });
-
-    if (prompts.isCancel(useTemplate)) {
-      prompts.cancel('Operation cancelled.');
-      process.exit(0);
-    }
+    exitIfCancelled(useTemplate);
 
     if (!useTemplate) {
       return undefined;
@@ -174,13 +178,9 @@ export class InitWizard {
         hint: t.description,
       })),
     });
+    exitIfCancelled(templateId);
 
-    if (prompts.isCancel(templateId)) {
-      prompts.cancel('Operation cancelled.');
-      process.exit(0);
-    }
-
-    return TemplateManager.getTemplate(templateId as string) || undefined;
+    return TemplateManager.getTemplate(templateId) || undefined;
   }
 
   /**
@@ -196,11 +196,7 @@ export class InitWizard {
       message: 'Generate custom instructions (CUSTOM.md)?',
       initialValue: true,
     });
-
-    if (prompts.isCancel(result)) {
-      prompts.cancel('Operation cancelled.');
-      process.exit(0);
-    }
+    exitIfCancelled(result);
 
     return result;
   }

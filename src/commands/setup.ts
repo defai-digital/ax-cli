@@ -17,25 +17,19 @@ import {
 import { addMCPServer, removeMCPServer } from '../mcp/config.js';
 
 /**
- * Check if AutomatosX (ax) is installed
+ * Handle user cancellation - exits process if cancelled
  */
-function isAutomatosXInstalled(): boolean {
-  try {
-    const result = spawnSync('ax', ['--version'], {
-      encoding: 'utf-8',
-      timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-    return result.status === 0;
-  } catch {
-    return false;
+function exitIfCancelled<T>(value: T | symbol): asserts value is T {
+  if (prompts.isCancel(value)) {
+    prompts.cancel('Setup cancelled.');
+    process.exit(0);
   }
 }
 
 /**
- * Get AutomatosX version if installed
+ * Check AutomatosX status - returns version if installed, null otherwise
  */
-function getAutomatosXVersion(): string | null {
+function getAutomatosXStatus(): { installed: boolean; version: string | null } {
   try {
     const result = spawnSync('ax', ['--version'], {
       encoding: 'utf-8',
@@ -43,13 +37,12 @@ function getAutomatosXVersion(): string | null {
       stdio: ['pipe', 'pipe', 'pipe']
     });
     if (result.status === 0 && result.stdout) {
-      // Extract version from output (e.g., "ax version 1.2.3")
       const match = result.stdout.match(/(\d+\.\d+\.\d+)/);
-      return match ? match[1] : result.stdout.trim();
+      return { installed: true, version: match ? match[1] : result.stdout.trim() };
     }
-    return null;
+    return { installed: false, version: null };
   } catch {
-    return null;
+    return { installed: false, version: null };
   }
 }
 
@@ -224,13 +217,9 @@ export function createSetupCommand(): Command {
           options: providerChoices,
           initialValue: existingProviderKey || 'z.ai',
         });
+        exitIfCancelled(providerKey);
 
-        if (prompts.isCancel(providerKey)) {
-          prompts.cancel('Setup cancelled.');
-          process.exit(0);
-        }
-
-        const selectedProvider = PROVIDERS[providerKey as string];
+        const selectedProvider = PROVIDERS[providerKey];
 
         // ═══════════════════════════════════════════════════════════════════
         // STEP 2: API Key
@@ -257,11 +246,7 @@ export function createSetupCommand(): Command {
               message: 'Use existing API key?',
               initialValue: true,
             });
-
-            if (prompts.isCancel(reuseKey)) {
-              prompts.cancel('Setup cancelled.');
-              process.exit(0);
-            }
+            exitIfCancelled(reuseKey);
 
             if (reuseKey) {
               apiKey = existingConfig.apiKey;
@@ -272,12 +257,8 @@ export function createSetupCommand(): Command {
                 message: `Enter new ${selectedProvider.displayName} API key:`,
                 validate: (value) => value?.trim().length > 0 ? undefined : 'API key is required',
               });
-
-              if (prompts.isCancel(newKey)) {
-                prompts.cancel('Setup cancelled.');
-                process.exit(0);
-              }
-              apiKey = (newKey as string).trim();
+              exitIfCancelled(newKey);
+              apiKey = newKey.trim();
             }
           } else {
             if (hasExistingKey && !isSameProvider && existingProviderKey) {
@@ -290,12 +271,8 @@ export function createSetupCommand(): Command {
               message: `Enter your ${selectedProvider.displayName} API key:`,
               validate: (value) => value?.trim().length > 0 ? undefined : 'API key is required',
             });
-
-            if (prompts.isCancel(newKey)) {
-              prompts.cancel('Setup cancelled.');
-              process.exit(0);
-            }
-            apiKey = (newKey as string).trim();
+            exitIfCancelled(newKey);
+            apiKey = newKey.trim();
           }
         } else {
           prompts.log.success(`${selectedProvider.displayName} doesn't require an API key`);
@@ -326,25 +303,17 @@ export function createSetupCommand(): Command {
           options: modelChoices,
           initialValue: existingModel || selectedProvider.defaultModel,
         });
+        exitIfCancelled(modelSelection);
 
-        if (prompts.isCancel(modelSelection)) {
-          prompts.cancel('Setup cancelled.');
-          process.exit(0);
-        }
-
-        let chosenModel = modelSelection as string;
+        let chosenModel = modelSelection;
         if (modelSelection === '__custom__') {
           const manualModel = await prompts.text({
             message: 'Enter model ID:',
             initialValue: selectedProvider.defaultModel,
             validate: (value) => value?.trim().length > 0 ? undefined : 'Model is required',
           });
-
-          if (prompts.isCancel(manualModel)) {
-            prompts.cancel('Setup cancelled.');
-            process.exit(0);
-          }
-          chosenModel = (manualModel as string).trim();
+          exitIfCancelled(manualModel);
+          chosenModel = manualModel.trim();
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -381,12 +350,8 @@ export function createSetupCommand(): Command {
             options: availableChoices,
             initialValue: chosenModel,
           });
-
-          if (prompts.isCancel(altModel)) {
-            prompts.cancel('Setup cancelled.');
-            process.exit(0);
-          }
-          chosenModel = altModel as string;
+          exitIfCancelled(altModel);
+          chosenModel = altModel;
         }
 
         if (validationResult.success) {
@@ -425,8 +390,9 @@ export function createSetupCommand(): Command {
           message: 'Save these settings?',
           initialValue: true,
         });
+        exitIfCancelled(confirmSave);
 
-        if (prompts.isCancel(confirmSave) || !confirmSave) {
+        if (!confirmSave) {
           prompts.cancel('Setup cancelled. No changes saved.');
           process.exit(0);
         }
@@ -505,19 +471,18 @@ export function createSetupCommand(): Command {
           'AutomatosX Agent Orchestration'
         );
 
-        const axInstalled = isAutomatosXInstalled();
+        let axStatus = getAutomatosXStatus();
 
-        if (axInstalled) {
-          const currentVersion = getAutomatosXVersion();
-          prompts.log.success(`AutomatosX detected${currentVersion ? ` (v${currentVersion})` : ''}`);
+        if (axStatus.installed) {
+          prompts.log.success(`AutomatosX detected${axStatus.version ? ` (v${axStatus.version})` : ''}`);
 
           const axSpinner = prompts.spinner();
           axSpinner.start('Checking for updates...');
 
           const updated = await updateAutomatosX();
           if (updated) {
-            const newVersion = getAutomatosXVersion();
-            axSpinner.stop(`AutomatosX updated${newVersion ? ` to v${newVersion}` : ''}`);
+            axStatus = getAutomatosXStatus(); // Refresh version after update
+            axSpinner.stop(`AutomatosX updated${axStatus.version ? ` to v${axStatus.version}` : ''}`);
           } else {
             axSpinner.stop('Could not update AutomatosX');
             prompts.log.info('Run manually: ax update -y');
@@ -537,6 +502,7 @@ export function createSetupCommand(): Command {
               if (installed) {
                 installSpinner.stop('AutomatosX installed successfully!');
                 prompts.log.info('Run `ax list agents` to see available AI agents.');
+                axStatus = getAutomatosXStatus(); // Refresh status after install
               } else {
                 installSpinner.stop('Could not install AutomatosX');
                 prompts.log.info('Install manually: npm install -g @defai.digital/automatosx');
@@ -551,8 +517,7 @@ export function createSetupCommand(): Command {
         }
 
         // Agent-First Mode Configuration (only ask if AutomatosX is available)
-        const axAvailable = isAutomatosXInstalled();
-        if (axAvailable) {
+        if (axStatus.installed) {
           await prompts.note(
             'When enabled, ax-cli automatically routes tasks to specialized agents\n' +
             'based on keywords (e.g., "test" → testing agent, "refactor" → refactoring agent).\n' +

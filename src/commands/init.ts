@@ -49,29 +49,26 @@ export function createInitCommand(): Command {
           prompts.log.info(`Working directory: ${projectRoot}`);
         }
 
-        // Run validation if requested
-        if (options.validate) {
-          const validator = new InitValidator(projectRoot);
-          const validationResult = validator.validate();
-
-          console.log('\n' + InitValidator.formatValidationResult(validationResult));
-          process.exit(validationResult.valid ? 0 : 1);
-        }
-
         // Check if in a git repo or has package.json (reasonable project indicator)
         const hasGit = existsSync(join(projectRoot, '.git'));
         const hasPackageJson = existsSync(join(projectRoot, 'package.json'));
+        const isProject = hasGit || hasPackageJson;
 
-        if (!hasGit && !hasPackageJson) {
+        if (!isProject && !options.validate) {
           prompts.log.warn('No project detected in current directory (no .git or package.json)');
           prompts.log.info('Run from a project directory to initialize it.');
           prompts.outro(chalk.yellow('Initialization skipped'));
           return;
         }
 
-        // Run validation
+        // Run validation (single instance, reused for --validate flag or normal flow)
         const validator = new InitValidator(projectRoot);
         const validationResult = validator.validate();
+
+        if (options.validate) {
+          console.log('\n' + InitValidator.formatValidationResult(validationResult));
+          process.exit(validationResult.valid ? 0 : 1);
+        }
 
         if (!validationResult.valid) {
           prompts.log.error('Project validation failed:');

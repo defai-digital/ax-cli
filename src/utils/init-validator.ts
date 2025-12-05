@@ -29,6 +29,16 @@ export class InitValidator {
     this.projectRoot = projectRoot;
   }
 
+  /** Helper to resolve path relative to project root */
+  private resolvePath(...segments: string[]): string {
+    return path.join(this.projectRoot, ...segments);
+  }
+
+  /** Helper to check if path exists */
+  private pathExists(...segments: string[]): boolean {
+    return fs.existsSync(this.resolvePath(...segments));
+  }
+
   /**
    * Run all validation checks
    */
@@ -70,9 +80,9 @@ export class InitValidator {
    * Check for package.json
    */
   private checkPackageJson(result: ValidationResult): void {
-    const packageJsonPath = path.join(this.projectRoot, 'package.json');
+    const packageJsonPath = this.resolvePath('package.json');
 
-    if (!fs.existsSync(packageJsonPath)) {
+    if (!this.pathExists('package.json')) {
       result.warnings.push('No package.json found - may not be a Node.js project');
       result.suggestions.push('Run: npm init (if this is a Node.js project)');
     } else {
@@ -122,9 +132,7 @@ export class InitValidator {
    * Check for git repository
    */
   private checkGitRepo(result: ValidationResult): void {
-    const gitDir = path.join(this.projectRoot, '.git');
-
-    if (!fs.existsSync(gitDir)) {
+    if (!this.pathExists('.git')) {
       result.warnings.push('Not a git repository');
       result.suggestions.push('Run: git init (for version control)');
     }
@@ -134,15 +142,12 @@ export class InitValidator {
    * Check for existing AX CLI configuration
    */
   private checkExistingConfig(result: ValidationResult): void {
-    const axCliDir = path.join(this.projectRoot, '.ax-cli');
-    const customMdPath = path.join(axCliDir, 'CUSTOM.md');
-    const indexPath = path.join(axCliDir, 'index.json');
-
-    if (fs.existsSync(customMdPath)) {
+    if (this.pathExists('.ax-cli', 'CUSTOM.md')) {
       result.warnings.push('Existing CUSTOM.md found - will be overwritten unless --force is used');
     }
 
-    if (fs.existsSync(indexPath)) {
+    if (this.pathExists('.ax-cli', 'index.json')) {
+      const indexPath = this.resolvePath('.ax-cli', 'index.json');
       const parseResult = parseJsonFile(indexPath);
       if (parseResult.success) {
         const indexData = parseResult.data as any;
@@ -167,11 +172,9 @@ export class InitValidator {
    */
   private checkProjectStructure(result: ValidationResult): void {
     const commonDirs = ['src', 'lib', 'dist', 'build', 'test', 'tests', '__tests__'];
-    const foundDirs = commonDirs.filter(dir =>
-      fs.existsSync(path.join(this.projectRoot, dir))
-    );
+    const hasStandardDir = commonDirs.some(dir => this.pathExists(dir));
 
-    if (foundDirs.length === 0) {
+    if (!hasStandardDir) {
       result.warnings.push('No standard project directories found (src/, lib/, etc.)');
       result.suggestions.push('Project may be empty or have non-standard structure');
     }
@@ -280,8 +283,7 @@ export class InitValidator {
    * Check if force flag is needed
    */
   needsForceFlag(): boolean {
-    const customMdPath = path.join(this.projectRoot, '.ax-cli', 'CUSTOM.md');
-    return fs.existsSync(customMdPath);
+    return this.pathExists('.ax-cli', 'CUSTOM.md');
   }
 
   /**

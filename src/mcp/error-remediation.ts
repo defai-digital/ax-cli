@@ -129,19 +129,23 @@ export const ERROR_REMEDIATION: Record<string, Remediation> = {
     title: 'Authentication failed',
     hints: [
       'The API key or token is invalid or expired',
-      'Check environment variable is set: echo $<VAR_NAME>',
-      'Regenerate the API key if expired',
-      'Verify the token has required permissions'
-    ]
+      '→ For Figma: ax-cli mcp add figma --template --env FIGMA_ACCESS_TOKEN=YOUR_TOKEN',
+      '→ For GitHub: ax-cli mcp add github --template --env GITHUB_TOKEN=YOUR_TOKEN',
+      'Regenerate the API key if expired at the provider dashboard',
+      'Check environment variable is set: echo $<VAR_NAME>'
+    ],
+    command: 'ax-cli mcp validate <server-name>'
   },
   '403': {
     title: 'Access forbidden',
     hints: [
       'You don\'t have permission to access this resource',
-      'Check if your API key has the required scopes',
-      'Verify the account has access to this feature',
-      'Contact the service provider for access'
-    ]
+      'Check if your API key has the required scopes/permissions',
+      '→ For Figma: ensure token has "file:read" permission',
+      '→ For GitHub: ensure token has "repo" scope',
+      'Regenerate token with correct permissions if needed'
+    ],
+    command: 'ax-cli mcp test <server-name>'
   },
 
   // Server errors
@@ -179,27 +183,62 @@ export const ERROR_REMEDIATION: Record<string, Remediation> = {
     hints: [
       'The MCP server failed to initialize properly',
       'Check if all required environment variables are set',
-      'Verify the server version is compatible',
-      'Try running: ax-cli mcp test <server-name>'
-    ]
+      '→ Run: ax-cli mcp validate <server-name>',
+      '→ Run: ax-cli mcp test <server-name>'
+    ],
+    command: 'ax-cli mcp templates'
   },
   'protocol error': {
     title: 'MCP protocol error',
     hints: [
       'Invalid message format or unsupported protocol version',
-      'Ensure the server implements MCP protocol correctly',
-      'Check for server updates',
-      'Verify client and server versions are compatible'
+      'This may be a compatibility issue with the MCP server',
+      '→ Try removing and re-adding: ax-cli mcp remove <name> && ax-cli mcp add <name> --template',
+      'Check for server updates or use a different server version'
     ]
   },
   'tool not found': {
     title: 'MCP tool not found',
     hints: [
       'The requested tool is not available on the server',
-      'List available tools: ax-cli mcp tools <server-name>',
-      'The server may need to be restarted',
-      'Check if the tool requires additional configuration'
+      '→ Run: ax-cli mcp tools <server-name> (to list available tools)',
+      'The server may need to be reconnected',
+      '→ Run: ax-cli mcp test <server-name>'
     ]
+  },
+
+  // Figma-specific errors
+  'figma_access_token': {
+    title: 'Figma access token missing or invalid',
+    hints: [
+      '→ Run: ax-cli mcp add figma --template --env FIGMA_ACCESS_TOKEN=YOUR_TOKEN',
+      'Generate a new token at: https://www.figma.com/settings',
+      'Or set environment variable: export FIGMA_ACCESS_TOKEN="your_token"',
+      'Ensure the token has file read permissions'
+    ],
+    command: 'ax-cli mcp validate figma'
+  },
+  'figma': {
+    title: 'Figma MCP server error',
+    hints: [
+      '→ Run: ax-cli mcp test figma (to test connection)',
+      'Verify FIGMA_ACCESS_TOKEN is set: echo $FIGMA_ACCESS_TOKEN',
+      '→ Reinstall: ax-cli mcp remove figma && ax-cli mcp add figma --template --env FIGMA_ACCESS_TOKEN=YOUR_TOKEN',
+      'Check Figma API status: https://status.figma.com'
+    ],
+    command: 'ax-cli mcp health figma'
+  },
+
+  // GitHub-specific errors
+  'github_token': {
+    title: 'GitHub token missing or invalid',
+    hints: [
+      '→ Run: ax-cli mcp add github --template --env GITHUB_TOKEN=YOUR_TOKEN',
+      'Generate a new token at: https://github.com/settings/tokens',
+      'Ensure token has "repo" scope for repository access',
+      'Or set: export GITHUB_TOKEN="ghp_your_token"'
+    ],
+    command: 'ax-cli mcp validate github'
   }
 };
 

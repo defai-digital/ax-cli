@@ -115,6 +115,10 @@ export async function parseImageInput(
   };
   let textContent = input;
 
+  // Reset lastIndex for global patterns to avoid state contamination between calls
+  AT_REF_PATTERN.lastIndex = 0;
+  INLINE_QUOTED_PATH_PATTERN.lastIndex = 0;
+
   // Process @-prefixed image references
   for (const [fullMatch, relativePath] of input.matchAll(AT_REF_PATTERN)) {
     const replacement = await processImageRef(fullMatch, relativePath, workingDir, state);

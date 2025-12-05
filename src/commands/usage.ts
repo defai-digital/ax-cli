@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
+import * as prompts from '@clack/prompts';
 import { getSettingsManager } from '../utils/settings-manager.js';
 import { ConsoleMessenger } from '../utils/console-messenger.js';
 import { getUsageTracker } from '../utils/usage-tracker.js';
@@ -29,6 +30,7 @@ export function createUsageCommand(): Command {
 
         const stats = tracker.getSessionStats();
 
+        // JSON mode - plain output for scripting
         if (options.json) {
           console.log(JSON.stringify({
             provider,
@@ -38,96 +40,89 @@ export function createUsageCommand(): Command {
           return;
         }
 
-        // Display in human-readable format
-        console.log();
-        console.log(chalk.bold.blue('📊 API Usage Statistics'));
-        console.log(chalk.gray('─'.repeat(50)));
-        console.log();
+        // Interactive mode with @clack/prompts
+        prompts.intro(chalk.cyan('API Usage Statistics'));
 
-        console.log(chalk.bold('Provider:'), getProviderDisplay(provider, baseURL));
-        console.log();
+        // Provider info
+        prompts.log.message(`Provider: ${getProviderDisplay(provider, baseURL)}`);
 
         if (stats.totalRequests === 0) {
-          console.log(chalk.yellow('No API requests made in this session.'));
-          console.log();
+          prompts.log.warn('No API requests made in this session.');
+          prompts.outro(chalk.dim('Start a conversation to see usage statistics'));
           return;
         }
 
-        console.log(chalk.bold('Current Session:'));
-        console.log(`  Total Requests:      ${chalk.cyan(stats.totalRequests.toLocaleString())}`);
-        console.log(`  Prompt Tokens:       ${chalk.green(stats.totalPromptTokens.toLocaleString())}`);
-        console.log(`  Completion Tokens:   ${chalk.green(stats.totalCompletionTokens.toLocaleString())}`);
-        console.log(`  Total Tokens:        ${chalk.bold.green(stats.totalTokens.toLocaleString())}`);
+        // Session statistics
+        const sessionLines = [
+          `Total Requests:      ${chalk.cyan(stats.totalRequests.toLocaleString())}`,
+          `Prompt Tokens:       ${chalk.green(stats.totalPromptTokens.toLocaleString())}`,
+          `Completion Tokens:   ${chalk.green(stats.totalCompletionTokens.toLocaleString())}`,
+          `Total Tokens:        ${chalk.bold.green(stats.totalTokens.toLocaleString())}`,
+        ];
 
         if (stats.totalReasoningTokens > 0) {
-          console.log(`  Reasoning Tokens:    ${chalk.magenta(stats.totalReasoningTokens.toLocaleString())}`);
+          sessionLines.push(`Reasoning Tokens:    ${chalk.magenta(stats.totalReasoningTokens.toLocaleString())}`);
         }
 
-        // GLM-4.6: Estimated cost calculation
-        // z.ai pricing: ~$2/1M input tokens, ~$10/1M output tokens (approx)
+        // Calculate costs
         const cacheSavings = tracker.getCacheSavings();
         const uncachedPromptTokens = stats.totalPromptTokens - cacheSavings.cachedTokens;
-        const cachedCost = cacheSavings.cachedTokens * 0.0000005; // $0.50/1M for cached
-        const uncachedCost = uncachedPromptTokens * 0.000002; // $2/1M for uncached input
-        const outputCost = stats.totalCompletionTokens * 0.00001; // $10/1M for output
-        const reasoningCost = stats.totalReasoningTokens * 0.000002; // Similar to input
+        const cachedCost = cacheSavings.cachedTokens * 0.0000005;
+        const uncachedCost = uncachedPromptTokens * 0.000002;
+        const outputCost = stats.totalCompletionTokens * 0.00001;
+        const reasoningCost = stats.totalReasoningTokens * 0.000002;
         const estimatedTotalCost = cachedCost + uncachedCost + outputCost + reasoningCost;
 
         if (estimatedTotalCost > 0) {
-          console.log(`  Est. Session Cost:   ${chalk.yellow('~$' + estimatedTotalCost.toFixed(4))}`);
+          sessionLines.push(`Est. Session Cost:   ${chalk.yellow('~$' + estimatedTotalCost.toFixed(4))}`);
         }
 
-        // GLM 4.6 OPTIMIZATION: Display cache savings
-        // Shows users how much they're saving via Z.AI's automatic context caching
+        prompts.note(sessionLines.join('\n'), 'Current Session');
+
+        // Cache savings (if applicable)
         if (cacheSavings.cachedTokens > 0) {
-          console.log();
-          console.log(chalk.bold('💰 Cache Savings (GLM 4.6):'));
-          console.log(`  Cached Tokens:       ${chalk.cyan(cacheSavings.cachedTokens.toLocaleString())}`);
-          console.log(`  Estimated Savings:   ${chalk.green('$' + cacheSavings.estimatedSavings.toFixed(4))}`);
-          // BUG FIX: Guard against division by zero when totalPromptTokens is 0
           const cacheRate = stats.totalPromptTokens > 0
             ? ((cacheSavings.cachedTokens / stats.totalPromptTokens) * 100).toFixed(1)
             : '0.0';
-          console.log(`  Cache Hit Rate:      ${chalk.yellow(cacheRate + '%')}`);
+
+          const cacheLines = [
+            `Cached Tokens:       ${chalk.cyan(cacheSavings.cachedTokens.toLocaleString())}`,
+            `Estimated Savings:   ${chalk.green('$' + cacheSavings.estimatedSavings.toFixed(4))}`,
+            `Cache Hit Rate:      ${chalk.yellow(cacheRate + '%')}`,
+          ];
+
+          prompts.note(cacheLines.join('\n'), '💰 Cache Savings (GLM 4.6)');
         }
 
-        console.log();
-
-        // Show per-model breakdown if detailed flag is set
+        // Per-model breakdown if detailed
         if (options.detailed && stats.byModel.size > 0) {
-          console.log(chalk.bold('Breakdown by Model:'));
-          console.log();
-
           for (const [model, modelStats] of stats.byModel.entries()) {
-            console.log(chalk.bold(`  ${model}:`));
-            console.log(`    Requests:           ${modelStats.requests.toLocaleString()}`);
-            console.log(`    Prompt Tokens:      ${modelStats.promptTokens.toLocaleString()}`);
-            console.log(`    Completion Tokens:  ${modelStats.completionTokens.toLocaleString()}`);
-            console.log(`    Total Tokens:       ${modelStats.totalTokens.toLocaleString()}`);
+            const modelLines = [
+              `Requests:           ${modelStats.requests.toLocaleString()}`,
+              `Prompt Tokens:      ${modelStats.promptTokens.toLocaleString()}`,
+              `Completion Tokens:  ${modelStats.completionTokens.toLocaleString()}`,
+              `Total Tokens:       ${modelStats.totalTokens.toLocaleString()}`,
+            ];
 
             if (modelStats.reasoningTokens > 0) {
-              console.log(`    Reasoning Tokens:   ${modelStats.reasoningTokens.toLocaleString()}`);
+              modelLines.push(`Reasoning Tokens:   ${modelStats.reasoningTokens.toLocaleString()}`);
             }
-            console.log();
+
+            prompts.note(modelLines.join('\n'), `Model: ${model}`);
           }
         }
 
-        // Show provider-specific information
+        // Provider-specific tips
         if (provider === 'z.ai') {
-          console.log(chalk.gray('💡 Note: Historical usage data is available at:'));
-          console.log(chalk.gray('   https://z.ai/manage-apikey/billing'));
-          console.log();
-          console.log(chalk.gray('   Billing reflects consumption from the previous day (n-1).'));
+          prompts.log.info('Historical usage: https://z.ai/manage-apikey/billing');
+          prompts.outro(chalk.dim('Billing reflects consumption from the previous day (n-1)'));
         } else {
-          console.log(chalk.yellow(`⚠️  Provider "${provider}" usage tracking: Information unavailable`));
-          console.log(chalk.gray('   Only session-based tracking is available for this provider.'));
-          console.log(chalk.gray('   Historical data may be available through the provider\'s dashboard.'));
+          prompts.log.warn(`Provider "${provider}": Only session tracking available`);
+          prompts.outro(chalk.dim('Check provider dashboard for historical data'));
         }
 
-        console.log();
-
       } catch (error: any) {
-        ConsoleMessenger.error('usage_commands.error_showing_usage', { error: error.message });
+        prompts.log.error(`Error: ${error.message}`);
         process.exit(1);
       }
     });

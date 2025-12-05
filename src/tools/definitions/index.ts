@@ -7,27 +7,7 @@
 
 import type { ToolDefinition } from '../types.js';
 
-// Core tools
-export { bashTool } from './bash.js';
-export { bashOutputTool } from './bash-output.js';
-export { viewFileTool } from './view-file.js';
-export { createFileTool } from './create-file.js';
-export { strReplaceEditorTool } from './str-replace-editor.js';
-export { multiEditTool } from './multi-edit.js';
-export { searchTool } from './search.js';
-export { createTodoListTool, updateTodoListTool } from './todo.js';
-export { askUserTool } from './ask-user.js';
-export { axAgentTool } from './ax-agent.js';
-export {
-  figmaMapTool,
-  figmaTokensTool,
-  figmaAuditTool,
-  figmaSearchTool,
-  figmaAliasListTool,
-  figmaAliasResolveTool,
-} from './design.js';
-
-// Import all tools for the array
+// Import and re-export all tool definitions
 import { bashTool } from './bash.js';
 import { bashOutputTool } from './bash-output.js';
 import { viewFileTool } from './view-file.js';
@@ -37,7 +17,7 @@ import { multiEditTool } from './multi-edit.js';
 import { searchTool } from './search.js';
 import { createTodoListTool, updateTodoListTool } from './todo.js';
 import { askUserTool } from './ask-user.js';
-import { axAgentTool } from './ax-agent.js';
+import { axAgentTool, axAgentsParallelTool } from './ax-agent.js';
 import {
   figmaMapTool,
   figmaTokensTool,
@@ -46,6 +26,28 @@ import {
   figmaAliasListTool,
   figmaAliasResolveTool,
 } from './design.js';
+
+// Re-export all tool definitions
+export {
+  bashTool,
+  bashOutputTool,
+  viewFileTool,
+  createFileTool,
+  strReplaceEditorTool,
+  multiEditTool,
+  searchTool,
+  createTodoListTool,
+  updateTodoListTool,
+  askUserTool,
+  axAgentTool,
+  axAgentsParallelTool,
+  figmaMapTool,
+  figmaTokensTool,
+  figmaAuditTool,
+  figmaSearchTool,
+  figmaAliasListTool,
+  figmaAliasResolveTool,
+};
 
 /**
  * All tool definitions - Single Source of Truth
@@ -79,6 +81,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
 
   // Agent delegation
   axAgentTool,
+  axAgentsParallelTool,
 
   // Design tools
   figmaMapTool,

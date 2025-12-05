@@ -2,7 +2,7 @@ import { LLMClient, LLMMessage, LLMToolCall, LLMTool } from "../llm/client.js";
 import type { SamplingConfig, ChatOptions, ThinkingConfig, MessageContentPart } from "../llm/types.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
 import {
-  getAllGrokTools,
+  getAllTools,
   getMCPManager,
   initializeMCPServers,
 } from "../llm/tools.js";
@@ -180,7 +180,7 @@ export class LLMAgent extends EventEmitter {
       llmClient: this.llmClient,
       tokenCounter: this.tokenCounter,
       toolExecutor: this.toolExecutor,
-      getTools: () => getAllGrokTools(),
+      getTools: () => getAllTools(),
       executeTool: (toolCall) => this.executeTool(toolCall as LLMToolCall),
       parseToolArgumentsCached: (toolCall) => this.parseToolArgumentsCached(toolCall as LLMToolCall),
       buildChatOptions: (options) => this.buildChatOptions(options),
@@ -1203,7 +1203,7 @@ export class LLMAgent extends EventEmitter {
     let toolRounds = 0;
 
     try {
-      const tools = await getAllGrokTools();
+      const tools = await getAllTools();
       let currentResponse = await this.llmClient.chat(
         this.messages,
         tools,
@@ -1502,7 +1502,7 @@ export class LLMAgent extends EventEmitter {
    */
   private async loadToolsSafely(): Promise<LLMTool[]> {
     try {
-      return await getAllGrokTools();
+      return await getAllTools();
     } catch (error: unknown) {
       // Log error but don't throw - continue with empty tools
       const errorMsg = extractErrorMessage(error);

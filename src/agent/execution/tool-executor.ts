@@ -19,7 +19,7 @@ import {
 import { BashOutputTool } from "../../tools/bash-output.js";
 import { DesignTool } from "../../tools/design-tool.js";
 import { getAskUserTool, type Question } from "../../tools/ask-user.js";
-import { executeAxAgent, type AxAgentOptions } from "../../tools/ax-agent.js";
+import { executeAxAgent, executeAxAgentsParallel, type AxAgentOptions, type AxAgentsParallelOptions } from "../../tools/ax-agent.js";
 import { extractErrorMessage } from "../../utils/error-handler.js";
 import type { ToolParseResult } from "../core/types.js";
 import { getHooksManager } from "../../hooks/index.js";
@@ -379,6 +379,56 @@ export class ToolExecutor {
           } finally {
             // Always notify agent has ended, even on error
             this.onAxAgentEnd?.(agent);
+          }
+        }
+
+        case "ax_agents_parallel": {
+          // Parse agents array from arguments
+          const agentsArg = args.agents;
+          if (!Array.isArray(agentsArg) || agentsArg.length === 0) {
+            return {
+              success: false,
+              error: "agents parameter must be a non-empty array of {agent, task} objects",
+            };
+          }
+
+          // Validate and transform agents array
+          const agents: AxAgentsParallelOptions['agents'] = [];
+          for (const item of agentsArg) {
+            if (typeof item !== 'object' || item === null) {
+              return {
+                success: false,
+                error: "Each agent entry must be an object with agent and task properties",
+              };
+            }
+            const agentItem = item as Record<string, unknown>;
+            if (typeof agentItem.agent !== 'string' || typeof agentItem.task !== 'string') {
+              return {
+                success: false,
+                error: "Each agent entry must have string 'agent' and 'task' properties",
+              };
+            }
+            const formatValue = agentItem.format;
+            const validFormat = (formatValue === 'text' || formatValue === 'markdown') ? formatValue : undefined;
+            agents.push({
+              agent: agentItem.agent,
+              task: agentItem.task,
+              format: validFormat,
+              save: typeof agentItem.save === 'string' ? agentItem.save : undefined,
+            });
+          }
+
+          const parallelOptions: AxAgentsParallelOptions = { agents };
+
+          // Notify that parallel agents are starting (notify for first agent as summary)
+          const agentNames = agents.map(a => a.agent).join(', ');
+          this.onAxAgentStart?.(`parallel: ${agentNames}`);
+
+          try {
+            const result = await executeAxAgentsParallel(parallelOptions);
+            return result;
+          } finally {
+            this.onAxAgentEnd?.(`parallel: ${agentNames}`);
           }
         }
 

@@ -5,7 +5,10 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { existsSync } from "fs";
+import * as prompts from "@clack/prompts";
+import { existsSync, accessSync, constants, mkdirSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
 import OpenAI from "openai";
@@ -40,44 +43,91 @@ export function createDoctorCommand(): Command {
     .option("--verbose", "Show detailed diagnostic information")
     .action(async (options) => {
       try {
-        console.log(chalk.bold.cyan("\n🏥 AX CLI Doctor - Running diagnostics...\n"));
+        // JSON mode uses plain output for parsing
+        if (options.json) {
+          const results: CheckResult[] = [];
+          results.push(await checkNodeVersion());
+          results.push(...checkConfigFiles());
+          results.push(...await checkApiConfiguration());
+          results.push(checkModelConfiguration());
+          results.push(...await checkMCPServers());
+          results.push(...await checkZAIMCPStatus());
+          results.push(...await checkDependencies());
+          console.log(JSON.stringify(results, null, 2));
+          const hasFailures = results.some(r => r.status === "fail");
+          process.exit(hasFailures ? 1 : 0);
+          return;
+        }
+
+        // Interactive mode with @clack/prompts
+        prompts.intro(chalk.cyan("AX CLI Doctor"));
 
         const results: CheckResult[] = [];
+        const spinner = prompts.spinner();
 
         // 1. Check Node.js version
+        spinner.start("Checking Node.js version...");
         results.push(await checkNodeVersion());
+        spinner.stop(formatCheckResult(results[results.length - 1]));
 
         // 2. Check config files
-        results.push(...checkConfigFiles());
+        spinner.start("Checking configuration files...");
+        const configResults = checkConfigFiles();
+        results.push(...configResults);
+        spinner.stop(`Configuration: ${configResults.filter(r => r.status === "pass").length}/${configResults.length} OK`);
 
         // 3. Check API configuration
-        results.push(...await checkApiConfiguration());
+        spinner.start("Checking API configuration...");
+        const apiResults = await checkApiConfiguration();
+        results.push(...apiResults);
+        spinner.stop(`API: ${apiResults.filter(r => r.status === "pass").length}/${apiResults.length} OK`);
 
         // 4. Check model configuration
+        spinner.start("Checking model configuration...");
         results.push(checkModelConfiguration());
+        spinner.stop(formatCheckResult(results[results.length - 1]));
 
         // 5. Check MCP servers
-        results.push(...await checkMCPServers());
+        spinner.start("Checking MCP servers...");
+        const mcpResults = await checkMCPServers();
+        results.push(...mcpResults);
+        spinner.stop(`MCP: ${mcpResults.length} server(s) checked`);
 
         // 6. Check Z.AI MCP integration (if using Z.AI)
-        results.push(...await checkZAIMCPStatus());
+        spinner.start("Checking Z.AI integration...");
+        const zaiResults = await checkZAIMCPStatus();
+        results.push(...zaiResults);
+        if (zaiResults.length > 0) {
+          spinner.stop(`Z.AI: ${zaiResults.filter(r => r.status === "pass").length}/${zaiResults.length} OK`);
+        } else {
+          spinner.stop("Z.AI: Not applicable");
+        }
 
         // 7. Check dependencies
-        results.push(...await checkDependencies());
+        spinner.start("Checking dependencies...");
+        const depResults = await checkDependencies();
+        results.push(...depResults);
+        spinner.stop(`Dependencies: ${depResults.filter(r => r.status === "pass").length}/${depResults.length} OK`);
 
-        // Output results
-        if (options.json) {
-          console.log(JSON.stringify(results, null, 2));
-        } else {
-          displayResults(results, options.verbose);
-        }
+        // Display detailed results
+        displayResults(results, options.verbose);
 
         // Exit code based on results
         const hasFailures = results.some(r => r.status === "fail");
+        const hasWarnings = results.some(r => r.status === "warning");
+
+        if (hasFailures) {
+          prompts.outro(chalk.red("Some checks failed. Please address the issues above."));
+        } else if (hasWarnings) {
+          prompts.outro(chalk.yellow("Diagnostics complete with warnings."));
+        } else {
+          prompts.outro(chalk.green("All checks passed!"));
+        }
+
         process.exit(hasFailures ? 1 : 0);
 
       } catch (error: any) {
-        console.error(chalk.red("\n❌ Doctor command failed:"), extractErrorMessage(error));
+        prompts.log.error(`Doctor command failed: ${extractErrorMessage(error)}`);
         process.exit(1);
       }
     });
@@ -569,9 +619,6 @@ async function checkAutomatosXNativeModules(): Promise<CheckResult> {
  */
 function checkFileSystemPermissions(): CheckResult[] {
   const results: CheckResult[] = [];
-  const { accessSync, constants, mkdirSync } = require('fs');
-  const { homedir } = require('os');
-  const { join } = require('path');
 
   // Directories to check (deduplicated)
   const dirsToCheck = [
@@ -746,69 +793,63 @@ async function checkCommand(
 }
 
 /**
- * Display results in formatted output
+ * Format a single check result for spinner stop message
+ */
+function formatCheckResult(result: CheckResult): string {
+  const icon = result.status === "pass" ? "✓" : result.status === "warning" ? "⚠" : "✗";
+  const color = result.status === "pass" ? chalk.green : result.status === "warning" ? chalk.yellow : chalk.red;
+  return color(`${icon} ${result.name}: ${result.message}`);
+}
+
+/**
+ * Display results in formatted output using @clack/prompts
  */
 function displayResults(results: CheckResult[], verbose: boolean): void {
   let passCount = 0;
   let warnCount = 0;
   let failCount = 0;
 
-  console.log(chalk.bold("Diagnostic Results:\n"));
-
+  // Count results
   for (const result of results) {
-    let icon: string;
-    let color: (text: string) => string;
-
-    switch (result.status) {
-      case "pass":
-        icon = "✓";
-        color = chalk.green;
-        passCount++;
-        break;
-      case "warning":
-        icon = "⚠";
-        color = chalk.yellow;
-        warnCount++;
-        break;
-      case "fail":
-        icon = "✗";
-        color = chalk.red;
-        failCount++;
-        break;
-    }
-
-    console.log(color(`${icon} ${result.name}: ${result.message}`));
-
-    if (verbose && result.details) {
-      result.details.forEach(detail => {
-        console.log(chalk.dim(`    ${detail}`));
-      });
-    }
-
-    if (result.suggestion) {
-      console.log(chalk.cyan(`    💡 ${result.suggestion}`));
-    }
-
-    console.log();
+    if (result.status === "pass") passCount++;
+    else if (result.status === "warning") warnCount++;
+    else failCount++;
   }
 
-  // Summary
-  console.log(chalk.bold("\nSummary:"));
-  console.log(chalk.green(`  ✓ ${passCount} passed`));
-  if (warnCount > 0) {
-    console.log(chalk.yellow(`  ⚠ ${warnCount} warnings`));
-  }
-  if (failCount > 0) {
-    console.log(chalk.red(`  ✗ ${failCount} failed`));
-  }
+  // Build summary note
+  const summaryLines: string[] = [];
+  summaryLines.push(chalk.green(`✓ ${passCount} passed`));
+  if (warnCount > 0) summaryLines.push(chalk.yellow(`⚠ ${warnCount} warnings`));
+  if (failCount > 0) summaryLines.push(chalk.red(`✗ ${failCount} failed`));
 
-  console.log();
+  prompts.note(summaryLines.join("\n"), "Summary");
 
-  if (failCount === 0 && warnCount === 0) {
-    console.log(chalk.green.bold("✅ All checks passed! AX CLI is configured correctly.\n"));
-  } else if (failCount > 0) {
-    console.log(chalk.red.bold("❌ Some checks failed. Please address the issues above.\n"));
-  } else {
-    console.log(chalk.yellow.bold("⚠️  Some warnings detected. Review suggestions above.\n"));
+  // Show details for failures and warnings (always), or all if verbose
+  const detailResults = verbose
+    ? results
+    : results.filter(r => r.status !== "pass");
+
+  if (detailResults.length > 0) {
+    console.log(); // spacing
+
+    for (const result of detailResults) {
+      if (result.status === "pass") {
+        prompts.log.success(`${result.name}: ${result.message}`);
+      } else if (result.status === "warning") {
+        prompts.log.warn(`${result.name}: ${result.message}`);
+      } else {
+        prompts.log.error(`${result.name}: ${result.message}`);
+      }
+
+      if (result.details) {
+        result.details.forEach(detail => {
+          console.log(chalk.dim(`    ${detail}`));
+        });
+      }
+
+      if (result.suggestion) {
+        prompts.log.info(`  💡 ${result.suggestion}`);
+      }
+    }
   }
 }

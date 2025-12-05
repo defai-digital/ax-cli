@@ -158,6 +158,142 @@ Returns the agent's AI-generated response analyzing the task or question.`,
   requiresConfirmation: false,
 
   categories: ['agent-delegation'],
-  alternatives: [],
-  relatedTools: [],
+  alternatives: ['ax_agents_parallel'],
+  relatedTools: ['ax_agents_parallel'],
+};
+
+export const axAgentsParallelTool: ToolDefinition = {
+  name: 'ax_agents_parallel',
+  displayName: 'AX Agents Parallel',
+
+  description: `Execute MULTIPLE AutomatosX AI agents in TRUE PARALLEL for collaborative analysis.
+
+USE THIS when you need to invoke 2+ agents simultaneously:
+- All agents execute concurrently (not sequentially)
+- Significantly faster than calling ax_agent multiple times
+- Results are aggregated with timing information
+
+PREFERRED over multiple ax_agent calls when:
+- User requests multi-perspective review (e.g., "ask Tony, Bob, and Steve")
+- Need comprehensive analysis from multiple specialists
+- Want to minimize total execution time
+
+Available agents:
+- tony (CTO), bob (backend), avery (architect), stan (standards)
+- steve (security), felix (fullstack), frank (frontend), queenie (QA)
+- wendy (writer), oliver (devops), paris (product), maya (mobile)
+- dana (data science), daisy (data eng), debbee (design), eric (exec)
+- rodman (research), candy (marketing), quinn (quantum), astrid (aerospace)
+
+Returns aggregated results from all agents with execution timing.`,
+
+  parameters: {
+    type: 'object',
+    properties: {
+      agents: {
+        type: 'array',
+        description: 'Array of agent configurations to execute in parallel',
+        items: {
+          type: 'object',
+          properties: {
+            agent: {
+              type: 'string',
+              enum: [
+                'tony', 'bob', 'avery', 'stan', 'steve', 'felix', 'frank',
+                'queenie', 'wendy', 'oliver', 'paris', 'maya', 'dana',
+                'daisy', 'debbee', 'eric', 'rodman', 'candy', 'quinn', 'astrid',
+              ],
+              description: 'Agent name to invoke',
+            },
+            task: {
+              type: 'string',
+              description: 'Task or question for this specific agent',
+            },
+            format: {
+              type: 'string',
+              enum: ['text', 'markdown'],
+              description: 'Output format (default: markdown)',
+            },
+            save: {
+              type: 'string',
+              description: 'Optional file path to save this agent\'s output',
+            },
+          },
+          required: ['agent', 'task'],
+        },
+      },
+    },
+    required: ['agents'],
+  },
+
+  usageNotes: [
+    'Use for multi-agent reviews to maximize parallelism',
+    'All agents start simultaneously - total time ≈ slowest agent',
+    'Each agent can have a different task tailored to their expertise',
+    'Results include per-agent timing for performance analysis',
+    'Recommended combinations:',
+    '  - [steve, bob, stan]: Comprehensive code review',
+    '  - [avery, tony, eric]: Architecture & strategy review',
+    '  - [frank, debbee, queenie]: Frontend quality review',
+    '  - [dana, daisy, bob]: Data pipeline review',
+  ],
+
+  constraints: [
+    'Maximum 10 agents per call to prevent resource exhaustion',
+    'Each agent in the array must have valid agent name and task',
+    'All agents execute concurrently - ensure tasks are independent',
+  ],
+
+  antiPatterns: [
+    'Using for single agent (use ax_agent instead)',
+    'Duplicate agents in the same call',
+    'Tasks that depend on other agent outputs',
+  ],
+
+  examples: [
+    {
+      description: 'Multi-perspective code review',
+      scenario: 'Get security, backend, and standards review simultaneously',
+      input: {
+        agents: [
+          { agent: 'steve', task: 'Review for security vulnerabilities' },
+          { agent: 'bob', task: 'Review for backend best practices' },
+          { agent: 'stan', task: 'Review for code quality and SOLID principles' },
+        ],
+      },
+      expectedBehavior: 'All three agents run in parallel, results aggregated',
+    },
+    {
+      description: 'Architecture consultation',
+      scenario: 'Get multiple perspectives on system design',
+      input: {
+        agents: [
+          { agent: 'avery', task: 'Evaluate microservices architecture' },
+          { agent: 'tony', task: 'Assess strategic technology decisions' },
+          { agent: 'oliver', task: 'Review deployment and infrastructure needs' },
+        ],
+      },
+      expectedBehavior: 'Parallel execution with architecture, strategy, and DevOps perspectives',
+    },
+    {
+      description: 'Full-stack review',
+      scenario: 'Comprehensive frontend and backend review',
+      input: {
+        agents: [
+          { agent: 'frank', task: 'Review React components for best practices' },
+          { agent: 'bob', task: 'Review API endpoints for REST compliance' },
+          { agent: 'queenie', task: 'Suggest testing strategy for the feature' },
+        ],
+      },
+      expectedBehavior: 'Three-way parallel review covering full stack',
+    },
+  ],
+
+  tokenCost: 800,
+  safetyLevel: 'safe',
+  requiresConfirmation: false,
+
+  categories: ['agent-delegation'],
+  alternatives: ['ax_agent'],
+  relatedTools: ['ax_agent'],
 };

@@ -99,6 +99,7 @@ temp/
 # Coding agents - directories
 .claude/
 .codex/
+.codex-temp/
 .grok/
 .gemini/
 .specify/
@@ -108,12 +109,14 @@ temp/
 AGENTS.md
 AX.md
 CLAUDE.md
+CODEX.md
 GEMINI.md
 GROK.md
 SPECIFY.md
 agents.md
 ax.md
 claude.md
+codex.md
 gemini.md
 grok.md
 specify.md

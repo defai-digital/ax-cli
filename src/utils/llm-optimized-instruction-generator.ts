@@ -73,42 +73,29 @@ export class LLMOptimizedInstructionGenerator {
   }
 
   private generateCriticalRules(projectInfo: ProjectInfo): string {
+    const { conventions, primaryLanguage, scripts } = projectInfo;
     const rules: string[] = [];
 
-    // Rule 1: ESM imports (if applicable)
-    if (projectInfo.conventions.importExtension === '.js') {
+    // Build rules based on project configuration
+    if (conventions.importExtension === '.js') {
       rules.push('**ESM Imports:** Always use `.js` extension: `import { x } from \'./y.js\'`');
     }
-
-    // Rule 2: Validation (if applicable)
-    if (projectInfo.conventions.validation) {
-      rules.push(`**Validation:** Use ${projectInfo.conventions.validation} for all external inputs`);
+    if (conventions.validation) {
+      rules.push(`**Validation:** Use ${conventions.validation} for all external inputs`);
     }
-
-    // Rule 3: TypeScript types (if applicable)
-    if (projectInfo.primaryLanguage === 'TypeScript') {
+    if (primaryLanguage === 'TypeScript') {
       rules.push('**Types:** Explicit return types required on all functions');
     }
-
-    // Rule 4: Testing coverage
-    if (projectInfo.scripts.test) {
+    if (scripts.test) {
       rules.push('**Testing:** 80%+ coverage, test error paths');
     }
-
-    // Rule 5: Module system
-    if (projectInfo.conventions.moduleSystem === 'esm') {
+    if (conventions.moduleSystem === 'esm') {
       rules.push('**Modules:** Use `import/export` (not `require/module.exports`)');
     }
-
-    // Rule 6: File Organization
     rules.push('**File Organization:** Follow standardized output paths (see below)');
 
-    // Take only top N rules (increased to accommodate file organization)
     const topRules = rules.slice(0, Math.max(this.config.criticalRulesCount, 6));
-
-    if (topRules.length === 0) {
-      return '';
-    }
+    if (topRules.length === 0) return '';
 
     return `## 🎯 Critical Rules\n\n${topRules.map((rule, i) => `${i + 1}. ${rule}`).join('\n')}`;
   }
@@ -160,181 +147,157 @@ export class LLMOptimizedInstructionGenerator {
   }
 
   private generateCodePatterns(projectInfo: ProjectInfo): string {
-    let content = '## 🔧 Code Patterns';
+    const { primaryLanguage, conventions, projectType } = projectInfo;
+    const sections: string[] = ['## 🔧 Code Patterns'];
 
     // TypeScript patterns with DO/DON'T
-    if (projectInfo.primaryLanguage === 'TypeScript' && this.config.includeDODONT) {
-      content += '\n\n### TypeScript\n';
-      content += '\n✅ **DO:**\n';
-      content += '```typescript\n';
-      content += '// Explicit types\n';
-      content += 'function process(x: string): Promise<Result> { }\n';
-
-      if (projectInfo.conventions.importExtension === '.js') {
-        content += '\n// ESM imports with .js extension\n';
-        content += 'import { foo } from \'./bar.js\';\n';
-      }
-
-      content += '```\n';
-
-      content += '\n❌ **DON\'T:**\n';
-      content += '```typescript\n';
-      content += '// No any types\n';
-      content += 'function process(x: any) { }  // ❌\n';
-
-      if (projectInfo.conventions.importExtension === '.js') {
-        content += '\n// Missing .js extension\n';
-        content += 'import { foo } from \'./bar\';  // ❌\n';
-      }
-
-      content += '```';
+    if (primaryLanguage === 'TypeScript' && this.config.includeDODONT) {
+      const doCode = [
+        '// Explicit types',
+        'function process(x: string): Promise<Result> { }',
+        ...(conventions.importExtension === '.js' ? ['\n// ESM imports with .js extension', "import { foo } from './bar.js';"] : []),
+      ];
+      const dontCode = [
+        '// No any types',
+        'function process(x: any) { }  // ❌',
+        ...(conventions.importExtension === '.js' ? ['\n// Missing .js extension', "import { foo } from './bar';  // ❌"] : []),
+      ];
+      sections.push(
+        '### TypeScript\n',
+        '✅ **DO:**',
+        '```typescript',
+        doCode.join('\n'),
+        '```\n',
+        '❌ **DON\'T:**',
+        '```typescript',
+        dontCode.join('\n'),
+        '```'
+      );
     }
 
-    // Validation patterns (if applicable)
-    if (projectInfo.conventions.validation && this.config.includeDODONT) {
-      content += `\n\n### Validation (${projectInfo.conventions.validation})\n`;
-      content += '\n✅ **DO:**\n';
-      content += '```typescript\n';
-      content += `const result = schema.safeParse(data);\n`;
-      content += 'if (!result.success) {\n';
-      content += '  return { success: false, error: result.error };\n';
-      content += '}\n';
-      content += '```';
+    // Validation patterns
+    if (conventions.validation && this.config.includeDODONT) {
+      sections.push(
+        `### Validation (${conventions.validation})\n`,
+        '✅ **DO:**',
+        '```typescript',
+        'const result = schema.safeParse(data);',
+        'if (!result.success) {',
+        '  return { success: false, error: result.error };',
+        '}',
+        '```'
+      );
     }
 
-    // Project-specific patterns based on type
-    if (projectInfo.projectType === 'cli') {
-      content += '\n\n### CLI Commands\n';
-      content += 'Commands should:\n';
-      content += '- Accept options via flags (`-f, --flag <value>`)\n';
-      content += '- Validate input before execution\n';
-      content += '- Provide clear error messages\n';
-      content += '- Return exit codes (0 = success, 1+ = error)';
-    } else if (projectInfo.projectType === 'api') {
-      content += '\n\n### API Endpoints\n';
-      content += 'Endpoints should:\n';
-      content += '- Validate request body/params\n';
-      content += '- Use proper HTTP status codes\n';
-      content += '- Handle errors with consistent format\n';
-      content += '- Document with OpenAPI/Swagger';
-    } else if (projectInfo.projectType === 'library') {
-      content += '\n\n### Library API\n';
-      content += 'Public API should:\n';
-      content += '- Have clear, typed interfaces\n';
-      content += '- Validate all inputs\n';
-      content += '- Avoid breaking changes\n';
-      content += '- Document all exports';
+    // Project-specific patterns
+    const typePatterns: Record<string, { title: string; items: string[] }> = {
+      cli: {
+        title: '### CLI Commands\nCommands should:',
+        items: ['Accept options via flags (`-f, --flag <value>`)', 'Validate input before execution', 'Provide clear error messages', 'Return exit codes (0 = success, 1+ = error)'],
+      },
+      api: {
+        title: '### API Endpoints\nEndpoints should:',
+        items: ['Validate request body/params', 'Use proper HTTP status codes', 'Handle errors with consistent format', 'Document with OpenAPI/Swagger'],
+      },
+      library: {
+        title: '### Library API\nPublic API should:',
+        items: ['Have clear, typed interfaces', 'Validate all inputs', 'Avoid breaking changes', 'Document all exports'],
+      },
+    };
+
+    const pattern = typePatterns[projectType];
+    if (pattern) {
+      sections.push(`${pattern.title}\n${pattern.items.map(i => `- ${i}`).join('\n')}`);
     }
 
-    return content;
+    return sections.join('\n');
   }
 
   private generateWorkflow(projectInfo: ProjectInfo): string {
-    let workflow = '## 🔄 Workflow';
+    const { scripts, packageManager } = projectInfo;
+    const sections: string[] = [
+      '## 🔄 Workflow',
+      '**Before:**',
+      '- Read files to understand implementation',
+      '- Search for related patterns',
+      '- Review tests for expected behavior',
+      '',
+      '**Changes:**',
+      '- Edit existing files (never recreate)',
+      '- Keep changes focused and atomic',
+      '- Preserve code style',
+      '- Update tests when changing functionality',
+    ];
 
-    // Before (compressed, tool-agnostic)
-    workflow += '\n\n**Before:**\n';
-    workflow += '- Read files to understand implementation\n';
-    workflow += '- Search for related patterns\n';
-    workflow += '- Review tests for expected behavior';
-
-    // Changes (compressed)
-    workflow += '\n\n**Changes:**\n';
-    workflow += '- Edit existing files (never recreate)\n';
-    workflow += '- Keep changes focused and atomic\n';
-    workflow += '- Preserve code style\n';
-    workflow += '- Update tests when changing functionality';
-
-    // After (compressed with actual commands)
-    const afterSteps: string[] = [];
-    if (projectInfo.scripts.lint) {
-      afterSteps.push(`Lint: \`${projectInfo.scripts.lint}\``);
-    }
-    if (projectInfo.scripts.test) {
-      afterSteps.push(`Test: \`${projectInfo.scripts.test}\``);
-    }
-    if (projectInfo.scripts.build) {
-      afterSteps.push(`Build: \`${projectInfo.scripts.build}\``);
-    }
+    // After steps
+    const afterSteps = [
+      scripts.lint && `Lint: \`${scripts.lint}\``,
+      scripts.test && `Test: \`${scripts.test}\``,
+      scripts.build && `Build: \`${scripts.build}\``,
+    ].filter(Boolean) as string[];
 
     if (afterSteps.length > 0) {
-      workflow += '\n\n**After:**\n';
-      workflow += afterSteps.map((step, i) => `${i + 1}. ${step}`).join('\n');
+      sections.push('', '**After:**', ...afterSteps.map((step, i) => `${i + 1}. ${step}`));
     }
 
-    // Quick commands (compressed)
-    if (projectInfo.packageManager && Object.keys(projectInfo.scripts).length > 0) {
-      workflow += '\n\n**Quick Commands:**\n```bash\n';
-      const pm = projectInfo.packageManager;
-      const run = pm === 'npm' ? 'npm run' : pm;
-      const test = pm === 'npm' ? 'npm' : pm;
+    // Quick commands
+    if (packageManager && Object.keys(scripts).length > 0) {
+      const run = packageManager === 'npm' ? 'npm run' : packageManager;
+      const test = packageManager === 'npm' ? 'npm' : packageManager;
+      const cmds = [
+        scripts.dev && `${run} dev     # Development`,
+        scripts.test && `${test} test    # Run tests`,
+        scripts.build && `${run} build   # Production build`,
+      ].filter((cmd): cmd is string => Boolean(cmd));
 
-      if (projectInfo.scripts.dev) {
-        workflow += `${run} dev     # Development\n`;
+      if (cmds.length > 0) {
+        sections.push('', '**Quick Commands:**', '```bash', ...cmds, '```');
       }
-      if (projectInfo.scripts.test) {
-        workflow += `${test} test    # Run tests\n`;
-      }
-      if (projectInfo.scripts.build) {
-        workflow += `${run} build   # Production build\n`;
-      }
-      workflow += '```';
     }
 
-    return workflow;
+    return sections.join('\n');
   }
 
   private generateTroubleshooting(projectInfo: ProjectInfo): string {
-    let content = '## 🐛 Troubleshooting';
+    const { conventions, primaryLanguage } = projectInfo;
+    type Issue = { problem: string; solution: string; code?: string };
+    const issues: Issue[] = [];
 
-    const issues: Array<{problem: string; solution: string; code?: string}> = [];
-
-    // ESM import issues
-    if (projectInfo.conventions.importExtension === '.js') {
+    // Conditionally add issues based on project config
+    if (conventions.importExtension === '.js') {
       issues.push({
         problem: '"Module not found" errors',
         solution: 'Add `.js` extension to imports (ESM requirement)',
-        code: `// ✅ Correct\nimport { x } from './y.js';\n\n// ❌ Wrong\nimport { x } from './y';  // Missing .js`,
+        code: "// ✅ Correct\nimport { x } from './y.js';\n\n// ❌ Wrong\nimport { x } from './y';  // Missing .js",
       });
     }
-
-    // Validation errors
-    if (projectInfo.conventions.validation) {
+    if (conventions.validation) {
       issues.push({
-        problem: `${projectInfo.conventions.validation} validation errors`,
+        problem: `${conventions.validation} validation errors`,
         solution: 'Use `.safeParse()` for detailed error messages. Check schema matches data structure.',
       });
     }
-
-    // Test failures
-    if (projectInfo.conventions.testFramework) {
+    if (conventions.testFramework) {
       issues.push({
         problem: 'Tests fail locally but pass in CI',
-        solution: `Check Node version, clear node_modules, check environment-specific code`,
+        solution: 'Check Node version, clear node_modules, check environment-specific code',
       });
     }
-
-    // TypeScript errors
-    if (projectInfo.primaryLanguage === 'TypeScript') {
+    if (primaryLanguage === 'TypeScript') {
       issues.push({
         problem: 'TypeScript compilation errors',
         solution: 'Check `tsconfig.json` settings, ensure all types are imported, verify `moduleResolution`',
       });
     }
 
-    if (issues.length === 0) {
-      return '';
-    }
+    if (issues.length === 0) return '';
 
-    for (const issue of issues) {
-      content += `\n\n### ${issue.problem}\n`;
-      content += `**Solution:** ${issue.solution}`;
-      if (issue.code) {
-        content += `\n\`\`\`typescript\n${issue.code}\n\`\`\``;
-      }
+    const sections = ['## 🐛 Troubleshooting'];
+    for (const { problem, solution, code } of issues) {
+      sections.push(`### ${problem}`, `**Solution:** ${solution}`);
+      if (code) sections.push(`\`\`\`typescript\n${code}\n\`\`\``);
     }
-
-    return content;
+    return sections.join('\n\n');
   }
 
   /**
