@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 
 export class StatusBarManager {
   private statusBarItem: vscode.StatusBarItem;
+  private configChangeListener: vscode.Disposable;
 
   constructor() {
     this.statusBarItem = vscode.window.createStatusBarItem(
@@ -9,6 +10,14 @@ export class StatusBarManager {
       100
     );
     this.statusBarItem.command = 'ax-cli.selectModel';
+
+    // Listen for configuration changes to keep status bar in sync
+    this.configChangeListener = vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('ax-cli.model')) {
+        this.updateDisplay();
+      }
+    });
+
     this.updateDisplay();
   }
 
@@ -59,6 +68,7 @@ export class StatusBarManager {
   }
 
   dispose(): void {
+    this.configChangeListener.dispose();
     this.statusBarItem.dispose();
   }
 }
