@@ -169,8 +169,9 @@ export const themes: Record<ThemeName, Theme> = {
 
 /**
  * List of available theme names
+ * Derived from themes object to ensure consistency
  */
-export const themeNames: ThemeName[] = ['default', 'dark', 'light', 'dracula', 'monokai'];
+export const themeNames: ThemeName[] = Object.keys(themes) as ThemeName[];
 
 /**
  * Get a theme by name

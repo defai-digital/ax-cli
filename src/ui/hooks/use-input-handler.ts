@@ -1561,7 +1561,8 @@ Examples:
     // Theme command
     if (trimmedInput === "/theme" || trimmedInput.startsWith("/theme ")) {
       try {
-        const arg = trimmedInput.substring(7).trim();
+        // Convert to lowercase for case-insensitive theme name matching
+        const arg = trimmedInput.substring(7).trim().toLowerCase();
         const settings = getSettingsManager();
         const { getAllThemes, isValidTheme } = await import("../themes/index.js");
         const { clearThemeCache } = await import("../utils/colors.js");
