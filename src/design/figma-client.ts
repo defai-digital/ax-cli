@@ -55,31 +55,56 @@ interface CacheEntry<T> {
 
 /**
  * Simple rate limiter for Figma API (60 req/min for Professional)
+ *
+ * BUG FIX: Converted from recursive to iterative approach to prevent stack overflow
+ * when rate limit is hit repeatedly. Also handles edge cases like clock skew.
  */
 class RateLimiter {
   private requests: number[] = [];
   private readonly maxRequests: number;
   private readonly windowMs: number;
+  private readonly maxWaitIterations: number;
 
   constructor(maxRequests = 60, windowMs = 60000) {
     this.maxRequests = maxRequests;
     this.windowMs = windowMs;
+    // BUG FIX: Limit iterations to prevent infinite loops
+    this.maxWaitIterations = 100;
   }
 
   async waitForSlot(): Promise<void> {
-    const now = Date.now();
-    // Remove old requests
-    this.requests = this.requests.filter((t) => now - t < this.windowMs);
+    let iterations = 0;
 
-    if (this.requests.length >= this.maxRequests) {
+    // BUG FIX: Use iterative approach instead of recursion to prevent stack overflow
+    while (iterations < this.maxWaitIterations) {
+      iterations++;
+      const now = Date.now();
+
+      // Remove old requests outside the window
+      this.requests = this.requests.filter((t) => now - t < this.windowMs);
+
+      if (this.requests.length < this.maxRequests) {
+        // Slot available
+        this.requests.push(now);
+        return;
+      }
+
       // Wait until oldest request expires
       const oldestRequest = this.requests[0];
-      const waitTime = this.windowMs - (now - oldestRequest) + 100;
-      await new Promise((resolve) => setTimeout(resolve, waitTime));
-      return this.waitForSlot();
+      // BUG FIX: Handle edge case where oldest request is in the future (clock skew)
+      // or wait time would be negative
+      const waitTime = Math.max(0, this.windowMs - (now - oldestRequest)) + 100;
+
+      // BUG FIX: Cap wait time to prevent extremely long waits
+      const cappedWaitTime = Math.min(waitTime, this.windowMs);
+
+      await new Promise((resolve) => setTimeout(resolve, cappedWaitTime));
     }
 
-    this.requests.push(now);
+    // BUG FIX: If max iterations reached, proceed anyway to avoid deadlock
+    // This shouldn't happen in normal operation but prevents infinite loops
+    console.warn('RateLimiter: Max wait iterations reached, proceeding anyway');
+    this.requests.push(Date.now());
   }
 }
 

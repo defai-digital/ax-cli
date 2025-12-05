@@ -102,6 +102,11 @@ export class ToolOutputValidator {
    * MCP tool results return an array of content items.
    * This method validates the extracted content.
    *
+   * BUG FIX: Handles multiple text content items correctly by:
+   * 1. First trying direct concatenation (for chunked JSON from streaming)
+   * 2. If that fails, try parsing each item individually
+   * 3. If all items are valid JSON, validate as array of JSON objects
+   *
    * @param schema - JSON schema
    * @param content - MCP tool result content array
    * @returns Validation result
@@ -114,27 +119,59 @@ export class ToolOutputValidator {
       return { status: 'no-schema' };
     }
 
-    // Extract text content and try to parse as JSON
-    const textContent = content
+    // Extract text content items
+    const textItems = content
       .filter((item) => item.type === 'text' && item.text)
-      .map((item) => item.text)
-      .join('');
+      .map((item) => item.text as string);
 
-    if (!textContent) {
+    if (textItems.length === 0) {
       // No text content to validate
       return { status: 'valid', schema };
     }
 
-    // Try to parse as JSON
-    let parsedOutput: unknown;
-    try {
-      parsedOutput = JSON.parse(textContent);
-    } catch {
-      // Not JSON - validate as string if schema allows
-      parsedOutput = textContent;
+    // Single item - simple case
+    if (textItems.length === 1) {
+      let parsedOutput: unknown;
+      try {
+        parsedOutput = JSON.parse(textItems[0]);
+      } catch {
+        // Not JSON - validate as string if schema allows
+        parsedOutput = textItems[0];
+      }
+      return this.validate(schema, parsedOutput);
     }
 
-    return this.validate(schema, parsedOutput);
+    // Multiple text items - try direct concatenation first
+    // This handles streaming chunked JSON like {"com" + "plete":true}
+    const directConcat = textItems.join('');
+    try {
+      const parsedOutput = JSON.parse(directConcat);
+      return this.validate(schema, parsedOutput);
+    } catch {
+      // Direct concatenation didn't produce valid JSON
+    }
+
+    // BUG FIX: Try parsing each item individually
+    // If all parse successfully, validate as array of JSON objects
+    const parsedItems: unknown[] = [];
+    let allJson = true;
+
+    for (const text of textItems) {
+      try {
+        parsedItems.push(JSON.parse(text));
+      } catch {
+        allJson = false;
+        break;
+      }
+    }
+
+    if (allJson) {
+      // All items are valid JSON - validate as array (or single if only one)
+      return this.validate(schema, parsedItems.length === 1 ? parsedItems[0] : parsedItems);
+    }
+
+    // Not JSON - validate the concatenated text as string
+    return this.validate(schema, directConcat);
   }
 }
 

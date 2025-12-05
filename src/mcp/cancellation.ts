@@ -74,6 +74,8 @@ export class CancellationManager extends EventEmitter {
   private activeRequests = new Map<string | number, CancellableRequest>();
   private cancelledIds = new Set<string | number>();
   private sendNotification: SendCancellationNotification | null = null;
+  // BUG FIX: Track cleanup timers so they can be cleared on reset
+  private cleanupTimers = new Map<string | number, NodeJS.Timeout>();
 
   /**
    * Set the notification sender function
@@ -242,19 +244,40 @@ export class CancellationManager extends EventEmitter {
   cleanup(requestId: string | number): void {
     this.activeRequests.delete(requestId);
 
+    // BUG FIX: Clear any existing timer for this request to prevent duplicates
+    const existingTimer = this.cleanupTimers.get(requestId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      this.cleanupTimers.delete(requestId);
+    }
+
     // Keep cancelled IDs briefly to handle race conditions
-    setTimeout(() => {
+    // BUG FIX: Store timer reference so it can be cleared on reset
+    const timer = setTimeout(() => {
       this.cancelledIds.delete(requestId);
+      this.cleanupTimers.delete(requestId);
     }, 5000);
+
+    this.cleanupTimers.set(requestId, timer);
   }
 
   /**
    * Cleanup all tracking
+   *
+   * BUG FIX: Now also clears all pending cleanup timers to prevent memory leaks
    */
   cleanupAll(): void {
-    for (const requestId of this.activeRequests.keys()) {
-      this.cleanup(requestId);
+    // BUG FIX: Clear all pending timers first
+    for (const timer of this.cleanupTimers.values()) {
+      clearTimeout(timer);
     }
+    this.cleanupTimers.clear();
+
+    // Clear all active requests
+    this.activeRequests.clear();
+
+    // Clear cancelled IDs immediately since we're cleaning everything
+    this.cancelledIds.clear();
   }
 }
 
