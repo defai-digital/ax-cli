@@ -53,13 +53,15 @@ export function getThemeColors(): ThemeColors {
 
   // Return cached colors if theme hasn't changed
   if (cachedColors && cachedThemeName === currentTheme) {
-    return cachedColors;
+    // Return a shallow copy to prevent callers from mutating the cache
+    return { ...cachedColors };
   }
 
   // Update cache with a shallow copy to prevent mutation of original theme
   cachedThemeName = currentTheme;
   cachedColors = { ...getTheme(currentTheme).colors };
-  return cachedColors;
+  // Return a copy, not the cache itself, to prevent external mutation
+  return { ...cachedColors };
 }
 
 /**

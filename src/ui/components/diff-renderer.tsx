@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import { Colors } from '../utils/colors.js';
+import { getThemeColors } from '../utils/colors.js';
 import crypto from 'crypto';
 import { MaxSizedBox } from '../shared/max-sized-box.js';
 
@@ -102,9 +102,12 @@ export const DiffRenderer = ({
   availableTerminalHeight,
   terminalWidth = 80,
 }: DiffRendererProps): React.ReactElement => {
+  // Get theme colors for theme-aware rendering
+  const theme = getThemeColors();
+
   // BUG FIX: Also handle whitespace-only content
   if (!diffContent || typeof diffContent !== 'string' || !diffContent.trim()) {
-    return <Text color={Colors.AccentYellow}>No diff content.</Text>;
+    return <Text color={theme.warning}>No diff content.</Text>;
   }
 
   // Strip the first summary line (e.g. "Updated file.txt with 1 addition and 2 removals")
@@ -129,6 +132,7 @@ export const DiffRenderer = ({
     tabWidth,
     availableTerminalHeight,
     terminalWidth,
+    theme.muted,
   );
 
   return <>{renderedOutput}</>;
@@ -140,6 +144,7 @@ const renderDiffContent = (
   tabWidth = DEFAULT_TAB_WIDTH,
   availableTerminalHeight: number | undefined,
   terminalWidth: number,
+  mutedColor: string,
 ) => {
   // 1. Normalize whitespace (replace tabs with spaces) *before* further processing
   const normalizedLines = parsedLines.map((line) => ({
@@ -247,9 +252,9 @@ const renderDiffContent = (
 
         acc.push(
           <Box key={lineKey} flexDirection="row">
-            <Text color={Colors.Gray} dimColor={dim}>{gutterNumStr.padEnd(4)}</Text>
-            <Text color={backgroundColor ? Colors.Black : undefined} backgroundColor={backgroundColor} dimColor={!backgroundColor && dim}>{prefixSymbol} </Text>
-            <Text color={backgroundColor ? Colors.Black : undefined} backgroundColor={backgroundColor} dimColor={!backgroundColor && dim} wrap="wrap">
+            <Text color={mutedColor} dimColor={dim}>{gutterNumStr.padEnd(4)}</Text>
+            <Text color={backgroundColor ? 'black' : undefined} backgroundColor={backgroundColor} dimColor={!backgroundColor && dim}>{prefixSymbol} </Text>
+            <Text color={backgroundColor ? 'black' : undefined} backgroundColor={backgroundColor} dimColor={!backgroundColor && dim} wrap="wrap">
               {displayContent}
             </Text>
           </Box>,
