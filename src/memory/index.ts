@@ -95,3 +95,10 @@ export {
   resetDefaultCollector,
   type FormattedStats,
 } from './stats-collector.js';
+
+// Provider-Aware Context Store (Multi-Provider Support)
+export {
+  ProviderContextStore,
+  getProviderContextStore,
+  getAllProviderMemoryMetadata,
+} from './provider-context-store.js';

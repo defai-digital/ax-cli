@@ -30,7 +30,7 @@
  * **IMPORTANT**: Keep this in sync with package.json version!
  * TODO: Consider reading from package.json at build time
  */
-export const CLI_VERSION = '4.1.12';
+export const CLI_VERSION = '4.1.13';
 
 /**
  * SDK library version (semantic versioning for API stability)
@@ -53,8 +53,9 @@ export const CLI_VERSION = '4.1.12';
  * - 1.1.0: Progress reporting, unified logging
  * - 1.2.0: MCP v2 API, lifecycle hooks, tool registry
  * - 1.3.0: Z.AI MCP integration (web search, web reader, vision)
+ * - 1.4.0: Multi-provider support (ProviderContext, createGLMAgent, createGrokAgent, file locking)
  */
-export const SDK_VERSION = '1.3.0';
+export const SDK_VERSION = '1.4.0';
 
 /**
  * SDK API version (integer for major version tracking)

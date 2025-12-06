@@ -345,8 +345,8 @@ export class MockSettingsManager {
     return this.settings.baseURL;
   }
 
-  getCurrentModel(): string {
-    return this.settings.model || 'glm-4.6';
+  getCurrentModel(): string | undefined {
+    return this.settings.model;
   }
 
   updateUserSetting(key: string, value: unknown): void {
@@ -730,10 +730,14 @@ export async function waitForAgent(
       }
     }, timeout);
 
+    // Track if we've received any stream events
+    let hasReceivedStreamEvent = false;
+
     // BUG FIX: Listen for 'done' stream event instead of arbitrary delay
     // This properly waits for the agent to complete rather than using a fixed timeout
     if (agent && typeof agent.on === 'function') {
       streamListener = (chunk: any) => {
+        hasReceivedStreamEvent = true;
         if (chunk && chunk.type === 'done' && !resolved) {
           resolved = true;
           clearTimeout(timer);
@@ -757,15 +761,19 @@ export async function waitForAgent(
       agent.on('error', errorListener);
     }
 
-    // Fallback: resolve after a short delay if no stream events
-    // This handles agents that don't emit stream events
+    // BUG FIX: Fallback only applies when NO stream events received
+    // The previous 100ms fallback would race with real 'done' events, causing
+    // false positives where waitForAgent returns while agent is still processing.
+    // Now we only use fallback for agents that don't emit stream events at all.
     completionTimer = setTimeout(() => {
-      if (!resolved) {
+      if (!resolved && !hasReceivedStreamEvent) {
+        // No stream events received - agent doesn't use streaming
         resolved = true;
         clearTimeout(timer);
         cleanup();
         resolve();
       }
+      // If we received stream events but no 'done', let the main timeout handle it
     }, 100);
 
     // Allow process to exit if these are the only timers
@@ -776,19 +784,57 @@ export async function waitForAgent(
 
 /**
  * Create a mock tool result
+ *
+ * @param success - Whether the tool execution succeeded
+ * @param output - Output message (typically for success cases)
+ * @param error - Error message (typically for failure cases)
+ * @param data - Additional structured data from the tool
+ * @returns ToolResult matching the full interface
+ *
+ * @example
+ * ```typescript
+ * // Success result
+ * const result = createMockToolResult(true, 'File created');
+ *
+ * // Failure result
+ * const result = createMockToolResult(false, undefined, 'Permission denied');
+ *
+ * // With data
+ * const result = createMockToolResult(true, 'Found 5 files', undefined, { files: ['a.ts', 'b.ts'] });
+ * ```
  */
-export function createMockToolResult(success: boolean, output?: string, error?: string): ToolResult {
+export function createMockToolResult(
+  success: boolean,
+  output?: string,
+  error?: string,
+  data?: Record<string, unknown>
+): ToolResult {
   return {
     success,
     output,
-    error
+    error,
+    data
   };
 }
 
 /**
  * Assert tool result is successful
+ *
+ * Note: This only asserts `success: true`. The `output` field may still be undefined
+ * even for successful tool results (some tools don't produce output).
+ *
+ * @example
+ * ```typescript
+ * const result = await tool.execute();
+ * assertToolSuccess(result);
+ * // result.success is now true
+ * // result.output may still be undefined
+ * if (result.output) {
+ *   console.log(result.output);
+ * }
+ * ```
  */
-export function assertToolSuccess(result: ToolResult): asserts result is ToolResult & { success: true; output: string } {
+export function assertToolSuccess(result: ToolResult): asserts result is ToolResult & { success: true } {
   if (!result.success) {
     throw new Error(`Tool execution failed: ${result.error || 'Unknown error'}`);
   }
@@ -796,8 +842,20 @@ export function assertToolSuccess(result: ToolResult): asserts result is ToolRes
 
 /**
  * Assert tool result is a failure
+ *
+ * Note: This only asserts `success: false`. The `error` field may still be undefined
+ * even for failed tool results (some tools don't provide error messages).
+ *
+ * @example
+ * ```typescript
+ * const result = await tool.execute();
+ * assertToolFailure(result);
+ * // result.success is now false
+ * // result.error may still be undefined
+ * console.log(result.error ?? 'Unknown error');
+ * ```
  */
-export function assertToolFailure(result: ToolResult): asserts result is ToolResult & { success: false; error: string } {
+export function assertToolFailure(result: ToolResult): asserts result is ToolResult & { success: false } {
   if (result.success) {
     throw new Error('Expected tool to fail, but it succeeded');
   }

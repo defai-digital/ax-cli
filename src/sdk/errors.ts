@@ -32,6 +32,9 @@ export enum SDKErrorCode {
   /** Base URL is not configured in settings */
   BASE_URL_MISSING = 'SDK_BASE_URL_MISSING',
 
+  /** Model is not configured in settings */
+  MODEL_MISSING = 'SDK_MODEL_MISSING',
+
   /** Agent has been disposed and cannot be used */
   AGENT_DISPOSED = 'SDK_AGENT_DISPOSED',
 
