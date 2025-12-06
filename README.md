@@ -580,6 +580,22 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
+### v4.1.6 - Enhanced Setup Wizards
+
+- **GLM Setup Rework**: Dual-path setup supporting Z.AI Cloud and Local Server
+  - Z.AI Cloud path: API key → model selection → MCP integration
+  - Local Server path: Auto-detection of Ollama/LM Studio/vLLM/LocalAI → dynamic model fetching
+  - No API key required for local inference
+- **Grok Setup Enhancement**: 5-step wizard with advanced configuration
+  - Model selection grouped by family (Grok 3 with thinking vs Grok 2 standard)
+  - Feature badges (🧠 Thinking, 👁️ Vision, 🔍 Search) with context window info
+  - Extended thinking mode configuration (off/low/high reasoning_effort)
+  - Live web search toggle
+  - API key validation with format checking (xai- prefix)
+- **Unified ax-cli Setup**: Provider selection launches provider-specific setup flows
+  - Saves `selectedProvider` and `serverType` to config
+  - Auto-launches correct CLI (ax-glm or ax-grok) based on selection
+
 ### v4.1.5 - Suppress dotenv Output
 
 - **Fix**: Suppress dotenv v17+ output message (`[dotenv@17.x.x] injecting env...`)
