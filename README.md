@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <strong>GLM-Optimized CLI • Enterprise Architecture • 98%+ Test Coverage</strong>
+  <strong>Optimized for GLM & Grok • Enterprise Architecture • 98%+ Test Coverage</strong>
 </p>
 
 ---
@@ -63,7 +63,7 @@ ax-cli
 
 | Feature | Description |
 |---------|-------------|
-| **GLM-Optimized** | Primary support for Z.AI's GLM-4.6 (200K context) and GLM-4.5v (vision) |
+| **GLM + Grok Optimized** | First-class support for Z.AI GLM and xAI Grok models |
 | **Multi-Phase Planner** | Intelligent task decomposition for complex requests |
 | **Session Continuity** | Directory-specific conversation history with `--continue` |
 | **MCP Integration** | Model Context Protocol with 12+ production-ready templates |
@@ -73,8 +73,14 @@ ax-cli
 
 ### AI Provider Support
 
-- **Z.AI GLM-4.6** (default) - 200K context, optimized for complex code generation
-- **Z.AI GLM-4.5v** (vision) - 64K multimodal context, auto-switches for image analysis
+AX CLI is optimized for **GLM** and **Grok** as primary providers:
+
+| Provider | Models | Key Features |
+|----------|--------|--------------|
+| **Z.AI GLM** | GLM-4.6 (200K), GLM-4.5v (vision) | Thinking mode, vision, optimized for code |
+| **xAI Grok** | Grok-3, Grok-2-vision | Reasoning effort, live search, vision |
+
+Additional providers (community support):
 - **OpenAI** - GPT-4, GPT-3.5
 - **Anthropic** - Claude models
 - **Ollama** - Local models
@@ -579,6 +585,27 @@ Email: **security@defai.digital** (private disclosure)
 ---
 
 ## Changelog
+
+### v4.1.11 - Provider-Specific Branding
+
+- **Unique ASCII Logos**: Each CLI now displays its own distinctive ASCII art logo on startup
+  - ax-glm: GLM block letters with cyan/green color scheme
+  - ax-grok: GROK block letters with magenta/yellow color scheme
+- **Provider-Aware UI**: Welcome panel, keyboard hints, and status bar use provider-specific colors
+- **Visual Identity**: Clear differentiation between ax-glm and ax-grok interfaces
+
+### v4.1.10 - Grok API Parameter Fixes
+
+- **Thinking Mode**: Use `reasoning_effort` (low/high) for Grok-3 models instead of `thinking` parameter
+- **Web Search**: Enhanced `SearchParameters` with `return_citations`, `max_search_results`, `from_date`, `to_date`
+- **Vision**: Auto-switch to `grok-2-vision-latest` when using Grok with images
+- **Seed Parameter**: Grok uses `seed` for reproducibility; GLM uses `do_sample`
+
+### v4.1.9 - Provider Selection Setup Wizard
+
+- **New Setup Flow**: `ax-cli setup` now shows provider selection (GLM or Grok)
+- **Provider-Specific Wizards**: Each provider has its own optimized setup flow
+- **Config Directories**: Provider-specific config paths (~/.ax-glm, ~/.ax-grok)
 
 ### v4.1.7 - Fix workspace:* dependency resolution
 
