@@ -350,7 +350,15 @@ export class LLMAgent extends EventEmitter {
 
     // Auto-switch to vision model if messages contain images
     if (!result.model && this.hasMultimodalContent()) {
-      result.model = 'glm-4.5v';
+      // Detect provider from current model
+      const currentModel = this.llmClient.getCurrentModel().toLowerCase();
+      if (currentModel.includes('grok')) {
+        // For Grok, use grok-2-vision
+        result.model = 'grok-2-vision-latest';
+      } else {
+        // For GLM, use glm-4.5v
+        result.model = 'glm-4.5v';
+      }
     }
 
     return result;

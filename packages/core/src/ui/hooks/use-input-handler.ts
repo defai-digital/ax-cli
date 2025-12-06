@@ -2300,7 +2300,7 @@ Respond with ONLY the commit message, no additional text.`;
 
         const infoEntry: ChatEntry = {
           type: "assistant",
-          content: `📷 Processing ${imageResult.images.length} image(s):\n${imageInfo}\n\n*Using glm-4.5v for vision analysis*`,
+          content: `📷 Processing ${imageResult.images.length} image(s):\n${imageInfo}\n\n*Auto-switching to vision model for analysis*`,
           timestamp: new Date(),
         };
         setChatHistory((prev) => [...prev, infoEntry]);
