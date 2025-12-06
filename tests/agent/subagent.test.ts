@@ -6,14 +6,20 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Subagent } from '../../src/agent/subagent.js';
 import { SubagentRole, SubagentTask, SubagentState } from '../../src/agent/subagent-types.js';
 
+// Mock settings manager for CI environments
+vi.mock('../../src/utils/settings-manager.js', () => ({
+  getSettingsManager: vi.fn(() => ({
+    getApiKey: vi.fn(() => 'test-api-key'),
+    getCurrentModel: vi.fn(() => 'glm-4.6'),
+    getBaseURL: vi.fn(() => 'https://api.test.com/v1'),
+  })),
+}));
+
 describe('Subagent', () => {
   let subagent: Subagent;
 
   beforeEach(() => {
-    // Mock environment variables for testing
-    process.env.GROK_API_KEY = 'test-api-key';
-    process.env.GROK_MODEL = 'glm-4.6';
-    process.env.AI_BASE_URL = 'http://localhost:11434/v1';
+    vi.clearAllMocks();
   });
 
   afterEach(() => {

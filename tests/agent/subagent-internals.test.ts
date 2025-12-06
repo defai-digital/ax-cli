@@ -12,6 +12,15 @@ import { SubagentRole, SubagentState } from '../../src/agent/subagent-types.js';
 import type { SubagentTask, SubagentConfig } from '../../src/agent/subagent-types.js';
 import type { LLMMessage, LLMTool } from '../../src/llm/client.js';
 
+// Mock settings manager for CI environments
+vi.mock('../../src/utils/settings-manager.js', () => ({
+  getSettingsManager: vi.fn(() => ({
+    getApiKey: vi.fn(() => 'test-api-key'),
+    getCurrentModel: vi.fn(() => 'glm-4.6'),
+    getBaseURL: vi.fn(() => 'https://api.test.com/v1'),
+  })),
+}));
+
 // Create a testable subclass that exposes protected members
 class TestableSubagent extends Subagent {
   // Expose protected members for testing
