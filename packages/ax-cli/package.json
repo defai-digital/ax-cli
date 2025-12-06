@@ -1,6 +1,6 @@
 {
   "name": "@ax-cli/cli",
-  "version": "4.1.9",
+  "version": "4.1.14",
   "description": "Meta CLI for ax-cli - helps users choose and install ax-glm or ax-grok",
   "type": "module",
   "main": "./dist/index.js",
