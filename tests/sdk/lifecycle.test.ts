@@ -7,19 +7,45 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createAgent, removeCleanupHandlers, type AgentOptions } from '../../src/sdk/index.js';
 import { LLMAgent } from '../../src/agent/llm-agent.js';
-import { getSettingsManager } from '../../src/utils/settings-manager.js';
 
-// Mock settings manager to avoid needing actual credentials
-vi.mock('../../src/utils/settings-manager.js', () => {
+// Mock provider settings manager to avoid needing actual credentials
+vi.mock('../../src/utils/provider-settings.js', () => {
+  const mockSettingsManager = {
+    loadUserSettings: vi.fn(),
+    getApiKey: vi.fn(() => 'test-api-key'),
+    getCurrentModel: vi.fn(() => 'glm-4.6'),
+    getBaseURL: vi.fn(() => 'http://localhost:11434/v1'),
+  };
+
   return {
-    getSettingsManager: vi.fn(() => ({
-      loadUserSettings: vi.fn(),
-      getApiKey: vi.fn(() => 'test-api-key'),
-      getCurrentModel: vi.fn(() => 'glm-4.6'),
-      getBaseURL: vi.fn(() => 'http://localhost:11434/v1'),
-    })),
+    ProviderSettingsManager: {
+      forContext: vi.fn(() => mockSettingsManager),
+      forProvider: vi.fn(() => mockSettingsManager),
+    },
   };
 });
+
+// Mock provider context detection
+vi.mock('../../src/utils/provider-context.js', () => ({
+  ProviderContext: class {
+    static detect = vi.fn(() => ({
+      provider: 'generic',
+      userDir: '/tmp/.ax-cli',
+      projectDir: undefined,
+    }));
+    static create = vi.fn(() => ({
+      provider: 'generic',
+      userDir: '/tmp/.ax-cli',
+      projectDir: undefined,
+    }));
+  },
+  detectProvider: vi.fn(() => 'generic'),
+  PROVIDER_CONFIGS: {
+    generic: { cliName: 'ax-cli', configDir: '.ax-cli', displayName: 'AX CLI' },
+    glm: { cliName: 'ax-glm', configDir: '.ax-glm', displayName: 'GLM' },
+    grok: { cliName: 'ax-grok', configDir: '.ax-grok', displayName: 'Grok' },
+  },
+}));
 
 // Mock LLMAgent to avoid actual API calls
 vi.mock('../../src/agent/llm-agent.js', () => {
