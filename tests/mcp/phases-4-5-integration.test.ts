@@ -171,15 +171,14 @@ describe('MCP Phases 4 & 5 - Integration Tests', () => {
         installCommand: 'See repository',
         verified: false,
         author: 'user'
-        // No homepage - will use server.name fallback
+        // No homepage - cannot auto-generate valid config
       };
 
       const config = generateConfigFromRegistry(server);
 
-      expect(config.name).toBe('api-server');
-      expect(config.transport.type).toBe('http');
-      // Implementation falls back to https://${server.name}.com
-      expect(config.transport.url).toBe('https://api-server.com');
+      // Without a valid homepage URL, we can't auto-generate a config
+      // The function returns null to prevent guessing URLs which could be dangerous
+      expect(config).toBeNull();
     });
   });
 
@@ -448,15 +447,14 @@ describe('MCP Phases 4 & 5 - Integration Tests', () => {
         installCommand: 'npm install minimal',
         verified: false,
         author: 'test'
-        // No packageName - will result in minimal config
+        // No packageName - cannot auto-generate valid stdio config
       };
 
       const config = generateConfigFromRegistry(minimalServer);
 
-      expect(config.name).toBe('minimal');
-      expect(config.transport.type).toBe('stdio');
-      // Without packageName, the transport stays as basic type only
-      // The actual command/args would need to be configured manually
+      // Without packageName, we can't auto-generate a valid stdio config
+      // The function returns null to prevent generating incomplete configs
+      expect(config).toBeNull();
     });
 
     it('should validate complex URI patterns in references', () => {

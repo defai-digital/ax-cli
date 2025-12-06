@@ -344,9 +344,9 @@ const FigmaBaseNodeSchemaObj = z.object({
   type: FigmaNodeTypeSchema.or(z.string()), // Allow unknown types
   visible: z.boolean().optional().default(true),
   locked: z.boolean().optional().default(false),
-  pluginData: z.record(z.unknown()).optional(),
-  sharedPluginData: z.record(z.record(z.unknown())).optional(),
-  componentPropertyReferences: z.record(z.string()).optional(),
+  pluginData: z.record(z.string(), z.unknown()).optional(),
+  sharedPluginData: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
+  componentPropertyReferences: z.record(z.string(), z.string()).optional(),
 });
 
 /**
@@ -386,11 +386,11 @@ export const FigmaNodeSchema: z.ZodType<FigmaNode> = FigmaBaseNodeSchemaObj
     characters: z.string().optional(),
     style: FigmaTextStyleSchema.optional(),
     characterStyleOverrides: z.array(z.number()).optional(),
-    styleOverrideTable: z.record(FigmaTextStyleSchema).optional(),
+    styleOverrideTable: z.record(z.string(), FigmaTextStyleSchema).optional(),
     // Component-specific
-    componentPropertyDefinitions: z.record(FigmaComponentPropertyDefinitionSchema).optional(),
+    componentPropertyDefinitions: z.record(z.string(), FigmaComponentPropertyDefinitionSchema).optional(),
     componentId: z.string().optional(),
-    componentProperties: z.record(z.object({
+    componentProperties: z.record(z.string(), z.object({
       value: z.union([z.string(), z.boolean()]),
       type: z.string(),
     })).optional(),
@@ -438,9 +438,9 @@ export const FigmaFileResponseSchema = z.object({
   role: z.enum(['owner', 'editor', 'viewer']).optional(),
   editorType: z.enum(['figma', 'figjam']).optional(),
   document: FigmaNodeSchema,
-  components: z.record(FigmaComponentMetaSchema).optional(),
-  componentSets: z.record(FigmaComponentMetaSchema).optional(),
-  styles: z.record(FigmaStyleMetaSchema).optional(),
+  components: z.record(z.string(), FigmaComponentMetaSchema).optional(),
+  componentSets: z.record(z.string(), FigmaComponentMetaSchema).optional(),
+  styles: z.record(z.string(), FigmaStyleMetaSchema).optional(),
   schemaVersion: z.number().optional(),
   mainFileKey: z.string().optional(),
 });
@@ -454,10 +454,10 @@ export const FigmaNodesResponseSchema = z.object({
   lastModified: z.string(),
   thumbnailUrl: z.string().optional(),
   version: z.string(),
-  nodes: z.record(z.object({
+  nodes: z.record(z.string(), z.object({
     document: FigmaNodeSchema,
-    components: z.record(FigmaComponentMetaSchema).optional(),
-    styles: z.record(FigmaStyleMetaSchema).optional(),
+    components: z.record(z.string(), FigmaComponentMetaSchema).optional(),
+    styles: z.record(z.string(), FigmaStyleMetaSchema).optional(),
   })),
 });
 export type FigmaNodesResponse = z.infer<typeof FigmaNodesResponseSchema>;
@@ -530,8 +530,8 @@ export const FigmaVariableSchema = z.object({
     'PARAGRAPH_SPACING',
     'PARAGRAPH_INDENT',
   ])).optional(),
-  codeSyntax: z.record(z.string()).optional(),
-  valuesByMode: z.record(z.unknown()),
+  codeSyntax: z.record(z.string(), z.string()).optional(),
+  valuesByMode: z.record(z.string(), z.unknown()),
 });
 export type FigmaVariable = z.infer<typeof FigmaVariableSchema>;
 
@@ -560,8 +560,8 @@ export const FigmaVariablesResponseSchema = z.object({
   status: z.number().optional(),
   error: z.boolean().optional(),
   meta: z.object({
-    variables: z.record(FigmaVariableSchema),
-    variableCollections: z.record(FigmaVariableCollectionSchema),
+    variables: z.record(z.string(), FigmaVariableSchema),
+    variableCollections: z.record(z.string(), FigmaVariableCollectionSchema),
   }),
 });
 export type FigmaVariablesResponse = z.infer<typeof FigmaVariablesResponseSchema>;
@@ -575,7 +575,7 @@ export type FigmaVariablesResponse = z.infer<typeof FigmaVariablesResponseSchema
  */
 export const FigmaImagesResponseSchema = z.object({
   err: z.string().nullable().optional(),
-  images: z.record(z.string().nullable()),
+  images: z.record(z.string(), z.string().nullable()),
 });
 export type FigmaImagesResponse = z.infer<typeof FigmaImagesResponseSchema>;
 

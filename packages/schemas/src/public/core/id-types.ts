@@ -10,7 +10,7 @@
  */
 
 import { z } from 'zod';
-import { createBrandFactory, brand, type Brand } from './brand-types.js';
+import { createBrandFactory, type Brand } from './brand-types.js';
 
 /**
  * API Response ID - Unique identifier for API responses
@@ -45,9 +45,9 @@ export type ToolCallId = Brand<string, 'ToolCallId'>;
 
 /**
  * ToolCallIdSchema - Zod schema for ToolCallId that can be used in z.object()
- * This transforms strings to branded ToolCallId types
+ * In Zod 4, we use a plain string schema for object properties
  */
-export const ToolCallIdSchema = z.string().min(1).transform((val) => brand<string, 'ToolCallId'>(val));
+export const ToolCallIdSchema = z.string().min(1);
 
 /**
  * Model ID - Identifier for AI models
@@ -67,9 +67,9 @@ export type ModelId = Brand<string, 'ModelId'>;
 
 /**
  * ModelIdSchema - Zod schema for ModelId that can be used in z.object()
- * This transforms strings to branded ModelId types
+ * In Zod 4, we use a plain string schema for object properties
  */
-export const ModelIdSchema = z.string().min(1).transform((val) => brand<string, 'ModelId'>(val));
+export const ModelIdSchema = z.string().min(1);
 
 /**
  * Tenant ID - Unique identifier for tenants (multi-tenancy support)
@@ -110,9 +110,9 @@ export type MCPServerId = Brand<string, 'MCPServerId'>;
 
 /**
  * MCPServerIdSchema - Zod schema for MCPServerId that can be used in z.object()
- * This transforms strings to branded MCPServerId types
+ * In Zod 4, we use a plain string schema for object properties
  */
-export const MCPServerIdSchema = z.string().min(1).transform((val) => brand<string, 'MCPServerId'>(val));
+export const MCPServerIdSchema = z.string().min(1);
 
 /**
  * Usage Record ID - Unique identifier for usage tracking records

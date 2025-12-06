@@ -95,9 +95,9 @@ export function safeValidateProjectMemory(
     return { success: true, data: result.data };
   }
 
-  // Format error message
-  const errors = result.error.errors
-    .map((e) => `${e.path.join('.')}: ${e.message}`)
+  // Format error message (Zod 4 uses .issues instead of .errors)
+  const errors = result.error.issues
+    .map((e) => `${String(e.path.join('.'))}: ${e.message}`)
     .join('; ');
 
   return { success: false, error: errors };
@@ -115,8 +115,8 @@ export function safeValidateCacheStats(
     return { success: true, data: result.data };
   }
 
-  const errors = result.error.errors
-    .map((e) => `${e.path.join('.')}: ${e.message}`)
+  const errors = result.error.issues
+    .map((e) => `${String(e.path.join('.'))}: ${e.message}`)
     .join('; ');
 
   return { success: false, error: errors };
@@ -134,8 +134,8 @@ export function safeValidateSourceConfig(
     return { success: true, data: result.data };
   }
 
-  const errors = result.error.errors
-    .map((e) => `${e.path.join('.')}: ${e.message}`)
+  const errors = result.error.issues
+    .map((e) => `${String(e.path.join('.'))}: ${e.message}`)
     .join('; ');
 
   return { success: false, error: errors };

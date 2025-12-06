@@ -47,7 +47,7 @@ export const BaseTokenSchema = z.object({
   value: z.unknown(),
   type: TokenTypeSchema,
   description: z.string().optional(),
-  extensions: z.record(z.unknown()).optional(),
+  extensions: z.record(z.string(), z.unknown()).optional(),
 });
 
 /**
@@ -229,7 +229,7 @@ export interface TokenGroup {
 }
 
 export const TokenGroupSchema: z.ZodType<TokenGroup> = z.lazy(() =>
-  z.record(z.union([DesignTokenSchema, TokenGroupSchema]))
+  z.record(z.string(), z.union([DesignTokenSchema, TokenGroupSchema]))
 );
 
 /**
@@ -286,21 +286,21 @@ export type TokenExtractionOptions = z.infer<typeof TokenExtractionOptionsSchema
  * Tailwind theme configuration (partial)
  */
 export const TailwindThemeSchema = z.object({
-  colors: z.record(z.union([z.string(), z.record(z.string())])).optional(),
-  spacing: z.record(z.string()).optional(),
-  fontSize: z.record(z.union([
+  colors: z.record(z.string(), z.union([z.string(), z.record(z.string(), z.string())])).optional(),
+  spacing: z.record(z.string(), z.string()).optional(),
+  fontSize: z.record(z.string(), z.union([
     z.string(),
     z.tuple([z.string(), z.object({ lineHeight: z.string().optional(), letterSpacing: z.string().optional() })]),
   ])).optional(),
-  fontFamily: z.record(z.array(z.string())).optional(),
-  fontWeight: z.record(z.union([z.string(), z.number()])).optional(),
-  lineHeight: z.record(z.string()).optional(),
-  letterSpacing: z.record(z.string()).optional(),
-  borderRadius: z.record(z.string()).optional(),
-  borderWidth: z.record(z.string()).optional(),
-  boxShadow: z.record(z.string()).optional(),
-  opacity: z.record(z.string()).optional(),
-  zIndex: z.record(z.union([z.string(), z.number()])).optional(),
+  fontFamily: z.record(z.string(), z.array(z.string())).optional(),
+  fontWeight: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
+  lineHeight: z.record(z.string(), z.string()).optional(),
+  letterSpacing: z.record(z.string(), z.string()).optional(),
+  borderRadius: z.record(z.string(), z.string()).optional(),
+  borderWidth: z.record(z.string(), z.string()).optional(),
+  boxShadow: z.record(z.string(), z.string()).optional(),
+  opacity: z.record(z.string(), z.string()).optional(),
+  zIndex: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
 });
 export type TailwindTheme = z.infer<typeof TailwindThemeSchema>;
 

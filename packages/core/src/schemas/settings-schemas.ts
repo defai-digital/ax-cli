@@ -296,7 +296,7 @@ export const ProjectSettingsSchema: z.ZodType<any> = z.object({
   customInstructions: z.string().optional(),
   excludePatterns: z.array(z.string()).optional(),
   includePatterns: z.array(z.string()).optional(),
-  mcpServers: z.record(z.any()).optional(), // MCP server configurations
+  mcpServers: z.record(z.string(), z.any()).optional(), // MCP server configurations
   // Project-level sampling settings (overrides user settings)
   sampling: SamplingSettingsSchema,
   // Project-level thinking settings (overrides user settings)
@@ -319,9 +319,9 @@ export const MCPTransportConfigSchema = z.object({
   type: z.enum(['stdio', 'http', 'sse', 'streamable_http']),
   command: z.string().optional(),
   args: z.array(z.string()).optional(),
-  env: z.record(z.string()).optional(),
+  env: z.record(z.string(), z.string()).optional(),
   url: z.string().url().optional(),
-  headers: z.record(z.string()).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
   // Framing protocol for stdio transport (default: 'content-length')
   // - 'ndjson': Newline-delimited JSON (MCP SDK default, used by most MCP servers)
   // - 'content-length': Content-Length header framing (LSP-style, used by AutomatosX)
@@ -333,7 +333,7 @@ export const MCPServerConfigSchema: z.ZodType<any> = z.object({
   transport: MCPTransportConfigSchema,
   command: z.string().optional(), // Legacy support
   args: z.array(z.string()).optional(), // Legacy support
-  env: z.record(z.string()).optional(), // Legacy support
+  env: z.record(z.string(), z.string()).optional(), // Legacy support
   // Timeout configuration for long-running MCP tools (e.g., AutomatosX agents)
   // Default: 60000ms (60 seconds) - matches MCP SDK default
   // For long-running tasks, set higher values (e.g., 2700000 for 45 minutes)

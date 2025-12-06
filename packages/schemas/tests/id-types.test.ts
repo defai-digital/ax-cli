@@ -128,7 +128,7 @@ describe('ID Brand Types', () => {
   });
 
   describe('TenantId', () => {
-    const validUuid = '660f9511-f3ac-52e5-b827-557766551111';
+    const validUuid = '660f9511-f3ac-42e5-8827-557766551111';
 
     it('should validate and brand valid UUID', () => {
       const result = TenantId.schema.safeParse(validUuid);
@@ -156,7 +156,7 @@ describe('ID Brand Types', () => {
   });
 
   describe('ApiKeyId', () => {
-    const validUuid = '770fa622-04bd-63f6-c938-668877662222';
+    const validUuid = '770fa622-04bd-43f6-9938-668877662222';
 
     it('should validate and brand valid UUID', () => {
       const result = ApiKeyId.schema.safeParse(validUuid);
@@ -211,7 +211,7 @@ describe('ID Brand Types', () => {
   });
 
   describe('UsageRecordId', () => {
-    const validUuid = '880fb733-15ce-74e7-d049-779988773333';
+    const validUuid = '880fb733-15ce-44e7-a049-779988773333';
 
     it('should validate and brand valid UUID', () => {
       const result = UsageRecordId.schema.safeParse(validUuid);
@@ -266,7 +266,7 @@ describe('ID Brand Types', () => {
   });
 
   describe('SessionId', () => {
-    const validUuid = '990fc844-26df-85e8-e15a-88aa99884444';
+    const validUuid = '990fc844-26df-45e8-b15a-88aa99884444';
 
     it('should validate and brand valid UUID', () => {
       const result = SessionId.schema.safeParse(validUuid);
@@ -294,7 +294,7 @@ describe('ID Brand Types', () => {
   });
 
   describe('RequestId', () => {
-    const validUuid = 'aa0fd955-37ef-96e9-f26b-99bb00995555';
+    const validUuid = 'aa0fd955-37ef-46e9-926b-99bb00995555';
 
     it('should validate and brand valid UUID', () => {
       const result = RequestId.schema.safeParse(validUuid);
@@ -344,7 +344,7 @@ describe('ID Brand Types', () => {
       }
 
       const tenant = TenantId.parse('550e8400-e29b-41d4-a716-446655440000');
-      const apiKey = ApiKeyId.parse('660f9511-f3ac-52e5-b827-557766551111');
+      const apiKey = ApiKeyId.parse('660f9511-f3ac-42e5-8827-557766551111');
 
       // Correct usage
       const result = authenticateUser(tenant, apiKey);
@@ -363,7 +363,7 @@ describe('ID Brand Types', () => {
       }
 
       const tenant = TenantId.parse('550e8400-e29b-41d4-a716-446655440000');
-      const record = UsageRecordId.parse('660f9511-f3ac-52e5-b827-557766551111');
+      const record = UsageRecordId.parse('660f9511-f3ac-42e5-8827-557766551111');
 
       // Correct usage
       trackUsage(tenant, record);
@@ -377,9 +377,9 @@ describe('ID Brand Types', () => {
   describe('Integration Tests', () => {
     it('should work in multi-tenant usage tracking scenario', () => {
       const tenantId = TenantId.parse('550e8400-e29b-41d4-a716-446655440000');
-      const apiKeyId = ApiKeyId.parse('660f9511-f3ac-52e5-b827-557766551111');
-      const usageRecordId = UsageRecordId.parse('770fa622-04bd-63f6-c938-668877662222');
-      const sessionId = SessionId.parse('880fb733-15ce-74e7-d049-779988773333');
+      const apiKeyId = ApiKeyId.parse('660f9511-f3ac-42e5-8827-557766551111');
+      const usageRecordId = UsageRecordId.parse('770fa622-04bd-43f6-9938-668877662222');
+      const sessionId = SessionId.parse('880fb733-15ce-44e7-a049-779988773333');
 
       function recordApiUsage(
         tenant: TenantIdType,
@@ -397,7 +397,7 @@ describe('ID Brand Types', () => {
 
       const result = recordApiUsage(tenantId, apiKeyId, sessionId, usageRecordId);
       expect(result.tenant).toBe('550e8400-e29b-41d4-a716-446655440000');
-      expect(result.session).toBe('880fb733-15ce-74e7-d049-779988773333');
+      expect(result.session).toBe('880fb733-15ce-44e7-a049-779988773333');
     });
 
     it('should work in MCP server configuration scenario', () => {
@@ -418,7 +418,7 @@ describe('ID Brand Types', () => {
     it('should work in API response tracking scenario', () => {
       const responseId = ApiResponseId.parse('550e8400-e29b-41d4-a716-446655440000');
       const toolCallId = ToolCallId.parse('tool-call-123');
-      const requestId = RequestId.parse('660f9511-f3ac-52e5-b827-557766551111');
+      const requestId = RequestId.parse('660f9511-f3ac-42e5-8827-557766551111');
 
       function trackApiResponse(
         response: ApiResponseIdType,
@@ -431,7 +431,7 @@ describe('ID Brand Types', () => {
       const result = trackApiResponse(responseId, toolCallId, requestId);
       expect(result.response).toBe('550e8400-e29b-41d4-a716-446655440000');
       expect(result.tool).toBe('tool-call-123');
-      expect(result.request).toBe('660f9511-f3ac-52e5-b827-557766551111');
+      expect(result.request).toBe('660f9511-f3ac-42e5-8827-557766551111');
     });
   });
 

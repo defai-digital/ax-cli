@@ -96,8 +96,9 @@ export function safeValidateProjectMemory(
   }
 
   // Format error message
-  const errors = result.error.errors
-    .map((e) => `${e.path.join('.')}: ${e.message}`)
+  // Zod v4: .errors renamed to .issues
+  const errors = result.error.issues
+    .map((e) => `${String(e.path.join('.'))}: ${e.message}`)
     .join('; ');
 
   return { success: false, error: errors };
@@ -115,8 +116,9 @@ export function safeValidateCacheStats(
     return { success: true, data: result.data };
   }
 
-  const errors = result.error.errors
-    .map((e) => `${e.path.join('.')}: ${e.message}`)
+  // Zod v4: .errors renamed to .issues
+  const errors = result.error.issues
+    .map((e) => `${String(e.path.join('.'))}: ${e.message}`)
     .join('; ');
 
   return { success: false, error: errors };
@@ -134,8 +136,9 @@ export function safeValidateSourceConfig(
     return { success: true, data: result.data };
   }
 
-  const errors = result.error.errors
-    .map((e) => `${e.path.join('.')}: ${e.message}`)
+  // Zod v4: .errors renamed to .issues
+  const errors = result.error.issues
+    .map((e) => `${String(e.path.join('.'))}: ${e.message}`)
     .join('; ');
 
   return { success: false, error: errors };

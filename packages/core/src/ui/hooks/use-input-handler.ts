@@ -738,7 +738,7 @@ export function useInputHandler({
     if (trimmedInput === "/retry") {
       // Find the last user message index and re-send it
       // Use findLastIndex instead of reverse().find() + lastIndexOf() to avoid object reference issues
-      const lastUserIndex = chatHistory.findLastIndex(entry => entry.type === "user");
+      const lastUserIndex = chatHistory.findLastIndex((entry: { type: string }) => entry.type === "user");
       if (lastUserIndex >= 0 && chatHistory[lastUserIndex]?.content) {
         // Store the message content and history state before clearing
         const messageToRetry = chatHistory[lastUserIndex].content;

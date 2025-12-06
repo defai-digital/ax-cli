@@ -362,8 +362,9 @@ const AgentOptionsSchema = z.object({
   maxToolRounds: z.number().int().min(1).max(1000).optional(),
   debug: z.boolean().optional(),
   autoCleanup: z.boolean().optional(),
-  onDispose: z.function().args().returns(z.union([z.void(), z.promise(z.void())])).optional(),
-  onError: z.function().args(z.instanceof(Error)).returns(z.void()).optional(),
+  // Zod v4: z.function() no longer uses .args()/.returns() - use custom type
+  onDispose: z.custom<() => void | Promise<void>>((val) => typeof val === 'function').optional(),
+  onError: z.custom<(error: Error) => void>((val) => typeof val === 'function').optional(),
 }).strict();
 
 /**

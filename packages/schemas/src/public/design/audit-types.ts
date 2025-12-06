@@ -71,7 +71,7 @@ export const AuditIssueSchema = z.object({
   severity: AuditSeveritySchema,
   message: z.string(),
   location: AuditIssueLocationSchema,
-  details: z.record(z.unknown()).optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
   suggestion: z.string().optional(),
   // For comparisons (expected vs actual)
   expected: z.unknown().optional(),
@@ -130,7 +130,7 @@ export type AuditResult = z.infer<typeof AuditResultSchema>;
 export const RuleConfigOverrideSchema = z.object({
   enabled: z.boolean().optional(),
   severity: AuditSeveritySchema.optional(),
-  options: z.record(z.unknown()).optional(),
+  options: z.record(z.string(), z.unknown()).optional(),
 });
 export type RuleConfigOverride = z.infer<typeof RuleConfigOverrideSchema>;
 

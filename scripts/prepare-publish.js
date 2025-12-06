@@ -20,10 +20,10 @@ const __dirname = dirname(__filename);
 
 const rootDir = join(__dirname, '..');
 const source = join(rootDir, 'packages', 'schemas');
-const dest = join(rootDir, 'node_modules', '@ax-cli', 'schemas');
-const destParent = join(rootDir, 'node_modules', '@ax-cli');
+const dest = join(rootDir, 'node_modules', '@defai.digital', 'ax-schemas');
+const destParent = join(rootDir, 'node_modules', '@defai.digital');
 
-console.log('📦 Preparing @ax-cli/schemas for npm publish...');
+console.log('📦 Preparing @defai.digital/ax-schemas for npm publish...');
 
 // Verify source exists
 if (!existsSync(source)) {
@@ -68,7 +68,7 @@ cpSync(source, dest, {
   }
 });
 
-console.log('✅ @ax-cli/schemas prepared for publishing');
+console.log('✅ @defai.digital/ax-schemas prepared for publishing');
 console.log('');
 console.log('Files copied:');
 console.log('  - package.json');

@@ -150,7 +150,8 @@ describe('MCPClientManagerV2 Integration Tests', () => {
       const result = await manager.addServer(config);
 
       expect(result.success).toBe(false);
-      expect(result.error.message).toContain('Invalid url');
+      // Zod v4 returns 'Invalid URL' (uppercase) instead of 'Invalid url'
+      expect(result.error.message.toLowerCase()).toContain('invalid url');
     });
 
     it('should handle HTTP connection timeouts', async () => {

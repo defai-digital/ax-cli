@@ -13,8 +13,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const rootDir = join(__dirname, '..');
-const dest = join(rootDir, 'node_modules', '@ax-cli', 'schemas');
-const destParent = join(rootDir, 'node_modules', '@ax-cli');
+const dest = join(rootDir, 'node_modules', '@defai.digital', 'ax-schemas');
+const destParent = join(rootDir, 'node_modules', '@defai.digital');
 const relativeSource = '../../packages/schemas';
 
 console.log('🔗 Restoring workspace symlink...');
