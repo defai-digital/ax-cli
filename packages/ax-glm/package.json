@@ -37,7 +37,7 @@
     "start": "node ./dist/index.js"
   },
   "dependencies": {
-    "@defai.digital/ax-core": "^1.1.0"
+    "@defai.digital/ax-core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",
