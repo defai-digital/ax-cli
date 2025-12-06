@@ -5,6 +5,10 @@ import { ContextProvider } from './context-provider.js';
 import { StatusBarManager } from './status-bar.js';
 import { IPCServer, DiffPayload, TaskSummaryPayload, StreamChunkPayload, FileRevealPayload } from './ipc-server.js';
 import { initializeSecretStorage, SecretStorageService } from './secret-storage.js';
+import { CheckpointManager } from './checkpoint-manager.js';
+import { AutoErrorRecovery } from './auto-error-recovery.js';
+import { SessionManager } from './session-manager.js';
+import { HooksManager } from './hooks-manager.js';
 
 let cliBridge: CLIBridgeSDK | undefined;
 let chatProvider: ChatViewProvider | undefined;
@@ -13,6 +17,11 @@ let statusBar: StatusBarManager | undefined;
 let ipcServer: IPCServer | undefined;
 let diffContentProvider: DiffContentProvider | undefined;
 let secretStorage: SecretStorageService | undefined;
+let inlineDiffDecorator: InlineDiffDecorator | undefined;
+let checkpointManager: CheckpointManager | undefined;
+let autoErrorRecovery: AutoErrorRecovery | undefined;
+let sessionManager: SessionManager | undefined;
+let hooksManager: HooksManager | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
   console.log('AX CLI extension is now active (SDK mode with diff preview)');
@@ -57,6 +66,26 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.workspace.registerTextDocumentContentProvider('ax-cli-diff', diffContentProvider),
     diffContentProvider  // Add to subscriptions for proper disposal
   );
+
+  // Initialize inline diff decorator for accept/reject in editor
+  inlineDiffDecorator = new InlineDiffDecorator();
+  context.subscriptions.push(inlineDiffDecorator);
+
+  // Initialize checkpoint manager for /rewind functionality
+  checkpointManager = new CheckpointManager();
+  context.subscriptions.push(checkpointManager);
+
+  // Initialize auto-error recovery
+  autoErrorRecovery = new AutoErrorRecovery();
+  context.subscriptions.push(autoErrorRecovery);
+
+  // Initialize session manager for multiple chat sessions
+  sessionManager = new SessionManager();
+  context.subscriptions.push(sessionManager);
+
+  // Initialize hooks manager
+  hooksManager = new HooksManager();
+  context.subscriptions.push(hooksManager);
 
   // Start IPC server for CLI communication
   startIPCServer(context);
@@ -699,11 +728,845 @@ function registerCommands(context: vscode.ExtensionContext) {
       }
     })
   );
+
+  // Insert File Path - Native file picker (like Claude Code Cmd+Option+K)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ax-cli.insertFilePath', async () => {
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      const defaultUri = workspaceFolders?.[0]?.uri;
+
+      const files = await vscode.window.showOpenDialog({
+        canSelectMany: true,
+        canSelectFolders: false,
+        defaultUri,
+        title: 'Select files to add as context',
+        openLabel: 'Add to Chat'
+      });
+
+      if (files && files.length > 0) {
+        // Send file paths to chat provider
+        chatProvider?.insertFileReferences(files.map(f => f.fsPath));
+        // Focus the chat view
+        vscode.commands.executeCommand('ax-cli.chatView.focus');
+      }
+    })
+  );
+
+  // Attach Image - Open image picker and attach to chat
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ax-cli.attachImage', async () => {
+      const files = await vscode.window.showOpenDialog({
+        canSelectMany: true,
+        canSelectFolders: false,
+        filters: {
+          'Images': ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']
+        },
+        title: 'Select images to attach',
+        openLabel: 'Attach'
+      });
+
+      if (files && files.length > 0) {
+        // Send image paths to chat provider
+        chatProvider?.attachImages(files.map(f => f.fsPath));
+        // Focus the chat view
+        vscode.commands.executeCommand('ax-cli.chatView.focus');
+      }
+    })
+  );
+
+  // Accept inline diff
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ax-cli.acceptInlineDiff', async (diffId: string) => {
+      if (inlineDiffDecorator) {
+        await inlineDiffDecorator.acceptDiff(diffId);
+      }
+    })
+  );
+
+  // Reject inline diff
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ax-cli.rejectInlineDiff', async (diffId: string) => {
+      if (inlineDiffDecorator) {
+        await inlineDiffDecorator.rejectDiff(diffId);
+      }
+    })
+  );
+
+  // Rewind to checkpoint
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ax-cli.rewind', async () => {
+      if (checkpointManager) {
+        await checkpointManager.showRewindPicker();
+      }
+    })
+  );
+
+  // Create checkpoint manually
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ax-cli.createCheckpoint', async () => {
+      if (checkpointManager) {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+          vscode.window.showWarningMessage('No active editor');
+          return;
+        }
+
+        const description = await vscode.window.showInputBox({
+          prompt: 'Enter checkpoint description',
+          placeHolder: 'e.g., Before refactoring'
+        });
+
+        if (description) {
+          await checkpointManager.createCheckpoint([editor.document.uri.fsPath], description);
+          vscode.window.showInformationMessage(`Checkpoint created: ${description}`);
+        }
+      }
+    })
+  );
+
+  // Auto-fix errors
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ax-cli.autoFixErrors', async () => {
+      if (autoErrorRecovery) {
+        const errors = autoErrorRecovery.getAllErrors();
+        if (errors.length === 0) {
+          vscode.window.showInformationMessage('No errors to fix');
+          return;
+        }
+
+        // Format errors and send to chat for fixing
+        const errorSummary = autoErrorRecovery.formatErrors(errors);
+
+        vscode.window.showInformationMessage(`Found ${errors.length} error(s). Sending to AI for analysis...`);
+
+        // Send to chat provider
+        chatProvider?.sendMessage(`Fix these errors:\n\n${errorSummary}`);
+        vscode.commands.executeCommand('ax-cli.chatView.focus');
+      }
+    })
+  );
+
+  // Session management
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ax-cli.newSession', () => {
+      if (sessionManager) {
+        const session = sessionManager.createSession();
+        chatProvider?.setSession(session);
+        vscode.window.showInformationMessage(`New session: ${session.name}`);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ax-cli.switchSession', async () => {
+      if (sessionManager) {
+        const session = await sessionManager.showSessionPicker();
+        if (session) {
+          chatProvider?.setSession(session);
+        }
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ax-cli.manageSessions', async () => {
+      if (sessionManager) {
+        await sessionManager.showSessionMenu();
+      }
+    })
+  );
+
+  // Hooks management
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ax-cli.manageHooks', async () => {
+      if (hooksManager) {
+        await hooksManager.showHooksMenu();
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ax-cli.createHooksConfig', async () => {
+      if (hooksManager) {
+        await hooksManager.createDefaultConfig();
+      }
+    })
+  );
+
+  // Accept/reject individual hunks
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ax-cli.acceptHunk', async (diffId: string, hunkId: string) => {
+      if (inlineDiffDecorator) {
+        await inlineDiffDecorator.acceptHunk(diffId, hunkId);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ax-cli.rejectHunk', async (diffId: string, hunkId: string) => {
+      if (inlineDiffDecorator) {
+        await inlineDiffDecorator.rejectHunk(diffId, hunkId);
+      }
+    })
+  );
 }
 
 export function deactivate() {
   cliBridge?.dispose();
+  chatProvider?.dispose();
   statusBar?.dispose();
   ipcServer?.dispose();
   secretStorage?.dispose();
+  diffContentProvider?.dispose();
+  inlineDiffDecorator?.dispose();
+  checkpointManager?.dispose();
+  autoErrorRecovery?.dispose();
+  sessionManager?.dispose();
+  hooksManager?.dispose();
+}
+
+/**
+ * Inline Diff Decorator - Shows accept/reject buttons in the editor gutter
+ * Enhanced with multi-hunk support for granular accept/reject
+ * Similar to Claude Code and GitHub Copilot inline diff experience
+ */
+
+interface DiffHunk {
+  id: string;
+  startLine: number;  // 0-indexed
+  endLine: number;    // 0-indexed, inclusive
+  oldLines: string[];
+  newLines: string[];
+  type: 'add' | 'remove' | 'modify';
+}
+
+interface InlineDiff {
+  id: string;
+  file: string;
+  oldContent: string;
+  newContent: string;
+  hunks: DiffHunk[];
+  acceptedHunks: Set<string>;
+  rejectedHunks: Set<string>;
+  editor?: vscode.TextEditor;
+  resolveCallback?: (accepted: boolean) => void;
+}
+
+class InlineDiffDecorator implements vscode.Disposable {
+  private diffs: Map<string, InlineDiff> = new Map();
+  private disposables: vscode.Disposable[] = [];
+
+  // Decoration types for added/removed/modified lines
+  private addedDecoration: vscode.TextEditorDecorationType;
+  private removedDecoration: vscode.TextEditorDecorationType;
+  private modifiedDecoration: vscode.TextEditorDecorationType;
+  private pendingDecoration: vscode.TextEditorDecorationType;
+
+  constructor() {
+    // Green background for added lines
+    this.addedDecoration = vscode.window.createTextEditorDecorationType({
+      backgroundColor: 'rgba(46, 160, 67, 0.2)',
+      isWholeLine: true,
+      overviewRulerColor: 'rgba(46, 160, 67, 0.7)',
+      overviewRulerLane: vscode.OverviewRulerLane.Left,
+      gutterIconPath: this.createSvgUri('add'),
+      gutterIconSize: 'contain',
+      before: {
+        contentText: '+',
+        color: '#2ea043',
+        fontWeight: 'bold',
+        margin: '0 4px 0 0'
+      }
+    });
+
+    // Red background for removed lines
+    this.removedDecoration = vscode.window.createTextEditorDecorationType({
+      backgroundColor: 'rgba(248, 81, 73, 0.2)',
+      isWholeLine: true,
+      overviewRulerColor: 'rgba(248, 81, 73, 0.7)',
+      overviewRulerLane: vscode.OverviewRulerLane.Left,
+      gutterIconPath: this.createSvgUri('remove'),
+      gutterIconSize: 'contain',
+      before: {
+        contentText: '-',
+        color: '#f85149',
+        fontWeight: 'bold',
+        margin: '0 4px 0 0'
+      }
+    });
+
+    // Yellow/orange background for modified lines
+    this.modifiedDecoration = vscode.window.createTextEditorDecorationType({
+      backgroundColor: 'rgba(227, 179, 65, 0.2)',
+      isWholeLine: true,
+      overviewRulerColor: 'rgba(227, 179, 65, 0.7)',
+      overviewRulerLane: vscode.OverviewRulerLane.Left,
+      before: {
+        contentText: '~',
+        color: '#d29922',
+        fontWeight: 'bold',
+        margin: '0 4px 0 0'
+      }
+    });
+
+    // Pending changes (dimmed)
+    this.pendingDecoration = vscode.window.createTextEditorDecorationType({
+      backgroundColor: 'rgba(128, 128, 128, 0.1)',
+      isWholeLine: true,
+      opacity: '0.6'
+    });
+
+    // Register code lens provider for accept/reject buttons
+    this.disposables.push(
+      vscode.languages.registerCodeLensProvider('*', {
+        provideCodeLenses: (document) => this.provideCodeLenses(document)
+      })
+    );
+
+    // Clean up decorations when editor changes
+    this.disposables.push(
+      vscode.window.onDidChangeActiveTextEditor(() => {
+        this.refreshDecorations();
+      })
+    );
+
+    // Register inline diff content provider for viewing diffs
+    this.disposables.push(
+      vscode.workspace.registerTextDocumentContentProvider('ax-cli-inline', {
+        provideTextDocumentContent: (uri) => this.provideInlineDiffContent(uri)
+      })
+    );
+  }
+
+  /**
+   * Create a data URI for a simple SVG gutter icon
+   */
+  private createSvgUri(type: 'add' | 'remove'): vscode.Uri {
+    const color = type === 'add' ? '#2ea043' : '#f85149';
+    const symbol = type === 'add' ? '+' : '-';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+      <circle cx="8" cy="8" r="6" fill="${color}" opacity="0.8"/>
+      <text x="8" y="12" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${symbol}</text>
+    </svg>`;
+    return vscode.Uri.parse(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`);
+  }
+
+  /**
+   * Provide content for inline diff URI scheme
+   */
+  private provideInlineDiffContent(uri: vscode.Uri): string {
+    const isOriginal = uri.query.includes('original');
+
+    for (const diff of this.diffs.values()) {
+      if (uri.path.includes(diff.id)) {
+        return isOriginal ? diff.oldContent : diff.newContent;
+      }
+    }
+
+    return '';
+  }
+
+  /**
+   * Parse diff to extract hunks
+   */
+  private parseHunks(oldContent: string, newContent: string): DiffHunk[] {
+    const hunks: DiffHunk[] = [];
+    const oldLines = oldContent.split('\n');
+    const newLines = newContent.split('\n');
+
+    // Simple LCS-based diff algorithm
+    const changes = this.computeLineDiff(oldLines, newLines);
+
+    let currentHunk: DiffHunk | null = null;
+    let hunkIndex = 0;
+
+    for (const change of changes) {
+      if (change.type === 'equal') {
+        if (currentHunk) {
+          hunks.push(currentHunk);
+          currentHunk = null;
+        }
+      } else {
+        if (!currentHunk) {
+          currentHunk = {
+            id: `hunk-${hunkIndex++}`,
+            startLine: change.newIndex,
+            endLine: change.newIndex,
+            oldLines: [],
+            newLines: [],
+            type: change.type === 'add' ? 'add' : change.type === 'remove' ? 'remove' : 'modify'
+          };
+        }
+
+        currentHunk.endLine = change.newIndex;
+
+        if (change.type === 'remove') {
+          currentHunk.oldLines.push(change.line);
+          if (currentHunk.type === 'add') currentHunk.type = 'modify';
+        } else if (change.type === 'add') {
+          currentHunk.newLines.push(change.line);
+          if (currentHunk.type === 'remove') currentHunk.type = 'modify';
+        }
+      }
+    }
+
+    if (currentHunk) {
+      hunks.push(currentHunk);
+    }
+
+    // If no hunks detected, create a single hunk for the whole file
+    if (hunks.length === 0 && oldContent !== newContent) {
+      hunks.push({
+        id: 'hunk-0',
+        startLine: 0,
+        endLine: Math.max(oldLines.length, newLines.length) - 1,
+        oldLines,
+        newLines,
+        type: 'modify'
+      });
+    }
+
+    return hunks;
+  }
+
+  /**
+   * Compute line-by-line diff
+   */
+  private computeLineDiff(oldLines: string[], newLines: string[]): Array<{
+    type: 'equal' | 'add' | 'remove';
+    line: string;
+    oldIndex: number;
+    newIndex: number;
+  }> {
+    const result: Array<{
+      type: 'equal' | 'add' | 'remove';
+      line: string;
+      oldIndex: number;
+      newIndex: number;
+    }> = [];
+
+    let oldIndex = 0;
+    let newIndex = 0;
+
+    while (oldIndex < oldLines.length || newIndex < newLines.length) {
+      if (oldIndex >= oldLines.length) {
+        // Remaining lines are additions
+        result.push({
+          type: 'add',
+          line: newLines[newIndex],
+          oldIndex,
+          newIndex
+        });
+        newIndex++;
+      } else if (newIndex >= newLines.length) {
+        // Remaining lines are deletions
+        result.push({
+          type: 'remove',
+          line: oldLines[oldIndex],
+          oldIndex,
+          newIndex
+        });
+        oldIndex++;
+      } else if (oldLines[oldIndex] === newLines[newIndex]) {
+        // Lines are equal
+        result.push({
+          type: 'equal',
+          line: oldLines[oldIndex],
+          oldIndex,
+          newIndex
+        });
+        oldIndex++;
+        newIndex++;
+      } else {
+        // Check if line was removed or added
+        const oldLineInNew = newLines.indexOf(oldLines[oldIndex], newIndex);
+        const newLineInOld = oldLines.indexOf(newLines[newIndex], oldIndex);
+
+        if (oldLineInNew === -1 && newLineInOld === -1) {
+          // Line was modified
+          result.push({
+            type: 'remove',
+            line: oldLines[oldIndex],
+            oldIndex,
+            newIndex
+          });
+          result.push({
+            type: 'add',
+            line: newLines[newIndex],
+            oldIndex,
+            newIndex
+          });
+          oldIndex++;
+          newIndex++;
+        } else if (oldLineInNew === -1 || (newLineInOld !== -1 && newLineInOld < oldLineInNew)) {
+          // Line was removed
+          result.push({
+            type: 'remove',
+            line: oldLines[oldIndex],
+            oldIndex,
+            newIndex
+          });
+          oldIndex++;
+        } else {
+          // Line was added
+          result.push({
+            type: 'add',
+            line: newLines[newIndex],
+            oldIndex,
+            newIndex
+          });
+          newIndex++;
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Show an inline diff in the editor with multi-hunk support
+   */
+  async showInlineDiff(payload: DiffPayload): Promise<boolean> {
+    const hunks = this.parseHunks(payload.oldContent, payload.newContent);
+
+    return new Promise((resolve) => {
+      const diff: InlineDiff = {
+        id: payload.id,
+        file: payload.file,
+        oldContent: payload.oldContent,
+        newContent: payload.newContent,
+        hunks,
+        acceptedHunks: new Set(),
+        rejectedHunks: new Set(),
+        resolveCallback: resolve
+      };
+
+      this.diffs.set(payload.id, diff);
+
+      // Open the file and show decorations
+      (async () => {
+        try {
+          const uri = vscode.Uri.file(payload.file);
+          const document = await vscode.workspace.openTextDocument(uri);
+          const editor = await vscode.window.showTextDocument(document, { preview: false });
+
+          diff.editor = editor;
+          this.applyDecorations(diff, editor);
+
+          // Scroll to the first change
+          if (hunks.length > 0) {
+            const range = new vscode.Range(hunks[0].startLine, 0, hunks[0].startLine, 0);
+            editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+          }
+
+          // Trigger code lens refresh
+          vscode.commands.executeCommand('editor.action.codeLensRefresh');
+
+        } catch (error) {
+          console.error('[AX InlineDiff] Error showing inline diff:', error);
+          this.diffs.delete(payload.id);
+          resolve(false);
+        }
+      })();
+    });
+  }
+
+  /**
+   * Apply decorations to show diff changes
+   */
+  private applyDecorations(diff: InlineDiff, editor: vscode.TextEditor): void {
+    const addedRanges: vscode.DecorationOptions[] = [];
+    const removedRanges: vscode.DecorationOptions[] = [];
+    const modifiedRanges: vscode.DecorationOptions[] = [];
+
+    for (const hunk of diff.hunks) {
+      // Skip accepted or rejected hunks
+      if (diff.acceptedHunks.has(hunk.id) || diff.rejectedHunks.has(hunk.id)) {
+        continue;
+      }
+
+      const startLine = Math.max(0, hunk.startLine);
+      const endLine = Math.min(editor.document.lineCount - 1, hunk.endLine);
+
+      for (let i = startLine; i <= endLine; i++) {
+        if (i >= editor.document.lineCount) break;
+
+        const lineText = editor.document.lineAt(i).text;
+        const range = new vscode.Range(i, 0, i, lineText.length);
+
+        const decoration: vscode.DecorationOptions = {
+          range,
+          hoverMessage: new vscode.MarkdownString(
+            `**Hunk ${hunk.id}** (${hunk.type})\n\n` +
+            `Click CodeLens above to accept or reject`
+          )
+        };
+
+        switch (hunk.type) {
+          case 'add':
+            addedRanges.push(decoration);
+            break;
+          case 'remove':
+            removedRanges.push(decoration);
+            break;
+          case 'modify':
+            modifiedRanges.push(decoration);
+            break;
+        }
+      }
+    }
+
+    editor.setDecorations(this.addedDecoration, addedRanges);
+    editor.setDecorations(this.removedDecoration, removedRanges);
+    editor.setDecorations(this.modifiedDecoration, modifiedRanges);
+  }
+
+  /**
+   * Provide code lenses for accept/reject buttons (per-hunk)
+   */
+  private provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
+    const lenses: vscode.CodeLens[] = [];
+
+    for (const [diffId, diff] of this.diffs) {
+      if (diff.file !== document.uri.fsPath) continue;
+
+      // Add accept/reject all at the top
+      const firstLine = new vscode.Range(0, 0, 0, 0);
+      lenses.push(new vscode.CodeLens(firstLine, {
+        title: '$(check-all) Accept All',
+        command: 'ax-cli.acceptInlineDiff',
+        arguments: [diffId],
+        tooltip: 'Accept all changes'
+      }));
+      lenses.push(new vscode.CodeLens(firstLine, {
+        title: '$(close-all) Reject All',
+        command: 'ax-cli.rejectInlineDiff',
+        arguments: [diffId],
+        tooltip: 'Reject all changes'
+      }));
+      lenses.push(new vscode.CodeLens(firstLine, {
+        title: '$(diff) View Full Diff',
+        command: 'vscode.diff',
+        arguments: [
+          vscode.Uri.parse(`ax-cli-inline:${diffId}?original`),
+          vscode.Uri.parse(`ax-cli-inline:${diffId}?modified`),
+          `${diff.file} (AX Proposed Changes)`
+        ],
+        tooltip: 'View full diff in split view'
+      }));
+
+      // Add per-hunk accept/reject
+      for (const hunk of diff.hunks) {
+        if (diff.acceptedHunks.has(hunk.id) || diff.rejectedHunks.has(hunk.id)) {
+          continue;
+        }
+
+        const line = Math.max(0, hunk.startLine);
+        const range = new vscode.Range(line, 0, line, 0);
+
+        lenses.push(new vscode.CodeLens(range, {
+          title: `$(check) Accept`,
+          command: 'ax-cli.acceptHunk',
+          arguments: [diffId, hunk.id],
+          tooltip: `Accept this hunk (lines ${hunk.startLine + 1}-${hunk.endLine + 1})`
+        }));
+
+        lenses.push(new vscode.CodeLens(range, {
+          title: `$(x) Reject`,
+          command: 'ax-cli.rejectHunk',
+          arguments: [diffId, hunk.id],
+          tooltip: `Reject this hunk (lines ${hunk.startLine + 1}-${hunk.endLine + 1})`
+        }));
+      }
+    }
+
+    return lenses;
+  }
+
+  /**
+   * Accept a single hunk
+   */
+  async acceptHunk(diffId: string, hunkId: string): Promise<void> {
+    const diff = this.diffs.get(diffId);
+    if (!diff) return;
+
+    diff.acceptedHunks.add(hunkId);
+    this.refreshDecorations();
+    vscode.commands.executeCommand('editor.action.codeLensRefresh');
+
+    // Check if all hunks are processed
+    this.checkAllHunksProcessed(diffId);
+  }
+
+  /**
+   * Reject a single hunk
+   */
+  async rejectHunk(diffId: string, hunkId: string): Promise<void> {
+    const diff = this.diffs.get(diffId);
+    if (!diff) return;
+
+    diff.rejectedHunks.add(hunkId);
+    this.refreshDecorations();
+    vscode.commands.executeCommand('editor.action.codeLensRefresh');
+
+    // Check if all hunks are processed
+    this.checkAllHunksProcessed(diffId);
+  }
+
+  /**
+   * Check if all hunks have been processed
+   */
+  private async checkAllHunksProcessed(diffId: string): Promise<void> {
+    const diff = this.diffs.get(diffId);
+    if (!diff) return;
+
+    const processedCount = diff.acceptedHunks.size + diff.rejectedHunks.size;
+    if (processedCount < diff.hunks.length) return;
+
+    // All hunks processed - apply accepted changes
+    if (diff.acceptedHunks.size > 0) {
+      await this.applyAcceptedHunks(diffId);
+    } else {
+      vscode.window.showInformationMessage('All changes rejected');
+      this.clearDiff(diffId);
+      diff.resolveCallback?.(false);
+    }
+  }
+
+  /**
+   * Apply only the accepted hunks
+   */
+  private async applyAcceptedHunks(diffId: string): Promise<void> {
+    const diff = this.diffs.get(diffId);
+    if (!diff) return;
+
+    try {
+      // For simplicity, if all hunks are accepted, apply full new content
+      // More sophisticated partial application would require merging
+      if (diff.acceptedHunks.size === diff.hunks.length) {
+        const uri = vscode.Uri.file(diff.file);
+        const edit = new vscode.WorkspaceEdit();
+        const document = await vscode.workspace.openTextDocument(uri);
+        const fullRange = new vscode.Range(0, 0, document.lineCount, 0);
+        edit.replace(uri, fullRange, diff.newContent);
+        await vscode.workspace.applyEdit(edit);
+        await document.save();
+
+        vscode.window.showInformationMessage(`All ${diff.hunks.length} changes accepted`);
+      } else {
+        // Partial acceptance - currently applies all changes but notifies user
+        // Full implementation would require careful 3-way merging
+        const uri = vscode.Uri.file(diff.file);
+        const document = await vscode.workspace.openTextDocument(uri);
+        const edit = new vscode.WorkspaceEdit();
+
+        // Warn user that partial hunk acceptance applies all changes
+        const proceed = await vscode.window.showWarningMessage(
+          `Partial hunk acceptance is not fully implemented. ` +
+          `Applying all changes (${diff.hunks.length} hunks) instead of just ${diff.acceptedHunks.size}.`,
+          'Apply All',
+          'Cancel'
+        );
+
+        if (proceed !== 'Apply All') {
+          return;
+        }
+
+        const fullRange = new vscode.Range(0, 0, document.lineCount, 0);
+        edit.replace(uri, fullRange, diff.newContent);
+        await vscode.workspace.applyEdit(edit);
+        await document.save();
+
+        vscode.window.showInformationMessage(`Applied all ${diff.hunks.length} changes`);
+      }
+
+      this.clearDiff(diffId);
+      diff.resolveCallback?.(true);
+    } catch (error) {
+      console.error('[AX InlineDiff] Error applying changes:', error);
+      vscode.window.showErrorMessage(`Failed to apply changes: ${error}`);
+    }
+  }
+
+  /**
+   * Accept all changes in a diff
+   */
+  async acceptDiff(diffId: string): Promise<void> {
+    const diff = this.diffs.get(diffId);
+    if (!diff) return;
+
+    try {
+      const uri = vscode.Uri.file(diff.file);
+      const edit = new vscode.WorkspaceEdit();
+      const document = await vscode.workspace.openTextDocument(uri);
+      const fullRange = new vscode.Range(0, 0, document.lineCount, 0);
+      edit.replace(uri, fullRange, diff.newContent);
+      await vscode.workspace.applyEdit(edit);
+      await document.save();
+
+      vscode.window.showInformationMessage(`Changes accepted for ${diff.file}`);
+    } catch (error) {
+      console.error('[AX InlineDiff] Error applying changes:', error);
+      vscode.window.showErrorMessage(`Failed to apply changes: ${error}`);
+    } finally {
+      this.clearDiff(diffId);
+      diff.resolveCallback?.(true);
+    }
+  }
+
+  /**
+   * Reject all changes in a diff
+   */
+  async rejectDiff(diffId: string): Promise<void> {
+    const diff = this.diffs.get(diffId);
+    if (!diff) return;
+
+    vscode.window.showInformationMessage(`Changes rejected for ${diff.file}`);
+    this.clearDiff(diffId);
+    diff.resolveCallback?.(false);
+  }
+
+  /**
+   * Clear a diff and its decorations
+   */
+  private clearDiff(diffId: string): void {
+    const diff = this.diffs.get(diffId);
+    if (diff?.editor) {
+      diff.editor.setDecorations(this.addedDecoration, []);
+      diff.editor.setDecorations(this.removedDecoration, []);
+      diff.editor.setDecorations(this.modifiedDecoration, []);
+      diff.editor.setDecorations(this.pendingDecoration, []);
+    }
+    this.diffs.delete(diffId);
+
+    // Refresh code lenses
+    vscode.commands.executeCommand('editor.action.codeLensRefresh');
+  }
+
+  /**
+   * Refresh decorations on active editor
+   */
+  private refreshDecorations(): void {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
+
+    for (const diff of this.diffs.values()) {
+      if (diff.file === editor.document.uri.fsPath) {
+        diff.editor = editor;
+        this.applyDecorations(diff, editor);
+      }
+    }
+  }
+
+  /**
+   * Dispose resources
+   */
+  dispose(): void {
+    this.addedDecoration.dispose();
+    this.removedDecoration.dispose();
+    this.modifiedDecoration.dispose();
+    this.pendingDecoration.dispose();
+    this.diffs.clear();
+    this.disposables.forEach(d => d.dispose());
+  }
 }

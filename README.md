@@ -1,10 +1,10 @@
 # AX CLI - Enterprise-Class CLI for Vibe Coding
 
-[![downloads](https://img.shields.io/npm/dt/@defai.digital/ax-cli?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
+[![npm](https://img.shields.io/npm/dt/@defai.digital/ax-cli?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
 [![Tests](https://img.shields.io/badge/tests-2265%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
-[![macOS](https://img.shields.io/badge/macOS-26.0-blue?style=flat-square&logo=apple)](https://www.apple.com/macos/)
-[![Windows](https://img.shields.io/badge/Windows-10%2B-blue?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
-[![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-blue?style=flat-square&logo=ubuntu)](https://ubuntu.com/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![Coverage](https://img.shields.io/badge/coverage-98%2B%25-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D24.0.0-blue?style=flat-square&logo=node.js)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
 <p align="center">
   <img src=".github/assets/screenshot1.png" alt="AX CLI Screenshot" width="800"/>
@@ -22,17 +22,20 @@
 # Install globally
 npm install -g @defai.digital/ax-cli
 
-# Configure API credentials (one-time setup)
+# Configure (secure API key setup)
 ax-cli setup
 
-# Start interactive mode
-ax-cli
+# For VSCode users - install the extension (recommended)
+code --install-extension defai-digital.ax-cli-vscode
 
-# Inside interactive mode, initialize your project
-> /init
+# Initialize your project
+ax-cli init
+
+# Start coding!
+ax-cli
 ```
 
-**That's it!** AX CLI is now ready to help you build, debug, and ship code faster.
+**That's it!** AX CLI is now ready to help you build, debug, and ship code faster. VSCode users get enhanced features with the native extension.
 
 ---
 
@@ -42,13 +45,14 @@ ax-cli
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Usage](#usage)
+- [VSCode Integration](#vscode-integration)
 - [MCP Integration](#mcp-integration)
-- [Figma Integration](#figma-integration)
 - [Project Memory](#project-memory)
 - [Multi-Phase Planner](#multi-phase-task-planner)
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
+- [Recent Changes (v3.12.8)](#recent-changes-v3128)
 - [Documentation](#documentation)
 
 ---
@@ -75,8 +79,6 @@ ax-cli
 - **Anthropic** - Claude models
 - **Ollama** - Local models
 - **Custom endpoints** - Any OpenAI-compatible API
-
-> **Note**: For xAI Grok, use [grok-cli](https://github.com/superagent-ai/grok-cli). For Anthropic Claude, use [claude-code](https://claude.ai/code).
 
 ### Security (Enterprise-Grade, FREE)
 
@@ -295,6 +297,70 @@ For long-running tools (e.g., AutomatosX):
 
 ---
 
+## VSCode Integration
+
+AX CLI offers two powerful VSCode integration options:
+
+### Option 1: Native VSCode Extension (Recommended)
+
+The official AX CLI extension provides the most seamless experience:
+
+```bash
+# Install extension from VSCode Marketplace
+code --install-extension defai-digital.ax-cli-vscode
+
+# Or install via VSCode: Extensions → Search "AX CLI"
+```
+
+**Key Features:**
+- **Terminal Integration with Diff Preview** - File changes appear as diffs with accept/reject
+- **Sidebar Chat Panel** - Native chat interface with multiple sessions
+- **Secure API Key Storage** - OS-level credential storage (Keychain/Credential Manager)
+- **Context-Aware Commands** - Right-click actions for current file/selection
+- **Checkpoint & Rewind System** - Automatic checkpoints before changes
+- **Multi-Provider AI Support** - Switch between Grok, GLM, Claude, GPT-4o from status bar
+
+**Quick Start:**
+1. Install extension: `code --install-extension defai-digital.ax-cli-vscode`
+2. Set API key: `Cmd+Shift+K` (Mac) or `Ctrl+Shift+K` (Windows/Linux)
+3. Open chat: `Cmd+Shift+A` or click AX icon in sidebar
+4. Start coding with AI assistance!
+
+**Keyboard Shortcuts:**
+| Shortcut (Mac) | Shortcut (Win/Linux) | Action |
+|----------------|---------------------|---------|
+| `Cmd+Shift+A` | `Ctrl+Shift+A` | Open Chat |
+| `Cmd+Shift+E` | `Ctrl+Shift+E` | Explain Selection |
+| `Cmd+Shift+R` | `Ctrl+Shift+R` | Refactor Selection |
+| `Cmd+Shift+T` | `Ctrl+Shift+T` | Generate Tests |
+| `Cmd+Shift+B` | `Ctrl+Shift+B` | Find Bugs |
+
+### Option 2: Terminal Integration (Lightweight)
+
+Use AX CLI in VSCode's integrated terminal with pre-configured tasks:
+
+```bash
+# Copy VSCode templates to your project
+cd your-project
+mkdir -p .vscode
+cp node_modules/@defai.digital/ax-cli/templates/vscode/*.json .vscode/
+
+# Run tasks via Command Palette
+Cmd+Shift+P → "Tasks: Run Task" → Select AX task
+```
+
+**Available Tasks:**
+- AX: Interactive Chat
+- AX: Analyze Current File
+- AX: Explain Selection  
+- AX: Generate Tests for File
+- AX: Review Git Changes
+- AX: Find Bugs in File
+
+For detailed setup instructions, see **[VSCode Integration Guide](docs/vscode-integration-guide.md)**.
+
+---
+
 ## Figma Integration
 
 Connect AX CLI with Figma for design-to-code workflows:
@@ -479,6 +545,26 @@ For complete changelog history, see [GitHub Releases](https://github.com/defai-d
 
 ---
 
+## Recent Changes (v3.12.8)
+
+### Latest Release Highlights
+
+- **Enhanced MCP Integration**: Improved template system with 12+ production-ready servers
+- **Performance Optimizations**: 50% token savings with intelligent project memory caching
+- **Security Updates**: Enhanced API key encryption with PBKDF2 key derivation (600,000 iterations)
+- **UI Improvements**: New color theme system with 5 built-in themes
+- **Bug Fixes**: Resolved data mutation vulnerabilities in SDK components
+
+### Key Features Added
+
+- **Figma Integration**: Complete design-to-code workflow with natural language commands
+- **Multi-Phase Planner**: Automatic task decomposition for complex requests
+- **Background Tasks**: Run long-running operations in background with task management
+- **Health Check**: Comprehensive diagnostics with `ax-cli doctor` command
+- **Auto-Update**: Automatic update checking with user confirmation prompts
+
+---
+
 ## Documentation
 
 | Guide | Description |
@@ -488,6 +574,7 @@ For complete changelog history, see [GitHub Releases](https://github.com/defai-d
 | [Configuration](docs/configuration.md) | Configuration options |
 | [Usage](docs/usage.md) | Comprehensive usage guide |
 | [CLI Reference](docs/cli-reference.md) | Command-line reference |
+| [VSCode Integration](docs/vscode-integration-guide.md) | VSCode extension & terminal setup |
 | [MCP Integration](docs/mcp.md) | Model Context Protocol guide |
 | [Figma Integration](docs/figma-guide.md) | Design-to-code workflow with Figma |
 | [Architecture](docs/architecture.md) | Technical architecture |

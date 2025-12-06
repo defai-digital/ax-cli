@@ -7,6 +7,7 @@
   let isLoading = false;
   let extendedThinking = previousState.extendedThinking || false;
   let mentionedFiles = [];
+  let attachedImages = [];  // New: attached images
   let showingFilePicker = false;
   let filePickerQuery = '';
 
@@ -19,7 +20,15 @@
     { command: '/thinking', description: 'Toggle extended thinking' },
     { command: '/files', description: 'Add files to context' },
     { command: '/diff', description: 'Show git diff' },
+    { command: '/image', description: 'Attach image' },
+    { command: '/rewind', description: 'Rewind to checkpoint' },
+    { command: '/session', description: 'Manage sessions' },
+    { command: '/errors', description: 'Auto-fix errors' },
+    { command: '/hooks', description: 'Manage hooks' },
   ];
+
+  // Current session info
+  let currentSession = null;
 
   // Initialize
   function init() {
@@ -47,6 +56,7 @@
         <div id="messages" class="messages-container"></div>
         <div class="input-wrapper">
           <div id="mentionedFilesContainer" class="mentioned-files"></div>
+          <div id="attachedImagesContainer" class="attached-images"></div>
           <div id="autocompleteContainer" class="autocomplete-container" style="display: none;"></div>
           <div class="input-container">
             <textarea
@@ -59,6 +69,9 @@
               <button id="attachButton" class="icon-button" title="Attach file (@)">
                 <span class="codicon codicon-add"></span>
               </button>
+              <button id="imageButton" class="icon-button" title="Attach image (Cmd+Alt+I)">
+                <span class="codicon codicon-file-media"></span>
+              </button>
               <button id="sendButton" class="send-button">
                 <span class="codicon codicon-send"></span>
                 Send
@@ -68,6 +81,7 @@
           <div class="input-hints">
             <span class="hint"><kbd>@</kbd> files</span>
             <span class="hint"><kbd>/</kbd> commands</span>
+            <span class="hint"><kbd>Cmd+Alt+K</kbd> picker</span>
             <span class="hint"><kbd>Ctrl+Enter</kbd> send</span>
           </div>
         </div>
@@ -81,11 +95,13 @@
     const clear = document.getElementById('clearButton');
     const thinking = document.getElementById('thinkingButton');
     const attach = document.getElementById('attachButton');
+    const imageBtn = document.getElementById('imageButton');
 
     send.addEventListener('click', handleSend);
     clear.addEventListener('click', handleClear);
     thinking.addEventListener('click', toggleThinking);
     attach.addEventListener('click', () => triggerFilePicker());
+    imageBtn.addEventListener('click', () => triggerImagePicker());
 
     input.addEventListener('keydown', handleKeydown);
     input.addEventListener('input', handleInput);
@@ -335,6 +351,51 @@
     showFilePicker('');
   }
 
+  function triggerImagePicker() {
+    // Request image picker from extension
+    vscode.postMessage({ type: 'requestImagePicker' });
+  }
+
+  function addAttachedImage(image) {
+    if (attachedImages.some(i => i.path === image.path)) return;
+    attachedImages.push(image);
+    renderAttachedImages();
+  }
+
+  function removeAttachedImage(path) {
+    attachedImages = attachedImages.filter(i => i.path !== path);
+    renderAttachedImages();
+  }
+
+  function renderAttachedImages() {
+    const container = document.getElementById('attachedImagesContainer');
+    if (attachedImages.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    container.innerHTML = attachedImages.map((image, index) => `
+      <div class="attached-image" data-path="${escapeHtml(image.path)}" data-index="${index}">
+        ${image.dataUri ? `<img src="${image.dataUri}" alt="${escapeHtml(image.name)}" class="image-thumbnail" />` : ''}
+        <span class="codicon codicon-file-media"></span>
+        <span class="image-name">${escapeHtml(image.name)}</span>
+        <button class="remove-image" data-index="${index}">
+          <span class="codicon codicon-close"></span>
+        </button>
+      </div>
+    `).join('');
+
+    // Add event listeners for remove buttons
+    container.querySelectorAll('.remove-image').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const index = parseInt(btn.dataset.index, 10);
+        if (!isNaN(index) && attachedImages[index]) {
+          removeAttachedImage(attachedImages[index].path);
+        }
+      });
+    });
+  }
+
   function executeSlashCommand(command) {
     switch (command) {
       case '/clear':
@@ -357,6 +418,21 @@
         break;
       case '/diff':
         vscode.postMessage({ type: 'addGitDiff' });
+        break;
+      case '/image':
+        triggerImagePicker();
+        break;
+      case '/rewind':
+        vscode.postMessage({ type: 'rewind' });
+        break;
+      case '/session':
+        vscode.postMessage({ type: 'manageSessions' });
+        break;
+      case '/errors':
+        vscode.postMessage({ type: 'autoFixErrors' });
+        break;
+      case '/hooks':
+        vscode.postMessage({ type: 'manageHooks' });
         break;
     }
   }
@@ -437,7 +513,8 @@ ${SLASH_COMMANDS.map(c => `- \`${c.command}\` - ${c.description}`).join('\n')}
       role: 'user',
       content: message,
       timestamp: new Date().toISOString(),
-      files: [...mentionedFiles]
+      files: [...mentionedFiles],
+      images: [...attachedImages]
     });
 
     // Send to extension with context
@@ -446,15 +523,18 @@ ${SLASH_COMMANDS.map(c => `- \`${c.command}\` - ${c.description}`).join('\n')}
       message: message,
       context: {
         files: mentionedFiles.map(f => f.path),
+        images: attachedImages.map(i => ({ path: i.path, dataUri: i.dataUri })),
         extendedThinking: extendedThinking
       }
     });
 
-    // Clear input and mentioned files
+    // Clear input, mentioned files, and attached images
     input.value = '';
     input.style.height = 'auto';
     mentionedFiles = [];
+    attachedImages = [];
     renderMentionedFiles();
+    renderAttachedImages();
   }
 
   function handleClear() {
@@ -527,6 +607,19 @@ ${SLASH_COMMANDS.map(c => `- \`${c.command}\` - ${c.description}`).join('\n')}
       content.appendChild(filesIndicator);
     }
 
+    // Images indicator for user messages
+    if (message.role === 'user' && message.images && message.images.length > 0) {
+      const imagesIndicator = document.createElement('div');
+      imagesIndicator.className = 'message-images';
+      imagesIndicator.innerHTML = message.images.map(img =>
+        `<div class="image-preview">
+          ${img.dataUri ? `<img src="${img.dataUri}" alt="${escapeHtml(img.name)}" class="message-image-thumbnail" />` : ''}
+          <span class="image-badge"><span class="codicon codicon-file-media"></span>${escapeHtml(img.name)}</span>
+        </div>`
+      ).join('');
+      content.appendChild(imagesIndicator);
+    }
+
     // Thinking section (for extended thinking)
     if (message.thinking) {
       const thinkingSection = document.createElement('details');
@@ -594,15 +687,15 @@ ${SLASH_COMMANDS.map(c => `- \`${c.command}\` - ${c.description}`).join('\n')}
     // Inline code
     html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
 
-    // Bold
-    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Bold - use non-greedy matching to handle nested cases better
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 
     // Links
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 
-    // Lists
+    // Lists - wrap consecutive list items in a single ul
     html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+    html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
 
     // Paragraphs
     html = html.split('\n\n').map(p => {
@@ -654,7 +747,6 @@ ${SLASH_COMMANDS.map(c => `- \`${c.command}\` - ${c.description}`).join('\n')}
   function setLoading(loading) {
     isLoading = loading;
     const sendBtn = document.getElementById('sendButton');
-    const input = document.getElementById('messageInput');
 
     if (loading) {
       sendBtn.disabled = true;
@@ -711,15 +803,43 @@ ${SLASH_COMMANDS.map(c => `- \`${c.command}\` - ${c.description}`).join('\n')}
           extendedThinking = message.extendedThinking;
           updateThinkingButton();
         }
+        saveState();
         break;
       case 'streamChunk':
         // Handle streaming response
         handleStreamChunk(message.chunk);
         break;
+      case 'insertFiles':
+        // Files inserted from native file picker (Cmd+Alt+K)
+        if (message.files) {
+          message.files.forEach(file => addMentionedFile(file.path, file.name));
+        }
+        break;
+      case 'attachImages':
+        // Images attached from native image picker (Cmd+Alt+I)
+        if (message.images) {
+          message.images.forEach(image => addAttachedImage(image));
+        }
+        break;
+      case 'sessionChanged':
+        // Session was changed
+        currentSession = message.session;
+        updateSessionIndicator();
+        break;
       default:
         break;
     }
   });
+
+  function updateSessionIndicator() {
+    const header = document.querySelector('.chat-header h3');
+    if (header && currentSession) {
+      header.textContent = currentSession.name;
+      header.title = `Session: ${currentSession.name}`;
+    } else if (header) {
+      header.textContent = 'AX CLI Assistant';
+    }
+  }
 
   function handleStreamChunk(chunk) {
     // Find or create streaming message

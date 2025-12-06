@@ -1,0 +1,59 @@
+{
+  "name": "@defai.digital/ax-grok",
+  "version": "1.0.0",
+  "description": "Grok-optimized AI coding assistant CLI powered by xAI - full-featured coding assistant with Grok 3 thinking mode, vision, and search",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthropics/ax-cli.git",
+    "directory": "packages/ax-grok"
+  },
+  "homepage": "https://github.com/anthropics/ax-cli#readme",
+  "bugs": {
+    "url": "https://github.com/anthropics/ax-cli/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "ax-grok": "./bin/ax-grok"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "start": "node ./dist/index.js"
+  },
+  "dependencies": {
+    "@defai.digital/ax-core": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT",
+  "keywords": [
+    "ai",
+    "cli",
+    "grok",
+    "xai",
+    "coding-assistant",
+    "vision",
+    "search"
+  ]
+}

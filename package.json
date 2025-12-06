@@ -38,18 +38,22 @@
     "vitest.config.ts"
   ],
   "scripts": {
-    "build": "npm run build:schemas && tsc && chmod +x dist/index.js",
-    "build:schemas": "cd packages/schemas && npm run build",
+    "build": "pnpm -r build",
+    "build:schemas": "pnpm --filter @defai.digital/ax-schemas build",
+    "build:core": "pnpm --filter @defai.digital/ax-core build",
+    "build:glm": "pnpm --filter @defai.digital/ax-glm build",
+    "build:grok": "pnpm --filter @defai.digital/ax-grok build",
+    "build:legacy": "npm run build:schemas && tsc && chmod +x dist/index.js",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "pretest": "npm run build:schemas",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run build && node scripts/prepare-publish.js",
+    "prepublishOnly": "npm run build:legacy && node scripts/prepare-publish.js",
     "postpublish": "node scripts/restore-symlink.js"
   },
   "keywords": [
@@ -75,10 +79,10 @@
   "author": "DEFAI Digital <https://defai.digital>",
   "license": "MIT",
   "bundleDependencies": [
-    "@ax-cli/schemas"
+    "@defai.digital/ax-schemas"
   ],
   "dependencies": {
-    "@ax-cli/schemas": "workspace:*",
+    "@defai.digital/ax-schemas": "workspace:*",
     "@clack/prompts": "^0.11.0",
     "@modelcontextprotocol/sdk": "^1.24.0",
     "@types/ws": "^8.18.1",

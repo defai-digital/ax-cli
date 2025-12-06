@@ -1,0 +1,23 @@
+#!/usr/bin/env node
+/**
+ * ax-grok - Grok-optimized AI coding assistant CLI
+ *
+ * This is a thin wrapper around @defai.digital/ax-core that configures
+ * the CLI with Grok (xAI) specific defaults and branding.
+ *
+ * Features:
+ * - Full ax-cli functionality (17 tools, MCP, memory, checkpoints, etc.)
+ * - Grok 3 with extended thinking mode (reasoning_effort: low/high)
+ * - Vision support (grok-2-vision)
+ * - Live search capability
+ * - Seed for reproducible outputs
+ * - 128K context window
+ */
+
+import { runCLI, GROK_PROVIDER } from '@defai.digital/ax-core';
+
+// Run the CLI with Grok configuration
+runCLI({
+  provider: GROK_PROVIDER,
+  version: '1.0.0',
+});

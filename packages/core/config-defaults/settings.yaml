@@ -1,0 +1,157 @@
+# Application Settings Configuration
+# Global configuration values for AX CLI
+
+agent:
+  max_tool_rounds: 400
+  default_timeout: 360000  # 6 minutes in milliseconds
+  default_max_tokens: 8192
+  max_recent_tool_calls: 20  # Keep only last 20 unique tool calls
+  max_messages: 500  # Maximum number of messages to keep in chat history
+
+  # Loop Detection (ENABLED BY DEFAULT)
+  # Detects when the AI repeats the same tool call multiple times
+  #
+  # HOW IT WORKS:
+  # - Tracks tool calls by signature (tool name + key arguments + content)
+  # - If same tool called N times (threshold), stops execution
+  # - Prevents infinite loops from failed operations (e.g., repeated failed edits)
+  #
+  # THRESHOLD GUIDANCE:
+  # - Lower (2-3): Aggressive, stops after a few failures (recommended for stability)
+  # - Medium (4-6): Balanced, allows some retries
+  # - Higher (7+): Lenient, only stops obvious infinite loops
+  #
+  # WHEN TO DISABLE:
+  # - When you need many identical operations (e.g., batch processing)
+  # - For debugging tool execution issues
+  #
+  # DISABLE OPTIONS:
+  # Option 1: enable_loop_detection: false (complete disable)
+  # Option 2: loop_detection_threshold: 0 (disable via threshold)
+  #
+  # DEFAULT: Enabled - Prevents infinite retry loops on failures
+  enable_loop_detection: true   # Set to false to disable loop detection
+  loop_detection_threshold: 3   # Number of repetitions before flagging as loop
+
+file:
+  max_file_size: 1048576  # 1MB in bytes
+  max_buffer_size: 1048576  # 1MB for bash commands
+  diff_context_lines: 3
+
+history:
+  max_history_size: 1000
+
+mcp:
+  client_name: ax-cli
+  client_version: 1.0.0
+  default_timeout: 60000  # 60 seconds (MCP SDK default)
+  health_check_interval: 60000  # 60 seconds between health checks
+  reconnect_max_delay: 30000  # 30 seconds max reconnection backoff
+
+  # MCP Tool Output Token Limiting (Phase 4)
+  # Prevents MCP tool outputs from overwhelming conversation context
+  token_warning_threshold: 10000  # Warn at 10k tokens
+  token_hard_limit: 25000  # Truncate at 25k tokens
+  truncation_enabled: true  # Enable automatic truncation
+
+# Timeout Configuration (centralized)
+timeouts:
+  # Tool execution timeouts
+  bash_default: 30000  # 30 seconds for bash commands
+  search_default: 30000  # 30 seconds for search operations
+  hook_default: 30000  # 30 seconds for hook execution
+
+  # Streaming timeouts
+  streaming_first_chunk: 90000  # 90 seconds for first chunk
+  streaming_idle: 120000  # 120 seconds between chunks
+
+  # Process pool timeouts
+  process_execution: 30000  # 30 seconds for process execution
+  process_idle: 60000  # 60 seconds before killing idle process
+
+  # Paste timeouts
+  paste_timeout: 30000  # 30 seconds for paste operations
+
+  # Cache TTL
+  cache_ttl: 60000  # 1 minute cache TTL
+  settings_cache_ttl: 5000  # 5 seconds for settings manager cache
+
+  # Network/API timeouts
+  api_health_check: 5000  # 5 seconds for API health checks
+  command_check: 3000  # 3 seconds for command availability checks
+  mcp_init: 5000  # 5 seconds for MCP initialization
+  shutdown: 10000  # 10 seconds for graceful shutdown
+
+  # UI timeouts
+  notification_display: 3000  # 3 seconds for notification display
+  tool_approval: 300000  # 5 minutes for tool approval timeout
+  context_cleanup_interval: 300000  # 5 minutes for context manager cleanup
+  confirmation_timeout: 60000  # 60 seconds for file operation confirmation
+
+ui:
+  status_update_interval: 2000  # 2 seconds
+  processing_timer_interval: 1000  # 1 second
+
+  # Verbosity Level Configuration
+  # Controls how much detail is shown for tool executions
+  #
+  # Levels:
+  # - quiet (0): Group consecutive operations, show summaries only
+  #   Example: "Working on app.ts (3 edits, 5 reads) ✓ 2.3s"
+  #   Best for: Regular coding work, focusing on results
+  #
+  # - concise (1): One line per tool execution
+  #   Example: "⏺ Read (app.ts) ✓ 22 lines read"
+  #   Best for: Debugging tool execution order
+  #
+  # - verbose (2): Full details with arguments and outputs
+  #   Example: Full args, outputs, diffs, execution timings
+  #   Best for: Deep debugging, understanding AI behavior
+  #
+  # Default: quiet (best user experience, minimal noise)
+  verbosity_level: quiet  # Options: quiet | concise | verbose
+
+  # Tool Grouping Settings (applies to quiet mode)
+  group_tool_calls: true  # Enable/disable tool call grouping
+  max_group_size: 20  # Max operations per group before splitting
+  group_time_window: 500  # Max milliseconds between operations to group
+
+  # Semantic Grouping (Claude Code-style)
+  # Groups operations by intent (e.g., "Exploring codebase (12 reads)")
+  # When false, uses resource-based grouping (groups operations on same file)
+  semantic_grouping: true  # Enable semantic grouping
+  max_semantic_group_size: 30  # Max operations in a semantic group
+
+  # Rolling Display (Claude Code-style)
+  # When there are many consecutive tool operations, only show the last N lines
+  # Older operations are collapsed with "... and X more" summary
+  max_visible_tool_lines: 5  # Max visible tool lines before rolling up older ones
+
+token:
+  tokens_per_message: 3
+  tokens_for_reply_priming: 3
+  default_model: gpt-4
+  default_encoding: cl100k_base
+  cache_max_size: 1000
+  chars_per_token_estimate: 4  # Rough approximation for token estimation
+
+cache:
+  default_max_size: 1000
+  default_ttl: 300000  # 5 minutes
+  tool_args_cache_max_size: 500  # Max entries for tool call arguments cache
+  tool_args_cache_prune_count: 100  # Number of entries to remove when cache is full
+
+performance:
+  debounce_delay: 300  # milliseconds
+  throttle_limit: 1000  # milliseconds
+  slow_operation_threshold: 1000  # milliseconds
+
+tool_names:
+  bash: execute_bash
+  text_editor: str_replace_editor
+  read_file: read_file
+  write_file: write_to_file
+  list_files: list_files
+  search: search_files
+  create_todo: create_todo_list
+  update_todo: update_todo_list

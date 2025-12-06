@@ -6,6 +6,9 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
 
+    /* Project References */
+    "composite": true,
+
     /* Type Checking - STRICT MODE */
     "strict": true,
     "noImplicitAny": true,

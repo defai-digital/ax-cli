@@ -60,8 +60,9 @@ describe('MCP Config Detector', () => {
         command: 'node'
       };
 
-      // Legacy format requires both command AND args
-      expect(isLegacyStdioFormat(config)).toBe(false);
+      // BUG FIX: Legacy format only requires command, not args
+      // The migration logic handles missing args by defaulting to empty array
+      expect(isLegacyStdioFormat(config)).toBe(true);
     });
 
     it('should handle empty config', () => {

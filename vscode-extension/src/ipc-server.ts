@@ -116,7 +116,7 @@ interface PortFileContent {
 }
 
 const IPC_PORT_FILE = path.join(os.homedir(), '.ax-cli', 'vscode-ipc.json');
-const EXTENSION_VERSION = '0.3.2';
+const EXTENSION_VERSION = '0.3.4';
 
 export class IPCServer {
   private server: WebSocketServer | null = null;

@@ -3,6 +3,7 @@ import * as path from 'path';
 import { CLIBridgeSDK, CLIRequest, CLIResponse, CLIError, PendingChange } from './cli-bridge-sdk.js';
 import { EditorContext } from './context-provider.js';
 import type { StreamChunkPayload } from './ipc-server.js';
+import type { ChatSession } from './session-manager.js';
 
 interface Message {
   id: string;
@@ -10,6 +11,8 @@ interface Message {
   content: string;
   timestamp: string;
   context?: EditorContext;
+  files?: Array<{ path: string; name: string }>;
+  images?: Array<{ path: string; name: string; dataUri?: string }>;
 }
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
@@ -19,6 +22,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private messages: Message[] = [];
   private pendingChanges: Map<string, PendingChange> = new Map();
   private messageListener?: vscode.Disposable;
+  private currentSession: ChatSession | null = null;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -116,6 +120,31 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           // User wants to add git diff as context
           await this.addGitDiffContext();
           break;
+
+        case 'requestImagePicker':
+          // User clicked image button in webview, open native picker
+          await this.openImagePicker();
+          break;
+
+        case 'rewind':
+          // User wants to rewind to checkpoint
+          vscode.commands.executeCommand('ax-cli.rewind');
+          break;
+
+        case 'manageSessions':
+          // User wants to manage sessions
+          vscode.commands.executeCommand('ax-cli.manageSessions');
+          break;
+
+        case 'autoFixErrors':
+          // User wants to auto-fix errors
+          vscode.commands.executeCommand('ax-cli.autoFixErrors');
+          break;
+
+        case 'manageHooks':
+          // User wants to manage hooks
+          vscode.commands.executeCommand('ax-cli.manageHooks');
+          break;
       }
     });
   }
@@ -133,6 +162,130 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   public sendMessage(prompt: string, context?: EditorContext) {
     this.handleUserMessage(prompt, context);
+  }
+
+  /**
+   * Insert file references into the chat (called from native file picker)
+   * Similar to Claude Code's Cmd+Option+K functionality
+   */
+  public insertFileReferences(filePaths: string[]): void {
+    if (!this._view) return;
+
+    this._view.webview.postMessage({
+      type: 'insertFiles',
+      files: filePaths.map(filePath => ({
+        path: filePath,
+        name: path.basename(filePath)
+      }))
+    });
+  }
+
+  /**
+   * Attach images to the chat
+   * Sends image data to webview for display and context
+   */
+  public async attachImages(imagePaths: string[]): Promise<void> {
+    if (!this._view) return;
+
+    const images: Array<{ path: string; name: string; dataUri?: string }> = [];
+
+    for (const imagePath of imagePaths) {
+      try {
+        const uri = vscode.Uri.file(imagePath);
+        const data = await vscode.workspace.fs.readFile(uri);
+        const ext = path.extname(imagePath).toLowerCase().slice(1);
+        const mimeType = this.getMimeType(ext);
+        const base64 = Buffer.from(data).toString('base64');
+        const dataUri = `data:${mimeType};base64,${base64}`;
+
+        images.push({
+          path: imagePath,
+          name: path.basename(imagePath),
+          dataUri
+        });
+      } catch (error) {
+        console.error(`[ChatView] Failed to read image ${imagePath}:`, error);
+        vscode.window.showWarningMessage(`Failed to attach image: ${path.basename(imagePath)}`);
+      }
+    }
+
+    if (images.length > 0) {
+      this._view.webview.postMessage({
+        type: 'attachImages',
+        images
+      });
+    }
+  }
+
+  /**
+   * Get MIME type for image extension
+   */
+  private getMimeType(ext: string): string {
+    const mimeTypes: Record<string, string> = {
+      'png': 'image/png',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'bmp': 'image/bmp',
+      'svg': 'image/svg+xml'
+    };
+    return mimeTypes[ext] || 'image/png';
+  }
+
+  /**
+   * Open native image picker dialog
+   * Called from webview when user clicks the image button
+   */
+  private async openImagePicker(): Promise<void> {
+    const files = await vscode.window.showOpenDialog({
+      canSelectMany: true,
+      canSelectFolders: false,
+      filters: {
+        'Images': ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']
+      },
+      title: 'Select images to attach',
+      openLabel: 'Attach'
+    });
+
+    if (files && files.length > 0) {
+      await this.attachImages(files.map(f => f.fsPath));
+    }
+  }
+
+  /**
+   * Set the current session and load its messages
+   */
+  public setSession(session: ChatSession): void {
+    this.currentSession = session;
+    // Convert session messages to local format
+    this.messages = session.messages.map(m => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      timestamp: m.timestamp,
+      files: m.files,
+      images: m.images
+    }));
+    this.updateWebview();
+
+    // Update session indicator in webview
+    if (this._view) {
+      this._view.webview.postMessage({
+        type: 'sessionChanged',
+        session: {
+          id: session.id,
+          name: session.name
+        }
+      });
+    }
+  }
+
+  /**
+   * Get the current session
+   */
+  public getSession(): ChatSession | null {
+    return this.currentSession;
   }
 
   /**
@@ -371,7 +524,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     try {
       // Search for files matching the query
       const pattern = query ? `**/*${query}*` : '**/*';
-      const excludePattern = '**/node_modules/**,**/.git/**,**/dist/**,**/build/**';
+      // Use glob brace syntax for multiple exclude patterns
+      const excludePattern = '{**/node_modules/**,**/.git/**,**/dist/**,**/build/**}';
 
       const files = await vscode.workspace.findFiles(pattern, excludePattern, 50);
 
@@ -388,11 +542,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       });
 
       // Sort by relevance (exact matches first, then by path length)
+      const queryLower = query.toLowerCase();
       fileList.sort((a, b) => {
-        const aExact = a.name.toLowerCase() === query.toLowerCase();
-        const bExact = b.name.toLowerCase() === query.toLowerCase();
-        if (aExact && !bExact) return -1;
-        if (!aExact && bExact) return 1;
+        // Skip exact match comparison if query is empty
+        if (queryLower) {
+          const aExact = a.name.toLowerCase() === queryLower;
+          const bExact = b.name.toLowerCase() === queryLower;
+          if (aExact && !bExact) return -1;
+          if (!aExact && bExact) return 1;
+        }
         return a.relativePath.length - b.relativePath.length;
       });
 
@@ -554,5 +712,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       text += possible.charAt(Math.floor(Math.random() * possible.length));
     }
     return text;
+  }
+
+  /**
+   * Dispose resources to prevent memory leaks
+   */
+  public dispose(): void {
+    this.messageListener?.dispose();
+    this.messageListener = undefined;
+    this.pendingChanges.clear();
+    this._view = undefined;
   }
 }

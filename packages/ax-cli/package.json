@@ -1,0 +1,44 @@
+{
+  "name": "@ax-cli/cli",
+  "version": "1.0.0",
+  "description": "Meta CLI for ax-cli - helps users choose and install ax-glm or ax-grok",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "ax-cli": "./bin/ax-cli"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "start": "node ./dist/index.js"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.2.0",
+    "chalk": "^5.4.1",
+    "commander": "^13.0.0",
+    "ora": "^8.1.1",
+    "which": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "@types/which": "^3.0.4",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT",
+  "keywords": [
+    "ai",
+    "cli",
+    "coding-assistant",
+    "glm",
+    "grok"
+  ]
+}

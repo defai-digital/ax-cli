@@ -2,7 +2,7 @@
   "name": "ax-cli-vscode",
   "displayName": "AX CLI",
   "description": "AI-powered coding assistant with multi-provider flexibility",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "publisher": "defai-digital",
   "icon": "resources/icon.png",
   "engines": {
@@ -85,6 +85,46 @@
       {
         "command": "ax-cli.showApiKeyStatus",
         "title": "AX: Show API Key Status"
+      },
+      {
+        "command": "ax-cli.insertFilePath",
+        "title": "AX: Insert File Reference"
+      },
+      {
+        "command": "ax-cli.attachImage",
+        "title": "AX: Attach Image to Chat"
+      },
+      {
+        "command": "ax-cli.rewind",
+        "title": "AX: Rewind to Checkpoint"
+      },
+      {
+        "command": "ax-cli.createCheckpoint",
+        "title": "AX: Create Checkpoint"
+      },
+      {
+        "command": "ax-cli.autoFixErrors",
+        "title": "AX: Auto-Fix Errors"
+      },
+      {
+        "command": "ax-cli.newSession",
+        "title": "AX: New Chat Session"
+      },
+      {
+        "command": "ax-cli.switchSession",
+        "title": "AX: Switch Session"
+      },
+      {
+        "command": "ax-cli.manageSessions",
+        "title": "AX: Manage Sessions"
+      },
+      {
+        "command": "ax-cli.manageHooks",
+        "title": "AX: Manage Hooks"
+      },
+      {
+        "command": "ax-cli.createHooksConfig",
+        "title": "AX: Create Hooks Config"
       }
     ],
     "viewsContainers": {
@@ -139,6 +179,16 @@
         "command": "ax-cli.setApiKey",
         "key": "ctrl+shift+k",
         "mac": "cmd+shift+k"
+      },
+      {
+        "command": "ax-cli.insertFilePath",
+        "key": "alt+ctrl+k",
+        "mac": "cmd+alt+k"
+      },
+      {
+        "command": "ax-cli.attachImage",
+        "key": "alt+ctrl+i",
+        "mac": "cmd+alt+i"
       }
     ],
     "configuration": {
