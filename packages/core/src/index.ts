@@ -29,8 +29,8 @@ import { AGENT_CONFIG } from "./constants.js";
 import { getVSCodeIPCClient, disposeVSCodeIPCClient } from "./ipc/index.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
 
-// Load environment variables
-dotenv.config();
+// Load environment variables (quiet mode to suppress dotenv v17+ output)
+dotenv.config({ quiet: true });
 
 // Set process title for terminal display (shows "ax-cli" instead of "node")
 process.title = 'ax-cli';

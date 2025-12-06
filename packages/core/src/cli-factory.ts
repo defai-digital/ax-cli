@@ -36,8 +36,8 @@ import { getVSCodeIPCClient, disposeVSCodeIPCClient } from "./ipc/index.js";
 import type { ProviderDefinition } from "./provider/config.js";
 import { getApiKeyFromEnv } from "./provider/config.js";
 
-// Load environment variables
-dotenv.config();
+// Load environment variables (quiet mode to suppress dotenv v17+ output)
+dotenv.config({ quiet: true });
 
 /**
  * CLI Factory Options

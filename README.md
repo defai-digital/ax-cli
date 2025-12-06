@@ -580,6 +580,11 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
+### v4.1.5 - Suppress dotenv Output
+
+- **Fix**: Suppress dotenv v17+ output message (`[dotenv@17.x.x] injecting env...`)
+- Added `{ quiet: true }` to dotenv.config() calls in cli-factory.ts and index.ts
+
 ### v4.1.4 - Provider-Aware Update Command
 
 - **Update Command**: `ax-glm update` and `ax-grok update` now check/update their own packages
