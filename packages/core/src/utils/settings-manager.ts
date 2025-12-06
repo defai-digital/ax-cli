@@ -6,7 +6,8 @@ import { ModelIdSchema } from '@defai.digital/ax-schemas';
 import { parseJsonFile, writeJsonFile } from "./json-utils.js";
 import { encrypt, decrypt } from "./encryption.js";
 import { extractErrorMessage } from "./error-handler.js";
-import { CONFIG_PATHS, TIMEOUT_CONFIG } from "../constants.js";
+import { TIMEOUT_CONFIG } from "../constants.js";
+import { getActiveConfigPaths } from "../provider/config.js";
 
 // Re-export types for external use
 export type { UserSettings, ProjectSettings };
@@ -71,11 +72,14 @@ export class SettingsManager {
   private readonly CACHE_TTL = TIMEOUT_CONFIG.SETTINGS_CACHE_TTL;
 
   private constructor() {
-    // User settings path: ~/.ax-cli/config.json
-    this.userSettingsPath = CONFIG_PATHS.USER_CONFIG;
+    // Use provider-specific config paths (set by cli-factory on startup)
+    const configPaths = getActiveConfigPaths();
 
-    // Project settings path: .ax-cli/settings.json
-    this.projectSettingsPath = CONFIG_PATHS.PROJECT_SETTINGS;
+    // User settings path: ~/.ax-glm/config.json or ~/.ax-grok/config.json
+    this.userSettingsPath = configPaths.USER_CONFIG;
+
+    // Project settings path: .ax-glm/settings.json or .ax-grok/settings.json
+    this.projectSettingsPath = configPaths.PROJECT_SETTINGS;
   }
 
   /**

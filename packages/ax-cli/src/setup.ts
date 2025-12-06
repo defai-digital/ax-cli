@@ -96,8 +96,22 @@ const LOCAL_SERVERS = [
 ];
 
 // Config paths
-const CONFIG_DIR = join(homedir(), '.ax-cli');
-const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
+// ax-cli meta config (stores which provider was selected)
+const AX_CLI_CONFIG_DIR = join(homedir(), '.ax-cli');
+const AX_CLI_CONFIG_FILE = join(AX_CLI_CONFIG_DIR, 'config.json');
+
+// Provider-specific config directories
+const PROVIDER_CONFIG_DIRS: Record<Provider, string> = {
+  glm: join(homedir(), '.ax-glm'),
+  grok: join(homedir(), '.ax-grok'),
+};
+
+/**
+ * Get provider-specific config path
+ */
+function getProviderConfigPath(provider: Provider): string {
+  return join(PROVIDER_CONFIG_DIRS[provider], 'config.json');
+}
 
 interface AxCliConfig {
   selectedProvider?: Provider;
@@ -190,12 +204,12 @@ const GROK_MODELS: GrokModelInfo[] = [
 ];
 
 /**
- * Load existing config
+ * Load ax-cli meta config (provider selection only)
  */
-function loadConfig(): AxCliConfig {
+function loadMetaConfig(): { selectedProvider?: Provider } {
   try {
-    if (existsSync(CONFIG_FILE)) {
-      return JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'));
+    if (existsSync(AX_CLI_CONFIG_FILE)) {
+      return JSON.parse(readFileSync(AX_CLI_CONFIG_FILE, 'utf-8'));
     }
   } catch {
     // Ignore errors
@@ -204,13 +218,41 @@ function loadConfig(): AxCliConfig {
 }
 
 /**
- * Save config
+ * Load provider-specific config
  */
-function saveConfig(config: AxCliConfig): void {
-  if (!existsSync(CONFIG_DIR)) {
-    mkdirSync(CONFIG_DIR, { recursive: true });
+function loadProviderConfig(provider: Provider): AxCliConfig {
+  try {
+    const configPath = getProviderConfigPath(provider);
+    if (existsSync(configPath)) {
+      return JSON.parse(readFileSync(configPath, 'utf-8'));
+    }
+  } catch {
+    // Ignore errors
   }
-  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), { mode: 0o600 });
+  return {};
+}
+
+/**
+ * Save ax-cli meta config (provider selection)
+ */
+function saveMetaConfig(provider: Provider): void {
+  if (!existsSync(AX_CLI_CONFIG_DIR)) {
+    mkdirSync(AX_CLI_CONFIG_DIR, { recursive: true });
+  }
+  writeFileSync(AX_CLI_CONFIG_FILE, JSON.stringify({ selectedProvider: provider }, null, 2), { mode: 0o600 });
+}
+
+/**
+ * Save provider-specific config
+ */
+function saveProviderConfig(provider: Provider, config: AxCliConfig): void {
+  const configDir = PROVIDER_CONFIG_DIRS[provider];
+  const configPath = getProviderConfigPath(provider);
+
+  if (!existsSync(configDir)) {
+    mkdirSync(configDir, { recursive: true });
+  }
+  writeFileSync(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
 }
 
 /**
@@ -997,8 +1039,8 @@ export async function runSetup(): Promise<void> {
   console.log('  This wizard will configure your AI coding assistant');
   console.log('  with your preferred LLM provider.\n');
 
-  // Load existing config
-  const existingConfig = loadConfig();
+  // Load existing meta config (to get previously selected provider)
+  const metaConfig = loadMetaConfig();
 
   // ═══════════════════════════════════════════════════════════════════
   // Provider Selection
@@ -1019,16 +1061,19 @@ export async function runSetup(): Promise<void> {
         description: 'Extended thinking, live search, vision support',
       },
     ],
-    default: existingConfig.selectedProvider || 'glm',
+    default: metaConfig.selectedProvider || 'glm',
   });
+
+  // Load provider-specific config for the selected provider
+  const existingProviderConfig = loadProviderConfig(provider);
 
   // Run provider-specific setup
   let newConfig: AxCliConfig | null = null;
 
   if (provider === 'glm') {
-    newConfig = await runGLMSetup(existingConfig);
+    newConfig = await runGLMSetup(existingProviderConfig);
   } else {
-    newConfig = await runGrokSetup(existingConfig);
+    newConfig = await runGrokSetup(existingProviderConfig);
   }
 
   if (!newConfig) {
@@ -1036,8 +1081,11 @@ export async function runSetup(): Promise<void> {
     return;
   }
 
-  // Save configuration
-  saveConfig(newConfig);
+  // Save meta config (provider selection) to ~/.ax-cli/config.json
+  saveMetaConfig(provider);
+
+  // Save provider-specific config to ~/.ax-glm/ or ~/.ax-grok/
+  saveProviderConfig(provider, newConfig);
   console.log(chalk.green('\n  ✓ Configuration saved!\n'));
 
   // Show summary
@@ -1050,7 +1098,7 @@ export async function runSetup(): Promise<void> {
   console.log(`  Provider:    ${newConfig._provider}`);
   console.log(`  Server:      ${isLocal ? newConfig.baseURL : 'Cloud API'}`);
   console.log(`  Model:       ${newConfig.defaultModel}`);
-  console.log(`  Config:      ${CONFIG_FILE}`);
+  console.log(`  Config:      ${getProviderConfigPath(provider)}`);
   console.log();
 
   // Check if provider CLI is installed
@@ -1114,9 +1162,9 @@ async function detectPackageManager(): Promise<'npm' | 'pnpm' | 'yarn'> {
 }
 
 /**
- * Get the selected provider from config
+ * Get the selected provider from meta config
  */
 export function getSelectedProvider(): Provider | null {
-  const config = loadConfig();
+  const config = loadMetaConfig();
   return config.selectedProvider || null;
 }

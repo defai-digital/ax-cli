@@ -64,6 +64,8 @@ export interface ProviderDefinition {
     description: string;
     welcomeMessage: string;
   };
+  /** Configuration directory name (e.g., '.ax-glm', '.ax-grok') */
+  configDirName: string;
 }
 
 /**
@@ -76,6 +78,7 @@ export const GLM_PROVIDER: ProviderDefinition = {
   apiKeyEnvVarAliases: ['GLM_API_KEY', 'YOUR_API_KEY'],
   defaultBaseURL: 'https://api.z.ai/api/coding/paas/v4',
   defaultModel: 'glm-4.6',
+  configDirName: '.ax-glm',
   models: {
     'glm-4.6': {
       name: 'GLM-4.6',
@@ -147,6 +150,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
   apiKeyEnvVarAliases: ['GROK_API_KEY'],
   defaultBaseURL: 'https://api.x.ai/v1',
   defaultModel: 'grok-3',
+  configDirName: '.ax-grok',
   models: {
     // Grok 3 models with thinking mode (reasoning_effort)
     'grok-3': {
@@ -293,4 +297,107 @@ export function getApiKeyFromEnv(provider: ProviderDefinition): string | undefin
   }
 
   return apiKey;
+}
+
+import { homedir } from 'os';
+import { join } from 'path';
+
+/**
+ * File names for config files
+ */
+export const CONFIG_FILE_NAMES = {
+  USER_CONFIG: 'config.json',
+  PROJECT_SETTINGS: 'settings.json',
+  CUSTOM_MD: 'CUSTOM.md',
+  INDEX_JSON: 'index.json',
+  MEMORY_JSON: 'memory.json',
+  HISTORY_JSON: 'history.json',
+  SESSIONS_DIR: 'sessions',
+  TEMPLATES_DIR: 'templates',
+  PLANS_DIR: 'plans',
+  BACKUPS_DIR: 'backups',
+  CACHE_DIR: 'cache',
+} as const;
+
+/**
+ * Config paths structure for a provider
+ */
+export interface ProviderConfigPaths {
+  /** Configuration directory name */
+  DIR_NAME: string;
+  /** User-level settings directory */
+  USER_DIR: string;
+  /** User-level configuration file */
+  USER_CONFIG: string;
+  /** Project-level settings directory */
+  PROJECT_DIR: string;
+  /** Project-level settings file */
+  PROJECT_SETTINGS: string;
+  /** Custom instructions file path (project-level) */
+  CUSTOM_MD: string;
+  /** Project index file path (project-level) */
+  INDEX_JSON: string;
+  /** Project memory file path (project-level) */
+  MEMORY_JSON: string;
+  /** User templates directory */
+  USER_TEMPLATES_DIR: string;
+  /** User plans directory */
+  USER_PLANS_DIR: string;
+  /** User history file */
+  USER_HISTORY: string;
+  /** User sessions directory */
+  USER_SESSIONS_DIR: string;
+}
+
+/**
+ * Get config paths for a specific provider
+ */
+export function getProviderConfigPaths(provider: ProviderDefinition): ProviderConfigPaths {
+  const configDirName = provider.configDirName;
+
+  return {
+    DIR_NAME: configDirName,
+    USER_DIR: join(homedir(), configDirName),
+    USER_CONFIG: join(homedir(), configDirName, CONFIG_FILE_NAMES.USER_CONFIG),
+    PROJECT_DIR: join(process.cwd(), configDirName),
+    PROJECT_SETTINGS: join(process.cwd(), configDirName, CONFIG_FILE_NAMES.PROJECT_SETTINGS),
+    CUSTOM_MD: join(process.cwd(), configDirName, CONFIG_FILE_NAMES.CUSTOM_MD),
+    INDEX_JSON: join(process.cwd(), configDirName, CONFIG_FILE_NAMES.INDEX_JSON),
+    MEMORY_JSON: join(process.cwd(), configDirName, CONFIG_FILE_NAMES.MEMORY_JSON),
+    USER_TEMPLATES_DIR: join(homedir(), configDirName, CONFIG_FILE_NAMES.TEMPLATES_DIR),
+    USER_PLANS_DIR: join(homedir(), configDirName, CONFIG_FILE_NAMES.PLANS_DIR),
+    USER_HISTORY: join(homedir(), configDirName, CONFIG_FILE_NAMES.HISTORY_JSON),
+    USER_SESSIONS_DIR: join(homedir(), configDirName, CONFIG_FILE_NAMES.SESSIONS_DIR),
+  };
+}
+
+/**
+ * Get config paths for a provider by name
+ */
+export function getConfigPathsByProviderName(providerName: string): ProviderConfigPaths | undefined {
+  const provider = getProviderDefinition(providerName);
+  if (!provider) return undefined;
+  return getProviderConfigPaths(provider);
+}
+
+// Current active provider config paths (set by cli-factory)
+let activeConfigPaths: ProviderConfigPaths | null = null;
+
+/**
+ * Set the active provider config paths (called by cli-factory on startup)
+ */
+export function setActiveProviderConfigPaths(provider: ProviderDefinition): void {
+  activeConfigPaths = getProviderConfigPaths(provider);
+}
+
+/**
+ * Get the active provider config paths
+ * Falls back to GLM provider if not set
+ */
+export function getActiveConfigPaths(): ProviderConfigPaths {
+  if (!activeConfigPaths) {
+    // Default to GLM if not initialized
+    activeConfigPaths = getProviderConfigPaths(GLM_PROVIDER);
+  }
+  return activeConfigPaths;
 }

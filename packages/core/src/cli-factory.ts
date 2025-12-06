@@ -34,7 +34,7 @@ import { migrateCommandHistory } from "./utils/history-migration.js";
 import { AGENT_CONFIG } from "./constants.js";
 import { getVSCodeIPCClient, disposeVSCodeIPCClient } from "./ipc/index.js";
 import type { ProviderDefinition } from "./provider/config.js";
-import { getApiKeyFromEnv } from "./provider/config.js";
+import { getApiKeyFromEnv, setActiveProviderConfigPaths } from "./provider/config.js";
 
 // Load environment variables (quiet mode to suppress dotenv v17+ output)
 dotenv.config({ quiet: true });
@@ -106,6 +106,10 @@ export function createCLI(options: CLIFactoryOptions): Command {
   const { provider } = options;
   const cliName = provider.branding.cliName;
   const version = options.version || getVersionString();
+
+  // Set provider-specific config paths BEFORE any settings access
+  // This ensures SettingsManager uses the correct paths (e.g., ~/.ax-glm or ~/.ax-grok)
+  setActiveProviderConfigPaths(provider);
 
   // Set process title
   process.title = cliName;

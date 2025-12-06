@@ -15,8 +15,8 @@ import { validateProviderSetup } from '../utils/setup-validator.js';
 import { getSettingsManager } from '../utils/settings-manager.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
 import type { UserSettings } from '../schemas/settings-schemas.js';
-import { CONFIG_PATHS } from '../constants.js';
 import type { ProviderDefinition } from '../provider/config.js';
+import { getActiveConfigPaths } from '../provider/config.js';
 import {
   detectZAIServices,
   getRecommendedServers,
@@ -123,8 +123,9 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
           'Welcome'
         );
 
-        // Always use the NEW path ~/.ax-cli/config.json
-        const configPath = CONFIG_PATHS.USER_CONFIG;
+        // Use provider-specific config path (e.g., ~/.ax-glm/config.json or ~/.ax-grok/config.json)
+        const activeConfigPaths = getActiveConfigPaths();
+        const configPath = activeConfigPaths.USER_CONFIG;
         const configDir = dirname(configPath);
         const settingsManager = getSettingsManager();
 
