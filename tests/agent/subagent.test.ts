@@ -300,4 +300,201 @@ describe('Subagent', () => {
       expect(subagent.config.priority).toBeDefined();
     });
   });
+
+  describe('Termination', () => {
+    beforeEach(() => {
+      subagent = new Subagent(SubagentRole.TESTING);
+    });
+
+    it('should emit terminated event before removing listeners', async () => {
+      let terminatedEmitted = false;
+      subagent.once('terminated', () => {
+        terminatedEmitted = true;
+      });
+
+      await subagent.terminate();
+
+      expect(terminatedEmitted).toBe(true);
+    });
+
+    it('should set isActive to false on terminate', async () => {
+      await subagent.terminate();
+
+      // After termination, abort should still work (sets state)
+      subagent.abort();
+      const status = subagent.getStatus();
+      expect(status.state).toBe(SubagentState.CANCELLED);
+    });
+
+    it('should remove all listeners after terminate', async () => {
+      subagent.on('test-event', () => {});
+
+      await subagent.terminate();
+
+      expect(subagent.listenerCount('test-event')).toBe(0);
+    });
+  });
+
+  describe('Chat History', () => {
+    beforeEach(() => {
+      subagent = new Subagent(SubagentRole.TESTING);
+    });
+
+    it('should return copy of chat history via getChatHistory', () => {
+      const history1 = subagent.getChatHistory();
+      history1.push({
+        type: 'user',
+        content: 'test',
+        timestamp: new Date(),
+      });
+
+      const history2 = subagent.getChatHistory();
+      expect(history2).toEqual([]);
+    });
+
+    it('should return same data from getLogs and getChatHistory', () => {
+      const history = subagent.getChatHistory();
+      const logs = subagent.getLogs();
+
+      expect(history).toEqual(logs);
+    });
+  });
+
+  describe('Abort with taskId', () => {
+    beforeEach(() => {
+      subagent = new Subagent(SubagentRole.TESTING);
+    });
+
+    it('should include taskId in cancel event', () => {
+      let emittedTaskId: string | null = null;
+      subagent.once('cancel', (data: { taskId: string | null }) => {
+        emittedTaskId = data.taskId;
+      });
+
+      subagent.abort();
+
+      // Initially no task is running, so taskId should be null
+      expect(emittedTaskId).toBeNull();
+    });
+  });
+
+  describe('Query Message Handling', () => {
+    beforeEach(() => {
+      subagent = new Subagent(SubagentRole.TESTING);
+    });
+
+    it('should handle query messages without aborting', async () => {
+      const message = {
+        from: 'orchestrator' as const,
+        to: 'subagent' as const,
+        type: 'query' as const,
+        content: 'Status check',
+        timestamp: new Date(),
+      };
+
+      await subagent.receiveMessage(message);
+
+      const status = subagent.getStatus();
+      // Should not be cancelled - query doesn't abort
+      expect(status.state).not.toBe(SubagentState.CANCELLED);
+    });
+
+    it('should handle instruction messages without aborting', async () => {
+      const message = {
+        from: 'orchestrator' as const,
+        to: 'subagent' as const,
+        type: 'instruction' as const,
+        content: 'Do something',
+        timestamp: new Date(),
+      };
+
+      await subagent.receiveMessage(message);
+
+      const status = subagent.getStatus();
+      expect(status.state).not.toBe(SubagentState.CANCELLED);
+    });
+  });
+
+  describe('Unique ID Generation', () => {
+    it('should generate unique IDs for each subagent', () => {
+      const agent1 = new Subagent(SubagentRole.TESTING);
+      const agent2 = new Subagent(SubagentRole.TESTING);
+
+      expect(agent1.id).not.toBe(agent2.id);
+    });
+
+    it('should include role in ID', () => {
+      const testingAgent = new Subagent(SubagentRole.TESTING);
+      const docAgent = new Subagent(SubagentRole.DOCUMENTATION);
+
+      expect(testingAgent.id).toContain(SubagentRole.TESTING);
+      expect(docAgent.id).toContain(SubagentRole.DOCUMENTATION);
+    });
+  });
+
+  describe('GENERAL Role', () => {
+    it('should handle GENERAL role with empty allowed tools', () => {
+      subagent = new Subagent(SubagentRole.GENERAL);
+
+      expect(subagent.role).toBe(SubagentRole.GENERAL);
+      expect(subagent.config.role).toBe(SubagentRole.GENERAL);
+    });
+  });
+
+  describe('Config Defaults', () => {
+    it('should use maxToolRounds from config', () => {
+      subagent = new Subagent(SubagentRole.TESTING, {
+        maxToolRounds: 5,
+      });
+
+      expect(subagent.config.maxToolRounds).toBe(5);
+    });
+
+    it('should use contextDepth from config', () => {
+      subagent = new Subagent(SubagentRole.TESTING, {
+        contextDepth: 15,
+      });
+
+      expect(subagent.config.contextDepth).toBe(15);
+    });
+
+    it('should preserve allowedTools from role defaults', () => {
+      subagent = new Subagent(SubagentRole.TESTING);
+
+      // TESTING role should have bash and text_editor
+      expect(subagent.config.allowedTools).toContain('bash');
+    });
+  });
+
+  describe('Status Copy', () => {
+    beforeEach(() => {
+      subagent = new Subagent(SubagentRole.TESTING);
+    });
+
+    it('should return a copy of status to prevent mutation', () => {
+      const status1 = subagent.getStatus();
+      status1.progress = 999;
+
+      const status2 = subagent.getStatus();
+      expect(status2.progress).toBe(0);
+    });
+  });
+
+  describe('All Roles', () => {
+    const allRoles = [
+      SubagentRole.TESTING,
+      SubagentRole.DOCUMENTATION,
+      SubagentRole.REFACTORING,
+      SubagentRole.ANALYSIS,
+      SubagentRole.DEBUG,
+      SubagentRole.PERFORMANCE,
+      SubagentRole.GENERAL,
+    ];
+
+    it.each(allRoles)('should create subagent for role %s', (role) => {
+      const agent = new Subagent(role);
+      expect(agent.role).toBe(role);
+      expect(agent.id).toContain(role);
+    });
+  });
 });

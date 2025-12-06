@@ -212,6 +212,113 @@ describe("parallel-tools", () => {
       // Max observed concurrency should not exceed the limit
       expect(maxObservedConcurrency).toBeLessThanOrEqual(2);
     });
+
+    it("should execute sequentially when enabled is false", async () => {
+      const toolCalls = [
+        createToolCall("tool1", "id1"),
+        createToolCall("tool2", "id2"),
+        createToolCall("tool3", "id3"),
+      ];
+
+      const executionOrder: string[] = [];
+
+      const executor = async (toolCall: LLMToolCall) => {
+        executionOrder.push(`start-${toolCall.id}`);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        executionOrder.push(`end-${toolCall.id}`);
+        return { success: true, output: toolCall.id };
+      };
+
+      const results = await executeToolsInParallel(toolCalls, executor, {
+        enabled: false,
+      });
+
+      expect(results).toHaveLength(3);
+      // When disabled, execution should be strictly sequential
+      expect(executionOrder).toEqual([
+        "start-id1",
+        "end-id1",
+        "start-id2",
+        "end-id2",
+        "start-id3",
+        "end-id3",
+      ]);
+    });
+
+    it("should handle errors when enabled is false", async () => {
+      const toolCalls = [
+        createToolCall("tool1", "id1"),
+        createToolCall("tool2", "id2"),
+      ];
+
+      const executor = async (toolCall: LLMToolCall) => {
+        if (toolCall.id === "id1") {
+          throw new Error("First tool failed");
+        }
+        return { success: true, output: "OK" };
+      };
+
+      const results = await executeToolsInParallel(toolCalls, executor, {
+        enabled: false,
+      });
+
+      expect(results).toHaveLength(2);
+      expect(results[0].error).toBeDefined();
+      expect(results[0].error?.message).toBe("First tool failed");
+      expect(results[1].result.success).toBe(true);
+    });
+
+    it("should handle non-Error throws", async () => {
+      const toolCalls = [createToolCall("tool1", "id1")];
+
+      const executor = async () => {
+        throw "string error";
+      };
+
+      const results = await executeToolsInParallel(toolCalls, executor);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].error).toBeDefined();
+      expect(results[0].error?.message).toBe("string error");
+    });
+
+    it("should use default config values", async () => {
+      const toolCalls = [createToolCall("tool1", "id1")];
+
+      const executor = async () => ({ success: true, output: "OK" });
+
+      // Call without config - should use defaults
+      const results = await executeToolsInParallel(toolCalls, executor);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].result.success).toBe(true);
+    });
+
+    it("should handle maxConcurrency of 1", async () => {
+      const toolCalls = [
+        createToolCall("tool1", "id1"),
+        createToolCall("tool2", "id2"),
+      ];
+
+      const executionOrder: string[] = [];
+
+      const executor = async (toolCall: LLMToolCall) => {
+        executionOrder.push(`start-${toolCall.id}`);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        executionOrder.push(`end-${toolCall.id}`);
+        return { success: true, output: toolCall.id };
+      };
+
+      await executeToolsInParallel(toolCalls, executor, { maxConcurrency: 1 });
+
+      // With maxConcurrency 1, should be sequential
+      expect(executionOrder).toEqual([
+        "start-id1",
+        "end-id1",
+        "start-id2",
+        "end-id2",
+      ]);
+    });
   });
 
   describe("TOOL_CLASSIFICATION", () => {

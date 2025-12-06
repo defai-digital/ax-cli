@@ -604,6 +604,242 @@ describe('CheckpointManager', () => {
       // Skipping for now as it requires more complex test infrastructure
     });
   });
+
+  describe('getConversationState', () => {
+    it('should return conversation state for valid checkpoint', async () => {
+      const options = createTestOptions();
+      options.conversationState = [
+        { type: 'user' as const, content: 'Test 1', timestamp: new Date() },
+        { type: 'assistant' as const, content: 'Response 1', timestamp: new Date() },
+      ];
+
+      const checkpoint = await manager.createCheckpoint(options);
+      const state = await manager.getConversationState(checkpoint.id);
+
+      expect(state).not.toBeNull();
+      expect(state).toHaveLength(2);
+      expect(state![0].content).toBe('Test 1');
+    });
+
+    it('should return null for non-existent checkpoint', async () => {
+      const state = await manager.getConversationState('non-existent-id');
+      expect(state).toBeNull();
+    });
+  });
+
+  describe('shouldCreateCheckpoint', () => {
+    it('should return true for operations in createBeforeOperations', () => {
+      expect(manager.shouldCreateCheckpoint('write')).toBe(true);
+      expect(manager.shouldCreateCheckpoint('edit')).toBe(true);
+      expect(manager.shouldCreateCheckpoint('delete')).toBe(true);
+    });
+
+    it('should return false for operations not in createBeforeOperations', () => {
+      expect(manager.shouldCreateCheckpoint('read')).toBe(false);
+      expect(manager.shouldCreateCheckpoint('list')).toBe(false);
+      expect(manager.shouldCreateCheckpoint('unknown')).toBe(false);
+    });
+
+    it('should return false when checkpoints are disabled', () => {
+      const disabledManager = new CheckpointManager({ enabled: false });
+      expect(disabledManager.shouldCreateCheckpoint('write')).toBe(false);
+    });
+  });
+
+  describe('updateConfig', () => {
+    it('should update configuration', () => {
+      manager.updateConfig({ maxCheckpoints: 200 });
+      const config = manager.getConfig();
+      expect(config.maxCheckpoints).toBe(200);
+    });
+
+    it('should merge with existing config', () => {
+      const originalConfig = manager.getConfig();
+      manager.updateConfig({ enabled: false });
+      const newConfig = manager.getConfig();
+
+      expect(newConfig.enabled).toBe(false);
+      expect(newConfig.maxCheckpoints).toBe(originalConfig.maxCheckpoints);
+    });
+
+    it('should warn and skip storageDir change', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const originalConfig = manager.getConfig();
+
+      manager.updateConfig({ storageDir: '/new/path' });
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Cannot change storageDir'));
+      expect(manager.getConfig().storageDir).toBe(originalConfig.storageDir);
+      warnSpy.mockRestore();
+    });
+
+    it('should allow updating other config while rejecting storageDir', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      manager.updateConfig({ storageDir: '/new/path', maxCheckpoints: 999 });
+
+      expect(manager.getConfig().maxCheckpoints).toBe(999);
+      warnSpy.mockRestore();
+    });
+  });
+
+  describe('getConfig', () => {
+    it('should return a copy of the configuration', () => {
+      const config1 = manager.getConfig();
+      const config2 = manager.getConfig();
+
+      expect(config1).toEqual(config2);
+      expect(config1).not.toBe(config2); // Different object references
+    });
+  });
+
+  describe('getCheckpointInfo', () => {
+    it('should return checkpoint info by ID', async () => {
+      const options = createTestOptions();
+      const checkpoint = await manager.createCheckpoint(options);
+
+      const info = await manager.getCheckpointInfo(checkpoint.id);
+
+      expect(info).not.toBeNull();
+      expect(info?.id).toBe(checkpoint.id);
+      expect(info?.description).toBe(checkpoint.description);
+    });
+
+    it('should return null for non-existent checkpoint', async () => {
+      const info = await manager.getCheckpointInfo('non-existent-id');
+      expect(info).toBeNull();
+    });
+  });
+
+  describe('restoreCheckpoint alias', () => {
+    it('restoreCheckpoint should work the same as applyCheckpoint', async () => {
+      const testFilePath = path.join(testDir, 'restore-test.txt');
+      await fs.mkdir(path.dirname(testFilePath), { recursive: true });
+      await fs.writeFile(testFilePath, 'original', 'utf-8');
+
+      const options = createTestOptions();
+      options.files = [{ path: testFilePath, content: 'original' }];
+      const checkpoint = await manager.createCheckpoint(options);
+
+      await fs.writeFile(testFilePath, 'modified', 'utf-8');
+      const result = await manager.restoreCheckpoint(checkpoint.id);
+
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('validation edge cases', () => {
+    it('should throw when conversationState is missing', async () => {
+      const options = createTestOptions();
+      (options as any).conversationState = null;
+
+      await expect(manager.createCheckpoint(options)).rejects.toThrow('conversationState is required');
+    });
+
+    it('should throw when conversationDepth is invalid', async () => {
+      const invalidManager = new CheckpointManager({
+        enabled: true,
+        conversationDepth: 0,
+        storageDir: path.join(testDir, 'invalid-depth'),
+      });
+      await invalidManager.initialize();
+
+      const options = createTestOptions();
+
+      await expect(invalidManager.createCheckpoint(options)).rejects.toThrow('Invalid conversationDepth');
+    });
+
+    it('should handle invalid pruneAfterDays config', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const invalidManager = new CheckpointManager({
+        enabled: true,
+        pruneAfterDays: -1,
+        storageDir: path.join(testDir, 'invalid-prune'),
+      });
+      await invalidManager.initialize();
+
+      const result = await invalidManager.pruneOldCheckpoints();
+
+      expect(result).toBe(0);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid pruneAfterDays'));
+      warnSpy.mockRestore();
+    });
+
+    it('should handle invalid compressAfterDays config', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const invalidManager = new CheckpointManager({
+        enabled: true,
+        compressAfterDays: 0,
+        storageDir: path.join(testDir, 'invalid-compress'),
+      });
+      await invalidManager.initialize();
+
+      const result = await invalidManager.compressOldCheckpoints();
+
+      expect(result).toBe(0);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid compressAfterDays'));
+      warnSpy.mockRestore();
+    });
+
+    it('should handle invalid maxCheckpoints config', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const invalidManager = new CheckpointManager({
+        enabled: true,
+        maxCheckpoints: -5,
+        storageDir: path.join(testDir, 'invalid-max'),
+      });
+      await invalidManager.initialize();
+
+      // Create a checkpoint to trigger maintenance
+      await invalidManager.createCheckpoint(createTestOptions());
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid maxCheckpoints'));
+      warnSpy.mockRestore();
+    });
+  });
+
+  describe('storage limit enforcement', () => {
+    it('should delete oldest checkpoints when storage limit exceeded', async () => {
+      // Create manager with very small storage limit (1KB)
+      const smallLimitManager = new CheckpointManager({
+        enabled: true,
+        storageLimit: 0.0001, // ~100 bytes - forces immediate limit enforcement
+        maxCheckpoints: 100, // High limit so storage limit triggers instead
+        storageDir: path.join(testDir, 'small-storage'),
+      });
+      await smallLimitManager.initialize();
+
+      // Create several checkpoints with content
+      const options = createTestOptions();
+      options.files = [{ path: path.join(testDir, 'large.txt'), content: 'A'.repeat(1000) }];
+
+      await smallLimitManager.createCheckpoint(options);
+      await smallLimitManager.createCheckpoint(options);
+      await smallLimitManager.createCheckpoint(options);
+
+      // Storage limit should have deleted some checkpoints
+      const remaining = await smallLimitManager.listCheckpoints();
+      expect(remaining.length).toBeLessThan(3);
+    });
+  });
+
+  describe('concurrent maintenance prevention', () => {
+    it('should skip concurrent maintenance runs', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Access private maintenanceRunning flag
+      (manager as any).maintenanceRunning = true;
+
+      await manager.runMaintenance();
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Maintenance already running'));
+      (manager as any).maintenanceRunning = false;
+      warnSpy.mockRestore();
+    });
+  });
 });
 
 // ==================== Helper Functions ====================

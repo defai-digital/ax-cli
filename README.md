@@ -1,7 +1,7 @@
 # AX CLI - AI Coding Assistant for GLM & Grok
 
 [![npm](https://img.shields.io/npm/dt/@defai.digital/ax-cli?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
-[![Tests](https://img.shields.io/badge/tests-2265%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
+[![Tests](https://img.shields.io/badge/tests-3584%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
 [![Coverage](https://img.shields.io/badge/coverage-98%2B%25-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24.0.0-blue?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
@@ -50,7 +50,7 @@ That's it! Run `/init` inside the CLI to initialize your project.
 | **MCP Integration** | Model Context Protocol with 12+ production-ready templates |
 | **Project Memory** | Intelligent context caching with 50% token savings |
 | **Enterprise Security** | AES-256-GCM encryption, no telemetry, CVSS-rated protections |
-| **98%+ Test Coverage** | 2265+ tests with strict TypeScript |
+| **98%+ Test Coverage** | 3584+ tests with strict TypeScript |
 
 ---
 
