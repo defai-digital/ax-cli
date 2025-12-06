@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { BashTool, BashExecuteOptions } from "../../src/tools/bash.js";
 import { EventEmitter } from "events";
+import * as os from "os";
 
 // Mock dependencies
 vi.mock("../../src/utils/confirmation-service.js", () => ({
@@ -124,10 +125,14 @@ describe("BashTool", () => {
   describe("cd command handling", () => {
     it("should change directory with cd", async () => {
       const originalDir = bashTool.getCurrentDirectory();
-      const result = await bashTool.execute("cd /tmp");
+      const tmpDir = os.tmpdir();
+      const result = await bashTool.execute(`cd ${tmpDir}`);
 
       expect(result.success).toBe(true);
-      expect(result.output).toContain("/tmp");
+      // On macOS: /private/var/folders/.../T, on Windows: D:\Temp, on Linux: /tmp
+      // Just check it contains part of the tmpDir path (the base name or last component)
+      const tmpDirBase = tmpDir.split(/[/\\]/).filter(Boolean).pop() || "tmp";
+      expect(result.output).toContain(tmpDirBase);
 
       // Change back
       await bashTool.execute(`cd ${originalDir}`);
@@ -180,10 +185,14 @@ describe("BashTool", () => {
 
     it("should handle quoted directory paths", async () => {
       const originalDir = bashTool.getCurrentDirectory();
-      const result = await bashTool.execute('cd "/tmp"');
+      const tmpDir = os.tmpdir();
+      const result = await bashTool.execute(`cd "${tmpDir}"`);
 
       expect(result.success).toBe(true);
-      expect(result.output).toContain("/tmp");
+      // On macOS: /private/var/folders/.../T, on Windows: D:\Temp, on Linux: /tmp
+      // Just check it contains part of the tmpDir path (the base name or last component)
+      const tmpDirBase = tmpDir.split(/[/\\]/).filter(Boolean).pop() || "tmp";
+      expect(result.output).toContain(tmpDirBase);
 
       // Change back
       await bashTool.execute(`cd ${originalDir}`);
