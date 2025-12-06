@@ -580,6 +580,14 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
+### v4.1.2 - Setup Improvements for Provider-Specific CLIs
+
+- **ax-glm Setup**: Added server selection (Z.AI Cloud or Local/Custom server support)
+  - Supports Ollama, LMStudio, vLLM, or any OpenAI-compatible endpoint
+  - 5-step setup wizard for GLM with server selection
+- **ax-grok Setup**: Simplified to 4-step wizard (Grok online only, no server URL needed)
+- **Local Server Support**: ax-glm now works with local GLM models via custom endpoints
+
 ### v4.1.1 - Bug Fixes for Provider-Specific CLIs
 
 - **Status Bar Fix**: CLI name now correctly displays 'ax-glm' or 'ax-grok' instead of hardcoded 'ax-cli'

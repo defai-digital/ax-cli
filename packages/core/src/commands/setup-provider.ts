@@ -152,9 +152,71 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 1: API Key
+        // STEP 1: Server URL (GLM only - Grok is always online)
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 1/4 — API Key'));
+        let selectedBaseURL = provider.defaultBaseURL;
+        let isLocalServer = false;
+
+        if (provider.name === 'glm') {
+          prompts.log.step(chalk.bold('Step 1/5 — Server Selection'));
+
+          const serverType = await prompts.select({
+            message: 'Select server type:',
+            options: [
+              {
+                value: 'zai',
+                label: 'Z.AI Cloud (Recommended)',
+                hint: 'Use official Z.AI API at api.z.ai',
+              },
+              {
+                value: 'local',
+                label: 'Local/Custom Server',
+                hint: 'Ollama, LMStudio, vLLM, or other OpenAI-compatible server',
+              },
+            ],
+            initialValue: 'zai',
+          });
+          exitIfCancelled(serverType);
+
+          if (serverType === 'local') {
+            isLocalServer = true;
+
+            await prompts.note(
+              'Supported local servers:\n' +
+              '• Ollama:   http://localhost:11434/v1\n' +
+              '• LMStudio: http://localhost:1234/v1\n' +
+              '• vLLM:     http://localhost:8000/v1',
+              'Local Server Options'
+            );
+
+            const customURL = await prompts.text({
+              message: 'Enter server URL:',
+              placeholder: 'http://localhost:11434/v1',
+              initialValue: existingConfig?.baseURL && existingConfig.baseURL !== provider.defaultBaseURL
+                ? existingConfig.baseURL
+                : 'http://localhost:11434/v1',
+              validate: (value) => {
+                if (!value?.trim()) return 'Server URL is required';
+                try {
+                  new URL(value);
+                  return undefined;
+                } catch {
+                  return 'Invalid URL format';
+                }
+              },
+            });
+            exitIfCancelled(customURL);
+            selectedBaseURL = customURL.trim();
+          } else {
+            selectedBaseURL = provider.defaultBaseURL;
+          }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // STEP 2: API Key (step number adjusts for GLM)
+        // ═══════════════════════════════════════════════════════════════════
+        const apiKeyStep = provider.name === 'glm' ? 'Step 2/5' : 'Step 1/4';
+        prompts.log.step(chalk.bold(`${apiKeyStep} — API Key`));
 
         let apiKey = '';
         const hasExistingKey = existingConfig?.apiKey && typeof existingConfig.apiKey === 'string' && existingConfig.apiKey.trim().length > 0;
@@ -199,9 +261,10 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 2: Model Selection
+        // STEP 3: Model Selection (step number adjusts for GLM)
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 2/4 — Choose Model'));
+        const modelStep = provider.name === 'glm' ? 'Step 3/5' : 'Step 2/4';
+        prompts.log.step(chalk.bold(`${modelStep} — Choose Model`));
 
         // Build model choices from provider definition
         const modelChoices = Object.entries(provider.models).map(([modelId, config]) => ({
@@ -235,21 +298,22 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 3: Validate Connection
+        // STEP 4: Validate Connection (step number adjusts for GLM)
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 3/4 — Validate Connection'));
+        const validateStep = provider.name === 'glm' ? 'Step 4/5' : 'Step 3/4';
+        prompts.log.step(chalk.bold(`${validateStep} — Validate Connection`));
 
         const spinner = prompts.spinner();
         spinner.start('Validating connection...');
 
         const validationResult = await validateProviderSetup(
           {
-            baseURL: provider.defaultBaseURL,
+            baseURL: selectedBaseURL,
             apiKey: apiKey,
             model: chosenModel,
             providerName: provider.name,
           },
-          !options.validate
+          !options.validate || isLocalServer // Skip validation for local servers by default
         );
 
         spinner.stop('Validation complete');
@@ -271,15 +335,16 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 4: Review & Save
+        // STEP 5: Review & Save (step number adjusts for GLM)
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 4/4 — Review & Save'));
+        const saveStep = provider.name === 'glm' ? 'Step 5/5' : 'Step 4/4';
+        prompts.log.step(chalk.bold(`${saveStep} — Review & Save`));
 
         const maxTokens = modelConfig.maxOutputTokens > 32768 ? 32768 : modelConfig.maxOutputTokens;
 
         await prompts.note(
-          `Provider:    ${provider.displayName}\n` +
-          `Base URL:    ${provider.defaultBaseURL}\n` +
+          `Provider:    ${provider.displayName}${isLocalServer ? ' (Local)' : ''}\n` +
+          `Base URL:    ${selectedBaseURL}\n` +
           `Model:       ${chosenModel}\n` +
           `Max Tokens:  ${existingConfig?.maxTokens ?? maxTokens}\n` +
           `Config path: ${configPath}`,
@@ -301,7 +366,7 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         const mergedConfig: UserSettings = {
           ...(existingConfig || {}),
           apiKey: apiKey,
-          baseURL: provider.defaultBaseURL,
+          baseURL: selectedBaseURL,
           defaultModel: chosenModel,
           currentModel: chosenModel,
           maxTokens: existingConfig?.maxTokens ?? maxTokens,
@@ -309,6 +374,7 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
           models: Object.keys(provider.models),
           _provider: provider.displayName,
           _website: website,
+          _isLocalServer: isLocalServer,
         } as UserSettings;
 
         // Persist using settings manager to ensure encryption + permissions
@@ -317,9 +383,9 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         prompts.log.success('Configuration saved successfully!');
 
         // ═══════════════════════════════════════════════════════════════════
-        // Provider-Specific MCP Integration (GLM only)
+        // Provider-Specific MCP Integration (GLM with Z.AI only, not local)
         // ═══════════════════════════════════════════════════════════════════
-        if (provider.name === 'glm') {
+        if (provider.name === 'glm' && !isLocalServer) {
           await prompts.note(
             'Enabling Z.AI MCP servers for enhanced capabilities:\n' +
             '- Web Search - Real-time web search\n' +
@@ -462,8 +528,8 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         // ═══════════════════════════════════════════════════════════════════
         await prompts.note(
           `Location:    ${configPath}\n` +
-          `Provider:    ${provider.displayName}\n` +
-          `Base URL:    ${provider.defaultBaseURL}\n` +
+          `Provider:    ${provider.displayName}${isLocalServer ? ' (Local)' : ''}\n` +
+          `Base URL:    ${selectedBaseURL}\n` +
           `Model:       ${chosenModel}\n` +
           `Max Tokens:  ${mergedConfig.maxTokens || maxTokens}\n` +
           `Temperature: ${mergedConfig.temperature ?? 0.7}`,
