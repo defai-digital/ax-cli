@@ -56,6 +56,44 @@ export class ToolExecutor {
   private onAxAgentStart?: (agentName: string) => void;
   private onAxAgentEnd?: (agentName: string) => void;
 
+  // REFACTOR: Static helper for extracting typed arguments from parsed args
+  // Avoids recreating closures on every tool execution
+  private static getString(args: Record<string, unknown>, key: string, required = true): string {
+    const value = args[key];
+    if (typeof value !== 'string') {
+      if (required) throw new Error(`Tool argument '${key}' must be a string, got ${typeof value}`);
+      return '';
+    }
+    return value;
+  }
+
+  private static getNumber(args: Record<string, unknown>, key: string): number | undefined {
+    const value = args[key];
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== 'number') return undefined;
+    return value;
+  }
+
+  private static getBoolean(args: Record<string, unknown>, key: string): boolean | undefined {
+    const value = args[key];
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== 'boolean') return undefined;
+    return value;
+  }
+
+  // REFACTOR: Generic enum validator to reduce repetitive validation code
+  private static getEnum<T extends string>(
+    args: Record<string, unknown>,
+    key: string,
+    validValues: readonly T[]
+  ): T | undefined {
+    const value = args[key];
+    if (validValues.includes(value as T)) {
+      return value as T;
+    }
+    return undefined;
+  }
+
   constructor(config?: ToolExecutorConfig) {
     this.textEditor = new TextEditorTool();
     this.bash = new BashTool();
@@ -148,36 +186,24 @@ export class ToolExecutor {
         };
       }
 
-      // Helper to safely get string argument with validation
-      const getString = (key: string, required = true): string => {
-        const value = args[key];
-        if (typeof value !== 'string') {
-          if (required) throw new Error(`Tool argument '${key}' must be a string, got ${typeof value}`);
-          return '';
-        }
-        return value;
-      };
-
-      // Helper to safely get number argument
-      const getNumber = (key: string): number | undefined => {
-        const value = args[key];
-        if (value === undefined || value === null) return undefined;
-        if (typeof value !== 'number') return undefined;
-        return value;
-      };
-
-      // Helper to safely get boolean argument
-      const getBoolean = (key: string): boolean | undefined => {
-        const value = args[key];
-        if (value === undefined || value === null) return undefined;
-        if (typeof value !== 'boolean') return undefined;
-        return value;
-      };
+      // REFACTOR: Use static methods instead of recreating closures
+      const getString = (key: string, required = true) => ToolExecutor.getString(args, key, required);
+      const getNumber = (key: string) => ToolExecutor.getNumber(args, key);
+      const getBoolean = (key: string) => ToolExecutor.getBoolean(args, key);
+      const getEnum = <T extends string>(key: string, validValues: readonly T[]) =>
+        ToolExecutor.getEnum(args, key, validValues);
 
       switch (toolCall.function.name) {
         case "view_file": {
           const startLine = getNumber('start_line');
           const endLine = getNumber('end_line');
+          // BUG FIX: Validate that if either start_line or end_line is provided, both must be
+          if ((startLine !== undefined) !== (endLine !== undefined)) {
+            return {
+              success: false,
+              error: `view_file: both start_line and end_line must be provided together, got start_line=${startLine}, end_line=${endLine}`,
+            };
+          }
           const range: [number, number] | undefined =
             startLine !== undefined && endLine !== undefined
               ? [startLine, endLine]
@@ -196,11 +222,25 @@ export class ToolExecutor {
             getBoolean('replace_all') ?? false
           );
 
-        case "multi_edit":
-          return await this.textEditor.multiEdit(
-            getString('path'),
-            Array.isArray(args.edits) ? args.edits : []
-          );
+        case "multi_edit": {
+          // BUG FIX: Validate edits array structure before passing to textEditor
+          const rawEdits = Array.isArray(args.edits) ? args.edits : [];
+          const validatedEdits = rawEdits.filter((edit): edit is { old_str: string; new_str: string } => {
+            return (
+              edit !== null &&
+              typeof edit === 'object' &&
+              typeof edit.old_str === 'string' &&
+              typeof edit.new_str === 'string'
+            );
+          });
+          if (validatedEdits.length !== rawEdits.length) {
+            return {
+              success: false,
+              error: `multi_edit: ${rawEdits.length - validatedEdits.length} edit(s) have invalid structure (missing old_str or new_str)`,
+            };
+          }
+          return await this.textEditor.multiEdit(getString('path'), validatedEdits);
+        }
 
         case "bash":
           return await this.bash.execute(getString('command'), {
@@ -222,16 +262,14 @@ export class ToolExecutor {
           return await this.todoTool.updateTodoList(Array.isArray(args.updates) ? args.updates : []);
 
         case "search": {
-          const searchTypeValue = args.search_type;
-          const validSearchType = (searchTypeValue === 'text' || searchTypeValue === 'files' || searchTypeValue === 'both') ? searchTypeValue : undefined;
-          // BUG FIX: Validate that file_types array contains only strings
+          // REFACTOR: Use getEnum helper for cleaner validation
           const fileTypes = Array.isArray(args.file_types)
             ? args.file_types.filter((ft): ft is string => typeof ft === 'string')
             : undefined;
           return await this.search.search(getString('query'), {
-            searchType: validSearchType,
-            includePattern: typeof args.include_pattern === 'string' ? args.include_pattern : undefined,
-            excludePattern: typeof args.exclude_pattern === 'string' ? args.exclude_pattern : undefined,
+            searchType: getEnum('search_type', ['text', 'files', 'both'] as const),
+            includePattern: getString('include_pattern', false) || undefined,
+            excludePattern: getString('exclude_pattern', false) || undefined,
             caseSensitive: getBoolean('case_sensitive'),
             wholeWord: getBoolean('whole_word'),
             regex: getBoolean('regex'),
@@ -291,12 +329,10 @@ export class ToolExecutor {
         // Design Tools (Figma Integration)
         // =====================================================================
         case "figma_map": {
-          const fileKey = getString('file_key');
-          const formatValue = args.format;
-          const validFormat = (formatValue === 'tree' || formatValue === 'json' || formatValue === 'flat') ? formatValue : undefined;
-          return await this.designTool.mapFile(fileKey, {
+          // REFACTOR: Use getEnum helper for cleaner validation
+          return await this.designTool.mapFile(getString('file_key'), {
             depth: getNumber('depth'),
-            format: validFormat,
+            format: getEnum('format', ['tree', 'json', 'flat'] as const),
             showIds: getBoolean('show_ids'),
             showTypes: getBoolean('show_types'),
             framesOnly: getBoolean('frames_only'),
@@ -304,17 +340,11 @@ export class ToolExecutor {
         }
 
         case "figma_tokens": {
-          const fileKey = getString('file_key');
-          const formatValue = args.format;
-          const validFormat = (formatValue === 'json' || formatValue === 'tailwind' || formatValue === 'css' || formatValue === 'scss') ? formatValue : undefined;
-          const colorFormatValue = args.color_format;
-          const validColorFormat = (colorFormatValue === 'hex' || colorFormatValue === 'rgb' || colorFormatValue === 'hsl') ? colorFormatValue : undefined;
-          const dimensionUnitValue = args.dimension_unit;
-          const validDimensionUnit = (dimensionUnitValue === 'px' || dimensionUnitValue === 'rem') ? dimensionUnitValue : undefined;
-          return await this.designTool.extractTokens(fileKey, {
-            format: validFormat,
-            colorFormat: validColorFormat,
-            dimensionUnit: validDimensionUnit,
+          // REFACTOR: Use getEnum helper for cleaner validation
+          return await this.designTool.extractTokens(getString('file_key'), {
+            format: getEnum('format', ['json', 'tailwind', 'css', 'scss'] as const),
+            colorFormat: getEnum('color_format', ['hex', 'rgb', 'hsl'] as const),
+            dimensionUnit: getEnum('dimension_unit', ['px', 'rem'] as const),
             remBase: getNumber('rem_base'),
           });
         }

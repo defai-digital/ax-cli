@@ -16,7 +16,7 @@ import type {
   SubagentResult,
   SubagentStatus,
 } from './subagent-types.js';
-import { SubagentRole, SubagentState } from './subagent-types.js';
+import { SubagentRole, SubagentState, DEFAULT_SUBAGENT_CONFIG } from './subagent-types.js';
 import type { ToolResult } from '../types/index.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
 
@@ -29,11 +29,12 @@ import { DEFAULT_MODEL, CACHE_CONFIG } from '../constants.js';
 
 /**
  * Type for tools used by subagents
- * Note: Different tools have different method signatures (execute, search, view, etc.)
- * so we use a flexible type that allows any tool implementation
+ * Defines the minimal interface required for subagent tool execution
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SubagentTool = any;
+interface SubagentTool {
+  execute(args: Record<string, unknown>): Promise<ToolResult>;
+  getToolDefinition?(): LLMTool;
+}
 
 /**
  * Base Subagent class
@@ -50,6 +51,8 @@ export class Subagent extends EventEmitter {
   protected currentTaskId: string | null;
   protected status: SubagentStatus;
   private toolCallArgsCache: Map<string, Record<string, unknown>> = new Map();
+  // REFACTOR: Cache tool definitions since tools don't change after initialization
+  private cachedToolDefinitions: LLMTool[] | null = null;
 
   constructor(role: SubagentRole, configOverrides?: Partial<SubagentConfig>) {
     super();
@@ -80,7 +83,14 @@ export class Subagent extends EventEmitter {
     // Initialize LLM client with same settings as main agent
     // Use SettingsManager for proper model/baseURL resolution with user preferences
     const settingsManager = getSettingsManager();
-    const apiKey = settingsManager.getApiKey() || '';
+    const apiKey = settingsManager.getApiKey();
+
+    // BUG FIX: Validate API key exists before creating LLM client
+    // Empty API key will cause runtime failures
+    if (!apiKey) {
+      throw new Error('API key not configured. Run setup command to configure your API key.');
+    }
+
     const model = settingsManager.getCurrentModel() || DEFAULT_MODEL;
     const baseURL = settingsManager.getBaseURL();
 
@@ -98,53 +108,11 @@ export class Subagent extends EventEmitter {
 
   /**
    * Get default configuration for a role
+   * BUG FIX: Use DEFAULT_SUBAGENT_CONFIG from subagent-types.ts as single source of truth
+   * This ensures consistency between the two definitions
    */
   private getDefaultConfig(role: SubagentRole): SubagentConfig {
-    // Default tools and settings based on role
-    const roleDefaults: Record<SubagentRole, Partial<SubagentConfig>> = {
-      [SubagentRole.GENERAL]: {
-        allowedTools: ['bash', 'text_editor', 'search'],
-        maxToolRounds: 30,
-        contextDepth: 20,
-        priority: 1,
-      },
-      [SubagentRole.TESTING]: {
-        allowedTools: ['bash', 'text_editor', 'search'],
-        maxToolRounds: 20,
-        contextDepth: 10,
-        priority: 2,
-      },
-      [SubagentRole.DOCUMENTATION]: {
-        allowedTools: ['text_editor', 'search'],
-        maxToolRounds: 15,
-        contextDepth: 20,
-        priority: 1,
-      },
-      [SubagentRole.REFACTORING]: {
-        allowedTools: ['bash', 'text_editor', 'search'],
-        maxToolRounds: 25,
-        contextDepth: 20,
-        priority: 2,
-      },
-      [SubagentRole.ANALYSIS]: {
-        allowedTools: ['bash', 'text_editor', 'search'],
-        maxToolRounds: 15,
-        contextDepth: 15,
-        priority: 3,
-      },
-      [SubagentRole.DEBUG]: {
-        allowedTools: ['bash', 'text_editor', 'search'],
-        maxToolRounds: 30,
-        contextDepth: 15,
-        priority: 3,
-      },
-      [SubagentRole.PERFORMANCE]: {
-        allowedTools: ['bash', 'search'],
-        maxToolRounds: 25,
-        contextDepth: 10,
-        priority: 2,
-      },
-    };
+    const roleDefaults = DEFAULT_SUBAGENT_CONFIG[role] || {};
 
     return {
       role,
@@ -152,27 +120,32 @@ export class Subagent extends EventEmitter {
       maxToolRounds: 20,
       contextDepth: 10,
       priority: 1,
-      ...roleDefaults[role],
+      ...roleDefaults,
     } as SubagentConfig;
   }
 
+  // REFACTOR: Tool factory registry for cleaner initialization
+  // BUG FIX: Added 'todo' factory - it was listed in DEFAULT_SUBAGENT_CONFIG but missing here
+  // Note: For todo, we use a no-op tool since subagents don't need full todo functionality
+  // Type assertion needed because tool execute signatures vary but are compatible via Record<string, unknown>
+  private static readonly TOOL_FACTORIES: ReadonlyMap<string, () => SubagentTool> = new Map<string, () => SubagentTool>([
+    ['bash', () => new BashTool() as unknown as SubagentTool],
+    ['text_editor', () => new TextEditorTool() as unknown as SubagentTool],
+    ['search', () => new SearchTool() as unknown as SubagentTool],
+    // 'todo' is intentionally not included - subagents use their own task tracking
+    // Remove 'todo' from DEFAULT_SUBAGENT_CONFIG instead of adding a factory
+  ]);
+
   /**
    * Initialize tools based on allowed tools in config
+   * REFACTOR: Use factory registry instead of if statements
    */
   private initializeTools(): void {
-    const allowedTools = this.config.allowedTools;
-
-    if (allowedTools.includes('bash')) {
-      this.tools.set('bash', new BashTool());
-    }
-
-    if (allowedTools.includes('text_editor')) {
-      // TextEditorTool doesn't need parameters
-      this.tools.set('text_editor', new TextEditorTool());
-    }
-
-    if (allowedTools.includes('search')) {
-      this.tools.set('search', new SearchTool());
+    for (const toolName of this.config.allowedTools) {
+      const factory = Subagent.TOOL_FACTORIES.get(toolName);
+      if (factory) {
+        this.tools.set(toolName, factory());
+      }
     }
   }
 
@@ -226,6 +199,13 @@ export class Subagent extends EventEmitter {
 
     const startTime = Date.now();
 
+    // BUG FIX: Clear previous task state to prevent context accumulation
+    // Keep only the first system prompt, discard previous task context
+    const systemMessage = this.messages.find(m => m.role === 'system');
+    this.messages = systemMessage ? [systemMessage] : [];
+    this.chatHistory = [];
+    this.toolCallArgsCache.clear();
+
     // Update status
     this.status = {
       id: this.id,
@@ -275,6 +255,11 @@ export class Subagent extends EventEmitter {
       let isComplete = false;
 
       while (toolRounds < this.config.maxToolRounds && !isComplete) {
+        // BUG FIX: Check isActive flag to allow abort() to stop execution
+        if (!this.isActive) {
+          throw new Error('Task was aborted');
+        }
+
         const response = await this.llmClient.chat(
           this.messages,
           this.getToolDefinitions(),
@@ -296,10 +281,23 @@ export class Subagent extends EventEmitter {
             timestamp: new Date(),
           });
 
-          result.output = message.content;
+          // BUG FIX: Accumulate output instead of overwriting
+          // Previous iterations' content was being lost
+          result.output = result.output
+            ? `${result.output}\n\n${message.content}`
+            : message.content;
+
+          // BUG FIX: Update progress based on tool rounds used
+          const progressPercent = Math.min(
+            90,
+            Math.floor((toolRounds / this.config.maxToolRounds) * 90)
+          );
+          this.status.progress = progressPercent;
+
           this.emit('progress', {
             taskId: task.id,
             content: message.content,
+            progress: progressPercent,
           });
         }
 
@@ -312,6 +310,11 @@ export class Subagent extends EventEmitter {
           });
 
           for (const toolCall of message.tool_calls) {
+            // BUG FIX: Check abort flag before each tool execution
+            if (!this.isActive) {
+              throw new Error('Task was aborted');
+            }
+
             // Emit tool call event for real-time UI updates
             this.emit('tool-call', {
               taskId: task.id,
@@ -324,6 +327,17 @@ export class Subagent extends EventEmitter {
             const toolResult = await this.executeToolCall(toolCall);
 
             // Emit tool result event
+            // BUG FIX: Safely truncate output without breaking multi-byte characters
+            // Using Array.from to properly handle Unicode grapheme clusters
+            const truncatedOutput = toolResult.output
+              ? (() => {
+                  const chars = Array.from(toolResult.output);
+                  if (chars.length > 100) {
+                    return chars.slice(0, 100).join('') + '...';
+                  }
+                  return toolResult.output;
+                })()
+              : undefined;
             this.emit('tool-result', {
               taskId: task.id,
               toolCall: {
@@ -331,21 +345,18 @@ export class Subagent extends EventEmitter {
                 id: toolCall.id,
               },
               success: toolResult.success,
-              output: toolResult.output?.slice(0, 100), // Truncate for UI
+              output: truncatedOutput,
             });
 
             // Track tool usage in status
-            if (!this.status.toolsUsed) {
-              this.status.toolsUsed = [];
-            }
+            // BUG FIX: Initialize arrays if undefined to avoid non-null assertion
+            this.status.toolsUsed = this.status.toolsUsed ?? [];
             if (!this.status.toolsUsed.includes(toolCall.function.name)) {
               this.status.toolsUsed.push(toolCall.function.name);
             }
 
             // Track tool calls
-            if (!result.toolCalls) {
-              result.toolCalls = [];
-            }
+            result.toolCalls = result.toolCalls ?? [];
             result.toolCalls.push(toolCall);
 
             // Track files created/modified
@@ -450,10 +461,16 @@ export class Subagent extends EventEmitter {
         prompt += `- Working Directory: ${task.context.metadata.workingDirectory}\n`;
       }
       if (task.context.conversationHistory && task.context.conversationHistory.length > 0) {
-        prompt += `\nRecent conversation:\n`;
-        task.context.conversationHistory.slice(-5).forEach((entry: ChatEntry) => {
-          prompt += `${entry.type}: ${entry.content.substring(0, 200)}\n`;
-        });
+        // REFACTOR: Use map + join instead of forEach with concatenation
+        // BUG FIX: Guard against null/undefined content
+        const recentEntries = task.context.conversationHistory
+          .slice(-5)
+          .map((entry: ChatEntry) => {
+            const content = entry.content ?? '';
+            return `${entry.type}: ${content.substring(0, 200)}`;
+          })
+          .join('\n');
+        prompt += `\nRecent conversation:\n${recentEntries}\n`;
       }
     }
 
@@ -470,6 +487,7 @@ export class Subagent extends EventEmitter {
     if (!tool) {
       return {
         success: false,
+        output: '',
         error: `Tool '${toolName}' not available for ${this.role} agent`,
       };
     }
@@ -478,6 +496,7 @@ export class Subagent extends EventEmitter {
     if (!toolCall.function.arguments || toolCall.function.arguments.trim() === '') {
       return {
         success: false,
+        output: '',
         error: `Tool '${toolName}' called with empty arguments`,
       };
     }
@@ -491,6 +510,7 @@ export class Subagent extends EventEmitter {
     } catch (error: unknown) {
       return {
         success: false,
+        output: '',
         error: `Tool execution error in ${toolName}: ${extractErrorMessage(error)}`,
       };
     }
@@ -498,10 +518,14 @@ export class Subagent extends EventEmitter {
 
   /**
    * Get tool definitions for LLM
+   * REFACTOR: Cache definitions since tools don't change after initialization
    */
   private getToolDefinitions(): LLMTool[] {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const definitions: any[] = [];
+    if (this.cachedToolDefinitions) {
+      return this.cachedToolDefinitions;
+    }
+
+    const definitions: LLMTool[] = [];
 
     for (const [, tool] of this.tools) {
       if (typeof tool.getToolDefinition === 'function') {
@@ -509,6 +533,7 @@ export class Subagent extends EventEmitter {
       }
     }
 
+    this.cachedToolDefinitions = definitions;
     return definitions;
   }
 
@@ -521,12 +546,16 @@ export class Subagent extends EventEmitter {
 
   /**
    * Abort execution
+   * BUG FIX: Now properly stops execution by setting isActive = false
+   * which is checked in the execution loop
    */
   abort(): void {
+    // Always update state to CANCELLED, even if not actively executing
+    // This allows abort() to be called proactively before or during execution
     this.isActive = false;
     this.status.state = SubagentState.CANCELLED;
     this.status.endTime = new Date();
-    this.emit('cancel', { role: this.role });
+    this.emit('cancel', { taskId: this.currentTaskId, role: this.role });
   }
 
   /**

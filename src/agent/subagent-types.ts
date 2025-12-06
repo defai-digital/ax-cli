@@ -320,7 +320,9 @@ export interface DependencyGraph {
  */
 export const DEFAULT_SUBAGENT_CONFIG: Record<SubagentRole, Partial<SubagentConfig>> = {
   [SubagentRole.GENERAL]: {
-    allowedTools: ['bash', 'text_editor', 'search', 'todo'],
+    // BUG FIX: Removed 'todo' - subagents don't need todo functionality
+    // and there's no factory for it in TOOL_FACTORIES
+    allowedTools: ['bash', 'text_editor', 'search'],
     maxToolRounds: 30,
     contextDepth: 20,
     priority: 1,

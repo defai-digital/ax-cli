@@ -51,5 +51,23 @@ export { getSettingsManager } from './utils/settings-manager.js';
 // Version
 export { getVersionString } from './utils/version.js';
 
+// Migration utilities
+export {
+  ConfigMigrator,
+  type MigrationSummary,
+  type MigrationResult,
+  type MigrationChoice,
+  type ApiKeyStatus,
+} from './utils/config-migrator.js';
+
+export {
+  ProjectMigrator,
+  type FileInfo,
+  type ProjectMigrationSummary,
+  type ProjectMigrationResult,
+  type ProjectMigrationChoice,
+  type ProjectMigrationOptions,
+} from './utils/project-migrator.js';
+
 // Constants
 export { AGENT_CONFIG, GLM_MODELS } from './constants.js';

@@ -24,42 +24,21 @@ import { AnalysisAgent } from './specialized/analysis-agent.js';
 import { DebugAgent } from './specialized/debug-agent.js';
 import { PerformanceAgent } from './specialized/performance-agent.js';
 
-/** Event data types for type-safe event handling */
-interface TaskStartedData {
-  taskId: string;
-  role?: SubagentRole;
-}
+// REFACTOR: Agent factory registry for cleaner instantiation
+type AgentFactory = (config?: Partial<SubagentConfig>) => Subagent;
+const AGENT_FACTORIES: ReadonlyMap<SubagentRole, AgentFactory> = new Map<SubagentRole, AgentFactory>([
+  [SubagentRole.TESTING, (config) => new TestingAgent(config)],
+  [SubagentRole.DOCUMENTATION, (config) => new DocumentationAgent(config)],
+  [SubagentRole.REFACTORING, (config) => new RefactoringAgent(config)],
+  [SubagentRole.ANALYSIS, (config) => new AnalysisAgent(config)],
+  [SubagentRole.DEBUG, (config) => new DebugAgent(config)],
+  [SubagentRole.PERFORMANCE, (config) => new PerformanceAgent(config)],
+]);
 
+/** Event data types for type-safe event handling */
 interface TaskCompletedData {
   taskId: string;
   result: SubagentResult;
-}
-
-interface TaskFailedData {
-  taskId: string;
-  error: string;
-}
-
-interface ProgressData {
-  taskId?: string;
-  content?: string;
-  progress?: number;
-  message?: string;
-}
-
-interface ToolExecutedData {
-  toolName: string;
-  success: boolean;
-}
-
-interface ToolCallData {
-  toolName: string;
-  args: unknown;
-}
-
-interface ToolResultData {
-  toolName: string;
-  result: unknown;
 }
 
 /**
@@ -118,33 +97,15 @@ export class SubagentOrchestrator extends EventEmitter {
       throw new Error(`Maximum concurrent agents limit (${maxAgents}) reached`);
     }
 
-    let subagent: Subagent;
+    // BUG FIX: Apply defaultTimeout from orchestrator config if not specified in subagent config
+    const mergedConfig: Partial<SubagentConfig> = {
+      timeout: this.config.defaultTimeout,
+      ...config, // Allow config to override defaultTimeout
+    };
 
-    // Create specialized subagent based on role
-    switch (role) {
-      case SubagentRole.TESTING:
-        subagent = new TestingAgent(config);
-        break;
-      case SubagentRole.DOCUMENTATION:
-        subagent = new DocumentationAgent(config);
-        break;
-      case SubagentRole.REFACTORING:
-        subagent = new RefactoringAgent(config);
-        break;
-      case SubagentRole.ANALYSIS:
-        subagent = new AnalysisAgent(config);
-        break;
-      case SubagentRole.DEBUG:
-        subagent = new DebugAgent(config);
-        break;
-      case SubagentRole.PERFORMANCE:
-        subagent = new PerformanceAgent(config);
-        break;
-      case SubagentRole.GENERAL:
-      default:
-        subagent = new Subagent(SubagentRole.GENERAL, config);
-        break;
-    }
+    // REFACTOR: Use factory registry instead of switch statement
+    const factory = AGENT_FACTORIES.get(role);
+    const subagent = factory ? factory(mergedConfig) : new Subagent(SubagentRole.GENERAL, mergedConfig);
 
     // Register subagent using its own ID
     this.subagents.set(subagent.id, subagent);
@@ -167,68 +128,59 @@ export class SubagentOrchestrator extends EventEmitter {
     return this.spawn(role, config);
   }
 
+  // REFACTOR: Event mapping configuration for data-driven handler registration
+  private static readonly EVENT_MAPPINGS: ReadonlyArray<{
+    source: string;
+    target: string;
+    modifyActiveCount?: 'increment' | 'decrement';
+    storeResult?: boolean;
+  }> = [
+    { source: 'task-started', target: 'subagent-start', modifyActiveCount: 'increment' },
+    { source: 'task-completed', target: 'subagent-complete', modifyActiveCount: 'decrement', storeResult: true },
+    { source: 'task-failed', target: 'subagent-error', modifyActiveCount: 'decrement' },
+    { source: 'progress', target: 'subagent-progress' },
+    { source: 'tool-executed', target: 'subagent-tool' },
+    { source: 'tool-call', target: 'subagent-tool-call' },
+    { source: 'tool-result', target: 'subagent-tool-result' },
+  ];
+
   /**
    * Forward events from subagent to orchestrator
-   * Stores listeners for proper cleanup to prevent memory leaks
+   * REFACTOR: Data-driven approach reduces repetitive handler code
    */
   private forwardSubagentEvents(id: string, subagent: Subagent): void {
     // Guard against duplicate listener registration
     if (this.subagentListeners.has(id)) {
-      return; // Already registered, avoid duplicates
+      return;
     }
 
-    // Create named handlers so we can remove them later
     const handlers = new Map<string, (...args: unknown[]) => void>();
 
-    const taskStartedHandler = (data: TaskStartedData) => {
-      this.activeCount++;
-      this.emit('subagent-start', { subagentId: id, ...data });
-    };
-    handlers.set('task-started', taskStartedHandler as (...args: unknown[]) => void);
-    subagent.on('task-started', taskStartedHandler);
+    for (const mapping of SubagentOrchestrator.EVENT_MAPPINGS) {
+      const handler = (data: unknown) => {
+        // Handle activeCount modifications
+        if (mapping.modifyActiveCount === 'increment') {
+          this.activeCount++;
+        } else if (mapping.modifyActiveCount === 'decrement' && this.activeCount > 0) {
+          this.activeCount--;
+        }
 
-    const taskCompletedHandler = (data: TaskCompletedData) => {
-      this.activeCount--;
-      this.results.set(data.taskId, data.result);
-      this.emit('subagent-complete', { subagentId: id, ...data });
-    };
-    handlers.set('task-completed', taskCompletedHandler as (...args: unknown[]) => void);
-    subagent.on('task-completed', taskCompletedHandler);
+        // Store result if configured
+        if (mapping.storeResult && data && typeof data === 'object' && 'taskId' in data && 'result' in data) {
+          const taskData = data as TaskCompletedData;
+          this.results.set(taskData.taskId, taskData.result);
+        }
 
-    const taskFailedHandler = (data: TaskFailedData) => {
-      this.activeCount--;
-      this.emit('subagent-error', { subagentId: id, ...data });
-    };
-    handlers.set('task-failed', taskFailedHandler as (...args: unknown[]) => void);
-    subagent.on('task-failed', taskFailedHandler);
+        // Forward event with subagentId
+        // BUG FIX: Safely spread data only if it's a valid object
+        const eventData = data && typeof data === 'object' ? data : {};
+        this.emit(mapping.target, { subagentId: id, ...eventData });
+      };
 
-    const progressHandler = (data: ProgressData) => {
-      this.emit('subagent-progress', { subagentId: id, ...data });
-    };
-    handlers.set('progress', progressHandler as (...args: unknown[]) => void);
-    subagent.on('progress', progressHandler);
+      handlers.set(mapping.source, handler as (...args: unknown[]) => void);
+      subagent.on(mapping.source, handler);
+    }
 
-    const toolExecutedHandler = (data: ToolExecutedData) => {
-      this.emit('subagent-tool', { subagentId: id, ...data });
-    };
-    handlers.set('tool-executed', toolExecutedHandler as (...args: unknown[]) => void);
-    subagent.on('tool-executed', toolExecutedHandler);
-
-    // Forward tool-call events for real-time UI updates
-    const toolCallHandler = (data: ToolCallData) => {
-      this.emit('subagent-tool-call', { subagentId: id, ...data });
-    };
-    handlers.set('tool-call', toolCallHandler as (...args: unknown[]) => void);
-    subagent.on('tool-call', toolCallHandler);
-
-    // Forward tool-result events
-    const toolResultHandler = (data: ToolResultData) => {
-      this.emit('subagent-tool-result', { subagentId: id, ...data });
-    };
-    handlers.set('tool-result', toolResultHandler as (...args: unknown[]) => void);
-    subagent.on('tool-result', toolResultHandler);
-
-    // Store handlers for cleanup
     this.subagentListeners.set(id, handlers);
   }
 
@@ -273,10 +225,13 @@ export class SubagentOrchestrator extends EventEmitter {
 
     const allResults: SubagentResult[] = [];
 
+    // BUG FIX: Use Map for O(1) lookup instead of O(n) find() in loop
+    const taskMap = new Map(tasks.map(t => [t.id, t]));
+
     // Execute batches sequentially, but tasks within each batch in parallel
     for (const batch of batches) {
       const batchTasks = batch
-        .map(taskId => tasks.find(t => t.id === taskId))
+        .map(taskId => taskMap.get(taskId))
         .filter((task): task is SubagentTask => task !== undefined);
 
       // Skip empty batches (shouldn't happen with valid dependency resolution)
@@ -288,6 +243,36 @@ export class SubagentOrchestrator extends EventEmitter {
     }
 
     return allResults;
+  }
+
+  /**
+   * REFACTOR: Extract failed result creation to reduce duplication
+   */
+  private createFailedResult(
+    taskId: string,
+    role: SubagentRole,
+    errorMessage: string
+  ): SubagentResult {
+    const now = new Date();
+    return {
+      id: `failed-${taskId}`,
+      taskId,
+      role,
+      success: false,
+      output: '',
+      error: errorMessage,
+      executionTime: 0,
+      status: {
+        id: `status-${taskId}`,
+        taskId,
+        role,
+        state: SubagentState.FAILED,
+        progress: 0,
+        startTime: now,
+        endTime: now,
+        error: errorMessage,
+      },
+    };
   }
 
   /**
@@ -316,79 +301,48 @@ export class SubagentOrchestrator extends EventEmitter {
     return results.map((r, i) => {
       if (r.status === 'fulfilled') {
         return r.value;
-      } else {
-        // Task failed - create a proper SubagentResult
-        // BUG FIX: Add safety check for array bounds in case of misalignment
-        const task = tasks[i];
-        if (!task) {
-          // Fallback for edge case where arrays are misaligned
-          return {
-            id: `failed-unknown-${i}`,
-            taskId: `unknown-${i}`,
-            role: 'researcher' as SubagentRole,
-            success: false,
-            output: '',
-            error: r.reason?.message || 'Unknown error (task not found)',
-            executionTime: 0,
-            status: {
-              id: `status-unknown-${i}`,
-              taskId: `unknown-${i}`,
-              role: 'researcher' as SubagentRole,
-              state: SubagentState.FAILED,
-              progress: 0,
-              startTime: new Date(),
-              endTime: new Date(),
-              error: r.reason?.message || 'Unknown error',
-            },
-          };
-        }
-        const failedResult: SubagentResult = {
-          id: `failed-${task.id}`,
-          taskId: task.id,
-          role: task.role,
-          success: false,
-          output: '',
-          error: r.reason?.message || 'Unknown error',
-          executionTime: 0,
-          status: {
-            id: `status-${task.id}`,
-            taskId: task.id,
-            role: task.role,
-            state: SubagentState.FAILED,
-            progress: 0,
-            startTime: new Date(),
-            endTime: new Date(),
-            error: r.reason?.message || 'Unknown error',
-          },
-        };
-        return failedResult;
       }
+
+      // Task failed - use helper to create result
+      const task = tasks[i];
+      const errorMessage = r.reason?.message || 'Unknown error';
+
+      if (!task) {
+        // Fallback for edge case where arrays are misaligned
+        return this.createFailedResult(`unknown-${i}`, SubagentRole.GENERAL, `${errorMessage} (task not found)`);
+      }
+
+      // BUG FIX: Use inferred role (same as in executeBatch) instead of task.role
+      // which may be different from the actual subagent role used
+      const inferredRole = this.inferRoleFromTask(task);
+      return this.createFailedResult(task.id, inferredRole, errorMessage);
     });
   }
 
+  // REFACTOR: Pre-compiled regex patterns for role inference (avoid creating on each call)
+  private static readonly ROLE_PATTERNS: ReadonlyArray<{
+    role: SubagentRole;
+    pattern: RegExp;
+  }> = [
+    { role: SubagentRole.TESTING, pattern: /\b(test|testing|tests)\b/i },
+    { role: SubagentRole.DOCUMENTATION, pattern: /\b(document|readme|docs|documentation)\b/i },
+    { role: SubagentRole.REFACTORING, pattern: /\b(refactor|restructure|refactoring)\b/i },
+    { role: SubagentRole.ANALYSIS, pattern: /\b(analyze|review|audit|analysis)\b/i },
+    { role: SubagentRole.DEBUG, pattern: /\b(debug|fix|bug|debugging)\b/i },
+    { role: SubagentRole.PERFORMANCE, pattern: /\b(performance|optimize|speed|optimization)\b/i },
+  ];
+
   /**
    * Infer subagent role from task description
+   * Uses pre-compiled regex patterns for performance
    */
   private inferRoleFromTask(task: SubagentTask): SubagentRole {
-    const desc = task.description.toLowerCase();
+    const desc = task.description;
 
-    if (desc.includes('test') || desc.includes('testing')) {
-      return SubagentRole.TESTING;
-    }
-    if (desc.includes('document') || desc.includes('readme') || desc.includes('docs')) {
-      return SubagentRole.DOCUMENTATION;
-    }
-    if (desc.includes('refactor') || desc.includes('restructure')) {
-      return SubagentRole.REFACTORING;
-    }
-    if (desc.includes('analyze') || desc.includes('review') || desc.includes('audit')) {
-      return SubagentRole.ANALYSIS;
-    }
-    if (desc.includes('debug') || desc.includes('fix') || desc.includes('bug')) {
-      return SubagentRole.DEBUG;
-    }
-    if (desc.includes('performance') || desc.includes('optimize') || desc.includes('speed')) {
-      return SubagentRole.PERFORMANCE;
+    for (const { role, pattern } of SubagentOrchestrator.ROLE_PATTERNS) {
+      if (pattern.test(desc)) {
+        return role;
+      }
     }
 
     return SubagentRole.GENERAL;
@@ -444,10 +398,14 @@ export class SubagentOrchestrator extends EventEmitter {
     // even if some terminations fail
     const results = await Promise.allSettled(terminatePromises);
 
-    // Log any failures but don't throw
+    // BUG FIX: Emit event for failures instead of console.warn
+    // This allows the caller to handle failures appropriately
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
-        console.warn(`Failed to terminate subagent ${subagentEntries[index][0]}:`, result.reason);
+        this.emit('termination-error', {
+          subagentId: subagentEntries[index][0],
+          error: result.reason?.message || 'Unknown error',
+        });
       }
     });
 
@@ -520,6 +478,63 @@ export class SubagentOrchestrator extends EventEmitter {
   }
 
   /**
+   * Add a task to the queue for later processing
+   * BUG FIX: taskQueue was declared but never used - now provides queue functionality
+   */
+  queueTask(task: SubagentTask): void {
+    this.taskQueue.push(task);
+    this.emit('task-queued', { taskId: task.id, queueLength: this.taskQueue.length });
+  }
+
+  /**
+   * Add multiple tasks to the queue
+   */
+  queueTasks(tasks: SubagentTask[]): void {
+    for (const task of tasks) {
+      this.taskQueue.push(task);
+    }
+    this.emit('tasks-queued', { count: tasks.length, queueLength: this.taskQueue.length });
+  }
+
+  /**
+   * Process all queued tasks
+   * Clears the queue after processing
+   */
+  async processQueue(): Promise<SubagentResult[]> {
+    if (this.taskQueue.length === 0) {
+      return [];
+    }
+
+    // Move tasks out of queue before processing
+    const tasksToProcess = [...this.taskQueue];
+    this.taskQueue = [];
+
+    this.emit('queue-processing', { count: tasksToProcess.length });
+
+    const results = await this.executeParallel(tasksToProcess);
+
+    this.emit('queue-processed', { count: results.length });
+
+    return results;
+  }
+
+  /**
+   * Get current queue length
+   */
+  getQueueLength(): number {
+    return this.taskQueue.length;
+  }
+
+  /**
+   * Clear the task queue without processing
+   */
+  clearQueue(): void {
+    const clearedCount = this.taskQueue.length;
+    this.taskQueue = [];
+    this.emit('queue-cleared', { clearedCount });
+  }
+
+  /**
    * Get all active subagents (alias for tests)
    */
   getActive(): Subagent[] {
@@ -539,6 +554,7 @@ export class SubagentOrchestrator extends EventEmitter {
 
   /**
    * Get orchestrator statistics
+   * REFACTOR: Single pass through results instead of two filter operations
    */
   getStats(): {
     activeAgents: number;
@@ -546,32 +562,66 @@ export class SubagentOrchestrator extends EventEmitter {
     successfulTasks: number;
     failedTasks: number;
   } {
-    const results = Array.from(this.results.values());
+    let successfulTasks = 0;
+    let failedTasks = 0;
+
+    for (const result of this.results.values()) {
+      if (result.success) {
+        successfulTasks++;
+      } else {
+        failedTasks++;
+      }
+    }
+
     return {
       activeAgents: this.subagents.size,
-      totalResults: results.length,
-      successfulTasks: results.filter(r => r.success).length,
-      failedTasks: results.filter(r => !r.success).length,
+      totalResults: this.results.size,
+      successfulTasks,
+      failedTasks,
     };
   }
 
   /**
    * Spawn multiple subagents in parallel
+   * BUG FIX: Respects maxConcurrentAgents limit by spawning sequentially
+   * if the total would exceed the limit
    */
   async spawnParallel(configs: Array<{ role: SubagentRole; config?: Partial<SubagentConfig> }>): Promise<Subagent[]> {
+    const maxAgents = this.config.maxConcurrentAgents ?? 5;
+    const availableSlots = maxAgents - this.subagents.size;
+
+    if (configs.length > availableSlots) {
+      throw new Error(
+        `Cannot spawn ${configs.length} agents: only ${availableSlots} slots available (max: ${maxAgents}, current: ${this.subagents.size})`
+      );
+    }
+
     return Promise.all(configs.map(({ role, config }) => this.spawn(role, config)));
   }
 
   /**
    * Send a message to a subagent
+   * BUG FIX: Actually call receiveMessage on the subagent instead of just emitting event
    */
-  async sendMessage(subagentId: string, message: string): Promise<void> {
+  async sendMessage(
+    subagentId: string,
+    message: string,
+    type: 'instruction' | 'cancellation' | 'query' = 'instruction'
+  ): Promise<void> {
     const subagent = this.subagents.get(subagentId);
     if (!subagent) {
       throw new Error(`Subagent ${subagentId} not found`);
     }
-    // Subagent will handle the message via receiveMessage method
-    // For now, just emit an event
-    this.emit('message-sent', { subagentId, message });
+
+    // Actually deliver the message to the subagent
+    await subagent.receiveMessage({
+      from: 'orchestrator',
+      to: 'subagent',
+      type,
+      content: message,
+      timestamp: new Date(),
+    });
+
+    this.emit('message-sent', { subagentId, message, type });
   }
 }

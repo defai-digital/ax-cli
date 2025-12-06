@@ -61,7 +61,7 @@ export class DependencyResolver {
     const hasCycles = this.hasCycle(graph);
 
     if (hasCycles) {
-      const cycles = this.findCycles(graph, tasks);
+      const cycles = this.findCycles(graph);
       return {
         nodes: graph,
         executionOrder: [],
@@ -180,6 +180,16 @@ export class DependencyResolver {
       }
     }
 
+    // BUG FIX: Verify all nodes were processed - if not, there's a cycle
+    // that hasCycle() may have missed (defensive programming)
+    if (result.length !== graph.size) {
+      const unprocessed = Array.from(graph.keys()).filter(id => !result.includes(id));
+      throw new Error(
+        `Topological sort incomplete: ${unprocessed.length} nodes not processed. ` +
+        `This indicates a cycle involving: ${unprocessed.slice(0, 5).join(', ')}${unprocessed.length > 5 ? '...' : ''}`
+      );
+    }
+
     return result;
   }
 
@@ -193,6 +203,9 @@ export class DependencyResolver {
   ): string[][] {
     const batches: string[][] = [];
 
+    // REFACTOR: Create taskMap once at start instead of per-batch
+    const taskMap = new Map(tasks.map(t => [t.id, t]));
+
     // Assign levels to each node
     const levels = new Map<string, number>();
     for (const nodeId of sorted) {
@@ -203,7 +216,13 @@ export class DependencyResolver {
       let maxDepLevel = -1;
 
       for (const depId of node.dependencies) {
-        const depLevel = levels.get(depId) || 0;
+        // BUG FIX: Use explicit check instead of || 0
+        // levels.get() returns undefined for non-existent keys, but 0 for level 0
+        const depLevel = levels.get(depId);
+        if (depLevel === undefined) {
+          // This shouldn't happen if graph is built correctly, but handle gracefully
+          throw new Error(`Dependency ${depId} not found in levels map during batch grouping`);
+        }
         maxDepLevel = Math.max(maxDepLevel, depLevel);
       }
 
@@ -228,11 +247,12 @@ export class DependencyResolver {
       }
 
       if (batch.length > 0) {
-        // Sort by priority within batch
+        // Sort by priority within batch using pre-built taskMap
+        // BUG FIX: Use ?? instead of || for consistent null coalescing with numeric defaults
         batch.sort((a, b) => {
-          const taskA = tasks.find(t => t.id === a);
-          const taskB = tasks.find(t => t.id === b);
-          return (taskB?.priority || 0) - (taskA?.priority || 0);
+          const taskA = taskMap.get(a);
+          const taskB = taskMap.get(b);
+          return (taskB?.priority ?? 0) - (taskA?.priority ?? 0);
         });
 
         batches.push(batch);
@@ -296,10 +316,10 @@ export class DependencyResolver {
 
   /**
    * Find all cycles in the graph
+   * BUG FIX: Removed unused _tasks parameter
    */
   private findCycles(
-    graph: Map<string, DependencyNode>,
-    _tasks: SubagentTask[]
+    graph: Map<string, DependencyNode>
   ): string[][] {
     const cycles: string[][] = [];
     const visited = new Set<string>();
@@ -316,28 +336,33 @@ export class DependencyResolver {
 
   /**
    * Utility function for finding cycles
+   * BUG FIX: Use separate Set for recursion stack tracking to avoid
+   * false positives when a node is visited from different paths
    */
   private findCyclesUtil(
     nodeId: string,
     graph: Map<string, DependencyNode>,
     visited: Set<string>,
     recursionStack: string[],
-    cycles: string[][]
+    cycles: string[][],
+    inStack: Set<string> = new Set()
   ): void {
     visited.add(nodeId);
     recursionStack.push(nodeId);
+    inStack.add(nodeId);
 
     const node = graph.get(nodeId);
     if (!node) {
       recursionStack.pop();
+      inStack.delete(nodeId);
       return; // Node not found, skip
     }
-    
+
     for (const dependentId of node.dependents) {
       if (!visited.has(dependentId)) {
-        this.findCyclesUtil(dependentId, graph, visited, recursionStack, cycles);
-      } else {
-        // Found a cycle
+        this.findCyclesUtil(dependentId, graph, visited, recursionStack, cycles, inStack);
+      } else if (inStack.has(dependentId)) {
+        // Found a cycle - only if the node is in current recursion stack
         const cycleStart = recursionStack.indexOf(dependentId);
         if (cycleStart !== -1) {
           const cycle = recursionStack.slice(cycleStart);
@@ -348,6 +373,7 @@ export class DependencyResolver {
     }
 
     recursionStack.pop();
+    inStack.delete(nodeId);
   }
 
   /**
@@ -375,9 +401,19 @@ export class DependencyResolver {
 
   /**
    * Check if a task can be executed given completed tasks
+   * BUG FIX: Added overload with taskMap for O(1) lookup in hot paths
    */
-  canExecuteTask(taskId: string, completedTaskIds: Set<string>, tasks: SubagentTask[]): boolean {
-    const task = tasks.find(t => t.id === taskId);
+  canExecuteTask(taskId: string, completedTaskIds: Set<string>, tasks: SubagentTask[]): boolean;
+  canExecuteTask(taskId: string, completedTaskIds: Set<string>, taskMap: Map<string, SubagentTask>): boolean;
+  canExecuteTask(
+    taskId: string,
+    completedTaskIds: Set<string>,
+    tasksOrMap: SubagentTask[] | Map<string, SubagentTask>
+  ): boolean {
+    // Support both array (backward compat) and Map (performance) inputs
+    const task = Array.isArray(tasksOrMap)
+      ? tasksOrMap.find(t => t.id === taskId)
+      : tasksOrMap.get(taskId);
 
     if (!task) {
       return false;
@@ -393,6 +429,8 @@ export class DependencyResolver {
 
   /**
    * Get tasks that are ready to execute
+   * BUG FIX: Avoid calling canExecuteTask which does O(n) lookup per task
+   * Instead, inline the logic to avoid O(n²) complexity
    */
   getReadyTasks(tasks: SubagentTask[], completedTaskIds: Set<string>): SubagentTask[] {
     return tasks.filter(task => {
@@ -401,8 +439,13 @@ export class DependencyResolver {
         return false;
       }
 
-      // Check if dependencies are met
-      return this.canExecuteTask(task.id, completedTaskIds, tasks);
+      // Check if dependencies are met (inlined to avoid O(n) lookup)
+      if (!task.dependencies || task.dependencies.length === 0) {
+        return true;
+      }
+
+      // All dependencies must be completed
+      return task.dependencies.every(depId => completedTaskIds.has(depId));
     });
   }
 }

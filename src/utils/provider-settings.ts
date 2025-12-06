@@ -29,11 +29,21 @@ import {
   ProviderContext,
   ProviderType,
   getProviderContext,
-  PROVIDER_CONFIGS,
 } from './provider-context.js';
 import { SafeJsonFile, withFileLockSync } from './file-lock.js';
 import { encrypt, decrypt } from './encryption.js';
 import { TIMEOUT_CONFIG } from '../constants.js';
+
+/**
+ * Encrypted value schema for API keys
+ */
+const EncryptedValueSchema = z.object({
+  encrypted: z.string(),
+  iv: z.string(),
+  salt: z.string(),
+  tag: z.string(),
+  version: z.number(),
+});
 
 /**
  * Provider-specific user settings schema
@@ -41,7 +51,7 @@ import { TIMEOUT_CONFIG } from '../constants.js';
 const ProviderUserSettingsSchema = z.object({
   // API Configuration
   apiKey: z.string().optional(),
-  apiKeyEncrypted: z.string().optional(),
+  apiKeyEncrypted: EncryptedValueSchema.optional(),
   baseURL: z.string().optional(),
   defaultModel: z.string().optional(),
   models: z.array(z.string()).optional(),

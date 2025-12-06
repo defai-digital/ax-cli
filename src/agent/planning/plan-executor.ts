@@ -56,6 +56,9 @@ export interface PlanExecutorConfig {
  *
  * Executes multi-phase task plans with progress tracking.
  */
+// REFACTOR: Constant for file-modifying tools (avoid recreating in loop)
+const FILE_MODIFYING_TOOLS = new Set(['create_file', 'str_replace_editor', 'multi_edit']);
+
 export class PlanExecutor {
   private config: PlanExecutorConfig;
 
@@ -127,15 +130,24 @@ export class PlanExecutor {
           break; // No more tool calls, phase complete
         }
 
+        // BUG FIX: Increment toolRounds after checking for tool calls
+        // but count it here so we can check limit before executing
         toolRounds++;
+        if (toolRounds >= maxPhaseRounds) {
+          // Add a warning message about hitting the limit
+          this.config.emitter.emit("phase:warning", {
+            phase,
+            planId: context.planId,
+            message: `Phase hit tool round limit (${maxPhaseRounds})`,
+          });
+        }
 
         // Execute tools and track file modifications
         for (const toolCall of assistantMessage.tool_calls) {
           const result = await this.config.executeTool(toolCall);
 
-          // Track file modifications from text_editor tool
-          if (toolCall.function.name === "text_editor" ||
-              toolCall.function.name === "str_replace_editor") {
+          // REFACTOR: Use Set.has() for O(1) lookup instead of Array.includes()
+          if (FILE_MODIFYING_TOOLS.has(toolCall.function.name)) {
             const args = this.config.parseToolArgumentsCached(toolCall);
             if (args.path && result.success) {
               if (!filesModified.includes(args.path as string)) {
@@ -257,7 +269,8 @@ export class PlanExecutor {
     output += `**Phases (${plan.phases.length}):**\n`;
 
     for (const phase of plan.phases) {
-      const riskIcon = phase.riskLevel === "high" ? "⚠️" : phase.riskLevel === "medium" ? "△" : "";
+      // BUG FIX: Consistent risk icons for all levels (low was empty)
+      const riskIcon = phase.riskLevel === "high" ? "⚠️" : phase.riskLevel === "medium" ? "△" : "○";
       output += `  ${phase.index + 1}. ${phase.name} ${riskIcon}\n`;
     }
 
@@ -273,8 +286,12 @@ export class PlanExecutor {
   formatPlanResult(result: PlanResult): string {
     let output = "\n---\n\n**📋 Plan Execution Complete**\n\n";
 
-    const successful = result.phaseResults.filter((r) => r.success).length;
-    const failed = result.phaseResults.filter((r) => !r.success).length;
+    // REFACTOR: Single pass through results instead of two filter operations
+    let successful = 0;
+    for (const r of result.phaseResults) {
+      if (r.success) successful++;
+    }
+    const failed = result.phaseResults.length - successful;
 
     output += `**Results:** ${successful}/${result.phaseResults.length} phases successful`;
     if (failed > 0) {

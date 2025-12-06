@@ -1,54 +1,116 @@
 /**
- * AX CLI SDK - Programmatic API for AX CLI
+ * AX CLI SDK v1.4.0 - Programmatic API for AX CLI
  *
- * This SDK allows you to use AX CLI as a library instead of spawning CLI processes.
- * Perfect for integrations, VSCode extensions, and programmatic AI agent usage.
+ * Use AX CLI as a library for integrations, VSCode extensions, and programmatic AI agents.
+ *
+ * ## Installation
+ *
+ * ```bash
+ * npm install @defai.digital/ax-cli
+ * ```
  *
  * ## Quick Start
  *
- * 1. Run `ax-cli setup` to configure credentials (one-time setup)
- * 2. Use the SDK in your code
- *
- * @example
  * ```typescript
- * import { createAgent, SDKError, SDKErrorCode } from '@defai.digital/ax-cli/sdk';
+ * import { createAgent, createGLMAgent, createGrokAgent } from '@defai.digital/ax-cli/sdk';
  *
- * // Create agent (credentials from ax-cli setup)
- * const agent = await createAgent({
- *   maxToolRounds: 50  // Optional: 1-1000, default 400
+ * // Option 1: Auto-detect provider
+ * const agent = await createAgent();
+ *
+ * // Option 2: Explicit provider
+ * const glmAgent = await createGLMAgent();   // Uses ~/.ax-glm/config.json
+ * const grokAgent = await createGrokAgent(); // Uses ~/.ax-grok/config.json
+ *
+ * // Process messages
+ * const result = await agent.processUserMessage('Analyze this code');
+ * agent.dispose();
+ * ```
+ *
+ * ## Public API (v1.4.0)
+ *
+ * ### Agent Creation
+ * - `createAgent(options?)` - Create agent with auto-detected or specified provider
+ * - `createGLMAgent(options?)` - Create GLM (Z.AI) agent
+ * - `createGrokAgent(options?)` - Create Grok (xAI) agent
+ * - `tryCreateAgent(options?)` - Create agent without throwing (returns result object)
+ * - `withAgent(fn, options?)` - Run function with auto-disposed agent
+ *
+ * ### Error Handling
+ * - `SDKError` - Structured error class with error codes
+ * - `SDKErrorCode` - Error code enum (SETUP_NOT_RUN, API_KEY_MISSING, etc.)
+ *
+ * ### Agent Utilities
+ * - `getAgentInfo(agent)` - Get provider, model, config info
+ * - `getAgentStatus(agent)` - Check if agent is available/busy/disposed
+ * - `isAgentDisposed(agent)` - Check disposal state
+ * - `disposeAsync(agent)` - Dispose with async hook support
+ *
+ * ### Provider Utilities
+ * - `detectProvider()` - Auto-detect configured provider
+ * - `checkProviderHealth(provider?)` - Check if provider is configured
+ * - `getAllProviderHealth()` - Check all providers
+ *
+ * ### Version Info
+ * - `SDK_VERSION`, `CLI_VERSION` - Version constants
+ * - `getSDKVersion()`, `getCLIVersion()` - Version strings
+ * - `isSDKVersionCompatible(minVersion)` - Version check
+ *
+ * ### Testing
+ * - `createMockAgent(responses)` - Create mock for testing
+ * - `createMockSettings(overrides)` - Mock settings manager
+ *
+ * ## Example: Streaming Responses
+ *
+ * ```typescript
+ * import { createGLMAgent, SDKError, SDKErrorCode } from '@defai.digital/ax-cli/sdk';
+ *
+ * const agent = await createGLMAgent();
+ *
+ * agent.on('stream', (chunk) => {
+ *   if (chunk.type === 'content') {
+ *     process.stdout.write(chunk.content);
+ *   }
  * });
  *
  * try {
- *   // Listen to streaming responses
- *   agent.on('stream', (chunk) => {
- *     if (chunk.type === 'content') {
- *       console.log(chunk.content);
- *     }
- *   });
- *
- *   // Process messages
- *   const result = await agent.processUserMessage('List all TypeScript files');
- *   console.log('Done!', result.length, 'messages');
+ *   await agent.processUserMessage('Explain async/await');
  * } catch (error) {
- *   // Handle structured errors
  *   if (SDKError.isSDKError(error)) {
- *     if (error.code === SDKErrorCode.SETUP_NOT_RUN) {
- *       console.error('Please run: ax-cli setup');
- *     }
+ *     console.error(`Error [${error.code}]: ${error.message}`);
  *   }
  * } finally {
- *   // Always cleanup resources
  *   agent.dispose();
  * }
  * ```
  *
- * ## Testing
+ * ## Example: Parallel Providers
  *
  * ```typescript
- * import { createMockAgent } from '@defai.digital/ax-cli/sdk/testing';
+ * import { createGLMAgent, createGrokAgent } from '@defai.digital/ax-cli/sdk';
  *
- * const mockAgent = createMockAgent(['Response 1', 'Response 2']);
- * const result = await mockAgent.processUserMessage('Test');
+ * // Run GLM and Grok in parallel
+ * const [glm, grok] = await Promise.all([
+ *   createGLMAgent(),
+ *   createGrokAgent(),
+ * ]);
+ *
+ * const [glmResult, grokResult] = await Promise.all([
+ *   glm.processUserMessage('Analyze with GLM'),
+ *   grok.processUserMessage('Analyze with Grok'),
+ * ]);
+ *
+ * glm.dispose();
+ * grok.dispose();
+ * ```
+ *
+ * ## Example: Testing
+ *
+ * ```typescript
+ * import { createMockAgent } from '@defai.digital/ax-cli/sdk';
+ *
+ * const mock = createMockAgent(['Hello!', 'How can I help?']);
+ * const result = await mock.processUserMessage('Hi');
+ * expect(result).toContain('Hello!');
  * ```
  *
  * @packageDocumentation
@@ -74,23 +136,14 @@ import { SDKError, SDKErrorCode } from './errors.js';
 import {
   ProviderContext,
   type ProviderType,
-  type ProviderConfig,
-  activateProvider,
   detectProvider,
-  getProviderContext,
-  withProvider,
-  withProviderAsync,
-  validateProvider,
   PROVIDER_CONFIGS,
 } from '../utils/provider-context.js';
 import {
   ProviderSettingsManager,
-  getProviderSettings,
-  isProviderConfigured,
-  getConfiguredProviders,
-  getBestAvailableProvider,
 } from '../utils/provider-settings.js';
-import {
+// File locking utilities - re-exported for SDK users
+export {
   withFileLock,
   withFileLockSync,
   SafeJsonFile,
@@ -137,206 +190,22 @@ export {
 } from '../agent/subagent-types.js';
 
 // ============================================================================
-// Settings and Configuration
+// NOTE: Internal utilities removed in SDK v1.4.0 to reduce API surface
 // ============================================================================
-
-export { getSettingsManager } from '../utils/settings-manager.js';
-export type { SettingsManager } from '../utils/settings-manager.js';
-
-// ============================================================================
-// Utilities
-// ============================================================================
-
-export { createTokenCounter } from '../utils/token-counter.js';
-export type { TokenCounter } from '../utils/token-counter.js';
-
-export { loadCustomInstructions } from '../utils/custom-instructions.js';
-export { buildSystemPrompt } from '../utils/prompt-builder.js';
-export { getUsageTracker } from '../utils/usage-tracker.js';
-export { extractErrorMessage, createErrorMessage, ErrorCategory } from '../utils/error-handler.js';
-
-// ============================================================================
-// MCP Integration
-// ============================================================================
-
-export { loadMCPConfig } from '../mcp/config.js';
-export {
-  getMCPManager,
-  initializeMCPServers,
-  getMcpConnectionCount,
-  getMCPConnectionStatus,
-  getMCPPrompts,
-  discoverMCPPrompts,
-  getMCPResources,
-} from '../llm/tools.js';
-export type { MCPConfig } from '../mcp/config.js';
-export type { MCPServerConfig, MCPTool } from '../mcp/client.js';
-export { MCPManager } from '../mcp/client.js';
-
-// MCP v2 API (recommended for better type safety)
-export {
-  MCPManagerV2,
-  createServerName,
-  createToolName,
-  type ServerName,
-  type ToolName,
-  type ConnectionState,
-  type MCPPrompt,
-} from '../mcp/client-v2.js';
-
-// MCP Prompt utilities
-export {
-  promptToSlashCommand,
-  parsePromptCommand,
-  formatPromptResult,
-  getPromptDescription,
-} from '../mcp/prompts.js';
-
-// MCP Resource utilities
-export {
-  listAllResources,
-  getResourceContent,
-  parseMCPReference,
-  extractMCPReferences,
-  resolveMCPReferences,
-  searchResources,
-  type MCPResource,
-} from '../mcp/resources.js';
-
-// Z.AI MCP Integration
-export {
-  // Server configuration
-  ZAI_SERVER_NAMES,
-  ZAI_ENDPOINTS,
-  ZAI_VISION_PACKAGE,
-  ZAI_MCP_TEMPLATES,
-  ZAI_QUOTA_LIMITS,
-  generateZAIServerConfig,
-  getAllZAIServerNames,
-  isZAIServer,
-  getZAITemplate,
-  type ZAIServerName,
-  type ZAIPlanTier,
-  type ZAIMCPTemplate,
-} from '../mcp/zai-templates.js';
-
-export {
-  // Detection and status
-  detectZAIServices,
-  getEnabledZAIServers,
-  validateZAIApiKey,
-  getZAIApiKey,
-  isZAIMCPConfigured,
-  getRecommendedServers,
-  isGLMModel,
-  isZAIBaseURL,
-  formatZAIStatus,
-  type ZAIServiceStatus,
-} from '../mcp/zai-detector.js';
-
-// Permission system
-export {
-  getPermissionManager,
-  initializePermissionManager,
-  PermissionManager,
-  PermissionTier,
-  type PermissionRequest,
-  type PermissionResult,
-  type RiskLevel,
-} from '../permissions/permission-manager.js';
-
-// ============================================================================
-// Planning System
-// ============================================================================
-
-export { getTaskPlanner, isComplexRequest } from '../planner/index.js';
-export type {
-  TaskPlanner,
-  TaskPlan,
-  TaskPhase,
-  PhaseResult,
-  PlanResult,
-} from '../planner/index.js';
-
-// ============================================================================
-// Checkpoint System
-// ============================================================================
-
-export { getCheckpointManager } from '../checkpoint/index.js';
-export type { CheckpointManager, Checkpoint } from '../checkpoint/index.js';
-
-// ============================================================================
-// Memory and Context Cache
-// ============================================================================
-
-export { ContextStore, getContextStore, resetDefaultStore } from '../memory/context-store.js';
-export type { StoreResult } from '../memory/context-store.js';
-export type { ProjectMemory, CacheStats } from '../memory/types.js';
-
-// ============================================================================
-// Progress Reporting
-// ============================================================================
-
-export {
-  ProgressReporter,
-  getProgressReporter,
-  ProgressEventType,
-  type ProgressEvent
-} from './progress-reporter.js';
-
-// ============================================================================
-// Unified Logging (Phase 3)
-// ============================================================================
-
-export {
-  UnifiedLogger,
-  getUnifiedLogger,
-  LogLevel,
-  parseLogLevel,
-  getLogLevelName,
-  type LogEntry,
-  type LogSource,
-  type LogFilter
-} from './unified-logger.js';
-
-// ============================================================================
-// Shared Tool Registry (Phase 3 - AutomatosX Integration)
-// ============================================================================
-
-export {
-  ToolRegistry,
-  getToolRegistry,
-  registerTools,
-  createToolExecutor,
-  type RegisteredTool,
-  type ToolExecutor,
-  type ToolExecutionContext,
-  type ToolRegistrationOptions
-} from './tool-registry.js';
-
-// ============================================================================
-// Internal Tool Registry (Phase 2 - Task 5)
-// ============================================================================
-
-export {
-  ToolRegistry as InternalToolRegistry,
-  type ToolDefinition,
-  type ToolCategory
-} from '../tools/registry.js';
-
-// ============================================================================
-// Constants
-// ============================================================================
-
-export {
-  GLM_MODELS,
-  DEFAULT_MODEL,
-  AGENT_CONFIG,
-  PLANNER_CONFIG,
-  VerbosityLevel,
-  UI_CONFIG,
-  type SupportedModel,
-} from '../constants.js';
+// The following were intentionally removed from public exports:
+// - Settings utilities (getSettingsManager, createTokenCounter, etc.)
+// - MCP internals (MCPManager, MCPManagerV2, etc.) - use createAgent() instead
+// - Z.AI MCP templates/detector - internal implementation details
+// - Permission system internals
+// - Planning system internals
+// - Checkpoint system internals
+// - Memory/Context internals
+// - Progress reporting
+// - Unified logging
+// - Tool registry internals
+//
+// If you need these, import directly from the specific modules.
+// The SDK public API focuses on: createAgent, createGLMAgent, createGrokAgent, SDKError
 
 // ============================================================================
 // SDK Version (Phase 1.5: Best Practices)
@@ -383,55 +252,18 @@ export type { MockMCPServerOptions } from './testing.js';
 // ============================================================================
 
 // ============================================================================
-// Provider Context (Multi-Provider Support)
+// Provider Context (Multi-Provider Support) - Public API only
 // ============================================================================
 
-export {
-  ProviderContext,
-  ProviderType,
-  activateProvider,
-  detectProvider,
-  getProviderContext,
-  withProvider,
-  withProviderAsync,
-  validateProvider,
-  PROVIDER_CONFIGS,
-  type ProviderConfig,
-} from '../utils/provider-context.js';
+// Export only the essential provider types for SDK users
+export type { ProviderType } from '../utils/provider-context.js';
 
-export {
-  ProviderSettingsManager,
-  getProviderSettings,
-  isProviderConfigured,
-  getConfiguredProviders,
-  getBestAvailableProvider,
-} from '../utils/provider-settings.js';
+// Re-export detectProvider for advanced users who need provider detection
+export { detectProvider } from '../utils/provider-context.js';
 
-export {
-  withFileLock,
-  withFileLockSync,
-  SafeJsonFile,
-  LockGuard,
-  cleanupStaleLocks,
-  type LockOptions,
-} from '../utils/file-lock.js';
-
-export {
-  getProviderFileCache,
-  getProviderFileCacheSync,
-  saveAllProviderCaches,
-  clearProviderCache,
-  clearAllProviderCaches,
-  getProviderCacheStats,
-  getAllProviderCacheStats,
-  type ProviderFileCacheConfig,
-} from '../utils/provider-file-cache.js';
-
-export {
-  ProviderContextStore,
-  getProviderContextStore,
-  getAllProviderMemoryMetadata,
-} from '../memory/provider-context-store.js';
+// Note: Internal utilities (withFileLock, SafeJsonFile, ProviderFileCache,
+// ProviderContextStore, etc.) are intentionally NOT exported.
+// These are implementation details, not part of the public SDK API.
 
 /**
  * Validation schema for agent options
@@ -940,6 +772,50 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
   }
 
   return agent;
+}
+
+/**
+ * Create an agent configured for GLM (Z.AI)
+ *
+ * Convenience function that creates an agent with provider: 'glm'.
+ * Uses configuration from ~/.ax-glm/config.json.
+ *
+ * @param options - Agent options (provider is set to 'glm')
+ * @returns Configured LLM Agent for GLM
+ *
+ * @example
+ * ```typescript
+ * const agent = await createGLMAgent();
+ * const result = await agent.processUserMessage('Hello');
+ * agent.dispose();
+ * ```
+ */
+export async function createGLMAgent(
+  options: Omit<AgentOptions, 'provider'> = {}
+): Promise<LLMAgent> {
+  return createAgent({ ...options, provider: 'glm' });
+}
+
+/**
+ * Create an agent configured for Grok (xAI)
+ *
+ * Convenience function that creates an agent with provider: 'grok'.
+ * Uses configuration from ~/.ax-grok/config.json.
+ *
+ * @param options - Agent options (provider is set to 'grok')
+ * @returns Configured LLM Agent for Grok
+ *
+ * @example
+ * ```typescript
+ * const agent = await createGrokAgent();
+ * const result = await agent.processUserMessage('Hello');
+ * agent.dispose();
+ * ```
+ */
+export async function createGrokAgent(
+  options: Omit<AgentOptions, 'provider'> = {}
+): Promise<LLMAgent> {
+  return createAgent({ ...options, provider: 'grok' });
 }
 
 // ============================================================================

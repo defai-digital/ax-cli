@@ -7,7 +7,7 @@
 
 import { Command } from 'commander';
 import { existsSync, mkdirSync, writeFileSync, renameSync, unlinkSync } from 'fs';
-import { join, resolve } from 'path';
+import { join, resolve, basename } from 'path';
 import * as prompts from '@clack/prompts';
 import chalk from 'chalk';
 import { ProjectAnalyzer } from '../utils/project-analyzer.js';
@@ -15,7 +15,9 @@ import { LLMOptimizedInstructionGenerator } from '../utils/llm-optimized-instruc
 import { InitValidator } from '../utils/init-validator.js';
 import { InitWizard } from './init/wizard.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
-import { CONFIG_DIR_NAME, FILE_NAMES } from '../constants.js';
+import { FILE_NAMES } from '../constants.js';
+import { getActiveConfigPaths } from '../provider/config.js';
+import { ProjectMigrator } from '../utils/project-migrator.js';
 
 export function createInitCommand(): Command {
   const initCommand = new Command('init')
@@ -80,11 +82,61 @@ export function createInitCommand(): Command {
           console.log(InitValidator.formatValidationResult(validationResult));
         }
 
-        // Check if already initialized
-        const axCliDir = join(projectRoot, CONFIG_DIR_NAME);
+        // Get provider-specific config paths
+        const activeConfigPaths = getActiveConfigPaths();
+        const configDirName = activeConfigPaths.DIR_NAME; // e.g., '.ax-glm' or '.ax-grok'
+        const axCliDir = join(projectRoot, configDirName);
         const customMdPath = join(axCliDir, FILE_NAMES.CUSTOM_MD);
         const indexPath = join(axCliDir, FILE_NAMES.INDEX_JSON);
 
+        // ═══════════════════════════════════════════════════════════════════
+        // Legacy Project Migration Check
+        // ═══════════════════════════════════════════════════════════════════
+        // Check for legacy .ax-cli/ directory and offer migration
+        if (ProjectMigrator.hasLegacyProjectConfig(projectRoot)) {
+          const filesToMigrate = ProjectMigrator.getFilesToMigrate(projectRoot);
+
+          if (filesToMigrate.length > 0) {
+            // Get provider info for display
+            const { getProviderDefinition } = await import('../provider/config.js');
+            const providerName = configDirName.replace(/^\.ax-/, ''); // '.ax-glm' -> 'glm'
+            const provider = getProviderDefinition(providerName);
+
+            if (provider) {
+              const summary = ProjectMigrator.getMigrationSummary(provider, projectRoot);
+              const choice = await ProjectMigrator.promptForMigration(provider, summary);
+
+              if (choice === 'migrate') {
+                const result = ProjectMigrator.migrate(provider, {
+                  projectRoot,
+                  keepLegacy: false,
+                });
+                if (result.success) {
+                  if (result.filesMigrated.length > 0) {
+                    prompts.log.success(`Migrated ${result.filesMigrated.length} files from legacy .ax-cli/`);
+                  }
+                  if (result.legacyBackedUp) {
+                    prompts.log.info('Legacy directory backed up to .ax-cli.backup/');
+                  }
+                }
+              } else if (choice === 'keep-both') {
+                const result = ProjectMigrator.migrate(provider, {
+                  projectRoot,
+                  keepLegacy: true,
+                });
+                if (result.success && result.filesMigrated.length > 0) {
+                  prompts.log.success(`Copied ${result.filesMigrated.length} files to ${configDirName}/`);
+                  prompts.log.info('Legacy .ax-cli/ directory kept');
+                }
+              }
+              // 'fresh' - continue to create new config
+
+              console.log(''); // Blank line before continuing
+            }
+          }
+        }
+
+        // Check if already initialized
         if (!options.force && existsSync(customMdPath)) {
           prompts.log.success('Project already initialized!');
           prompts.log.info(`Custom instructions: ${customMdPath}`);
@@ -110,7 +162,7 @@ export function createInitCommand(): Command {
         if (!existsSync(axCliDir)) {
           mkdirSync(axCliDir, { recursive: true });
           if (options.verbose) {
-            prompts.log.info(`Created ${CONFIG_DIR_NAME} directory`);
+            prompts.log.info(`Created ${configDirName} directory`);
           }
         }
 
@@ -213,8 +265,8 @@ export function createInitCommand(): Command {
         );
 
         await prompts.note(
-          '1. Review .ax-cli/CUSTOM.md and customize if needed\n' +
-          '2. Start chatting: ax-cli\n' +
+          `1. Review ${configDirName}/CUSTOM.md and customize if needed\n` +
+          '2. Start chatting with your AI assistant\n' +
           '3. Use --force to regenerate after project changes',
           'Next Steps'
         );

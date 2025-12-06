@@ -12,8 +12,7 @@ import { EventEmitter } from 'events';
 // debug.ts may be imported early, before client-v2.ts is fully initialized
 import type { ServerName, ToolName, ConnectionState, MCPTool, MCPPrompt } from './client-v2.js';
 import type { TransportType } from './transports.js';
-import type { Result } from './type-safety.js';
-import { Ok, Err } from './type-safety.js';
+import { Result } from './type-safety.js';
 
 // =============================================================================
 // Debug Event Types

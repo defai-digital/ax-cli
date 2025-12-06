@@ -14,6 +14,7 @@ import chalk from 'chalk';
 import { validateProviderSetup } from '../utils/setup-validator.js';
 import { getSettingsManager } from '../utils/settings-manager.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
+import { ConfigMigrator } from '../utils/config-migrator.js';
 import type { UserSettings } from '../schemas/settings-schemas.js';
 import type { ProviderDefinition } from '../provider/config.js';
 import { getActiveConfigPaths } from '../provider/config.js';
@@ -122,6 +123,40 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
           `Get API key: ${website}`,
           'Welcome'
         );
+
+        // ═══════════════════════════════════════════════════════════════════
+        // Legacy Migration Check
+        // ═══════════════════════════════════════════════════════════════════
+        // Check for legacy ~/.ax-cli/ config and offer migration
+        if (ConfigMigrator.hasLegacyConfig() && !ConfigMigrator.wasAlreadyMigrated(provider)) {
+          const legacyConfig = ConfigMigrator.loadLegacyConfig();
+
+          if (legacyConfig) {
+            const summary = ConfigMigrator.getMigrationSummary(legacyConfig);
+
+            // Only prompt if there are settings worth migrating
+            if (summary.hasMigratableSettings) {
+              const choice = await ConfigMigrator.promptForMigration(provider, summary);
+
+              if (choice === 'migrate') {
+                const result = ConfigMigrator.migrate(legacyConfig, provider);
+                if (result.success && result.migratedSettings.length > 0) {
+                  prompts.log.success(`Migrated ${result.migratedSettings.length} settings from legacy config`);
+                }
+              } else if (choice === 'fresh') {
+                // Mark as migrated so we don't ask again
+                ConfigMigrator.markAsMigrated(provider);
+                prompts.log.info('Starting with fresh configuration');
+              }
+              // 'skip' - will ask again next time, don't mark
+
+              console.log(''); // Blank line before continuing
+            } else {
+              // No migratable settings, just mark as checked
+              ConfigMigrator.markAsMigrated(provider);
+            }
+          }
+        }
 
         // Use provider-specific config path (e.g., ~/.ax-glm/config.json or ~/.ax-grok/config.json)
         const activeConfigPaths = getActiveConfigPaths();

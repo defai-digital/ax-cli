@@ -27,7 +27,7 @@ import {
   ProviderType,
   getProviderContext,
 } from '../utils/provider-context.js';
-import { withFileLockSync, SafeJsonFile } from '../utils/file-lock.js';
+import { withFileLockSync } from '../utils/file-lock.js';
 
 /**
  * Result type for store operations

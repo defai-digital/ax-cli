@@ -64,11 +64,14 @@ export class StreamHandler {
       if (acc[key] === undefined || acc[key] === null) {
         // Initial value assignment
         acc[key] = value;
-        // Clean up index properties from tool calls
+        // BUG FIX: Clean up index properties from tool calls after assignment
+        // Using explicit index loop to avoid issues with mutation during iteration
         if (Array.isArray(acc[key])) {
-          for (const arr of acc[key]) {
-            if (arr && typeof arr === 'object') {
-              delete arr.index;
+          const arr = acc[key] as unknown[];
+          for (let i = 0; i < arr.length; i++) {
+            const item = arr[i];
+            if (item && typeof item === 'object' && 'index' in item) {
+              delete (item as Record<string, unknown>).index;
             }
           }
         }
