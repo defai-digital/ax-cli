@@ -133,10 +133,9 @@ export function detectConfigFormat(config: any): ConfigDetectionResult {
       issues.push('Legacy format requires "command" field');
     }
 
-    // Legacy configs don't require args - but we do need command for valid legacy
-    if (!config.args || !Array.isArray(config.args)) {
-      warnings.push('Missing "args" array. Will use empty array.');
-    }
+    // BUG FIX: Don't warn about missing args since we handle it correctly
+    // Legacy configs legitimately omit args when running simple commands
+    // The migration code will use an empty array as default
   } else if (!config.transport) {
     // No transport and not legacy - invalid
     issues.push('Missing transport configuration');

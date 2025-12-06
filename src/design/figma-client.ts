@@ -145,6 +145,24 @@ class ResponseCache {
     this.cache.delete(key);
   }
 
+  /**
+   * Delete all cache entries that start with the given prefix
+   *
+   * BUG FIX: This properly clears all parameterized cache entries for a file.
+   * Before, invalidateFile only deleted exact key matches, missing entries
+   * like `/v1/files/abc:{"depth":2}` when trying to clear `/v1/files/abc`.
+   */
+  deleteByPrefix(prefix: string): number {
+    let deleted = 0;
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(prefix)) {
+        this.cache.delete(key);
+        deleted++;
+      }
+    }
+    return deleted;
+  }
+
   clear(): void {
     this.cache.clear();
   }
@@ -397,12 +415,15 @@ export class FigmaClient {
 
   /**
    * Invalidate cache for a specific file
+   *
+   * BUG FIX: Now uses prefix-based deletion to clear all parameterized entries.
+   * Before, this only deleted exact key matches, missing entries with query params
+   * like `getFile(key, {depth: 2})` which produces keys like `/v1/files/abc:{"depth":2}`.
    */
   invalidateFile(fileKey: string): void {
-    // Clear all cached entries for this file
-    this.cache.delete(ResponseCache.makeKey(`/v1/files/${fileKey}`));
-    this.cache.delete(ResponseCache.makeKey(`/v1/files/${fileKey}/nodes`));
-    this.cache.delete(ResponseCache.makeKey(`/v1/files/${fileKey}/variables/local`));
+    // Clear all cached entries for this file (including parameterized variants)
+    this.cache.deleteByPrefix(`/v1/files/${fileKey}`);
+    this.cache.deleteByPrefix(`/v1/images/${fileKey}`);
   }
 }
 

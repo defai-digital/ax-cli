@@ -223,6 +223,15 @@ ax-glm memory status    # View token distribution
 
 ## Changelog
 
+### v4.1.12 - Figma & MCP Improvements
+- Figma component instance detection (`instanceOf` field)
+- Figma text style extraction (fontSize, fontFamily, fontWeight, lineHeight)
+- MCP debug mode with comprehensive diagnostics
+- Alias validation command with batch support
+- Fixed cache invalidation for parameterized Figma API calls
+- Fixed reconnection jitter producing near-zero delays
+- Fixed MCP validation edge cases
+
 ### v4.1.11 - Provider Branding
 - Unique ASCII logos for ax-glm and ax-grok
 - Provider-specific color schemes

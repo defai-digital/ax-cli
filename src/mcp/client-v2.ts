@@ -1088,6 +1088,11 @@ export class MCPManagerV2 extends EventEmitter {
       return '';
     }
 
+    // BUG FIX: Early return for empty text (avoid unnecessary binary search)
+    if (!text) {
+      return '';
+    }
+
     const chars = Array.from(text);
 
     // BUG FIX: Initialize result to empty string, not full text

@@ -171,8 +171,14 @@ export function extractTokensFromVariables(
     remBase: rawRemBase = 16,
     includeDescription = true,
   } = options;
-  // BUG FIX: Handle NaN or invalid remBase values (e.g., from parseInt of non-numeric input)
-  const remBase = (typeof rawRemBase === 'number' && !isNaN(rawRemBase) && rawRemBase > 0) ? rawRemBase : 16;
+  // BUG FIX: Handle NaN, Infinity, zero, or negative remBase values
+  // All of these would cause incorrect or impossible division results
+  const remBase = (
+    typeof rawRemBase === 'number' &&
+    !isNaN(rawRemBase) &&
+    isFinite(rawRemBase) &&
+    rawRemBase > 0
+  ) ? rawRemBase : 16;
 
   const tokens: ExtractedTokens = {};
   const variables = response.meta.variables;

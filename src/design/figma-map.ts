@@ -19,13 +19,45 @@ import type {
 } from './types.js';
 
 // =============================================================================
+// Component Name Lookup
+// =============================================================================
+
+/**
+ * Map of component IDs to component names for resolving instance references
+ */
+type ComponentNameMap = Map<string, string>;
+
+/**
+ * Build a map of component IDs to their names from the file response
+ */
+function buildComponentNameMap(response: FigmaFileResponse): ComponentNameMap {
+  const map: ComponentNameMap = new Map();
+
+  // Add from components metadata if available
+  if (response.components) {
+    for (const [key, component] of Object.entries(response.components)) {
+      if (component && typeof component === 'object' && 'name' in component) {
+        map.set(key, component.name as string);
+      }
+    }
+  }
+
+  return map;
+}
+
+// =============================================================================
 // Node Simplification
 // =============================================================================
 
 /**
  * Simplify a Figma node to essential properties
  */
-function simplifyNode(node: FigmaNode, options: TreeDisplayOptions, depth = 0): SimplifiedNode | null {
+function simplifyNode(
+  node: FigmaNode,
+  options: TreeDisplayOptions,
+  componentNames: ComponentNameMap,
+  depth = 0
+): SimplifiedNode | null {
   // Check depth limit
   if (options.maxDepth !== undefined && depth > options.maxDepth) {
     return null;
@@ -36,7 +68,7 @@ function simplifyNode(node: FigmaNode, options: TreeDisplayOptions, depth = 0): 
     // Still process children to find matching nodes
     if ('children' in node && node.children) {
       const children = node.children
-        .map((child) => simplifyNode(child as FigmaNode, options, depth + 1))
+        .map((child) => simplifyNode(child as FigmaNode, options, componentNames, depth + 1))
         .filter((n): n is SimplifiedNode => n !== null);
 
       if (children.length > 0) {
@@ -58,7 +90,7 @@ function simplifyNode(node: FigmaNode, options: TreeDisplayOptions, depth = 0): 
       // Still process children
       if ('children' in node && node.children) {
         const children = node.children
-          .map((child) => simplifyNode(child as FigmaNode, options, depth + 1))
+          .map((child) => simplifyNode(child as FigmaNode, options, componentNames, depth + 1))
           .filter((n): n is SimplifiedNode => n !== null);
 
         if (children.length > 0) {
@@ -83,6 +115,11 @@ function simplifyNode(node: FigmaNode, options: TreeDisplayOptions, depth = 0): 
   // Add optional metadata based on node type
   if ('componentId' in node && node.componentId) {
     simplified.componentKey = node.componentId;
+    // Resolve instance name from component map
+    const componentName = componentNames.get(node.componentId);
+    if (componentName) {
+      simplified.instanceOf = componentName;
+    }
   }
 
   if ('characters' in node && node.characters) {
@@ -100,10 +137,48 @@ function simplifyNode(node: FigmaNode, options: TreeDisplayOptions, depth = 0): 
     simplified.fillCount = node.fills.length;
   }
 
+  // Extract text style properties for TEXT nodes
+  if (node.type === 'TEXT') {
+    const textStyle: SimplifiedNode['textStyle'] = {};
+    let hasTextStyle = false;
+
+    if ('style' in node && node.style && typeof node.style === 'object') {
+      const style = node.style as Record<string, unknown>;
+
+      if (typeof style.fontSize === 'number') {
+        textStyle.fontSize = style.fontSize;
+        hasTextStyle = true;
+      }
+      if (typeof style.fontFamily === 'string') {
+        textStyle.fontFamily = style.fontFamily;
+        hasTextStyle = true;
+      }
+      if (typeof style.fontWeight === 'number') {
+        textStyle.fontWeight = style.fontWeight;
+        hasTextStyle = true;
+      }
+      if (style.lineHeightPx !== undefined) {
+        textStyle.lineHeight = style.lineHeightPx as number;
+        hasTextStyle = true;
+      } else if (style.lineHeightPercent !== undefined) {
+        textStyle.lineHeight = `${style.lineHeightPercent}%`;
+        hasTextStyle = true;
+      }
+      if (typeof style.letterSpacing === 'number') {
+        textStyle.letterSpacing = style.letterSpacing;
+        hasTextStyle = true;
+      }
+    }
+
+    if (hasTextStyle) {
+      simplified.textStyle = textStyle;
+    }
+  }
+
   // Process children
   if ('children' in node && node.children) {
     const children = node.children
-      .map((child) => simplifyNode(child as FigmaNode, options, depth + 1))
+      .map((child) => simplifyNode(child as FigmaNode, options, componentNames, depth + 1))
       .filter((n): n is SimplifiedNode => n !== null);
 
     if (children.length > 0) {
@@ -159,8 +234,19 @@ function formatNodeAsTree(
   // Add metadata hints
   const hints: string[] = [];
   if (node.hasAutoLayout) hints.push('auto-layout');
-  if (node.componentKey) hints.push('instance');
+  if (node.instanceOf) {
+    hints.push(`instance of "${node.instanceOf}"`);
+  } else if (node.componentKey) {
+    hints.push('instance');
+  }
   if (node.characters) hints.push(`"${node.characters}"`);
+  if (node.textStyle) {
+    const styleInfo: string[] = [];
+    if (node.textStyle.fontFamily) styleInfo.push(node.textStyle.fontFamily);
+    if (node.textStyle.fontSize) styleInfo.push(`${node.textStyle.fontSize}px`);
+    if (node.textStyle.fontWeight) styleInfo.push(`w${node.textStyle.fontWeight}`);
+    if (styleInfo.length > 0) hints.push(styleInfo.join('/'));
+  }
 
   if (hints.length > 0) {
     label += ` ${hints.join(', ')}`;
@@ -224,7 +310,10 @@ export function mapFigmaFile(
   fileKey: string,
   options: TreeDisplayOptions = {}
 ): MapResult {
-  const rootNode = simplifyNode(response.document as FigmaNode, options);
+  // Build component name lookup for resolving instance references
+  const componentNames = buildComponentNameMap(response);
+
+  const rootNode = simplifyNode(response.document as FigmaNode, options, componentNames);
 
   if (!rootNode) {
     throw new Error('Failed to simplify document node');

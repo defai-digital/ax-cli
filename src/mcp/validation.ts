@@ -104,25 +104,35 @@ export async function validateServerConfig(config: MCPServerConfig): Promise<Val
  * Prevents command injection by only allowing safe commands
  */
 function validateCommandWhitelist(command: string): { valid: boolean; error?: string } {
+  // BUG FIX: Handle empty or whitespace-only commands
+  const trimmedCommand = command.trim();
+  if (!trimmedCommand) {
+    return {
+      valid: false,
+      error: 'Command cannot be empty'
+    };
+  }
+
   // Allow full paths (they will be validated separately)
-  if (command.includes('/') || command.includes('\\')) {
+  if (trimmedCommand.includes('/') || trimmedCommand.includes('\\')) {
     // Validate path doesn't contain shell metacharacters
     const dangerousChars = /[;&|`$()<>]/;
-    if (dangerousChars.test(command)) {
+    if (dangerousChars.test(trimmedCommand)) {
       return {
         valid: false,
-        error: `Command path contains dangerous characters: ${command}`
+        error: `Command path contains dangerous characters: ${trimmedCommand}`
       };
     }
     return { valid: true };
   }
 
   // Check against whitelist
-  const baseCommand = command.split(/\s+/)[0]; // Get command name without args
-  if (!SAFE_MCP_COMMANDS.includes(baseCommand as SafeMCPCommand)) {
+  // BUG FIX: Use trimmed command and handle empty result from split
+  const baseCommand = trimmedCommand.split(/\s+/)[0] || '';
+  if (!baseCommand || !SAFE_MCP_COMMANDS.includes(baseCommand as SafeMCPCommand)) {
     return {
       valid: false,
-      error: `Command "${baseCommand}" is not in the safe commands whitelist. ` +
+      error: `Command "${baseCommand || '(empty)'}" is not in the safe commands whitelist. ` +
              `Allowed: ${SAFE_MCP_COMMANDS.join(', ')}. ` +
              `Use full path for custom commands.`
     };

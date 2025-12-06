@@ -177,10 +177,10 @@ export class ReconnectionManager extends EventEmitter {
    * Calculate delay for next attempt with exponential backoff
    */
   private calculateDelay(attempts: number): number {
-    let delay = this.strategy.baseDelayMs * Math.pow(this.strategy.backoffMultiplier, attempts);
+    const baseDelay = this.strategy.baseDelayMs * Math.pow(this.strategy.backoffMultiplier, attempts);
 
     // Cap at max delay
-    delay = Math.min(delay, this.strategy.maxDelayMs);
+    let delay = Math.min(baseDelay, this.strategy.maxDelayMs);
 
     // Add jitter if enabled (±25% randomness)
     if (this.strategy.jitter) {
@@ -189,7 +189,10 @@ export class ReconnectionManager extends EventEmitter {
       delay += jitter;
     }
 
-    return Math.max(delay, 0);
+    // BUG FIX: Ensure delay is at least 50% of base delay after jitter
+    // This prevents near-zero delays that would defeat the purpose of backoff
+    const minDelay = this.strategy.baseDelayMs * 0.5;
+    return Math.max(delay, minDelay);
   }
 
   /**

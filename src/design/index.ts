@@ -40,6 +40,14 @@ export {
   hasAlias,
   getAliasesForFile,
   importAliases,
+  // Validation
+  validateSingleAlias,
+  validateAllAliases,
+  formatValidationResult,
+  cleanupStaleAliases,
+  type AliasValidationStatus,
+  type AliasValidationEntry,
+  type AliasValidationResult,
 } from './figma-alias.js';
 
 // Tokens

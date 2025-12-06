@@ -10,7 +10,8 @@ import {
 } from '../../../src/ui/utils/image-handler.js';
 
 describe('ImageInputHandler', () => {
-  const testDir = path.join(process.cwd(), 'tests', 'fixtures', 'images');
+  // Use unique directory to avoid conflicts with parallel test runs
+  const testDir = path.join(process.cwd(), 'tests', 'fixtures', 'images-handler');
   const testPngPath = path.join(testDir, 'test.png');
 
   // Create test fixtures before tests

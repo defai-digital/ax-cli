@@ -26,8 +26,11 @@
  * - Reporting CLI version to users
  * - Checking CLI compatibility
  * - Debugging CLI-specific issues
+ *
+ * **IMPORTANT**: Keep this in sync with package.json version!
+ * TODO: Consider reading from package.json at build time
  */
-export const CLI_VERSION = '4.0.5';
+export const CLI_VERSION = '4.1.12';
 
 /**
  * SDK library version (semantic versioning for API stability)
@@ -79,7 +82,7 @@ export const SDK_API_VERSION = 1;
  * import { getCLIVersion } from '@defai.digital/ax-cli/sdk';
  *
  * console.log('CLI:', getCLIVersion());
- * // Output: "CLI: v3.8.0"
+ * // Output: "CLI: v4.1.11"
  * ```
  */
 export function getCLIVersion(): string {
@@ -96,7 +99,7 @@ export function getCLIVersion(): string {
  * import { getSDKVersion } from '@defai.digital/ax-cli/sdk';
  *
  * console.log('Using SDK:', getSDKVersion());
- * // Output: "Using SDK: v1.2.0"
+ * // Output: "Using SDK: v1.3.0"
  * ```
  */
 export function getSDKVersion(): string {
@@ -115,11 +118,11 @@ export function getSDKVersion(): string {
  * const info = getSDKInfo();
  * console.log(info);
  * // Output: {
- * //   cliVersion: "3.8.0",
- * //   sdkVersion: "1.2.0",
+ * //   cliVersion: "4.1.11",
+ * //   sdkVersion: "1.3.0",
  * //   apiVersion: 1,
- * //   cliVersionString: "v3.8.0",
- * //   sdkVersionString: "v1.2.0"
+ * //   cliVersionString: "v4.1.11",
+ * //   sdkVersionString: "v1.3.0"
  * // }
  * ```
  */
@@ -154,7 +157,7 @@ export function getSDKInfo(): {
  * import { getVersionString } from '@defai.digital/ax-cli/sdk';
  *
  * console.log(getVersionString());
- * // Output: "AX CLI v3.8.0 (SDK v1.2.0)"
+ * // Output: "AX CLI v4.1.11 (SDK v1.3.0)"
  * ```
  */
 export function getVersionString(): string {

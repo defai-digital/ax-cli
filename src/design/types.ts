@@ -68,9 +68,19 @@ export interface SimplifiedNode {
   children?: SimplifiedNode[];
   // Optional metadata
   componentKey?: string;
+  /** For INSTANCE nodes: the name of the component this is an instance of */
+  instanceOf?: string;
   characters?: string;
   hasAutoLayout?: boolean;
   fillCount?: number;
+  // Text style properties (for TEXT nodes)
+  textStyle?: {
+    fontSize?: number;
+    fontFamily?: string;
+    fontWeight?: number;
+    lineHeight?: number | string;
+    letterSpacing?: number;
+  };
 }
 
 /**

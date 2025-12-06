@@ -194,3 +194,23 @@ export {
   formatZAIStatus,
   type ZAIServiceStatus,
 } from "./zai-detector.js";
+
+// ============================================================================
+// DEBUG MODE
+// ============================================================================
+
+export {
+  MCPDebugLogger,
+  getMCPDebugLogger,
+  resetMCPDebugLogger,
+  collectMCPDiagnostics,
+  formatMCPDiagnostics,
+  createDebugSession,
+  DEFAULT_DEBUG_CONFIG,
+  type DebugEventType,
+  type DebugEvent,
+  type DebugLogLevel,
+  type DebugLoggerConfig,
+  type ServerDiagnostics,
+  type MCPDiagnostics,
+} from "./debug.js";
