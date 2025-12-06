@@ -30,7 +30,7 @@
  * **IMPORTANT**: Keep this in sync with package.json version!
  * TODO: Consider reading from package.json at build time
  */
-export const CLI_VERSION = '4.1.14';
+export const CLI_VERSION = '4.1.15';
 
 /**
  * SDK library version (semantic versioning for API stability)

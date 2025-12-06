@@ -30,6 +30,7 @@ import { getVSCodeIPCClient, disposeVSCodeIPCClient } from "./ipc/index.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
 
 // Load environment variables
+// Note: DOTENV_CONFIG_QUIET is set by bin/ax-cli wrapper to suppress v17+ messages
 dotenv.config();
 
 // Set process title for terminal display (shows "ax-cli" instead of "node")

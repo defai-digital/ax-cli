@@ -1,0 +1,6 @@
+#!/usr/bin/env node
+// Suppress dotenv v17+ injection messages
+process.env.DOTENV_CONFIG_QUIET = 'true';
+
+// Import and run the main CLI
+import('../dist/index.js');
