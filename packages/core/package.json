@@ -81,7 +81,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@defai.digital/ax-schemas": "^4.1.7",
+    "@defai.digital/ax-schemas": "workspace:*",
     "@clack/prompts": "^0.11.0",
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@types/ws": "^8.18.1",
