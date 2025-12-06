@@ -580,6 +580,17 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
+### v4.1.3 - Provider-Aware SDK
+
+- **Provider-Aware SDK**: New SDK functions for provider-specific agent creation
+  - `createGLMAgent()` - Create GLM-optimized agents with thinking mode support
+  - `createGrokAgent()` - Create Grok-optimized agents with reasoning_effort support
+  - `createProviderAgent()` - Generic provider-aware agent factory
+- **SDK Exports**: ax-glm and ax-grok packages now export SDK at `@defai.digital/ax-glm/sdk` and `@defai.digital/ax-grok/sdk`
+- **Provider Definitions**: Export GLM_PROVIDER, GROK_PROVIDER, and helper functions
+- **Error Messages**: Provider-aware error messages reference the correct CLI name (ax-glm, ax-grok)
+- **Doctor Command**: Verified working for all CLIs (ax-cli, ax-glm, ax-grok)
+
 ### v4.1.2 - Setup Improvements for Provider-Specific CLIs
 
 - **ax-glm Setup**: Added server selection (Z.AI Cloud or Local/Custom server support)

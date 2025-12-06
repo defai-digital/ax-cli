@@ -70,6 +70,7 @@ import { getSettingsManager } from '../utils/settings-manager.js';
 import { initializeMCPServers } from '../llm/tools.js';
 import { z } from 'zod';
 import { SDKError, SDKErrorCode } from './errors.js';
+import { GLM_PROVIDER, GROK_PROVIDER, getApiKeyFromEnv, type ProviderDefinition } from '../provider/config.js';
 
 // ============================================================================
 // LLM Client
@@ -889,3 +890,335 @@ export async function initializeSDK(): Promise<void> {
   // Initialize MCP servers from settings configured via ax-cli setup
   await initializeMCPServers();
 }
+
+// ============================================================================
+// Provider-Aware SDK Functions
+// ============================================================================
+
+/**
+ * Provider-specific agent options
+ */
+export interface ProviderAgentOptions extends AgentOptions {
+  /**
+   * Provider definition to use for this agent.
+   * If not specified, uses settings from the appropriate CLI setup command.
+   */
+  provider?: ProviderDefinition;
+
+  /**
+   * Enable thinking/reasoning mode.
+   * - For GLM: Uses thinking_mode parameter
+   * - For Grok: Uses reasoning_effort parameter
+   */
+  enableThinking?: boolean;
+}
+
+/**
+ * Create a provider-aware LLM Agent
+ *
+ * This function creates an agent configured for a specific provider (GLM, Grok, etc.)
+ * with appropriate defaults and feature flags.
+ *
+ * SECURITY: Credentials must be configured via the appropriate setup command:
+ * - For GLM: `ax-glm setup`
+ * - For Grok: `ax-grok setup`
+ * - For generic: `ax-cli setup`
+ *
+ * @param provider - The provider definition (GLM_PROVIDER, GROK_PROVIDER, etc.)
+ * @param options - Agent configuration options
+ * @returns Configured LLM Agent instance
+ *
+ * @example
+ * ```typescript
+ * import { createProviderAgent, GLM_PROVIDER } from '@defai.digital/ax-core/sdk';
+ *
+ * // Create GLM agent
+ * const agent = await createProviderAgent(GLM_PROVIDER, {
+ *   maxToolRounds: 50,
+ *   enableThinking: true
+ * });
+ *
+ * try {
+ *   const result = await agent.processUserMessage('Analyze this codebase');
+ *   console.log(result);
+ * } finally {
+ *   agent.dispose();
+ * }
+ * ```
+ */
+export async function createProviderAgent(
+  provider: ProviderDefinition,
+  options: ProviderAgentOptions = {}
+): Promise<LLMAgent> {
+  // Validate input options
+  let validated: AgentOptions;
+  try {
+    validated = AgentOptionsSchema.parse(options);
+  } catch (error) {
+    throw new SDKError(
+      SDKErrorCode.VALIDATION_ERROR,
+      `Invalid agent options: ${error instanceof Error ? error.message : 'Unknown validation error'}`,
+      error instanceof Error ? error : undefined
+    );
+  }
+
+  const settingsManager = getSettingsManager();
+  const cliName = provider.branding.cliName;
+
+  // Load settings from provider-specific setup
+  try {
+    settingsManager.loadUserSettings();
+  } catch (error) {
+    throw new SDKError(
+      SDKErrorCode.SETUP_NOT_RUN,
+      `${cliName} setup has not been run. Please run "${cliName} setup" to configure your API key, model, and base URL before using the SDK.`,
+      error instanceof Error ? error : undefined
+    );
+  }
+
+  // Get API key: env var > settings
+  let apiKey = getApiKeyFromEnv(provider) || settingsManager.getApiKey();
+
+  // Get configuration from settings or provider defaults
+  const baseURL = settingsManager.getBaseURL() || provider.defaultBaseURL;
+  const model = settingsManager.getCurrentModel() || provider.defaultModel;
+
+  // Validate required settings
+  if (!apiKey) {
+    throw new SDKError(
+      SDKErrorCode.API_KEY_MISSING,
+      `No API key configured. Please run "${cliName} setup" to configure your credentials, or set ${provider.apiKeyEnvVar} environment variable.`
+    );
+  }
+
+  if (!baseURL) {
+    throw new SDKError(
+      SDKErrorCode.BASE_URL_MISSING,
+      `No base URL configured. Please run "${cliName} setup" to configure your API provider.`
+    );
+  }
+
+  // Apply defaults
+  const maxToolRounds = validated.maxToolRounds;
+  const debug = validated.debug ?? false;
+  const autoCleanup = validated.autoCleanup ?? true;
+  const onDispose = validated.onDispose;
+  const onError = validated.onError;
+  const enableThinking = options.enableThinking;
+
+  // Debug logging
+  if (debug) {
+    console.error(`[${cliName.toUpperCase()} SDK DEBUG] Creating agent with settings:`);
+    console.error(`[${cliName.toUpperCase()} SDK DEBUG]   Provider: ${provider.displayName}`);
+    console.error(`[${cliName.toUpperCase()} SDK DEBUG]   Model: ${model}`);
+    console.error(`[${cliName.toUpperCase()} SDK DEBUG]   Base URL: ${baseURL}`);
+    console.error(`[${cliName.toUpperCase()} SDK DEBUG]   Max tool rounds: ${maxToolRounds ?? 400}`);
+    console.error(`[${cliName.toUpperCase()} SDK DEBUG]   Thinking enabled: ${enableThinking ?? 'default'}`);
+  }
+
+  // Create agent instance
+  const agent = new LLMAgent(apiKey, baseURL, model, maxToolRounds);
+
+  // Configure thinking mode if supported and requested
+  if (provider.features.supportsThinking && enableThinking !== undefined) {
+    if (enableThinking) {
+      agent.setThinkingConfig({ type: 'enabled' });
+    } else {
+      agent.setThinkingConfig({ type: 'disabled' });
+    }
+  }
+
+  // Store lifecycle hooks on agent
+  (agent as any)._sdkLifecycleHooks = { onDispose, onError };
+  (agent as any)._sdkProvider = provider;
+
+  // Track SDK-added listeners for cleanup
+  const sdkListeners: Array<{ event: string; listener: (...args: any[]) => void }> = [];
+
+  // Enable debug mode if requested
+  if (debug) {
+    const debugStreamListener = (chunk: any) => {
+      if (chunk.type === 'tool_calls' && chunk.toolCalls) {
+        const toolNames = chunk.toolCalls.map((tc: any) => tc.function.name).join(', ');
+        console.error(`[${cliName.toUpperCase()} SDK DEBUG] Tool calls: ${toolNames}`);
+      } else if (chunk.type === 'tool_result' && chunk.toolResult) {
+        console.error(`[${cliName.toUpperCase()} SDK DEBUG] Tool result: ${chunk.toolResult.success ? 'success' : 'failed'}`);
+      }
+    };
+    agent.on('stream', debugStreamListener);
+    sdkListeners.push({ event: 'stream', listener: debugStreamListener });
+    console.error(`[${cliName.toUpperCase()} SDK DEBUG] Agent created successfully`);
+  }
+
+  // Add onError hook if provided
+  if (onError) {
+    const originalProcessUserMessage = agent.processUserMessage.bind(agent);
+    agent.processUserMessage = async (prompt: string) => {
+      try {
+        return await originalProcessUserMessage(prompt);
+      } catch (error) {
+        const normalizedError = error instanceof Error
+          ? error
+          : new Error(String(error ?? 'Unknown error'));
+        onError(normalizedError);
+        throw error;
+      }
+    };
+
+    const errorListener = (error: Error) => onError(error);
+    agent.on('error', errorListener);
+    sdkListeners.push({ event: 'error', listener: errorListener });
+  }
+
+  (agent as any)._sdkListeners = sdkListeners;
+
+  // Disposal tracking
+  let sdkDisposeCompleted = false;
+
+  const originalDispose = agent.dispose.bind(agent);
+  (agent as any).dispose = () => {
+    if (sdkDisposeCompleted) return;
+    sdkDisposeCompleted = true;
+
+    const markDisposed = (agent as any)._sdkMarkDisposed;
+    if (markDisposed) markDisposed();
+
+    const cleanupHandler = (agent as any)._sdkCleanupHandler;
+    if (cleanupHandler) {
+      process.removeListener('exit', cleanupHandler);
+      process.removeListener('SIGINT', cleanupHandler);
+      process.removeListener('SIGTERM', cleanupHandler);
+      process.removeListener('SIGHUP', cleanupHandler);
+      delete (agent as any)._sdkCleanupHandler;
+    }
+
+    const listeners = (agent as any)._sdkListeners as Array<{ event: string; listener: (...args: any[]) => void }> | undefined;
+    if (listeners && listeners.length > 0 && typeof agent.off === 'function') {
+      for (const { event, listener } of listeners) {
+        agent.off(event, listener);
+      }
+      delete (agent as any)._sdkListeners;
+    }
+
+    if (onDispose) {
+      try {
+        if (debug) console.error(`[${cliName.toUpperCase()} SDK DEBUG] Calling onDispose hook`);
+        const result = onDispose();
+        if (result && typeof (result as Promise<void>).catch === 'function') {
+          (result as Promise<void>).catch((error: unknown) => {
+            if (debug) console.error(`[${cliName.toUpperCase()} SDK DEBUG] Error in async onDispose hook:`, error);
+          });
+        }
+      } catch (error) {
+        if (debug) console.error(`[${cliName.toUpperCase()} SDK DEBUG] Error in onDispose hook:`, error);
+      }
+    }
+
+    return originalDispose();
+  };
+
+  // Auto-cleanup handlers
+  if (autoCleanup) {
+    let isDisposed = false;
+
+    const cleanupHandler = () => {
+      if (isDisposed) return;
+      isDisposed = true;
+      try {
+        if (debug) console.error(`[${cliName.toUpperCase()} SDK DEBUG] Auto-cleanup: disposing agent`);
+        agent.dispose();
+      } catch (error) {
+        if (debug) console.error(`[${cliName.toUpperCase()} SDK DEBUG] Error during auto-cleanup:`, error);
+      }
+    };
+
+    process.on('exit', cleanupHandler);
+    process.on('SIGINT', cleanupHandler);
+    process.on('SIGTERM', cleanupHandler);
+    process.on('SIGHUP', cleanupHandler);
+
+    (agent as any)._sdkCleanupHandler = cleanupHandler;
+    (agent as any)._sdkIsDisposed = () => isDisposed;
+    (agent as any)._sdkMarkDisposed = () => { isDisposed = true; };
+  }
+
+  return agent;
+}
+
+/**
+ * Create a GLM-optimized LLM Agent
+ *
+ * Convenience function that creates an agent configured for Z.AI GLM models.
+ * Uses settings from `ax-glm setup` or environment variables.
+ *
+ * @param options - Agent configuration options
+ * @returns Configured LLM Agent for GLM
+ *
+ * @example
+ * ```typescript
+ * import { createGLMAgent } from '@defai.digital/ax-glm/sdk';
+ * // or: import { createGLMAgent } from '@defai.digital/ax-core/sdk';
+ *
+ * const agent = await createGLMAgent({
+ *   maxToolRounds: 50,
+ *   enableThinking: true  // Enable GLM thinking mode
+ * });
+ *
+ * agent.on('stream', (chunk) => {
+ *   if (chunk.type === 'content') console.log(chunk.content);
+ * });
+ *
+ * await agent.processUserMessage('Analyze this codebase');
+ * agent.dispose();
+ * ```
+ */
+export async function createGLMAgent(options: ProviderAgentOptions = {}): Promise<LLMAgent> {
+  return createProviderAgent(GLM_PROVIDER, options);
+}
+
+/**
+ * Create a Grok-optimized LLM Agent
+ *
+ * Convenience function that creates an agent configured for xAI Grok models.
+ * Uses settings from `ax-grok setup` or environment variables.
+ *
+ * @param options - Agent configuration options
+ * @returns Configured LLM Agent for Grok
+ *
+ * @example
+ * ```typescript
+ * import { createGrokAgent } from '@defai.digital/ax-grok/sdk';
+ * // or: import { createGrokAgent } from '@defai.digital/ax-core/sdk';
+ *
+ * const agent = await createGrokAgent({
+ *   maxToolRounds: 50,
+ *   enableThinking: true  // Enable Grok reasoning_effort mode
+ * });
+ *
+ * agent.on('stream', (chunk) => {
+ *   if (chunk.type === 'content') console.log(chunk.content);
+ * });
+ *
+ * await agent.processUserMessage('Analyze this codebase');
+ * agent.dispose();
+ * ```
+ */
+export async function createGrokAgent(options: ProviderAgentOptions = {}): Promise<LLMAgent> {
+  return createProviderAgent(GROK_PROVIDER, options);
+}
+
+// ============================================================================
+// Provider Definitions Export
+// ============================================================================
+
+export {
+  GLM_PROVIDER,
+  GROK_PROVIDER,
+  getProviderDefinition,
+  getAvailableProviders,
+  getProviderModelConfig,
+  getApiKeyFromEnv,
+  type ProviderDefinition,
+  type ProviderModelConfig,
+  type ProviderFeatures,
+} from '../provider/config.js';
