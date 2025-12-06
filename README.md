@@ -580,6 +580,12 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
+### v4.1.1 - Bug Fixes for Provider-Specific CLIs
+
+- **Status Bar Fix**: CLI name now correctly displays 'ax-glm' or 'ax-grok' instead of hardcoded 'ax-cli'
+- **Thinking Mode Fix**: Synced LLM client with original ax-cli v4.0.2 logic for proper GLM thinking mode handling
+- **CI/CD Improvements**: Fixed publish workflow, Zod v4 compatibility, ES2023 target support
+
 ### v4.1.0 - Provider-Specific CLIs (Monorepo Architecture)
 
 Major release introducing provider-specific CLI packages:
