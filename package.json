@@ -28,14 +28,9 @@
   "files": [
     "dist",
     "config-defaults",
-    "packages/schemas/dist",
-    "packages/schemas/package.json",
     ".ax-cli",
     "LICENSE",
-    "README.md",
-    "ax.config.json",
-    "eslint.config.js",
-    "vitest.config.ts"
+    "README.md"
   ],
   "scripts": {
     "build": "pnpm -r build",
@@ -53,8 +48,7 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run build:legacy && node scripts/prepare-publish.js",
-    "postpublish": "node scripts/restore-symlink.js"
+    "prepublishOnly": "npm run build:legacy"
   },
   "keywords": [
     "cli",
@@ -78,12 +72,9 @@
   ],
   "author": "DEFAI Digital <https://defai.digital>",
   "license": "MIT",
-  "bundleDependencies": [
-    "@defai.digital/ax-schemas"
-  ],
   "dependencies": {
     "@clack/prompts": "^0.11.0",
-    "@defai.digital/ax-schemas": "workspace:*",
+    "@defai.digital/ax-schemas": "^1.1.0",
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@types/ws": "^8.18.1",
     "axios": "^1.7.0",

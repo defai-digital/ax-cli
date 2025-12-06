@@ -54,11 +54,13 @@ try {
 }
 
 // Copy the package (without node_modules and tests)
+// Use dereference: true to avoid hard links which npm rejects
 console.log('📋 Copying package from:', source);
 console.log('   To:', dest);
 
 cpSync(source, dest, {
   recursive: true,
+  dereference: true,  // Follow symlinks instead of copying them
   filter: (src) => {
     // Skip node_modules and test files
     if (src.includes('node_modules')) return false;
