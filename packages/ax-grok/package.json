@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-grok",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Grok-optimized AI coding assistant CLI powered by xAI - full-featured coding assistant with Grok 3 thinking mode, vision, and search",
   "repository": {
     "type": "git",
