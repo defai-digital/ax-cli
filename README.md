@@ -7,7 +7,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
 <p align="center">
-  <img src=".github/assets/screenshot1.png" alt="AX CLI Screenshot" width="800"/>
+  <img src=".github/assets/glm.png" alt="AX-GLM Screenshot" width="400"/>
+  <img src=".github/assets/grok.png" alt="AX-Grok Screenshot" width="400"/>
 </p>
 
 <p align="center">
