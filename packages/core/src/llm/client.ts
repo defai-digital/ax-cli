@@ -165,9 +165,6 @@ interface APIRequestPayload {
   response_format?: { type: "text" | "json_object" };
   do_sample?: boolean;
   top_p?: number;
-  seed?: number;
-  /** Grok 3 reasoning effort parameter for extended thinking */
-  reasoning_effort?: "low" | "high";
 }
 
 /** API error structure for type-safe error handling */
@@ -421,23 +418,14 @@ export class LLMClient {
 
   /**
    * Validate thinking configuration for current model
-   * Supports both GLM models (glm-4.6) and Grok 3 models
    */
   private validateThinking(thinking: ThinkingConfig | undefined, model: string): void {
     if (thinking && thinking.type === "enabled") {
-      const modelLower = model.toLowerCase();
-
-      // Grok 3 models support thinking via reasoning_effort
-      if (modelLower.includes("grok-3")) {
-        return; // Valid for Grok 3
-      }
-
-      // Check GLM model configuration
       const config = GLM_MODELS[model as SupportedModel];
       if (config && !config.supportsThinking) {
         throw new Error(
           `Thinking mode is not supported by model ${model}. ` +
-          `Use glm-4.6 for thinking capabilities, or grok-3 for Grok models.`
+          `Use glm-4.6 for thinking capabilities.`
         );
       }
     }
@@ -477,24 +465,9 @@ export class LLMClient {
       // Note: tool_stream is NOT a valid z.ai parameter - removed to prevent API errors
     }
 
-    // Add thinking/reasoning parameters based on model type
+    // Add GLM-4.6 thinking parameter if specified
     if (thinking) {
-      const modelLower = model.toLowerCase();
-
-      // Check if thinking is enabled (handles both old and new format)
-      const isEnabled = thinking.type === "enabled" ||
-                       (thinking.type !== "disabled" && Object.keys(thinking).length > 0);
-
-      if (isEnabled) {
-        // Grok 3 models use reasoning_effort parameter
-        if (modelLower.includes("grok-3")) {
-          // Use specified effort or default to "high" for full reasoning
-          payload.reasoning_effort = thinking.reasoningEffort || "high";
-        } else {
-          // GLM models use thinking parameter directly
-          payload.thinking = thinking;
-        }
-      }
+      payload.thinking = thinking;
     }
 
     // Add search parameters if specified
@@ -509,21 +482,13 @@ export class LLMClient {
     }
 
     // Add sampling parameters for deterministic/reproducible mode
+    // do_sample=false enables greedy decoding for consistent outputs
+    // Note: seed is NOT a valid z.ai parameter - only do_sample and top_p are supported
     if (sampling) {
-      const modelLower = model.toLowerCase();
-      const isGrokModel = modelLower.includes("grok");
-      const isGLMModel = modelLower.includes("glm");
-
-      if (sampling.doSample !== undefined && isGLMModel) {
-        // do_sample is GLM-specific - enables greedy decoding for consistent outputs
+      if (sampling.doSample !== undefined) {
         payload.do_sample = sampling.doSample;
       }
-
-      if (sampling.seed !== undefined && isGrokModel) {
-        // seed is Grok-specific - for reproducible sampling
-        payload.seed = sampling.seed;
-      }
-
+      // seed is not supported by z.ai API - omitted to prevent "Invalid API parameter" error
       if (sampling.topP !== undefined) {
         payload.top_p = sampling.topP;
       }
