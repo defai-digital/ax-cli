@@ -412,7 +412,7 @@ async function runZAICloudSetup(existingConfig: Partial<ProviderConfig>, provide
 /**
  * Run Local GLM Server setup
  */
-async function runLocalGLMSetup(existingConfig: Partial<ProviderConfig>, providerInfo: ProviderInfo): Promise<ProviderConfig | null> {
+async function runLocalGLMSetup(existingConfig: Partial<ProviderConfig>, _providerInfo: ProviderInfo): Promise<ProviderConfig | null> {
   // Step 2: Local Server Detection
   prompts.log.step(chalk.bold('Step 2/4 - Local Server'));
 
