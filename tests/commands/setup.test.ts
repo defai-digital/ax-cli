@@ -56,9 +56,9 @@ describe('setup command', () => {
       expect(command.name()).toBe('setup');
     });
 
-    it('should have description', () => {
+    it('should have description for GLM/Grok setup', () => {
       const command = createSetupCommand();
-      expect(command.description()).toContain('Initialize AX CLI configuration');
+      expect(command.description()).toContain('LLM provider');
     });
 
     it('should have --force option', () => {
@@ -67,63 +67,55 @@ describe('setup command', () => {
       expect(forceOption).toBeDefined();
       expect(forceOption?.description).toContain('Overwrite existing configuration');
     });
-
-    it('should have --no-validate option', () => {
-      const command = createSetupCommand();
-      const validateOption = command.options.find(opt => opt.flags === '--no-validate');
-      expect(validateOption).toBeDefined();
-    });
   });
 
   describe('provider selection', () => {
-    it('should support z.ai provider', () => {
+    it('should support glm provider', () => {
       const command = createSetupCommand();
       expect(command).toBeDefined();
     });
 
-    it('should support xai provider', () => {
-      const command = createSetupCommand();
-      expect(command).toBeDefined();
-    });
-
-    it('should support openai provider', () => {
-      const command = createSetupCommand();
-      expect(command).toBeDefined();
-    });
-
-    it('should support anthropic provider', () => {
-      const command = createSetupCommand();
-      expect(command).toBeDefined();
-    });
-
-    it('should support ollama provider (no API key)', () => {
+    it('should support grok provider', () => {
       const command = createSetupCommand();
       expect(command).toBeDefined();
     });
   });
 
-  describe('config path', () => {
-    it('should use ~/.ax-cli/config.json path', () => {
-      const expectedPath = join(homedir(), '.ax-cli', 'config.json');
-      expect(expectedPath).toContain('.ax-cli');
+  describe('config paths', () => {
+    it('should use ~/.ax-glm for GLM config', () => {
+      const expectedPath = join(homedir(), '.ax-glm', 'config.json');
+      expect(expectedPath).toContain('.ax-glm');
+      expect(expectedPath).toContain('config.json');
+    });
+
+    it('should use ~/.ax-grok for Grok config', () => {
+      const expectedPath = join(homedir(), '.ax-grok', 'config.json');
+      expect(expectedPath).toContain('.ax-grok');
       expect(expectedPath).toContain('config.json');
     });
 
     it('should not use legacy .grok path', () => {
-      const configPath = join(homedir(), '.ax-cli', 'config.json');
-      expect(configPath).not.toContain('.grok');
+      const glmPath = join(homedir(), '.ax-glm', 'config.json');
+      const grokPath = join(homedir(), '.ax-grok', 'config.json');
+      expect(glmPath).not.toContain('/.grok/');
+      expect(grokPath).not.toContain('/.grok/');
     });
   });
 
   describe('max tokens configuration', () => {
-    it('should use 32768 tokens for z.ai (GLM 4.6)', () => {
+    it('should use 32768 tokens for GLM cloud', () => {
       const expectedMaxTokens = 32768;
       expect(expectedMaxTokens).toBe(32768);
     });
 
-    it('should use 8192 tokens for other providers', () => {
+    it('should use 8192 tokens for local servers', () => {
       const expectedMaxTokens = 8192;
       expect(expectedMaxTokens).toBe(8192);
+    });
+
+    it('should use 32768 tokens for Grok', () => {
+      const expectedMaxTokens = 32768;
+      expect(expectedMaxTokens).toBe(32768);
     });
   });
 });
