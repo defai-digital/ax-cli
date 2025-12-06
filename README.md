@@ -580,6 +580,13 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
+### v4.1.7 - Fix workspace:* dependency resolution
+
+- **Fix**: Resolve `workspace:*` protocol to actual versions before npm publish
+  - ax-glm and ax-grok now correctly depend on `^4.1.7` instead of `workspace:*`
+  - ax-core now correctly depends on `@defai.digital/ax-schemas@^4.1.7`
+- All features from v4.1.6 included
+
 ### v4.1.6 - Enhanced Setup Wizards
 
 - **GLM Setup Rework**: Dual-path setup supporting Z.AI Cloud and Local Server

@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-core",
-  "version": "4.1.6",
+  "version": "4.1.7",
   "description": "Core functionality for ax-cli, ax-glm, and ax-grok - includes all tools, UI, MCP, and agent infrastructure",
   "repository": {
     "type": "git",
@@ -81,7 +81,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@defai.digital/ax-schemas": "workspace:*",
+    "@defai.digital/ax-schemas": "^4.1.7",
     "@clack/prompts": "^0.11.0",
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@types/ws": "^8.18.1",
