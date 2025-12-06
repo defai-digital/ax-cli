@@ -37,6 +37,9 @@ jobs:
     - name: Build schemas package
       run: pnpm run build:schemas
 
+    - name: Build core package
+      run: pnpm --filter @defai.digital/ax-core build
+
     - name: Run tests
       run: pnpm test
 
@@ -52,28 +55,30 @@ jobs:
         name: codecov-umbrella
         fail_ci_if_error: false
 
-  # Verify npm users can still install and use the package
-  npm-compatibility:
-    name: Verify npm Install Compatibility
+  # Verify pnpm build works end-to-end
+  build-verification:
+    name: Verify Full Build
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
 
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10
+
     - name: Use Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '24'
-        # No cache - test clean npm install
+        cache: 'pnpm'
 
-    - name: Install with npm
-      run: npm install
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
 
-    - name: Build schemas with npm
-      run: cd packages/schemas && npm run build
-
-    - name: Build with npm
-      run: npm run build
+    - name: Build all packages
+      run: pnpm run build
 
     - name: Run smoke test
       run: node dist/index.js --version

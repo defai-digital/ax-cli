@@ -30,5 +30,8 @@ jobs:
     - name: Build schemas package
       run: pnpm run build:schemas
 
+    - name: Build core package
+      run: pnpm --filter @defai.digital/ax-core build
+
     - name: Run TypeScript Type Check
       run: pnpm run typecheck
