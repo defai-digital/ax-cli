@@ -1,14 +1,22 @@
+/**
+ * Setup Command - Provider Selection and Configuration
+ *
+ * This setup wizard:
+ * 1. Lets user select GLM or Grok provider
+ * 2. Runs provider-specific setup (API key, model selection, etc.)
+ * 3. Saves config to provider-specific directory (~/.ax-glm or ~/.ax-grok)
+ * 4. Recommends installing the provider-specific CLI
+ */
+
 import { Command } from 'commander';
-import { existsSync, mkdirSync } from 'fs';
-import { dirname } from 'path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { homedir } from 'os';
+import { join } from 'path';
 import { execSync, spawnSync } from 'child_process';
 import * as prompts from '@clack/prompts';
 import chalk from 'chalk';
 import { validateProviderSetup } from '../utils/setup-validator.js';
-import { getSettingsManager } from '../utils/settings-manager.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
-import type { UserSettings } from '../schemas/settings-schemas.js';
-import { CONFIG_PATHS } from '../constants.js';
 import {
   detectZAIServices,
   getRecommendedServers,
@@ -16,8 +24,106 @@ import {
 } from '../mcp/index.js';
 import { addMCPServer, removeMCPServer } from '../mcp/config.js';
 
+type Provider = 'glm' | 'grok';
+type ServerType = 'cloud' | 'local';
+
+interface ProviderInfo {
+  name: string;
+  displayName: string;
+  cliName: string;
+  package: string;
+  defaultBaseURL: string;
+  defaultModel: string;
+  apiKeyEnvVar: string;
+  website: string;
+  description: string;
+  configDir: string;
+}
+
+interface ModelInfo {
+  id: string;
+  name: string;
+  description: string;
+  contextWindow: number;
+  supportsThinking?: boolean;
+  supportsVision?: boolean;
+  supportsSearch?: boolean;
+}
+
+// Provider definitions
+const PROVIDERS: Record<Provider, ProviderInfo> = {
+  glm: {
+    name: 'glm',
+    displayName: 'GLM (Z.AI)',
+    cliName: 'ax-glm',
+    package: '@defai.digital/ax-glm',
+    defaultBaseURL: 'https://api.z.ai/api/coding/paas/v4',
+    defaultModel: 'glm-4.6',
+    apiKeyEnvVar: 'ZAI_API_KEY',
+    website: 'https://z.ai',
+    description: 'GLM-4.6 with thinking mode and 200K context',
+    configDir: '.ax-glm',
+  },
+  grok: {
+    name: 'grok',
+    displayName: 'Grok (xAI)',
+    cliName: 'ax-grok',
+    package: '@defai.digital/ax-grok',
+    defaultBaseURL: 'https://api.x.ai/v1',
+    defaultModel: 'grok-3',
+    apiKeyEnvVar: 'XAI_API_KEY',
+    website: 'https://console.x.ai',
+    description: 'Grok 3 with extended thinking, vision, and live search',
+    configDir: '.ax-grok',
+  },
+};
+
+// GLM models
+const GLM_MODELS: ModelInfo[] = [
+  { id: 'glm-4.6', name: 'GLM-4.6', description: 'Most capable GLM model with thinking mode', contextWindow: 200000, supportsThinking: true },
+  { id: 'glm-4.5v', name: 'GLM-4.5V', description: 'Vision-capable GLM model', contextWindow: 64000, supportsVision: true },
+  { id: 'glm-4', name: 'GLM-4', description: 'Standard GLM-4 model', contextWindow: 128000 },
+  { id: 'glm-4-flash', name: 'GLM-4 Flash', description: 'Fast, efficient GLM model', contextWindow: 128000 },
+];
+
+// Grok models
+const GROK_MODELS: ModelInfo[] = [
+  { id: 'grok-3', name: 'Grok-3', description: 'Most capable with extended thinking', contextWindow: 131072, supportsThinking: true, supportsSearch: true },
+  { id: 'grok-3-mini', name: 'Grok-3 Mini', description: 'Efficient with thinking support', contextWindow: 131072, supportsThinking: true, supportsSearch: true },
+  { id: 'grok-2', name: 'Grok-2', description: 'Capable with advanced reasoning', contextWindow: 131072, supportsSearch: true },
+  { id: 'grok-2-vision', name: 'Grok-2 Vision', description: 'Vision-capable for image understanding', contextWindow: 32768, supportsVision: true, supportsSearch: true },
+  { id: 'grok-2-mini', name: 'Grok-2 Mini', description: 'Fast and efficient', contextWindow: 131072, supportsSearch: true },
+];
+
+// Local server options
+const LOCAL_SERVERS = [
+  { name: 'Ollama', url: 'http://localhost:11434/v1', port: 11434 },
+  { name: 'LM Studio', url: 'http://localhost:1234/v1', port: 1234 },
+  { name: 'vLLM', url: 'http://localhost:8000/v1', port: 8000 },
+  { name: 'LocalAI', url: 'http://localhost:8080/v1', port: 8080 },
+];
+
+interface ProviderConfig {
+  selectedProvider: Provider;
+  serverType: ServerType;
+  apiKey: string;
+  baseURL: string;
+  defaultModel: string;
+  currentModel: string;
+  maxTokens: number;
+  temperature: number;
+  models: string[];
+  _provider: string;
+  _website: string;
+  _isLocalServer: boolean;
+  grok?: {
+    thinkingMode: 'off' | 'low' | 'high';
+    liveSearch: boolean;
+  };
+}
+
 /**
- * Handle user cancellation - exits process if cancelled
+ * Handle user cancellation
  */
 function exitIfCancelled<T>(value: T | symbol): asserts value is T {
   if (prompts.isCancel(value)) {
@@ -27,571 +133,734 @@ function exitIfCancelled<T>(value: T | symbol): asserts value is T {
 }
 
 /**
- * Check AutomatosX status - returns version if installed, null otherwise
+ * Get provider config path
  */
-function getAutomatosXStatus(): { installed: boolean; version: string | null } {
-  try {
-    const result = spawnSync('ax', ['--version'], {
-      encoding: 'utf-8',
-      timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-    if (result.status === 0 && result.stdout) {
-      const match = result.stdout.match(/(\d+\.\d+\.\d+)/);
-      return { installed: true, version: match ? match[1] : result.stdout.trim() };
-    }
-    return { installed: false, version: null };
-  } catch {
-    return { installed: false, version: null };
-  }
+function getConfigPath(provider: Provider): string {
+  return join(homedir(), PROVIDERS[provider].configDir, 'config.json');
 }
 
 /**
- * Update AutomatosX to latest version
+ * Get provider config directory
  */
-async function updateAutomatosX(): Promise<boolean> {
+function getConfigDir(provider: Provider): string {
+  return join(homedir(), PROVIDERS[provider].configDir);
+}
+
+/**
+ * Load existing provider config
+ */
+function loadProviderConfig(provider: Provider): Partial<ProviderConfig> {
   try {
-    execSync('ax update -y', {
-      stdio: 'inherit',
-      timeout: 120000 // 2 minutes timeout
+    const configPath = getConfigPath(provider);
+    if (existsSync(configPath)) {
+      return JSON.parse(readFileSync(configPath, 'utf-8'));
+    }
+  } catch {
+    // Ignore errors
+  }
+  return {};
+}
+
+/**
+ * Save provider config
+ */
+function saveProviderConfig(provider: Provider, config: ProviderConfig): void {
+  const configDir = getConfigDir(provider);
+  const configPath = getConfigPath(provider);
+
+  if (!existsSync(configDir)) {
+    mkdirSync(configDir, { recursive: true });
+  }
+  writeFileSync(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
+}
+
+/**
+ * Check if a local server is running
+ */
+async function checkLocalServer(url: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    const response = await fetch(`${url}/models`, {
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json' },
     });
-    return true;
+    clearTimeout(timeout);
+    return response.ok;
   } catch {
     return false;
   }
 }
 
 /**
- * Install AutomatosX globally
+ * Fetch models from local server
  */
-async function installAutomatosX(): Promise<boolean> {
+async function fetchLocalModels(baseURL: string): Promise<ModelInfo[]> {
   try {
-    execSync('npm install -g @defai.digital/automatosx', {
-      stdio: 'inherit',
-      timeout: 180000 // 3 minutes timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(`${baseURL}/models`, {
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json' },
     });
-    return true;
+    clearTimeout(timeout);
+
+    if (!response.ok) return [];
+
+    const data = await response.json() as { data?: Array<{ id: string; owned_by?: string }> };
+    const models = data.data || [];
+
+    return models.map((m: { id: string; owned_by?: string }) => ({
+      id: m.id,
+      name: m.id,
+      description: m.owned_by ? `Provided by ${m.owned_by}` : 'Local model',
+      contextWindow: 8192,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Detect running local servers
+ */
+async function detectLocalServers(): Promise<Array<{ name: string; url: string; available: boolean }>> {
+  const results = await Promise.all(
+    LOCAL_SERVERS.map(async (server) => ({
+      ...server,
+      available: await checkLocalServer(server.url),
+    }))
+  );
+  return results;
+}
+
+/**
+ * Validate cloud API connection
+ */
+async function validateCloudConnection(baseURL: string, apiKey: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${baseURL}/models`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return response.ok;
   } catch {
     return false;
   }
 }
 
 /**
- * Provider configurations
+ * Check if provider CLI is installed
  */
-interface ProviderConfig {
-  name: string;
-  displayName: string;
-  baseURL: string;
-  defaultModel: string;
-  requiresApiKey: boolean;
-  website: string;
-  description: string;
+function isProviderInstalled(provider: Provider): boolean {
+  const cliName = PROVIDERS[provider].cliName;
+  try {
+    const result = spawnSync('which', [cliName], { encoding: 'utf-8', timeout: 5000 });
+    return result.status === 0;
+  } catch {
+    return false;
+  }
 }
 
-const PROVIDERS: Record<string, ProviderConfig> = {
-  'z.ai': {
-    name: 'z.ai',
-    displayName: 'Z.AI (GLM Models)',
-    baseURL: 'https://api.z.ai/api/coding/paas/v4',
-    defaultModel: 'glm-4.6',
-    requiresApiKey: true,
-    website: 'https://z.ai',
-    description: 'Z.AI with GLM 4.6 - Advanced reasoning and 200K context window'
-  },
-  'z.ai-free': {
-    name: 'z.ai-free',
-    displayName: 'Z.AI (Free Plan)',
-    baseURL: 'https://api.z.ai/api/paas/v4',
-    defaultModel: 'glm-4.6',
-    requiresApiKey: true,
-    website: 'https://z.ai',
-    description: 'Z.AI Free Plan - Standard API endpoint for non-coding-plan users'
-  },
-  'openai': {
-    name: 'openai',
-    displayName: 'OpenAI',
-    baseURL: 'https://api.openai.com/v1',
-    defaultModel: 'gpt-4-turbo',
-    requiresApiKey: true,
-    website: 'https://platform.openai.com',
-    description: 'OpenAI GPT models - Industry-leading language models'
-  },
-  'anthropic': {
-    name: 'anthropic',
-    displayName: 'Anthropic (Claude)',
-    baseURL: 'https://api.anthropic.com/v1',
-    defaultModel: 'claude-3-5-sonnet-20241022',
-    requiresApiKey: true,
-    website: 'https://console.anthropic.com',
-    description: 'Anthropic Claude models - Advanced AI assistant'
-  },
-  'ollama': {
-    name: 'ollama',
-    displayName: 'Ollama (Local)',
-    baseURL: 'http://localhost:11434/v1',
-    defaultModel: 'llama3.1',
-    requiresApiKey: false,
-    website: 'https://ollama.ai',
-    description: 'Local models via Ollama - No API key required'
+/**
+ * Install provider package
+ */
+async function installProvider(provider: Provider): Promise<boolean> {
+  const providerInfo = PROVIDERS[provider];
+  const spinner = prompts.spinner();
+  spinner.start(`Installing ${providerInfo.package}...`);
+
+  try {
+    execSync(`npm install -g ${providerInfo.package}`, {
+      stdio: 'pipe',
+      timeout: 180000,
+    });
+    spinner.stop(`${providerInfo.package} installed successfully!`);
+    return true;
+  } catch (error) {
+    spinner.stop('Installation failed');
+    prompts.log.error(extractErrorMessage(error));
+    prompts.log.info(`Try manually: npm install -g ${providerInfo.package}`);
+    return false;
   }
-};
+}
 
 /**
- * Determine provider key from baseURL
+ * Run GLM-specific setup
  */
-function getProviderFromBaseURL(baseURL: string): string | null {
-  for (const [key, provider] of Object.entries(PROVIDERS)) {
-    if (provider.baseURL === baseURL) {
-      return key;
+async function runGLMSetup(existingConfig: Partial<ProviderConfig>): Promise<ProviderConfig | null> {
+  const providerInfo = PROVIDERS.glm;
+
+  // Step 1: Server Type
+  prompts.log.step(chalk.bold('Step 1/4 - Server Type'));
+
+  const serverType = await prompts.select<ServerType>({
+    message: 'Where do you want to run GLM models?',
+    options: [
+      { value: 'cloud' as ServerType, label: 'Z.AI Cloud (Recommended)', hint: 'Official Z.AI API with GLM-4.6' },
+      { value: 'local' as ServerType, label: 'Local Server', hint: 'Ollama, LM Studio, vLLM, etc.' },
+    ],
+    initialValue: (existingConfig.serverType || 'cloud') as ServerType,
+  });
+  exitIfCancelled(serverType);
+
+  if (serverType === 'cloud') {
+    return await runZAICloudSetup(existingConfig, providerInfo);
+  } else {
+    return await runLocalGLMSetup(existingConfig, providerInfo);
+  }
+}
+
+/**
+ * Run Z.AI Cloud setup
+ */
+async function runZAICloudSetup(existingConfig: Partial<ProviderConfig>, providerInfo: ProviderInfo): Promise<ProviderConfig | null> {
+  // Step 2: API Key
+  prompts.log.step(chalk.bold('Step 2/4 - Z.AI API Key'));
+  prompts.log.info(`Get your API key from: ${providerInfo.website}`);
+
+  let apiKey = '';
+  const envKey = process.env[providerInfo.apiKeyEnvVar];
+  const existingKey = existingConfig.apiKey;
+
+  if (existingKey && existingConfig.serverType === 'cloud') {
+    const maskedKey = existingKey.length > 12
+      ? `${existingKey.substring(0, 8)}...${existingKey.substring(existingKey.length - 4)}`
+      : `${existingKey.substring(0, 4)}...`;
+
+    prompts.log.info(`Existing API key: ${maskedKey}`);
+    const reuseKey = await prompts.confirm({ message: 'Use existing API key?', initialValue: true });
+    exitIfCancelled(reuseKey);
+
+    if (reuseKey) {
+      apiKey = existingKey;
+      prompts.log.success('Using existing API key');
+    }
+  } else if (envKey) {
+    prompts.log.info(`Found ${providerInfo.apiKeyEnvVar} in environment`);
+    const useEnvKey = await prompts.confirm({ message: 'Use API key from environment?', initialValue: true });
+    exitIfCancelled(useEnvKey);
+
+    if (useEnvKey) {
+      apiKey = envKey;
+      prompts.log.success('Using environment API key');
     }
   }
-  return null;
+
+  if (!apiKey) {
+    const newKey = await prompts.password({
+      message: 'Enter your Z.AI API key:',
+      validate: (value) => value?.trim().length > 0 ? undefined : 'API key is required',
+    });
+    exitIfCancelled(newKey);
+    apiKey = newKey.trim();
+  }
+
+  // Step 3: Model Selection
+  prompts.log.step(chalk.bold('Step 3/4 - Choose Model'));
+
+  const modelChoices = GLM_MODELS.map((m) => ({
+    value: m.id,
+    label: m.id === providerInfo.defaultModel ? `${m.name} (recommended)` : m.name,
+    hint: m.description,
+  }));
+
+  const selectedModel = await prompts.select({
+    message: 'Select default model:',
+    options: modelChoices,
+    initialValue: existingConfig.defaultModel || providerInfo.defaultModel,
+  });
+  exitIfCancelled(selectedModel);
+
+  // Step 4: Validate & Save
+  prompts.log.step(chalk.bold('Step 4/4 - Validate & Save'));
+
+  const spinner = prompts.spinner();
+  spinner.start('Validating Z.AI connection...');
+
+  const isValid = await validateProviderSetup({
+    baseURL: providerInfo.defaultBaseURL,
+    apiKey: apiKey,
+    model: selectedModel,
+    providerName: 'glm',
+  }, false);
+
+  if (isValid.success) {
+    spinner.stop('Z.AI connection validated successfully!');
+  } else {
+    spinner.stop('Could not validate connection (will save anyway)');
+  }
+
+  return {
+    selectedProvider: 'glm',
+    serverType: 'cloud',
+    apiKey: apiKey,
+    baseURL: providerInfo.defaultBaseURL,
+    defaultModel: selectedModel,
+    currentModel: selectedModel,
+    maxTokens: 32768,
+    temperature: existingConfig.temperature ?? 0.7,
+    models: GLM_MODELS.map(m => m.id),
+    _provider: 'GLM (Z.AI Cloud)',
+    _website: providerInfo.website,
+    _isLocalServer: false,
+  };
 }
 
 /**
- * Setup command - Initialize ~/.ax-cli/config.json with provider selection
+ * Run Local GLM Server setup
+ */
+async function runLocalGLMSetup(existingConfig: Partial<ProviderConfig>, providerInfo: ProviderInfo): Promise<ProviderConfig | null> {
+  // Step 2: Local Server Detection
+  prompts.log.step(chalk.bold('Step 2/4 - Local Server'));
+
+  const spinner = prompts.spinner();
+  spinner.start('Detecting local inference servers...');
+
+  const detectedServers = await detectLocalServers();
+  const availableServers = detectedServers.filter(s => s.available);
+  spinner.stop(availableServers.length > 0
+    ? `Found ${availableServers.length} running server(s)`
+    : 'No running servers detected');
+
+  let selectedBaseURL: string;
+
+  if (availableServers.length > 0) {
+    const serverChoices = [
+      ...availableServers.map(s => ({ value: s.url, label: `${s.name} - ${s.url}` })),
+      { value: '__custom__', label: 'Enter custom URL...' },
+    ];
+
+    const serverSelection = await prompts.select({
+      message: 'Select your local server:',
+      options: serverChoices,
+      initialValue: existingConfig.baseURL || availableServers[0].url,
+    });
+    exitIfCancelled(serverSelection);
+
+    if (serverSelection === '__custom__') {
+      const customURL = await prompts.text({
+        message: 'Enter server URL:',
+        initialValue: 'http://localhost:11434/v1',
+        validate: (value) => {
+          try { new URL(value); return undefined; }
+          catch { return 'Please enter a valid URL'; }
+        },
+      });
+      exitIfCancelled(customURL);
+      selectedBaseURL = customURL.trim();
+    } else {
+      selectedBaseURL = serverSelection;
+    }
+  } else {
+    prompts.log.info('Common local server URLs:');
+    LOCAL_SERVERS.forEach(s => prompts.log.info(`  ${s.name}: ${s.url}`));
+
+    const customURL = await prompts.text({
+      message: 'Enter your server URL:',
+      initialValue: existingConfig.baseURL || 'http://localhost:11434/v1',
+      validate: (value) => {
+        try { new URL(value); return undefined; }
+        catch { return 'Please enter a valid URL'; }
+      },
+    });
+    exitIfCancelled(customURL);
+    selectedBaseURL = customURL.trim();
+  }
+
+  // Step 3: Model Selection
+  prompts.log.step(chalk.bold('Step 3/4 - Choose Model'));
+
+  const modelSpinner = prompts.spinner();
+  modelSpinner.start('Fetching available models...');
+
+  let availableModels = await fetchLocalModels(selectedBaseURL);
+  modelSpinner.stop(availableModels.length > 0
+    ? `Found ${availableModels.length} model(s)`
+    : 'Could not fetch models from server');
+
+  let selectedModel: string;
+
+  if (availableModels.length > 0) {
+    const modelChoices = [
+      ...availableModels.map(m => ({ value: m.id, label: `${m.name} - ${m.description}` })),
+      { value: '__custom__', label: 'Enter custom model name...' },
+    ];
+
+    const modelSelection = await prompts.select({
+      message: 'Select model:',
+      options: modelChoices,
+      initialValue: existingConfig.defaultModel || availableModels[0]?.id,
+    });
+    exitIfCancelled(modelSelection);
+
+    if (modelSelection === '__custom__') {
+      const customModel = await prompts.text({ message: 'Enter model name:', initialValue: 'glm4' });
+      exitIfCancelled(customModel);
+      selectedModel = customModel.trim();
+    } else {
+      selectedModel = modelSelection;
+    }
+  } else {
+    const customModel = await prompts.text({
+      message: 'Enter model name:',
+      initialValue: existingConfig.defaultModel || 'glm4',
+    });
+    exitIfCancelled(customModel);
+    selectedModel = customModel.trim();
+  }
+
+  // Step 4: Validate & Save
+  prompts.log.step(chalk.bold('Step 4/4 - Validate & Save'));
+
+  const validateSpinner = prompts.spinner();
+  validateSpinner.start('Validating local server connection...');
+
+  const isValid = await checkLocalServer(selectedBaseURL);
+  validateSpinner.stop(isValid ? 'Local server connection validated!' : 'Server not responding (will save anyway)');
+
+  return {
+    selectedProvider: 'glm',
+    serverType: 'local',
+    apiKey: '',
+    baseURL: selectedBaseURL,
+    defaultModel: selectedModel,
+    currentModel: selectedModel,
+    maxTokens: 8192,
+    temperature: existingConfig.temperature ?? 0.7,
+    models: availableModels.length > 0 ? availableModels.map(m => m.id) : [selectedModel],
+    _provider: 'GLM (Local Server)',
+    _website: '',
+    _isLocalServer: true,
+  };
+}
+
+/**
+ * Run Grok-specific setup
+ */
+async function runGrokSetup(existingConfig: Partial<ProviderConfig>): Promise<ProviderConfig | null> {
+  const providerInfo = PROVIDERS.grok;
+
+  // Step 1: API Key
+  prompts.log.step(chalk.bold('Step 1/5 - xAI API Key'));
+  prompts.log.info(`Get your API key from: ${providerInfo.website}`);
+
+  let apiKey = '';
+  const envKey = process.env[providerInfo.apiKeyEnvVar] || process.env['GROK_API_KEY'];
+  const existingKey = existingConfig.apiKey;
+
+  if (existingKey && existingConfig.selectedProvider === 'grok') {
+    const maskedKey = existingKey.length > 12
+      ? `${existingKey.substring(0, 8)}...${existingKey.substring(existingKey.length - 4)}`
+      : `${existingKey.substring(0, 4)}...`;
+
+    prompts.log.info(`Existing API key: ${maskedKey}`);
+    const reuseKey = await prompts.confirm({ message: 'Use existing API key?', initialValue: true });
+    exitIfCancelled(reuseKey);
+
+    if (reuseKey) {
+      apiKey = existingKey;
+      prompts.log.success('Using existing API key');
+    }
+  } else if (envKey) {
+    prompts.log.info('Found API key in environment');
+    const useEnvKey = await prompts.confirm({ message: 'Use API key from environment?', initialValue: true });
+    exitIfCancelled(useEnvKey);
+
+    if (useEnvKey) {
+      apiKey = envKey;
+      prompts.log.success('Using environment API key');
+    }
+  }
+
+  if (!apiKey) {
+    const newKey = await prompts.password({
+      message: 'Enter your xAI API key:',
+      validate: (value) => {
+        if (!value?.trim()) return 'API key is required';
+        if (!value.startsWith('xai-')) return 'xAI API keys start with "xai-"';
+        return undefined;
+      },
+    });
+    exitIfCancelled(newKey);
+    apiKey = newKey.trim();
+  }
+
+  // Validate API key
+  const validateSpinner = prompts.spinner();
+  validateSpinner.start('Validating API key...');
+
+  const isValid = await validateCloudConnection(providerInfo.defaultBaseURL, apiKey);
+  validateSpinner.stop(isValid ? 'API key validated!' : 'Could not validate (will save anyway)');
+
+  // Step 2: Model Selection
+  prompts.log.step(chalk.bold('Step 2/5 - Choose Model'));
+
+  prompts.log.info('Grok 3 Series - Extended thinking with reasoning_effort');
+  prompts.log.info('Grok 2 Series - Fast and capable, with vision option');
+
+  const modelChoices = GROK_MODELS.map((m) => {
+    const badges: string[] = [];
+    if (m.supportsThinking) badges.push('Thinking');
+    if (m.supportsVision) badges.push('Vision');
+    if (m.supportsSearch) badges.push('Search');
+    const badgeStr = badges.length > 0 ? ` [${badges.join(', ')}]` : '';
+
+    return {
+      value: m.id,
+      label: m.id === providerInfo.defaultModel ? `${m.name} (recommended)` : m.name,
+      hint: `${m.description}${badgeStr}`,
+    };
+  });
+
+  const selectedModel = await prompts.select({
+    message: 'Select default model:',
+    options: modelChoices,
+    initialValue: existingConfig.defaultModel || providerInfo.defaultModel,
+  });
+  exitIfCancelled(selectedModel);
+
+  const selectedModelInfo = GROK_MODELS.find(m => m.id === selectedModel);
+
+  // Step 3: Thinking Mode (only for Grok 3)
+  let thinkingMode: 'off' | 'low' | 'high' = 'off';
+
+  prompts.log.step(chalk.bold('Step 3/5 - Extended Thinking'));
+
+  if (selectedModelInfo?.supportsThinking) {
+    prompts.log.info('Grok 3 supports extended thinking via reasoning_effort:');
+    prompts.log.info('  off  - Standard responses, faster');
+    prompts.log.info('  low  - Light reasoning, balanced');
+    prompts.log.info('  high - Deep reasoning, best for complex tasks');
+
+    const thinkingSelection = await prompts.select({
+      message: 'Default thinking mode:',
+      options: [
+        { value: 'off' as const, label: 'off - Standard mode (fastest)' },
+        { value: 'low' as const, label: 'low - Light reasoning (balanced)' },
+        { value: 'high' as const, label: 'high - Deep reasoning (recommended for coding)' },
+      ],
+      initialValue: existingConfig.grok?.thinkingMode || 'high',
+    });
+    exitIfCancelled(thinkingSelection);
+    thinkingMode = thinkingSelection;
+
+    if (thinkingMode !== 'off') {
+      prompts.log.success(`Extended thinking enabled: ${thinkingMode}`);
+    }
+  } else {
+    prompts.log.info(`${selectedModel} doesn't support extended thinking.`);
+    prompts.log.info('Choose a Grok 3 model for this feature.');
+  }
+
+  // Step 4: Live Search
+  prompts.log.step(chalk.bold('Step 4/5 - Live Web Search'));
+
+  prompts.log.info('Grok can search the web in real-time for up-to-date information.');
+
+  const enableLiveSearch = await prompts.confirm({
+    message: 'Enable live web search by default?',
+    initialValue: existingConfig.grok?.liveSearch ?? true,
+  });
+  exitIfCancelled(enableLiveSearch);
+
+  if (enableLiveSearch) {
+    prompts.log.success('Live search enabled');
+  } else {
+    prompts.log.info('Live search disabled (use --search flag to enable per-request)');
+  }
+
+  // Step 5: Review & Save
+  prompts.log.step(chalk.bold('Step 5/5 - Review & Save'));
+
+  const summaryLines = [
+    `Model: ${selectedModel}`,
+  ];
+  if (selectedModelInfo?.supportsThinking) {
+    summaryLines.push(`Thinking Mode: ${thinkingMode === 'off' ? 'disabled' : thinkingMode}`);
+  }
+  summaryLines.push(`Live Search: ${enableLiveSearch ? 'enabled' : 'disabled'}`);
+
+  await prompts.note(summaryLines.join('\n'), 'Configuration Preview');
+
+  const confirmSave = await prompts.confirm({ message: 'Save this configuration?', initialValue: true });
+  exitIfCancelled(confirmSave);
+
+  if (!confirmSave) {
+    return null;
+  }
+
+  return {
+    selectedProvider: 'grok',
+    serverType: 'cloud',
+    apiKey: apiKey,
+    baseURL: providerInfo.defaultBaseURL,
+    defaultModel: selectedModel,
+    currentModel: selectedModel,
+    maxTokens: 32768,
+    temperature: existingConfig.temperature ?? 0.7,
+    models: GROK_MODELS.map(m => m.id),
+    _provider: 'Grok (xAI)',
+    _website: providerInfo.website,
+    _isLocalServer: false,
+    grok: {
+      thinkingMode: thinkingMode,
+      liveSearch: enableLiveSearch,
+    },
+  };
+}
+
+/**
+ * Setup Z.AI MCP servers
+ */
+async function setupZAIMCPServers(apiKey: string): Promise<void> {
+  await prompts.note(
+    'Enabling Z.AI MCP servers for enhanced capabilities:\n' +
+    '- Web Search - Real-time web search\n' +
+    '- Web Reader - Extract content from web pages\n' +
+    '- Vision - Image/video analysis',
+    'Z.AI MCP Integration'
+  );
+
+  const mcpSpinner = prompts.spinner();
+  mcpSpinner.start('Configuring Z.AI MCP servers...');
+
+  try {
+    const status = await detectZAIServices();
+    const serversToAdd = getRecommendedServers(status);
+
+    for (const serverName of serversToAdd) {
+      try { removeMCPServer(serverName); } catch { /* ignore */ }
+    }
+
+    let successCount = 0;
+    for (const serverName of serversToAdd) {
+      try {
+        const config = generateZAIServerConfig(serverName, apiKey);
+        addMCPServer(config);
+        successCount++;
+      } catch { /* skip */ }
+    }
+
+    mcpSpinner.stop(`${successCount} Z.AI MCP server${successCount !== 1 ? 's' : ''} configured`);
+  } catch (error) {
+    mcpSpinner.stop('Could not set up Z.AI MCP servers');
+    prompts.log.warn(extractErrorMessage(error));
+  }
+}
+
+/**
+ * Create setup command
  */
 export function createSetupCommand(): Command {
   const setupCommand = new Command('setup');
 
   setupCommand
-    .description('Initialize AX CLI configuration with AI provider selection')
+    .description('Configure your LLM provider (GLM or Grok)')
     .option('--force', 'Overwrite existing configuration')
-    .option('--no-validate', 'Skip validation of API endpoint and credentials')
-    .action(async (options: {
-      force?: boolean;
-      validate?: boolean;
-    }) => {
+    .action(async () => {
       try {
-        // Show intro
-        prompts.intro(chalk.cyan('AX CLI Setup'));
-
-        // Always use the NEW path ~/.ax-cli/config.json
-        const configPath = CONFIG_PATHS.USER_CONFIG;
-        const configDir = dirname(configPath);
-        const settingsManager = getSettingsManager();
-
-        // Ensure config directory exists
-        if (!existsSync(configDir)) {
-          mkdirSync(configDir, { recursive: true });
-        }
-
-        // Load existing config to check for existing API key BEFORE provider selection
-        let existingConfig: UserSettings | null = null;
-        let existingProviderKey: string | null = null;
-
-        if (existsSync(configPath)) {
-          try {
-            existingConfig = settingsManager.loadUserSettings();
-            if (existingConfig.baseURL) {
-              existingProviderKey = getProviderFromBaseURL(existingConfig.baseURL);
-            }
-
-            if (existingProviderKey && !options.force) {
-              const existingProvider = PROVIDERS[existingProviderKey];
-              await prompts.note(
-                `Provider: ${existingProvider?.displayName || 'Unknown'}\n` +
-                `Location: ${configPath}`,
-                'Existing Configuration Found'
-              );
-            }
-          } catch (error) {
-            prompts.log.warn(`Failed to load existing config: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════
-        // STEP 1: Provider Selection
-        // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 1/5 — Choose Provider'));
-
-        const providerChoices = Object.entries(PROVIDERS).map(([key, provider]) => ({
-          value: key,
-          label: provider.displayName,
-          hint: provider.description,
-        }));
-
-        const providerKey = await prompts.select({
-          message: 'Select your AI provider:',
-          options: providerChoices,
-          initialValue: existingProviderKey || 'z.ai',
-        });
-        exitIfCancelled(providerKey);
-
-        const selectedProvider = PROVIDERS[providerKey];
-
-        // ═══════════════════════════════════════════════════════════════════
-        // STEP 2: API Key
-        // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 2/5 — API Key'));
-
-        let apiKey = '';
-        if (selectedProvider.requiresApiKey) {
-          const isSameProvider = existingProviderKey === providerKey;
-          const hasExistingKey = existingConfig?.apiKey && typeof existingConfig.apiKey === 'string' && existingConfig.apiKey.trim().length > 0;
-
-          if (isSameProvider && hasExistingKey && existingConfig?.apiKey) {
-            const key = existingConfig.apiKey;
-            const maskedKey = key.length > 12
-              ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}`
-              : `${key.substring(0, Math.min(4, key.length))}...`;
-
-            await prompts.note(
-              `Key: ${maskedKey}`,
-              `Existing API Key for ${selectedProvider.displayName}`
-            );
-
-            const reuseKey = await prompts.confirm({
-              message: 'Use existing API key?',
-              initialValue: true,
-            });
-            exitIfCancelled(reuseKey);
-
-            if (reuseKey) {
-              apiKey = existingConfig.apiKey;
-              prompts.log.success('Using existing API key');
-            } else {
-              prompts.log.info(`Get your API key from: ${selectedProvider.website}`);
-              const newKey = await prompts.password({
-                message: `Enter new ${selectedProvider.displayName} API key:`,
-                validate: (value) => value?.trim().length > 0 ? undefined : 'API key is required',
-              });
-              exitIfCancelled(newKey);
-              apiKey = newKey.trim();
-            }
-          } else {
-            if (hasExistingKey && !isSameProvider && existingProviderKey) {
-              const previousProvider = PROVIDERS[existingProviderKey];
-              prompts.log.warn(`Switching from ${previousProvider?.displayName || 'previous provider'} to ${selectedProvider.displayName}`);
-            }
-
-            prompts.log.info(`Get your API key from: ${selectedProvider.website}`);
-            const newKey = await prompts.password({
-              message: `Enter your ${selectedProvider.displayName} API key:`,
-              validate: (value) => value?.trim().length > 0 ? undefined : 'API key is required',
-            });
-            exitIfCancelled(newKey);
-            apiKey = newKey.trim();
-          }
-        } else {
-          prompts.log.success(`${selectedProvider.displayName} doesn't require an API key`);
-        }
-
-        // ═══════════════════════════════════════════════════════════════════
-        // STEP 3: Model Selection
-        // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 3/5 — Choose Model'));
-
-        const existingModel = existingConfig?.defaultModel || existingConfig?.currentModel;
-        const baseModelOptions = Array.from(
-          new Set([
-            selectedProvider.defaultModel,
-            ...(existingConfig?.models || []),
-            existingModel,
-          ].filter(Boolean))
-        ) as string[];
-
-        const modelChoices = baseModelOptions.map(model => ({
-          value: model,
-          label: model === selectedProvider.defaultModel ? `${model} (default)` : model,
-        }));
-        modelChoices.push({ value: '__custom__', label: 'Other (enter manually)' });
-
-        const modelSelection = await prompts.select({
-          message: 'Select default model:',
-          options: modelChoices,
-          initialValue: existingModel || selectedProvider.defaultModel,
-        });
-        exitIfCancelled(modelSelection);
-
-        let chosenModel = modelSelection;
-        if (modelSelection === '__custom__') {
-          const manualModel = await prompts.text({
-            message: 'Enter model ID:',
-            initialValue: selectedProvider.defaultModel,
-            validate: (value) => value?.trim().length > 0 ? undefined : 'Model is required',
-          });
-          exitIfCancelled(manualModel);
-          chosenModel = manualModel.trim();
-        }
-
-        // ═══════════════════════════════════════════════════════════════════
-        // STEP 4: Validate Connection
-        // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 4/5 — Validate Connection'));
-
-        const spinner = prompts.spinner();
-        spinner.start('Validating connection...');
-
-        const validationResult = await validateProviderSetup(
-          {
-            baseURL: selectedProvider.baseURL,
-            apiKey: apiKey,
-            model: chosenModel,
-            providerName: selectedProvider.name,
-          },
-          !options.validate
-        );
-
-        spinner.stop('Validation complete');
-
-        // If validator returned models list, offer quick re-pick
-        if (validationResult.availableModels && validationResult.availableModels.length > 0) {
-          const uniqueAvailable = Array.from(new Set(validationResult.availableModels));
-          const availableChoices = uniqueAvailable.map(model => ({
-            value: model,
-            label: model,
-          }));
-          availableChoices.push({ value: chosenModel, label: `${chosenModel} (keep current)` });
-
-          const altModel = await prompts.select({
-            message: 'Select a validated model (or keep current):',
-            options: availableChoices,
-            initialValue: chosenModel,
-          });
-          exitIfCancelled(altModel);
-          chosenModel = altModel;
-        }
-
-        if (validationResult.success) {
-          prompts.log.success('Connection validated successfully');
-        } else if (options.validate !== false) {
-          prompts.log.warn('Validation failed, but you can still save the configuration.');
-
-          const proceedAnyway = await prompts.confirm({
-            message: 'Save configuration anyway?',
-            initialValue: false,
-          });
-
-          if (prompts.isCancel(proceedAnyway) || !proceedAnyway) {
-            prompts.cancel('Setup cancelled. Please check your settings and try again.');
-            process.exit(0);
-          }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════
-        // STEP 5: Review & Save
-        // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 5/5 — Review & Save'));
-
-        const maxTokens = (selectedProvider.name === 'z.ai' || selectedProvider.name === 'z.ai-free') ? 32768 : 8192;
+        prompts.intro(chalk.cyan('AX CLI Setup Wizard'));
 
         await prompts.note(
-          `Provider:    ${selectedProvider.displayName}\n` +
-          `Base URL:    ${selectedProvider.baseURL}\n` +
-          `Model:       ${chosenModel}\n` +
-          `Max Tokens:  ${existingConfig?.maxTokens ?? maxTokens}\n` +
-          `Config path: ${configPath}`,
-          'Configuration Summary'
+          'This wizard will configure your AI coding assistant\n' +
+          'with your preferred LLM provider.',
+          'Welcome'
         );
 
-        const confirmSave = await prompts.confirm({
-          message: 'Save these settings?',
-          initialValue: true,
-        });
-        exitIfCancelled(confirmSave);
+        // Provider Selection
+        prompts.log.step(chalk.bold('Choose Provider'));
 
-        if (!confirmSave) {
-          prompts.cancel('Setup cancelled. No changes saved.');
+        const provider = await prompts.select<Provider>({
+          message: 'Which LLM provider do you want to use?',
+          options: [
+            {
+              value: 'glm' as Provider,
+              label: 'GLM (Z.AI)',
+              hint: PROVIDERS.glm.description,
+            },
+            {
+              value: 'grok' as Provider,
+              label: 'Grok (xAI)',
+              hint: PROVIDERS.grok.description,
+            },
+          ],
+        });
+        exitIfCancelled(provider);
+
+        // Load existing config for selected provider
+        const existingConfig = loadProviderConfig(provider);
+
+        // Run provider-specific setup
+        let newConfig: ProviderConfig | null = null;
+
+        if (provider === 'glm') {
+          newConfig = await runGLMSetup(existingConfig);
+        } else {
+          newConfig = await runGrokSetup(existingConfig);
+        }
+
+        if (!newConfig) {
+          prompts.cancel('Setup cancelled.');
           process.exit(0);
         }
 
-        // Create configuration object
-        const mergedConfig: UserSettings = {
-          ...(existingConfig || {}),
-          apiKey: apiKey,
-          baseURL: selectedProvider.baseURL,
-          defaultModel: chosenModel,
-          currentModel: chosenModel,
-          maxTokens: existingConfig?.maxTokens ?? maxTokens,
-          temperature: existingConfig?.temperature ?? 0.7,
-          models: Array.from(new Set([chosenModel, ...(existingConfig?.models || []), selectedProvider.defaultModel].filter(Boolean))),
-          _provider: selectedProvider.displayName,
-          _website: selectedProvider.website,
-        } as UserSettings;
+        // Save configuration to provider-specific directory
+        saveProviderConfig(provider, newConfig);
+        prompts.log.success('Configuration saved!');
 
-        // Persist using settings manager to ensure encryption + permissions
-        settingsManager.saveUserSettings(mergedConfig);
-
-        prompts.log.success('Configuration saved successfully!');
-
-        // ═══════════════════════════════════════════════════════════════════
-        // Z.AI MCP Integration
-        // ═══════════════════════════════════════════════════════════════════
-        if (selectedProvider.name === 'z.ai' || selectedProvider.name === 'z.ai-free') {
-          await prompts.note(
-            'Enabling Z.AI MCP servers for enhanced capabilities:\n' +
-            '• Web Search - Real-time web search\n' +
-            '• Web Reader - Extract content from web pages\n' +
-            '• Vision - Image/video analysis (Node.js 22+)',
-            'Z.AI MCP Integration'
-          );
-
-          const mcpSpinner = prompts.spinner();
-          mcpSpinner.start('Configuring Z.AI MCP servers...');
-
-          try {
-            const status = await detectZAIServices();
-            const serversToAdd = getRecommendedServers(status);
-
-            // Remove existing Z.AI MCP servers first
-            for (const serverName of serversToAdd) {
-              try {
-                removeMCPServer(serverName);
-              } catch {
-                // Ignore errors if server doesn't exist
-              }
-            }
-
-            let successCount = 0;
-            for (const serverName of serversToAdd) {
-              try {
-                const config = generateZAIServerConfig(serverName, apiKey);
-                addMCPServer(config);
-                successCount++;
-              } catch {
-                // Skip failed servers
-              }
-            }
-
-            mcpSpinner.stop(`${successCount} Z.AI MCP server${successCount !== 1 ? 's' : ''} configured`);
-          } catch (error) {
-            mcpSpinner.stop('Could not set up Z.AI MCP servers');
-            prompts.log.warn(`${extractErrorMessage(error)}`);
-            prompts.log.info('You can enable them later with: ax-cli mcp add-zai');
-          }
+        // Setup Z.AI MCP servers for GLM cloud
+        if (provider === 'glm' && newConfig.serverType === 'cloud' && newConfig.apiKey) {
+          await setupZAIMCPServers(newConfig.apiKey);
         }
 
-        // ═══════════════════════════════════════════════════════════════════
-        // AutomatosX Integration
-        // ═══════════════════════════════════════════════════════════════════
+        // Show summary
+        const providerInfo = PROVIDERS[provider];
+        const configPath = getConfigPath(provider);
+
         await prompts.note(
-          'Multi-agent AI orchestration with persistent memory and collaboration.',
-          'AutomatosX Agent Orchestration'
+          `Provider: ${newConfig._provider}\n` +
+          `Server:   ${newConfig._isLocalServer ? newConfig.baseURL : 'Cloud API'}\n` +
+          `Model:    ${newConfig.defaultModel}\n` +
+          `Config:   ${configPath}`,
+          'Configuration Summary'
         );
 
-        let axStatus = getAutomatosXStatus();
+        // Check if provider CLI is installed
+        const installed = isProviderInstalled(provider);
 
-        if (axStatus.installed) {
-          prompts.log.success(`AutomatosX detected${axStatus.version ? ` (v${axStatus.version})` : ''}`);
+        if (!installed) {
+          prompts.log.warn(`${providerInfo.cliName} is not installed.`);
 
-          const axSpinner = prompts.spinner();
-          axSpinner.start('Checking for updates...');
+          const shouldInstall = await prompts.confirm({
+            message: `Install ${providerInfo.cliName}?`,
+            initialValue: true,
+          });
 
-          const updated = await updateAutomatosX();
-          if (updated) {
-            axStatus = getAutomatosXStatus(); // Refresh version after update
-            axSpinner.stop(`AutomatosX updated${axStatus.version ? ` to v${axStatus.version}` : ''}`);
+          if (!prompts.isCancel(shouldInstall) && shouldInstall) {
+            await installProvider(provider);
           } else {
-            axSpinner.stop('Could not update AutomatosX');
-            prompts.log.info('Run manually: ax update -y');
+            prompts.log.info(`Install later: npm install -g ${providerInfo.package}`);
           }
         } else {
-          try {
-            const installResponse = await prompts.confirm({
-              message: 'Install AutomatosX for multi-agent AI orchestration?',
-              initialValue: true,
-            });
-
-            if (!prompts.isCancel(installResponse) && installResponse) {
-              const installSpinner = prompts.spinner();
-              installSpinner.start('Installing AutomatosX...');
-
-              const installed = await installAutomatosX();
-              if (installed) {
-                installSpinner.stop('AutomatosX installed successfully!');
-                prompts.log.info('Run `ax list agents` to see available AI agents.');
-                axStatus = getAutomatosXStatus(); // Refresh status after install
-              } else {
-                installSpinner.stop('Could not install AutomatosX');
-                prompts.log.info('Install manually: npm install -g @defai.digital/automatosx');
-              }
-            } else if (!prompts.isCancel(installResponse)) {
-              prompts.log.info('You can install AutomatosX later: npm install -g @defai.digital/automatosx');
-            }
-          } catch {
-            prompts.log.info('Skipping AutomatosX setup (non-interactive mode).');
-            prompts.log.info('Install manually: npm install -g @defai.digital/automatosx');
-          }
+          prompts.log.success(`${providerInfo.cliName} is installed`);
         }
 
-        // Agent-First Mode Configuration (only ask if AutomatosX is available)
-        if (axStatus.installed) {
-          await prompts.note(
-            'When enabled, ax-cli automatically routes tasks to specialized agents\n' +
-            'based on keywords (e.g., "test" → testing agent, "refactor" → refactoring agent).\n' +
-            'When disabled (default), you use the direct LLM and can invoke agents explicitly.',
-            'Agent-First Mode'
-          );
-
-          try {
-            const enableAgentFirst = await prompts.confirm({
-              message: 'Enable agent-first mode (auto-route to specialized agents)?',
-              initialValue: false,
-            });
-
-            if (!prompts.isCancel(enableAgentFirst)) {
-              const currentSettings = settingsManager.loadUserSettings();
-              settingsManager.saveUserSettings({
-                ...currentSettings,
-                agentFirst: {
-                  enabled: enableAgentFirst,
-                  confidenceThreshold: 0.6,
-                  showAgentIndicator: true,
-                  defaultAgent: 'standard',
-                  excludedAgents: [],
-                },
-              });
-
-              if (enableAgentFirst) {
-                prompts.log.success('Agent-first mode enabled');
-                prompts.log.info('Tasks will be automatically routed to specialized agents.');
-              } else {
-                prompts.log.success('Agent-first mode disabled (default)');
-                prompts.log.info('Use direct LLM. Invoke agents with --agent flag when needed.');
-              }
-            }
-          } catch {
-            prompts.log.info('Skipping agent-first configuration (non-interactive mode).');
-          }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════
-        // Completion Summary
-        // ═══════════════════════════════════════════════════════════════════
+        // Next steps
         await prompts.note(
-          `Location:    ${configPath}\n` +
-          `Provider:    ${selectedProvider.displayName}\n` +
-          `Base URL:    ${selectedProvider.baseURL}\n` +
-          `Model:       ${chosenModel}\n` +
-          `Max Tokens:  ${mergedConfig.maxTokens || maxTokens}\n` +
-          `Temperature: ${mergedConfig.temperature ?? 0.7}`,
-          'Configuration Details'
-        );
-
-        await prompts.note(
-          '1. Start interactive mode:\n' +
-          '   $ ax-cli\n\n' +
-          '2. Initialize your project (inside ax-cli):\n' +
-          '   > /init\n\n' +
-          '3. Or run a quick test:\n' +
-          '   $ ax-cli -p "Hello, introduce yourself"',
+          `1. Run "${providerInfo.cliName}" to start\n` +
+          `2. Or run "ax-cli" (auto-launches ${providerInfo.cliName})\n` +
+          `3. Run "${providerInfo.cliName} --help" for all options`,
           'Next Steps'
-        );
-
-        await prompts.note(
-          `• Edit config manually:  ${configPath}\n` +
-          '• See example configs:   Check "_examples" in config file\n' +
-          '• View help:             ax-cli --help\n' +
-          '• Documentation:         https://github.com/defai-digital/ax-cli',
-          'Tips'
         );
 
         prompts.outro(chalk.green('Setup complete! Happy coding!'));
 
-      } catch (error: any) {
-        if (error?.message === 'canceled' || error?.name === 'canceled') {
+      } catch (error: unknown) {
+        const err = error as { message?: string; name?: string };
+        if (err?.message === 'canceled' || err?.name === 'canceled') {
           prompts.cancel('Setup cancelled by user.');
           process.exit(0);
         }
