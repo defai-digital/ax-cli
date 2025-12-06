@@ -1,26 +1,26 @@
 {
   "name": "@defai.digital/ax-schemas",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Schema definitions and validation for AX CLI ecosystem",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anthropics/ax-cli.git",
+    "url": "https://github.com/defai-digital/ax-cli.git",
     "directory": "packages/schemas"
   },
-  "homepage": "https://github.com/anthropics/ax-cli#readme",
+  "homepage": "https://github.com/defai-digital/ax-cli#readme",
   "bugs": {
-    "url": "https://github.com/anthropics/ax-cli/issues"
+    "url": "https://github.com/defai-digital/ax-cli/issues"
   },
   "publishConfig": {
     "access": "public"
   },
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": "./dist/src/index.js",
+      "types": "./dist/src/index.d.ts"
     }
   },
   "files": [
@@ -49,7 +49,7 @@
   "author": "DEFAI Digital <https://defai.digital>",
   "license": "MIT",
   "dependencies": {
-    "zod": "^3.22.4"
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -1,15 +1,15 @@
 {
   "name": "@defai.digital/ax-grok",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Grok-optimized AI coding assistant CLI powered by xAI - full-featured coding assistant with Grok 3 thinking mode, vision, and search",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anthropics/ax-cli.git",
+    "url": "https://github.com/defai-digital/ax-cli.git",
     "directory": "packages/ax-grok"
   },
-  "homepage": "https://github.com/anthropics/ax-cli#readme",
+  "homepage": "https://github.com/defai-digital/ax-cli#readme",
   "bugs": {
-    "url": "https://github.com/anthropics/ax-cli/issues"
+    "url": "https://github.com/defai-digital/ax-cli/issues"
   },
   "publishConfig": {
     "access": "public"
@@ -37,7 +37,7 @@
     "start": "node ./dist/index.js"
   },
   "dependencies": {
-    "@defai.digital/ax-core": "^1.0.0"
+    "@defai.digital/ax-core": "^1.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",

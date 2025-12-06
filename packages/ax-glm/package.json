@@ -1,15 +1,15 @@
 {
   "name": "@defai.digital/ax-glm",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "GLM-optimized AI coding assistant CLI powered by Z.AI - full-featured coding assistant with thinking mode and vision",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anthropics/ax-cli.git",
+    "url": "https://github.com/defai-digital/ax-cli.git",
     "directory": "packages/ax-glm"
   },
-  "homepage": "https://github.com/anthropics/ax-cli#readme",
+  "homepage": "https://github.com/defai-digital/ax-cli#readme",
   "bugs": {
-    "url": "https://github.com/anthropics/ax-cli/issues"
+    "url": "https://github.com/defai-digital/ax-cli/issues"
   },
   "publishConfig": {
     "access": "public"
@@ -37,7 +37,7 @@
     "start": "node ./dist/index.js"
   },
   "dependencies": {
-    "@defai.digital/ax-core": "^1.0.0"
+    "@defai.digital/ax-core": "^1.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",

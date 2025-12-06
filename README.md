@@ -43,6 +43,7 @@ ax-cli
 
 - [Features](#features)
 - [Installation](#installation)
+- [Provider-Specific CLIs](#provider-specific-clis)
 - [Configuration](#configuration)
 - [Usage](#usage)
 - [VSCode Integration](#vscode-integration)
@@ -52,7 +53,6 @@ ax-cli
 - [Security](#security)
 - [Architecture](#architecture)
 - [Changelog](#changelog)
-- [Recent Changes (v3.12.8)](#recent-changes-v3128)
 - [Documentation](#documentation)
 
 ---
@@ -121,6 +121,76 @@ ax-cli
 ```bash
 npm install -g @defai.digital/ax-cli
 ```
+
+---
+
+## Provider-Specific CLIs
+
+In addition to the main `ax-cli` package, we offer lightweight provider-specific CLIs for developers who prefer a dedicated experience with their AI provider of choice.
+
+### AX-GLM - GLM-Optimized CLI
+
+**[@defai.digital/ax-glm](https://www.npmjs.com/package/@defai.digital/ax-glm)** - A streamlined CLI optimized for Z.AI's GLM models.
+
+```bash
+# Install
+npm install -g @defai.digital/ax-glm
+
+# Run
+ax-glm
+```
+
+**Features:**
+- **GLM-4.6** (200K context) - Advanced reasoning and code generation
+- **GLM-4.5v** (Vision) - Multimodal support for image analysis
+- **Thinking Mode** - Extended reasoning for complex problems
+- Pre-configured for optimal GLM performance
+- Lightweight package with minimal dependencies
+
+**Supported Models:**
+| Model | Context | Description |
+|-------|---------|-------------|
+| `glm-4.6` | 200K | Latest GLM with superior code generation |
+| `glm-4.5v` | 64K | Vision-enabled for image analysis |
+| `glm-4.5` | 128K | Balanced performance and context |
+
+### AX-Grok - Grok-Optimized CLI
+
+**[@defai.digital/ax-grok](https://www.npmjs.com/package/@defai.digital/ax-grok)** - A streamlined CLI optimized for xAI's Grok models.
+
+```bash
+# Install
+npm install -g @defai.digital/ax-grok
+
+# Run
+ax-grok
+```
+
+**Features:**
+- **Grok 3** - Latest Grok model with advanced reasoning
+- **Grok 3 Mini** - Fast, cost-effective option
+- **Vision Support** - Image understanding capabilities
+- **Web Search** - Real-time information retrieval
+- **Thinking Mode** - Extended reasoning with transparent thought process
+- Pre-configured for optimal Grok performance
+
+**Supported Models:**
+| Model | Description |
+|-------|-------------|
+| `grok-3` | Full Grok 3 with maximum capabilities |
+| `grok-3-fast` | Optimized for speed |
+| `grok-3-mini` | Lightweight, cost-effective |
+| `grok-3-mini-fast` | Fastest response times |
+
+### Choosing Between CLIs
+
+| Package | Best For |
+|---------|----------|
+| **@defai.digital/ax-cli** | Multi-provider support, enterprise features, maximum flexibility |
+| **@defai.digital/ax-glm** | Dedicated GLM users, minimal footprint, China-optimized |
+| **@defai.digital/ax-grok** | Dedicated Grok users, real-time search, xAI ecosystem |
+
+All three packages share the same core architecture, tools, and capabilities - they differ only in default provider configuration and package size.
 
 ---
 
@@ -510,28 +580,29 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
+### v4.1.0 - Provider-Specific CLIs (Monorepo Architecture)
+
+Major release introducing provider-specific CLI packages:
+
+- **New Packages**:
+  - `@defai.digital/ax-glm` - GLM-optimized CLI for Z.AI models (GLM-4.6, GLM-4.5v)
+  - `@defai.digital/ax-grok` - Grok-optimized CLI for xAI models (Grok 3, Grok 3 Mini)
+  - `@defai.digital/ax-core` - Shared core functionality for all CLI variants
+- **Monorepo Architecture**: Unified codebase with pnpm workspaces for better maintainability
+- **Lightweight Options**: Provider-specific CLIs with minimal dependencies for focused use cases
+- **Shared Core**: All packages share the same tools, MCP integration, and enterprise features
+
 ### v4.0.5 - SDK Data Mutation Bug Fixes
 
-Comprehensive fixes for data mutation vulnerabilities across the SDK:
-
-- **Event Isolation**: Progress reporter and logger now emit separate object copies to prevent cross-listener contamination
+- **Event Isolation**: Progress reporter and logger now emit separate object copies
 - **Tool Registry**: Clones definitions, tags, and execution args to prevent external mutation
-- **Testing Utilities**: MockAgent, MockMCPServer, MockSettingsManager now return/store deep copies
+- **Testing Utilities**: MockAgent, MockMCPServer, MockSettingsManager now return deep copies
 - **Agent Lifecycle**: Double disposal guard, non-Error throwable handling, subagent config isolation
 
 ### v4.0.4 - VS Code Extension & SDK Bug Fixes
 
 - VS Code extension: IPC timeout handling, memory leak fixes, cross-platform path handling
 - SDK: Multiple agent cleanup, version parsing improvements, testing utility fixes
-
-### v4.0.3 - Theme System Bug Fixes
-
-- Case-insensitive theme names, diff renderer theme support, cache mutation protection
-
-### v4.0.2 - Color Theme System
-
-- 5 built-in themes: `default`, `dark`, `light`, `dracula`, `monokai`
-- New `/theme` slash command
 
 ### v4.0.0 - Tool System v3.0
 
@@ -542,26 +613,6 @@ Comprehensive fixes for data mutation vulnerabilities across the SDK:
 ### Earlier Versions
 
 For complete changelog history, see [GitHub Releases](https://github.com/defai-digital/ax-cli/releases).
-
----
-
-## Recent Changes (v3.12.8)
-
-### Latest Release Highlights
-
-- **Enhanced MCP Integration**: Improved template system with 12+ production-ready servers
-- **Performance Optimizations**: 50% token savings with intelligent project memory caching
-- **Security Updates**: Enhanced API key encryption with PBKDF2 key derivation (600,000 iterations)
-- **UI Improvements**: New color theme system with 5 built-in themes
-- **Bug Fixes**: Resolved data mutation vulnerabilities in SDK components
-
-### Key Features Added
-
-- **Figma Integration**: Complete design-to-code workflow with natural language commands
-- **Multi-Phase Planner**: Automatic task decomposition for complex requests
-- **Background Tasks**: Run long-running operations in background with task management
-- **Health Check**: Comprehensive diagnostics with `ax-cli doctor` command
-- **Auto-Update**: Automatic update checking with user confirmation prompts
 
 ---
 
