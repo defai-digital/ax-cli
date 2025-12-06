@@ -313,7 +313,7 @@ export function createCLI(options: CLIFactoryOptions): Command {
   cli.addCommand(createInitCommand());
   cli.addCommand(createTemplatesCommand());
   cli.addCommand(createMemoryCommand());
-  cli.addCommand(createUpdateCommand());
+  cli.addCommand(createUpdateCommand(provider)); // Provider-specific update command
   cli.addCommand(createProviderSetupCommand(provider)); // Provider-specific setup wizard
   cli.addCommand(createUsageCommand());
   cli.addCommand(createCacheCommand());

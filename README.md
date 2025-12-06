@@ -580,6 +580,16 @@ Email: **security@defai.digital** (private disclosure)
 
 ## Changelog
 
+### v4.1.4 - Provider-Aware Update Command
+
+- **Update Command**: `ax-glm update` and `ax-grok update` now check/update their own packages
+  - `ax-glm update` checks `@defai.digital/ax-glm` (not ax-cli)
+  - `ax-grok update` checks `@defai.digital/ax-grok` (not ax-cli)
+- **API Key Encryption**: Verified AES-256-GCM encryption working for all CLIs
+  - API keys stored as `apiKeyEncrypted` with IV, salt, and auth tag
+  - PBKDF2 with 600,000 iterations for key derivation
+  - Machine-specific encryption tied to hostname/platform/arch
+
 ### v4.1.3 - Provider-Aware SDK
 
 - **Provider-Aware SDK**: New SDK functions for provider-specific agent creation

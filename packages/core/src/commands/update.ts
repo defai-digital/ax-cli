@@ -6,10 +6,27 @@ import { createInterface } from "readline";
 import { parseJson } from "../utils/json-utils.js";
 import { equalsIgnoreCase } from "../utils/string-utils.js";
 import { getSettingsManager } from "../utils/settings-manager.js";
+import type { ProviderDefinition } from "../provider/config.js";
 
 const execAsync = promisify(exec);
 
 export const PACKAGE_NAME = "@defai.digital/ax-cli";
+
+/**
+ * Get package name for a provider
+ */
+function getProviderPackageName(provider?: ProviderDefinition): string {
+  if (!provider) return PACKAGE_NAME;
+
+  switch (provider.name) {
+    case 'glm':
+      return '@defai.digital/ax-glm';
+    case 'grok':
+      return '@defai.digital/ax-grok';
+    default:
+      return PACKAGE_NAME;
+  }
+}
 
 /**
  * Check if AutomatosX (ax) is installed globally
@@ -44,12 +61,13 @@ async function updateAutomatosX(): Promise<boolean> {
 
 /**
  * Get current installed version
+ * @param packageName - Optional package name (defaults to PACKAGE_NAME)
  */
-export async function getCurrentVersion(): Promise<string> {
+export async function getCurrentVersion(packageName: string = PACKAGE_NAME): Promise<string> {
   try {
     // Try to get from npm global installation
     const { stdout } = await execAsync(
-      `npm list -g ${PACKAGE_NAME} --depth=0 --json`,
+      `npm list -g ${packageName} --depth=0 --json`,
       { timeout: 10000 } // 10 second timeout
     );
 
@@ -63,7 +81,7 @@ export async function getCurrentVersion(): Promise<string> {
       return "unknown";
     }
 
-    return parseResult.data.dependencies?.[PACKAGE_NAME]?.version || "unknown";
+    return parseResult.data.dependencies?.[packageName]?.version || "unknown";
   } catch {
     // Fallback to package.json
     try {
@@ -93,9 +111,10 @@ export async function getCurrentVersion(): Promise<string> {
 /**
  * Get latest version from npm registry
  * Timeout after 10 seconds to avoid blocking CLI startup
+ * @param packageName - Optional package name (defaults to PACKAGE_NAME)
  */
-export async function getLatestVersion(): Promise<string> {
-  const { stdout } = await execAsync(`npm view ${PACKAGE_NAME} version`, {
+export async function getLatestVersion(packageName: string = PACKAGE_NAME): Promise<string> {
+  const { stdout } = await execAsync(`npm view ${packageName} version`, {
     timeout: 10000, // 10 second timeout
   });
   const version = stdout.trim();
@@ -179,11 +198,13 @@ async function showChangelog(_from: string, to: string): Promise<void> {
 
 /**
  * Install update
+ * @param version - Version to install
+ * @param packageName - Optional package name (defaults to PACKAGE_NAME)
  */
-export async function installUpdate(version: string): Promise<void> {
+export async function installUpdate(version: string, packageName: string = PACKAGE_NAME): Promise<void> {
   try {
     const { stderr } = await execAsync(
-      `npm install -g ${PACKAGE_NAME}@${version}`,
+      `npm install -g ${packageName}@${version}`,
       { maxBuffer: 10 * 1024 * 1024 } // Increase buffer for large outputs
     );
 
@@ -218,12 +239,16 @@ async function promptConfirm(message: string): Promise<boolean> {
 
 /**
  * Create update command
+ * @param provider - Optional provider definition for provider-specific updates
  */
-export function createUpdateCommand(): Command {
+export function createUpdateCommand(provider?: ProviderDefinition): Command {
   const updateCmd = new Command("update");
+  const packageName = getProviderPackageName(provider);
+  const cliName = provider?.branding.cliName || 'ax-cli';
+  const displayName = cliName.toUpperCase();
 
   updateCmd
-    .description("Check for updates and upgrade AX CLI to the latest version")
+    .description(`Check for updates and upgrade ${displayName} to the latest version`)
     .option(
       "-c, --check",
       "Only check for updates without installing",
@@ -231,16 +256,16 @@ export function createUpdateCommand(): Command {
     )
     .option("-y, --yes", "Skip confirmation prompt", false)
     .action(async (options) => {
-      console.log(chalk.blue.bold("\n🔄 AX CLI Update Checker\n"));
+      console.log(chalk.blue.bold(`\n🔄 ${displayName} Update Checker\n`));
 
       try {
         // 1. Get current version
-        const currentVersion = await getCurrentVersion();
+        const currentVersion = await getCurrentVersion(packageName);
         console.log(chalk.gray(`Current version: ${currentVersion}`));
 
         // 2. Check for latest version
         console.log(chalk.cyan("Checking for updates..."));
-        const latestVersion = await getLatestVersion();
+        const latestVersion = await getLatestVersion(packageName);
         console.log(chalk.gray(`Latest version:  ${latestVersion}\n`));
 
         // 3. Compare versions
@@ -266,7 +291,7 @@ export function createUpdateCommand(): Command {
             console.log(chalk.gray("\nTo install the update, run:"));
             console.log(
               chalk.cyan(
-                `  npm install -g ${PACKAGE_NAME}@${latestVersion}\n`
+                `  npm install -g ${packageName}@${latestVersion}\n`
               )
             );
             return;
@@ -286,15 +311,15 @@ export function createUpdateCommand(): Command {
 
           // 7. Perform update
           console.log(chalk.cyan("\n📥 Installing update...\n"));
-          await installUpdate(latestVersion);
+          await installUpdate(latestVersion, packageName);
 
           console.log(
-            chalk.green.bold("\n✅ AX CLI updated successfully!\n")
+            chalk.green.bold(`\n✅ ${displayName} updated successfully!\n`)
           );
           console.log(chalk.gray("New version:"), chalk.cyan(latestVersion));
           console.log(
             chalk.gray("\nRun"),
-            chalk.cyan("ax-cli --version"),
+            chalk.cyan(`${cliName} --version`),
             chalk.gray("to verify.\n")
           );
 
