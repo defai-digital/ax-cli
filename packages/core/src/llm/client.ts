@@ -478,16 +478,22 @@ export class LLMClient {
     }
 
     // Add thinking/reasoning parameters based on model type
-    if (thinking && thinking.type === "enabled") {
+    if (thinking) {
       const modelLower = model.toLowerCase();
 
-      // Grok 3 models use reasoning_effort parameter
-      if (modelLower.includes("grok-3")) {
-        // Use specified effort or default to "high" for full reasoning
-        payload.reasoning_effort = thinking.reasoningEffort || "high";
-      } else {
-        // GLM models use thinking parameter
-        payload.thinking = thinking;
+      // Check if thinking is enabled (handles both old and new format)
+      const isEnabled = thinking.type === "enabled" ||
+                       (thinking.type !== "disabled" && Object.keys(thinking).length > 0);
+
+      if (isEnabled) {
+        // Grok 3 models use reasoning_effort parameter
+        if (modelLower.includes("grok-3")) {
+          // Use specified effort or default to "high" for full reasoning
+          payload.reasoning_effort = thinking.reasoningEffort || "high";
+        } else {
+          // GLM models use thinking parameter directly
+          payload.thinking = thinking;
+        }
       }
     }
 
