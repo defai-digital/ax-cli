@@ -43,6 +43,7 @@ interface ChatInterfaceProps {
   loadPreviousHistory?: boolean; // For --continue flag
   agentFirstDisabled?: boolean; // --no-agent flag
   forcedAgent?: string; // --agent <name> flag
+  cliName?: string; // CLI name for status bar (e.g., 'ax-glm', 'ax-grok')
 }
 
 // Get current project folder name
@@ -104,12 +105,14 @@ function ChatInterfaceWithAgent({
   loadPreviousHistory = false,
   agentFirstDisabled = false,
   forcedAgent,
+  cliName = 'ax-cli',
 }: {
   agent: LLMAgent;
   initialMessage?: string;
   loadPreviousHistory?: boolean;
   agentFirstDisabled?: boolean;
   forcedAgent?: string;
+  cliName?: string;
 }) {
   // Memoize history manager to avoid unnecessary function calls on every render
   const historyManager = useMemo(() => getHistoryManager(), []);
@@ -1081,6 +1084,7 @@ function ChatInterfaceWithAgent({
             projectName={projectName}
             version={version}
             model={agent.getCurrentModel()}
+            cliName={cliName}
             contextPercentage={contextPercentage}
             showAutoPrune={showAutoPrune}
             autoEditEnabled={autoEditEnabled}
@@ -1126,6 +1130,7 @@ export default function ChatInterface({
   loadPreviousHistory = false,
   agentFirstDisabled = false,
   forcedAgent,
+  cliName = 'ax-cli',
 }: ChatInterfaceProps) {
   const [currentAgent, setCurrentAgent] = useState<LLMAgent | null>(
     agent || null
@@ -1146,6 +1151,7 @@ export default function ChatInterface({
       loadPreviousHistory={loadPreviousHistory}
       agentFirstDisabled={agentFirstDisabled}
       forcedAgent={forcedAgent}
+      cliName={cliName}
     />
   );
 }

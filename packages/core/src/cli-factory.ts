@@ -285,6 +285,7 @@ export function createCLI(options: CLIFactoryOptions): Command {
           loadPreviousHistory: cliOptions.continue || false,
           agentFirstDisabled: cliOptions.agent === false,
           forcedAgent: typeof cliOptions.agent === 'string' ? cliOptions.agent : undefined,
+          cliName: provider.branding.cliName,
         })
       );
 

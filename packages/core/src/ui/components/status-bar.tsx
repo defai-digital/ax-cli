@@ -12,6 +12,8 @@ interface StatusBarProps {
   projectName: string;
   version: string;
   model: string;
+  /** CLI name to display (e.g., 'ax-cli', 'ax-glm', 'ax-grok') */
+  cliName?: string;
   contextPercentage: number;
   showAutoPrune: boolean;
   autoEditEnabled: boolean;
@@ -321,6 +323,7 @@ function CompactStatusBar(props: StatusBarProps & { theme: ThemeColors }) {
     projectName,
     version,
     model,
+    cliName = 'ax-cli',
     contextPercentage,
     showAutoPrune,
     autoEditEnabled,
@@ -361,7 +364,7 @@ function CompactStatusBar(props: StatusBarProps & { theme: ThemeColors }) {
         <Box>
           <Text color={theme.accent} bold>{projectName}</Text>
           <Text color={theme.muted}> • </Text>
-          <Text color={theme.info} bold>ax-cli</Text>
+          <Text color={theme.info} bold>{cliName}</Text>
           <Text color={theme.success} bold> v{version}</Text>
         </Box>
         <Box>
@@ -451,6 +454,7 @@ export function StatusBar(props: StatusBarProps) {
     projectName,
     version,
     model,
+    cliName = 'ax-cli',
     contextPercentage,
     showAutoPrune,
     autoEditEnabled,
@@ -505,7 +509,7 @@ export function StatusBar(props: StatusBarProps) {
             {projectName}
           </Text>
           <Text color={theme.muted}> • </Text>
-          <Text color={theme.info} bold>ax-cli</Text>
+          <Text color={theme.info} bold>{cliName}</Text>
           <Text color={theme.success} bold> v{version}</Text>
         </Box>
 
