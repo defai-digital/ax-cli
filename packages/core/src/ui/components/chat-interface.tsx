@@ -8,7 +8,7 @@ import { ChatHistory } from "./chat-history.js";
 import { ChatInput } from "./chat-input.js";
 import { StatusBar } from "./status-bar.js";
 import { QuickActions } from "./quick-actions.js";
-import { WelcomePanel } from "./welcome-panel.js";
+import { WelcomePanel, type ProviderBranding } from "./welcome-panel.js";
 import ConfirmationDialog from "./confirmation-dialog.js";
 import QuestionDialog from "./question-dialog.js";
 import { KeyboardHelp } from "./keyboard-help.js";
@@ -44,6 +44,7 @@ interface ChatInterfaceProps {
   agentFirstDisabled?: boolean; // --no-agent flag
   forcedAgent?: string; // --agent <name> flag
   cliName?: string; // CLI name for status bar (e.g., 'ax-glm', 'ax-grok')
+  branding?: ProviderBranding; // Provider branding for welcome panel
 }
 
 // Get current project folder name
@@ -106,6 +107,7 @@ function ChatInterfaceWithAgent({
   agentFirstDisabled = false,
   forcedAgent,
   cliName = 'ax-cli',
+  branding,
 }: {
   agent: LLMAgent;
   initialMessage?: string;
@@ -113,6 +115,7 @@ function ChatInterfaceWithAgent({
   agentFirstDisabled?: boolean;
   forcedAgent?: string;
   cliName?: string;
+  branding?: ProviderBranding;
 }) {
   // Memoize history manager to avoid unnecessary function calls on every render
   const historyManager = useMemo(() => getHistoryManager(), []);
@@ -960,7 +963,7 @@ function ChatInterfaceWithAgent({
     <Box flexDirection="column" paddingX={2}>
       {/* Show welcome panel when no chat history */}
       {chatHistory.length === 0 && !confirmationOptions && !questionRequest && !showQuickActions && !showKeyboardHelp && !showContextBreakdown && !showMcpDashboard && (
-        <WelcomePanel projectName={projectName} />
+        <WelcomePanel projectName={projectName} branding={branding} />
       )}
 
       {/* Phase Progress Display */}
@@ -1131,6 +1134,7 @@ export default function ChatInterface({
   agentFirstDisabled = false,
   forcedAgent,
   cliName = 'ax-cli',
+  branding,
 }: ChatInterfaceProps) {
   const [currentAgent, setCurrentAgent] = useState<LLMAgent | null>(
     agent || null
@@ -1152,6 +1156,7 @@ export default function ChatInterface({
       agentFirstDisabled={agentFirstDisabled}
       forcedAgent={forcedAgent}
       cliName={cliName}
+      branding={branding}
     />
   );
 }

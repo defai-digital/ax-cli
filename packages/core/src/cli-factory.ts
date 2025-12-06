@@ -290,6 +290,13 @@ export function createCLI(options: CLIFactoryOptions): Command {
           agentFirstDisabled: cliOptions.agent === false,
           forcedAgent: typeof cliOptions.agent === 'string' ? cliOptions.agent : undefined,
           cliName: provider.branding.cliName,
+          branding: {
+            cliName: provider.branding.cliName,
+            primaryColor: provider.branding.primaryColor,
+            secondaryColor: provider.branding.secondaryColor,
+            asciiLogo: provider.branding.asciiLogo,
+            tagline: provider.branding.tagline,
+          },
         })
       );
 

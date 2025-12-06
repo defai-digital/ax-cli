@@ -63,6 +63,14 @@ export interface ProviderDefinition {
     cliName: string;
     description: string;
     welcomeMessage: string;
+    /** Primary color for UI elements (Ink color name) */
+    primaryColor: string;
+    /** Secondary/accent color */
+    secondaryColor: string;
+    /** ASCII art logo for welcome screen */
+    asciiLogo: string;
+    /** Short tagline */
+    tagline: string;
   };
   /** Configuration directory name (e.g., '.ax-glm', '.ax-grok') */
   configDirName: string;
@@ -137,6 +145,18 @@ export const GLM_PROVIDER: ProviderDefinition = {
     cliName: 'ax-glm',
     description: 'GLM-optimized AI coding assistant powered by Z.AI',
     welcomeMessage: '🤖 Starting AX-GLM AI Assistant (powered by Z.AI)...',
+    primaryColor: 'cyan',
+    secondaryColor: 'green',
+    tagline: 'Powered by Z.AI',
+    asciiLogo: `
+   ██████╗ ██╗     ███╗   ███╗
+  ██╔════╝ ██║     ████╗ ████║
+  ██║  ███╗██║     ██╔████╔██║
+  ██║   ██║██║     ██║╚██╔╝██║
+  ╚██████╔╝███████╗██║ ╚═╝ ██║
+   ╚═════╝ ╚══════╝╚═╝     ╚═╝
+    ═══════════════════════
+         A X - G L M`,
   },
 };
 
@@ -245,6 +265,18 @@ export const GROK_PROVIDER: ProviderDefinition = {
     cliName: 'ax-grok',
     description: 'Grok-optimized AI coding assistant powered by xAI',
     welcomeMessage: '🤖 Starting AX-Grok AI Assistant (powered by xAI)...',
+    primaryColor: 'magenta',
+    secondaryColor: 'yellow',
+    tagline: 'Powered by xAI',
+    asciiLogo: `
+   ██████╗ ██████╗  ██████╗ ██╗  ██╗
+  ██╔════╝ ██╔══██╗██╔═══██╗██║ ██╔╝
+  ██║  ███╗██████╔╝██║   ██║█████╔╝
+  ██║   ██║██╔══██╗██║   ██║██╔═██╗
+  ╚██████╔╝██║  ██║╚██████╔╝██║  ██╗
+   ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝
+    ═══════════════════════════
+          A X - G R O K`,
   },
 };
 

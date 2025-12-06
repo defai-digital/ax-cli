@@ -1,11 +1,38 @@
 /**
  * Welcome Panel Component
  * Shows helpful tips and example prompts when chat is empty
- * Features animated ASCII robot avatar during startup
+ * Features provider-specific branding and animated ASCII robot avatar during startup
  */
 
 import React, { useState, useEffect } from "react";
 import { Box, Text } from "ink";
+import type { TextProps } from "ink";
+
+/** Provider branding info for welcome panel */
+export interface ProviderBranding {
+  cliName: string;
+  primaryColor: string;
+  secondaryColor: string;
+  asciiLogo: string;
+  tagline: string;
+}
+
+/** Default branding (fallback) */
+const DEFAULT_BRANDING: ProviderBranding = {
+  cliName: 'ax-cli',
+  primaryColor: 'cyan',
+  secondaryColor: 'green',
+  asciiLogo: `
+   █████╗ ██╗  ██╗     ██████╗██╗     ██╗
+  ██╔══██╗╚██╗██╔╝    ██╔════╝██║     ██║
+  ███████║ ╚███╔╝     ██║     ██║     ██║
+  ██╔══██║ ██╔██╗     ██║     ██║     ██║
+  ██║  ██║██╔╝ ██╗    ╚██████╗███████╗██║
+  ╚═╝  ╚═╝╚═╝  ╚═╝     ╚═════╝╚══════╝╚═╝
+    ═══════════════════════════════
+           A X - C L I`,
+  tagline: 'AI Coding Assistant',
+};
 
 interface ExamplePrompt {
   category: string;
@@ -132,9 +159,12 @@ const EXAMPLE_PROMPTS: ExamplePrompt[] = [
 
 interface WelcomePanelProps {
   projectName: string;
+  branding?: ProviderBranding;
 }
 
-export function WelcomePanel({ projectName: _projectName }: WelcomePanelProps) {
+export function WelcomePanel({ projectName: _projectName, branding = DEFAULT_BRANDING }: WelcomePanelProps) {
+  // Use branding colors
+  const primaryColor = branding.primaryColor as TextProps['color'];
   // Animation state - cycle through frames during first 6 seconds
   const [currentFrame, setCurrentFrame] = useState(0);
   const [animationActive, setAnimationActive] = useState(true);
@@ -168,24 +198,21 @@ export function WelcomePanel({ projectName: _projectName }: WelcomePanelProps) {
       <Box flexDirection="row" marginBottom={1}>
         {/* Robot Avatar Logo - Animated! */}
         <Box marginRight={2}>
-          <Text color={animationActive ? "cyan" : "green"}>
+          <Text color={animationActive ? primaryColor : (branding.secondaryColor as TextProps['color'])}>
             {AVATAR_FRAMES[currentFrame]}
           </Text>
         </Box>
 
-        {/* ASCII Art Welcome */}
-        <Box>
-          <Text color="cyan">
-{`              _                            _
-__      _____| | ___ ___  _ __ ___   ___  | |_ ___
-\\ \\ /\\ / / _ \\ |/ __/ _ \\| '_ \` _ \\ / _ \\ | __/ _ \\
- \\ V  V /  __/ | (_| (_) | | | | | |  __/ | || (_) |
-  \\_/\\_/ \\___|_|\\___\\___/|_| |_| |_|\\___|  \\__\\___/
-  __ ___  __      ___| (_)
- / _\` \\ \\/ /____ / __| | |
-| (_| |>  <_____| (__| | |
- \\__,_/_/\\_\\     \\___|_|_|`}
+        {/* Provider-specific ASCII Logo */}
+        <Box flexDirection="column">
+          <Text color={primaryColor}>
+            {branding.asciiLogo}
           </Text>
+          <Box marginTop={1}>
+            <Text color={branding.secondaryColor as TextProps['color']} dimColor>
+              {branding.tagline}
+            </Text>
+          </Box>
         </Box>
       </Box>
 
@@ -193,13 +220,13 @@ __      _____| | ___ ___  _ __ ___   ___  | |_ ___
       <Box
         flexDirection="column"
         borderStyle="round"
-        borderColor="cyan"
+        borderColor={primaryColor}
         paddingX={2}
         paddingY={1}
         marginBottom={1}
       >
         <Box marginBottom={1}>
-          <Text color="cyan" bold>
+          <Text color={primaryColor} bold>
             Essential Shortcuts
           </Text>
         </Box>
@@ -229,7 +256,7 @@ __      _____| | ___ ___  _ __ ___   ___  | |_ ___
           <Box flexDirection="column" minWidth={28}>
             <Text color="yellow" bold>Actions</Text>
             <Box>
-              <Text color="cyan" bold>^K</Text>
+              <Text color={primaryColor} bold>^K</Text>
               <Text color="gray"> Ctrl+K     </Text>
               <Text>quick actions</Text>
             </Box>
@@ -272,19 +299,19 @@ __      _____| | ___ ___  _ __ ___   ___  | |_ ___
           <Box>
             <Text color="gray">• </Text>
             <Text>Use </Text>
-            <Text color="cyan">/init</Text>
+            <Text color={primaryColor}>/init</Text>
             <Text> to generate project context (CUSTOM.md)</Text>
           </Box>
           <Box>
             <Text color="gray">• </Text>
             <Text>Run </Text>
-            <Text color="cyan">/memory warmup</Text>
+            <Text color={primaryColor}>/memory warmup</Text>
             <Text> to cache project context (faster AI responses)</Text>
           </Box>
           <Box>
             <Text color="gray">• </Text>
             <Text>Append </Text>
-            <Text color="cyan">&</Text>
+            <Text color={primaryColor}>&</Text>
             <Text> to bash commands for background execution</Text>
           </Box>
         </Box>
