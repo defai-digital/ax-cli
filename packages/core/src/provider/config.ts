@@ -169,7 +169,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
   apiKeyEnvVar: 'XAI_API_KEY',
   apiKeyEnvVarAliases: ['GROK_API_KEY'],
   defaultBaseURL: 'https://api.x.ai/v1',
-  defaultModel: 'grok-3',
+  defaultModel: 'grok-2-1212',
   configDirName: '.ax-grok',
   models: {
     // Grok 3 models with thinking mode (reasoning_effort)
@@ -195,8 +195,8 @@ export const GROK_PROVIDER: ProviderDefinition = {
       defaultTemperature: 0.7,
       description: 'Efficient Grok 3 model with thinking support',
     },
-    // Grok 2 models (no thinking mode)
-    'grok-2': {
+    // Grok 2 models (no thinking mode) - use dated versions for API compatibility
+    'grok-2-1212': {
       name: 'Grok-2',
       contextWindow: 131072,
       maxOutputTokens: 32768,
@@ -205,9 +205,9 @@ export const GROK_PROVIDER: ProviderDefinition = {
       supportsSearch: true,
       supportsSeed: true,
       defaultTemperature: 0.7,
-      description: 'Capable Grok 2 model with advanced reasoning',
+      description: 'Capable Grok 2 model with advanced reasoning and web search',
     },
-    'grok-2-vision': {
+    'grok-2-vision-1212': {
       name: 'Grok-2 Vision',
       contextWindow: 32768,
       maxOutputTokens: 8192,
@@ -218,16 +218,16 @@ export const GROK_PROVIDER: ProviderDefinition = {
       defaultTemperature: 0.7,
       description: 'Vision-capable Grok model for image understanding',
     },
-    'grok-2-mini': {
-      name: 'Grok-2 Mini',
-      contextWindow: 131072,
-      maxOutputTokens: 32768,
+    'grok-2-image-1212': {
+      name: 'Grok-2 Image',
+      contextWindow: 32768,
+      maxOutputTokens: 8192,
       supportsThinking: false,
       supportsVision: false,
-      supportsSearch: true,
+      supportsSearch: false,
       supportsSeed: true,
       defaultTemperature: 0.7,
-      description: 'Faster, more efficient Grok 2 model',
+      description: 'Text-to-image generation model',
     },
     // Legacy beta models
     'grok-beta': {
