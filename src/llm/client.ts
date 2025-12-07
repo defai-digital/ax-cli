@@ -4,6 +4,7 @@ import { safeValidateGrokResponse } from "../schemas/api-schemas.js";
 import { ErrorCategory, createErrorMessage } from "../utils/error-handler.js";
 import { extractAndTranslateError } from "../utils/error-translator.js";
 import { GLM_MODELS, type SupportedModel, TIMEOUT_CONFIG } from "../constants.js";
+import { GLM_PROVIDER, GROK_PROVIDER } from "../provider/config.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
 import { RateLimiter, DEFAULT_RATE_LIMITS } from "../utils/rate-limiter.js";
 import { getAuditLogger, AuditCategory } from "../utils/audit-logger.js";
@@ -242,8 +243,14 @@ export class LLMClient {
    * For unknown models (e.g., Ollama), pass through without validation
    */
   private validateModel(model: string): string {
+    // Check GLM models (legacy constant)
     if (model in GLM_MODELS) {
       return model as SupportedModel;
+    }
+
+    // Check provider-specific models (GLM and Grok)
+    if (model in GLM_PROVIDER.models || model in GROK_PROVIDER.models) {
+      return model;
     }
 
     // Allow arbitrary model names for providers like Ollama

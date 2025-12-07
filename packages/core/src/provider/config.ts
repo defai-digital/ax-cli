@@ -169,7 +169,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
   apiKeyEnvVar: 'XAI_API_KEY',
   apiKeyEnvVarAliases: ['GROK_API_KEY'],
   defaultBaseURL: 'https://api.x.ai/v1',
-  defaultModel: 'grok-2-1212',
+  defaultModel: 'grok-3',
   configDirName: '.ax-grok',
   models: {
     // Grok 3 models with thinking mode (reasoning_effort)
