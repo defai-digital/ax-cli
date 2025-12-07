@@ -309,6 +309,13 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
           hint: config.description,
         }));
 
+        // Safety check - should never happen but prevents crash if provider has no models
+        if (modelChoices.length === 0) {
+          prompts.log.error('No models available for this provider');
+          prompts.cancel('Setup failed: Provider configuration is invalid.');
+          process.exit(1);
+        }
+
         const existingModel = existingConfig?.defaultModel || existingConfig?.currentModel;
         const initialModel = existingModel && provider.models[existingModel] ? existingModel : provider.defaultModel;
 
@@ -321,6 +328,13 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
 
         const chosenModel = modelSelection;
         const modelConfig = provider.models[chosenModel];
+
+        // Safety check - should not happen but prevents crash
+        if (!modelConfig) {
+          prompts.log.error(`Model "${chosenModel}" not found in provider configuration`);
+          prompts.cancel('Setup failed due to invalid model selection.');
+          process.exit(1);
+        }
 
         // Show model features
         const features: string[] = [];
@@ -339,34 +353,96 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         const validateStep = provider.name === 'glm' ? 'Step 4/5' : 'Step 3/4';
         prompts.log.step(chalk.bold(`${validateStep} — Validate Connection`));
 
-        const spinner = prompts.spinner();
-        spinner.start('Validating connection...');
+        // Determine if we should skip validation
+        const shouldSkipValidation = options.validate === false || isLocalServer;
 
-        const validationResult = await validateProviderSetup(
-          {
-            baseURL: selectedBaseURL,
-            apiKey: apiKey,
-            model: chosenModel,
-            providerName: provider.name,
-          },
-          !options.validate || isLocalServer // Skip validation for local servers by default
-        );
+        if (shouldSkipValidation) {
+          prompts.log.info('Skipping validation' + (isLocalServer ? ' (local server)' : ''));
+        } else {
+          const spinner = prompts.spinner();
+          spinner.start('Testing endpoint connectivity...');
 
-        spinner.stop('Validation complete');
+          const validationResult = await validateProviderSetup(
+            {
+              baseURL: selectedBaseURL,
+              apiKey: apiKey,
+              model: chosenModel,
+              providerName: provider.name,
+            },
+            false // Don't skip - we already checked above
+          );
 
-        if (validationResult.success) {
-          prompts.log.success('Connection validated successfully');
-        } else if (options.validate !== false) {
-          prompts.log.warn('Validation failed, but you can still save the configuration.');
+          // IMPORTANT: Stop spinner BEFORE any prompts or additional output
+          // This prevents terminal state corruption that can cause hangs
+          if (validationResult.success) {
+            spinner.stop('All checks passed');
+          } else {
+            spinner.stop('Validation encountered issues');
+          }
 
-          const proceedAnyway = await prompts.confirm({
-            message: 'Save configuration anyway?',
-            initialValue: false,
-          });
+          // Now display detailed results (spinner is stopped, safe to output)
+          if (validationResult.endpoint) {
+            if (validationResult.endpoint.success) {
+              prompts.log.success(`Endpoint: ${validationResult.endpoint.message}`);
+            } else {
+              prompts.log.error(`Endpoint: ${validationResult.endpoint.error || validationResult.endpoint.message}`);
+            }
+          }
 
-          if (prompts.isCancel(proceedAnyway) || !proceedAnyway) {
-            prompts.cancel('Setup cancelled. Please check your settings and try again.');
-            process.exit(0);
+          if (validationResult.authentication) {
+            if (validationResult.authentication.success) {
+              prompts.log.success(`Authentication: ${validationResult.authentication.message}`);
+            } else {
+              prompts.log.error(`Authentication: ${validationResult.authentication.error || validationResult.authentication.message}`);
+
+              // Show troubleshooting tips
+              if (validationResult.authentication.details) {
+                console.log(''); // Blank line for readability
+                prompts.log.info('Troubleshooting tips:');
+                for (const detail of validationResult.authentication.details) {
+                  prompts.log.message(`  • ${detail}`);
+                }
+                console.log(''); // Blank line
+              }
+            }
+          }
+
+          if (validationResult.model) {
+            if (validationResult.model.success) {
+              prompts.log.success(`Model: ${validationResult.model.message}`);
+            } else {
+              prompts.log.error(`Model: ${validationResult.model.error || validationResult.model.message}`);
+
+              // Show available models if provided
+              if (validationResult.availableModels && validationResult.availableModels.length > 0) {
+                console.log('');
+                prompts.log.info('Available models:');
+                for (const model of validationResult.availableModels.slice(0, 10)) {
+                  prompts.log.message(`  • ${model}`);
+                }
+                if (validationResult.availableModels.length > 10) {
+                  prompts.log.message(`  ... and ${validationResult.availableModels.length - 10} more`);
+                }
+                console.log('');
+              }
+            }
+          }
+
+          // Handle validation failure - ask user what to do
+          if (!validationResult.success) {
+            console.log(''); // Ensure clean line before prompt
+
+            const proceedAnyway = await prompts.confirm({
+              message: 'Validation failed. Save configuration anyway?',
+              initialValue: false,
+            });
+
+            if (prompts.isCancel(proceedAnyway) || !proceedAnyway) {
+              prompts.cancel('Setup cancelled. Please check your settings and try again.');
+              process.exit(0);
+            }
+
+            prompts.log.warn('Proceeding with unvalidated configuration');
           }
         }
 
@@ -414,9 +490,15 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         } as UserSettings;
 
         // Persist using settings manager to ensure encryption + permissions
-        settingsManager.saveUserSettings(mergedConfig);
-
-        prompts.log.success('Configuration saved successfully!');
+        try {
+          settingsManager.saveUserSettings(mergedConfig);
+          prompts.log.success('Configuration saved successfully!');
+        } catch (saveError) {
+          prompts.log.error(`Failed to save configuration: ${extractErrorMessage(saveError)}`);
+          prompts.log.info(`Config path: ${configPath}`);
+          prompts.log.info('Please check file permissions and disk space.');
+          process.exit(1);
+        }
 
         // ═══════════════════════════════════════════════════════════════════
         // Provider-Specific MCP Integration (GLM with Z.AI only, not local)

@@ -53,8 +53,9 @@ process.on("SIGTERM", () => {
   if (process.stdin.isTTY && process.stdin.setRawMode) {
     try {
       process.stdin.setRawMode(false);
-    } catch {
-      // Ignore errors when setting raw mode
+    } catch (error) {
+      // Log error for debugging but don't block shutdown
+      console.error('[DEBUG] Failed to reset raw mode:', error instanceof Error ? error.message : String(error));
     }
   }
   console.log("\nGracefully shutting down...");
@@ -68,8 +69,9 @@ process.on("uncaughtException", (error) => {
   if (activeAgent) {
     try {
       activeAgent.dispose();
-    } catch {
-      // Ignore cleanup errors during emergency shutdown
+    } catch (cleanupError) {
+      // Log cleanup errors for debugging but don't block shutdown
+      console.error('[DEBUG] Cleanup error during exception:', cleanupError instanceof Error ? cleanupError.message : String(cleanupError));
     }
     activeAgent = null;
   }
@@ -82,8 +84,9 @@ process.on("unhandledRejection", (reason, promise) => {
   if (activeAgent) {
     try {
       activeAgent.dispose();
-    } catch {
-      // Ignore cleanup errors during emergency shutdown
+    } catch (cleanupError) {
+      // Log cleanup errors for debugging but don't block shutdown
+      console.error('[DEBUG] Cleanup error during rejection:', cleanupError instanceof Error ? cleanupError.message : String(cleanupError));
     }
     activeAgent = null;
   }
@@ -96,8 +99,10 @@ function ensureUserSettingsDirectory(): void {
     const manager = getSettingsManager();
     // This will create default settings if they don't exist
     manager.loadUserSettings();
-  } catch {
-    // Silently ignore errors during setup
+  } catch (error) {
+    // Log to stderr for debugging but don't block startup
+    // This is non-critical - settings will use defaults
+    console.error('[DEBUG] Failed to initialize user settings:', error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -111,7 +116,11 @@ function isConfigValid(): boolean {
 
     // All required fields must be present and non-empty
     return !!(apiKey && apiKey.trim() && baseURL && baseURL.trim() && model && model.trim());
-  } catch {
+  } catch (error) {
+    // Config validation failed - log for debugging and return false
+    if (process.env.AX_DEBUG === 'true') {
+      console.error('[DEBUG] Config validation error:', error instanceof Error ? error.message : String(error));
+    }
     return false;
   }
 }
@@ -163,8 +172,11 @@ function loadModel(): string | undefined {
     try {
       const manager = getSettingsManager();
       model = manager.getCurrentModel();
-    } catch {
-      // Ignore errors, model will remain undefined
+    } catch (error) {
+      // Model loading failed - log for debugging, model remains undefined
+      if (process.env.AX_DEBUG === 'true') {
+        console.error('[DEBUG] Model loading error:', error instanceof Error ? error.message : String(error));
+      }
     }
   }
 
@@ -916,8 +928,12 @@ migrateCommandHistory();
 // Try to connect to VS Code extension IPC (async, non-blocking)
 // This enables diff preview in VS Code when the extension is running
 const ipcClient = getVSCodeIPCClient();
-ipcClient.connect().catch(() => {
-  // Silently ignore connection failures - CLI works standalone
+ipcClient.connect().catch((error) => {
+  // VS Code extension IPC is optional - log at debug level only
+  // This is expected to fail when not running from VS Code
+  if (process.env.AX_DEBUG === 'true') {
+    console.error('[DEBUG] VS Code IPC connection not available:', error instanceof Error ? error.message : String(error));
+  }
 });
 
 // Cleanup IPC on exit

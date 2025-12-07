@@ -126,7 +126,7 @@ export function createDoctorCommand(): Command {
 
         process.exit(hasFailures ? 1 : 0);
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         prompts.log.error(`Doctor command failed: ${extractErrorMessage(error)}`);
         process.exit(1);
       }
@@ -686,7 +686,9 @@ async function testEndpointReachability(baseURL: string): Promise<{ success: boo
   try {
     // For local endpoints, check if service is running
     if (baseURL.includes("localhost") || baseURL.includes("127.0.0.1")) {
-      const response = await fetch(baseURL.replace("/v1", "") + "/api/version", {
+      // Strip /v1 suffix (with or without trailing slash) to get Ollama's native API base
+      const ollamaBase = baseURL.replace(/\/v1\/?$/, "");
+      const response = await fetch(ollamaBase + "/api/version", {
         method: "GET",
         signal: AbortSignal.timeout(3000),
       });
@@ -717,12 +719,18 @@ async function testEndpointReachability(baseURL: string): Promise<{ success: boo
       error: `Server returned ${response.status}`,
     };
 
-  } catch (error: any) {
-    if (error?.name === "AbortError" || error?.name === "TimeoutError") {
-      return { success: false, error: "Connection timeout" };
+  } catch (error: unknown) {
+    // Check for specific error types
+    if (error instanceof Error) {
+      const name = error.name;
+      if (name === "AbortError" || name === "TimeoutError") {
+        return { success: false, error: "Connection timeout" };
+      }
     }
 
-    if (error?.code === "ECONNREFUSED") {
+    // Check for Node.js system error codes
+    const nodeError = error as NodeJS.ErrnoException;
+    if (nodeError?.code === "ECONNREFUSED") {
       return { success: false, error: "Connection refused" };
     }
 

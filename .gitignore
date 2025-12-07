@@ -142,6 +142,11 @@ test-file-*.*
 # But allow the settings template to be tracked
 !.ax-cli/settings.json.template
 
+# Provider-specific project directories (SECURITY: contain API keys and user data)
+# These directories are created by ax-glm and ax-grok CLI variants
+.ax-glm/
+.ax-grok/
+
 # Checkpoint directories (both locations)
 # These contain session-specific data and should never be committed
 checkpoints/

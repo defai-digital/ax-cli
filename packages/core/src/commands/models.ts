@@ -151,7 +151,7 @@ export function createModelsCommand(): Command {
         console.log(chalk.dim("  • Configure default with: ax-cli setup"));
         console.log();
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(chalk.red("Error listing models:"), extractErrorMessage(error));
         process.exit(1);
       }
@@ -182,7 +182,7 @@ export function createModelsCommand(): Command {
         console.log(chalk.cyan("Token Efficiency:"), `${model.tokenEfficiency}x`);
         console.log();
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(chalk.red("Error fetching model info:"), extractErrorMessage(error));
         process.exit(1);
       }

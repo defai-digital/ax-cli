@@ -114,3 +114,15 @@ export * from './text-utils.js';
 export * from './token-counter.js';
 export * from './confirmation-service.js';
 export * from './performance.js';
+
+// ============================================================================
+// Logging & Exit Handling
+// ============================================================================
+export * from './logger.js';
+export * from './exit-handler.js';
+export * from './terminal-state.js';
+
+// ============================================================================
+// Input Validation
+// ============================================================================
+export * from './input-validator.js';

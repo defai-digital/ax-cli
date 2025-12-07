@@ -6,8 +6,9 @@ import { ModelIdSchema } from '@defai.digital/ax-schemas';
 import { parseJsonFile, writeJsonFile } from "./json-utils.js";
 import { encrypt, decrypt } from "./encryption.js";
 import { extractErrorMessage } from "./error-handler.js";
+import { getLogger } from "./logger.js";
 import { TIMEOUT_CONFIG } from "../constants.js";
-import { getActiveConfigPaths } from "../provider/config.js";
+import { getActiveConfigPaths, getActiveProvider, getApiKeyFromEnv } from "../provider/config.js";
 
 // Re-export types for external use
 export type { UserSettings, ProjectSettings };
@@ -131,10 +132,8 @@ export class SettingsManager {
       );
 
       if (!parseResult.success) {
-        console.warn(
-          "Failed to load user settings:",
-          parseResult.error
-        );
+        const logger = getLogger();
+        logger.warn("Failed to load user settings", { error: parseResult.error });
         const defaultSettings = { ...DEFAULT_USER_SETTINGS };
         // Cache defaults even on parse failure to avoid repeated file reads
         this.userSettingsCache = defaultSettings;
@@ -151,7 +150,8 @@ export class SettingsManager {
         try {
           decryptedApiKey = decrypt(parseResult.data.apiKeyEncrypted);
         } catch (error) {
-          console.error('Failed to decrypt API key:', error instanceof Error ? error.message : 'Unknown error');
+          const logger = getLogger();
+          logger.error('Failed to decrypt API key', { error: error instanceof Error ? error.message : 'Unknown error' });
           // Fall back to plain-text if decryption fails
           if (parseResult.data.apiKey && typeof parseResult.data.apiKey === 'string') {
             decryptedApiKey = parseResult.data.apiKey;
@@ -162,7 +162,8 @@ export class SettingsManager {
         decryptedApiKey = parseResult.data.apiKey;
 
         // Migrate to encrypted format
-        console.log('🔒 Detected plain-text API key - migrating to encrypted format...');
+        const logger = getLogger();
+        logger.info('Detected plain-text API key - migrating to encrypted format');
         try {
           if (!decryptedApiKey) {
             throw new Error('API key is empty');
@@ -185,12 +186,12 @@ export class SettingsManager {
           );
 
           if (writeResult.success) {
-            console.log('✅ API key encrypted and saved successfully');
+            logger.info('API key encrypted and saved successfully');
           } else {
-            console.warn('⚠️  Failed to save encrypted API key:', writeResult.error);
+            logger.warn('Failed to save encrypted API key', { error: writeResult.error });
           }
         } catch (error) {
-          console.warn('⚠️  Failed to encrypt API key:', error instanceof Error ? error.message : 'Unknown error');
+          logger.warn('Failed to encrypt API key', { error: error instanceof Error ? error.message : 'Unknown error' });
           // Continue with plain-text for now, will retry on next load
         }
       }
@@ -207,10 +208,10 @@ export class SettingsManager {
       this.cacheTimestamp.user = Date.now();
       return settings;
     } catch (error) {
-      console.warn(
-        "Failed to load user settings:",
-        error instanceof Error ? error.message : "Unknown error"
-      );
+      const logger = getLogger();
+      logger.warn("Failed to load user settings", {
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
       const defaultSettings = { ...DEFAULT_USER_SETTINGS };
       this.userSettingsCache = defaultSettings;
       this.cacheTimestamp.user = Date.now();
@@ -291,10 +292,10 @@ export class SettingsManager {
       this.userSettingsCache = mergedSettings;
       this.cacheTimestamp.user = Date.now();
     } catch (error) {
-      console.error(
-        "Failed to save user settings:",
-        error instanceof Error ? error.message : "Unknown error"
-      );
+      const logger = getLogger();
+      logger.error("Failed to save user settings", {
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
       throw error;
     }
   }
@@ -346,10 +347,8 @@ export class SettingsManager {
       );
 
       if (!parseResult.success) {
-        console.warn(
-          "Failed to load project settings:",
-          parseResult.error
-        );
+        const logger = getLogger();
+        logger.warn("Failed to load project settings", { error: parseResult.error });
         const defaultSettings = { ...DEFAULT_PROJECT_SETTINGS };
         // Cache defaults even on parse failure to avoid repeated file reads
         this.projectSettingsCache = defaultSettings;
@@ -363,10 +362,10 @@ export class SettingsManager {
       this.cacheTimestamp.project = Date.now();
       return settings;
     } catch (error) {
-      console.warn(
-        "Failed to load project settings:",
-        error instanceof Error ? error.message : "Unknown error"
-      );
+      const logger = getLogger();
+      logger.warn("Failed to load project settings", {
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
       const defaultSettings = { ...DEFAULT_PROJECT_SETTINGS };
       this.projectSettingsCache = defaultSettings;
       this.cacheTimestamp.project = Date.now();
@@ -413,10 +412,10 @@ export class SettingsManager {
       this.projectSettingsCache = mergedSettings;
       this.cacheTimestamp.project = Date.now();
     } catch (error) {
-      console.error(
-        "Failed to save project settings:",
-        error instanceof Error ? error.message : "Unknown error"
-      );
+      const logger = getLogger();
+      logger.error("Failed to save project settings", {
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
       throw error;
     }
   }
@@ -506,10 +505,12 @@ export class SettingsManager {
 
   /**
    * Get API key from user settings or environment
+   * Checks provider-specific env vars (e.g., ZAI_API_KEY for GLM, XAI_API_KEY for Grok)
    */
   public getApiKey(): string | undefined {
-    // First check environment variable
-    const envApiKey = process.env.YOUR_API_KEY;
+    // First check provider-specific environment variables
+    const provider = getActiveProvider();
+    const envApiKey = getApiKeyFromEnv(provider);
     if (envApiKey) {
       return envApiKey;
     }

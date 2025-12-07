@@ -3,7 +3,7 @@
  * Validates provider connectivity, API keys, and model accessibility
  */
 
-import chalk from 'chalk';
+import { extractAndTranslateError } from './error-translator.js';
 
 /**
  * Configuration to validate
@@ -16,23 +16,39 @@ export interface ValidationConfig {
 }
 
 /**
- * Validation result
+ * Validation step result
+ */
+export interface ValidationStepResult {
+  success: boolean;
+  message: string;
+  error?: string;
+  details?: string[];
+}
+
+/**
+ * Validation result - structured for caller to display
+ * IMPORTANT: This validator does NOT do console output - caller handles all UI
  */
 export interface ValidationResult {
   success: boolean;
-  endpoint?: boolean;
-  authentication?: boolean;
-  model?: boolean;
+  endpoint?: ValidationStepResult;
+  authentication?: ValidationStepResult;
+  model?: ValidationStepResult;
   error?: string;
+  errorDetails?: string[];
   availableModels?: string[];
+  helpUrl?: string;
 }
 
 /**
  * Validate provider setup (endpoint, API key, model)
  *
+ * IMPORTANT: This function does NOT produce console output.
+ * All UI/display is handled by the caller to avoid conflicts with spinners/prompts.
+ *
  * @param config - Configuration to validate
  * @param skipValidation - If true, skips validation
- * @returns Validation result
+ * @returns Validation result with structured data for caller to display
  */
 export async function validateProviderSetup(
   config: ValidationConfig,
@@ -42,89 +58,74 @@ export async function validateProviderSetup(
     return { success: true };
   }
 
-  console.log(chalk.cyan('\n🔍 Validating configuration...\n'));
-
   const result: ValidationResult = {
     success: false,
-    endpoint: false,
-    authentication: false,
-    model: false,
+    helpUrl: getProviderWebsite(config.providerName),
   };
 
   try {
     // Step 1: Test endpoint reachability
-    console.log(chalk.dim('   Testing endpoint connectivity...'));
     const endpointTest = await testEndpoint(config.baseURL);
+
+    result.endpoint = {
+      success: endpointTest.success,
+      message: endpointTest.success ? 'Endpoint reachable' : 'Endpoint unreachable',
+      error: endpointTest.error,
+    };
 
     if (!endpointTest.success) {
       result.error = endpointTest.error;
-      console.log(chalk.red('   ✗ Endpoint unreachable'));
-      console.log(chalk.yellow(`     ${endpointTest.error}`));
       return result;
     }
-
-    result.endpoint = true;
-    console.log(chalk.green('   ✓ Endpoint reachable'));
 
     // Step 2: Test API key (if provided)
     if (config.apiKey) {
-      console.log(chalk.dim('   Validating API key...'));
       const authTest = await testAuthentication(config.baseURL, config.apiKey, config.providerName);
+
+      result.authentication = {
+        success: authTest.success,
+        message: authTest.success ? 'API key valid' : 'Authentication failed',
+        error: authTest.error,
+        details: authTest.success ? undefined : [
+          'Verify your API key is correct',
+          'Check if the key has expired',
+          `Get a new key from: ${result.helpUrl}`,
+        ],
+      };
 
       if (!authTest.success) {
         result.error = authTest.error;
-        console.log(chalk.red('   ✗ Authentication failed'));
-        console.log(chalk.yellow(`     ${authTest.error}`));
-
-        // Provide helpful guidance
-        console.log(chalk.dim('\n   💡 Troubleshooting:'));
-        console.log(chalk.dim('      • Verify your API key is correct'));
-        console.log(chalk.dim('      • Check if the key has expired'));
-        console.log(chalk.dim(`      • Get a new key from: ${getProviderWebsite(config.providerName)}`));
-
+        result.errorDetails = result.authentication.details;
         return result;
       }
-
-      result.authentication = true;
-      console.log(chalk.green('   ✓ API key valid'));
     } else {
       // No API key required (Ollama)
-      console.log(chalk.green('   ✓ No API key required'));
-      result.authentication = true;
+      result.authentication = {
+        success: true,
+        message: 'No API key required',
+      };
     }
 
     // Step 3: Test model accessibility
-    console.log(chalk.dim('   Checking model accessibility...'));
     const modelTest = await testModel(config.baseURL, config.apiKey, config.model, config.providerName);
+
+    result.model = {
+      success: modelTest.success,
+      message: modelTest.success ? 'Model accessible' : `Model "${config.model}" not accessible`,
+      error: modelTest.error,
+    };
 
     if (!modelTest.success) {
       result.error = modelTest.error;
-      console.log(chalk.red(`   ✗ Model "${config.model}" not accessible`));
-      console.log(chalk.yellow(`     ${modelTest.error}`));
-
-      if (modelTest.availableModels && modelTest.availableModels.length > 0) {
-        console.log(chalk.dim('\n   Available models:'));
-        modelTest.availableModels.forEach(model => {
-          console.log(chalk.dim(`      • ${model}`));
-        });
-      }
-
+      result.availableModels = modelTest.availableModels;
       return result;
     }
 
-    result.model = true;
     result.success = true;
-    console.log(chalk.green('   ✓ Model accessible'));
-
-    // Success message
-    console.log(chalk.green('\n✅ Configuration validated successfully!\n'));
-
     return result;
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     result.error = error instanceof Error ? error.message : 'Unknown validation error';
-    console.log(chalk.red('\n✗ Validation failed'));
-    console.log(chalk.yellow(`  ${result.error}\n`));
     return result;
   }
 }
@@ -136,7 +137,9 @@ async function testEndpoint(baseURL: string): Promise<{ success: boolean; error?
   try {
     // For Ollama, check if service is running
     if (baseURL.includes('localhost') || baseURL.includes('127.0.0.1')) {
-      const response = await fetch(baseURL.replace('/v1', '') + '/api/version', {
+      // Strip /v1 suffix (with or without trailing slash) to get Ollama's native API base
+      const ollamaBase = baseURL.replace(/\/v1\/?$/, '');
+      const response = await fetch(ollamaBase + '/api/version', {
         method: 'GET',
         signal: AbortSignal.timeout(5000), // 5 second timeout
       });
@@ -167,24 +170,31 @@ async function testEndpoint(baseURL: string): Promise<{ success: boolean; error?
       error: `Server returned ${response.status} ${response.statusText}`,
     };
 
-  } catch (error: any) {
-    if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
-      return {
-        success: false,
-        error: 'Connection timeout - check your internet connection or firewall settings',
-      };
+  } catch (error: unknown) {
+    // Check for specific error types
+    if (error instanceof Error) {
+      const name = error.name;
+      if (name === 'AbortError' || name === 'TimeoutError') {
+        return {
+          success: false,
+          error: 'Connection timeout - check your internet connection or firewall settings',
+        };
+      }
     }
 
-    if (error?.code === 'ECONNREFUSED') {
+    // Check for Node.js system error codes
+    const nodeError = error as NodeJS.ErrnoException;
+    if (nodeError?.code === 'ECONNREFUSED') {
       return {
         success: false,
         error: 'Connection refused - server may be down or URL incorrect',
       };
     }
 
+    // Use the enhanced error translator for other errors
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error',
+      error: extractAndTranslateError(error),
     };
   }
 }
@@ -219,16 +229,9 @@ async function testAuthentication(
       error: `Unexpected response ${response.status} ${response.statusText}`,
     };
 
-  } catch (error: any) {
-    // Extract error message
-    let errorMessage = error instanceof Error ? error.message : 'Authentication failed';
-
-    // Translate Chinese errors if present
-    if (/[\u4e00-\u9fa5]/.test(errorMessage)) {
-      if (errorMessage.includes('令牌已过期') || errorMessage.includes('验证不正确')) {
-        errorMessage = 'Token expired or verification incorrect (API key invalid)';
-      }
-    }
+  } catch (error: unknown) {
+    // Use the enhanced error translator for Chinese error messages
+    const errorMessage = extractAndTranslateError(error);
 
     return {
       success: false,
@@ -251,13 +254,18 @@ async function testModel(
     if (baseURL.includes('localhost') || baseURL.includes('127.0.0.1')) {
       let availableModels: string[] = [];
       try {
-        const response = await fetch(baseURL.replace('/v1', '') + '/api/tags');
+        // Strip /v1 suffix (with or without trailing slash) to get Ollama's native API base
+        const ollamaBase = baseURL.replace(/\/v1\/?$/, '');
+        const response = await fetch(ollamaBase + '/api/tags', {
+          method: 'GET',
+          signal: AbortSignal.timeout(5000), // 5 second timeout
+        });
         if (response.ok) {
           const data = await response.json() as any;
           availableModels = data.models?.map((m: any) => m.name) || [];
         }
       } catch {
-        // Ignore
+        // Ignore - timeout or connection error
       }
 
       if (availableModels.includes(model)) {
@@ -310,9 +318,13 @@ async function testModel(
       };
     }
 
-    // If /models is not available, fall back to ping
+    // If /models is not available (404), assume model is valid
+    // Some providers (xAI/Grok) don't have a /models endpoint
     if (response.status === 404) {
-      return { success: false, error: 'Models endpoint not available for this provider' };
+      return {
+        success: true,
+        availableModels: undefined,
+      };
     }
 
     return {
@@ -320,21 +332,14 @@ async function testModel(
       error: `Model check failed with ${response.status} ${response.statusText}`,
     };
 
-  } catch (error: any) {
-    let errorMessage = error instanceof Error ? error.message : 'Model not accessible';
-    let availableModels: string[] | undefined;
-
-    // Translate Chinese errors
-    if (/[\u4e00-\u9fa5]/.test(errorMessage)) {
-      if (errorMessage.includes('模型不存在')) {
-        errorMessage = 'Model does not exist';
-      }
-    }
+  } catch (error: unknown) {
+    // Use the enhanced error translator for Chinese error messages
+    const errorMessage = extractAndTranslateError(error);
 
     return {
       success: false,
       error: errorMessage,
-      availableModels,
+      availableModels: undefined,
     };
   }
 }
@@ -343,16 +348,23 @@ async function testModel(
  * Get provider website for help
  */
 function getProviderWebsite(providerName: string): string {
+  const normalized = providerName.toLowerCase();
+
   const websites: Record<string, string> = {
+    // GLM / Z.AI
+    'glm': 'https://z.ai',
     'z.ai': 'https://z.ai',
     'z.ai-free': 'https://z.ai',
-    'xai': 'https://x.ai',
+    // Grok / xAI
+    'grok': 'https://console.x.ai',
+    'xai': 'https://console.x.ai',
+    // Other providers
     'openai': 'https://platform.openai.com',
     'anthropic': 'https://console.anthropic.com',
     'ollama': 'https://ollama.ai',
   };
 
-  return websites[providerName.toLowerCase()] || 'provider website';
+  return websites[normalized] || 'https://example.com';
 }
 
 /**

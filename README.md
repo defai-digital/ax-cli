@@ -223,6 +223,14 @@ ax-glm memory status    # View token distribution
 
 ## Changelog
 
+### v4.1.16 - Code Quality & Stability Improvements
+- **Terminal State Management**: Integrated terminal lifecycle manager to prevent corruption from overlapping spinners/prompts
+- **Unified Exit Handling**: Centralized exit handler with proper cleanup callbacks and exit codes
+- **Structured Logging**: Replaced console.log/warn/error with structured logger in settings-manager
+- **Silent Error Fixes**: Added debug logging for previously silent catches (enable with `AX_DEBUG=true`)
+- **TypeScript Fixes**: Fixed Zod API usage and removed unused imports
+- **Security**: Added `.ax-glm/` and `.ax-grok/` to `.gitignore` to protect API keys
+
 ### v4.1.13 - SDK 1.4.0 Multi-Provider Support
 - **SDK 1.4.0**: Multi-provider support with ProviderContext
 - `createGLMAgent()` and `createGrokAgent()` factory functions

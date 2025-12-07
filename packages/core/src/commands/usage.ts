@@ -121,8 +121,9 @@ export function createUsageCommand(): Command {
           prompts.outro(chalk.dim('Check provider dashboard for historical data'));
         }
 
-      } catch (error: any) {
-        prompts.log.error(`Error: ${error.message}`);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        prompts.log.error(`Error: ${message}`);
         process.exit(1);
       }
     });
@@ -136,8 +137,9 @@ export function createUsageCommand(): Command {
         const tracker = getUsageTracker();
         tracker.resetSession();
         console.log(chalk.green('✓ Session usage statistics reset'));
-      } catch (error: any) {
-        ConsoleMessenger.error('usage_commands.error_resetting_usage', { error: error.message });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        ConsoleMessenger.error('usage_commands.error_resetting_usage', { error: message });
         process.exit(1);
       }
     });

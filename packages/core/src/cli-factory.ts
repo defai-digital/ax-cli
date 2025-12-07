@@ -7,7 +7,7 @@
 
 import React from "react";
 import { render } from "ink";
-import { program, Command } from "commander";
+import { Command } from "commander";
 import * as dotenv from "dotenv";
 import { LLMAgent } from "./agent/llm-agent.js";
 import ChatInterface from "./ui/components/chat-interface.js";

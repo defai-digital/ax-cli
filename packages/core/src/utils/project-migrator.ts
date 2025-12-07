@@ -15,12 +15,10 @@
 
 import {
   existsSync,
-  readdirSync,
   copyFileSync,
   mkdirSync,
   renameSync,
   statSync,
-  readFileSync,
 } from 'fs';
 import { join, basename } from 'path';
 import * as prompts from '@clack/prompts';

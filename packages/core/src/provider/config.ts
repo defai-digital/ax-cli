@@ -412,14 +412,24 @@ export function getConfigPathsByProviderName(providerName: string): ProviderConf
   return getProviderConfigPaths(provider);
 }
 
-// Current active provider config paths (set by cli-factory)
+// Current active provider (set by cli-factory)
+let activeProvider: ProviderDefinition | null = null;
 let activeConfigPaths: ProviderConfigPaths | null = null;
 
 /**
- * Set the active provider config paths (called by cli-factory on startup)
+ * Set the active provider (called by cli-factory on startup)
  */
 export function setActiveProviderConfigPaths(provider: ProviderDefinition): void {
+  activeProvider = provider;
   activeConfigPaths = getProviderConfigPaths(provider);
+}
+
+/**
+ * Get the active provider definition
+ * Falls back to GLM provider if not set
+ */
+export function getActiveProvider(): ProviderDefinition {
+  return activeProvider || GLM_PROVIDER;
 }
 
 /**

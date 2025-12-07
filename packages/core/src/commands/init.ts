@@ -7,7 +7,7 @@
 
 import { Command } from 'commander';
 import { existsSync, mkdirSync, writeFileSync, renameSync, unlinkSync } from 'fs';
-import { join, resolve, basename } from 'path';
+import { join, resolve } from 'path';
 import * as prompts from '@clack/prompts';
 import chalk from 'chalk';
 import { ProjectAnalyzer } from '../utils/project-analyzer.js';

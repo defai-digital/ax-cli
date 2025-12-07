@@ -7,6 +7,10 @@ import chalk from 'chalk';
 import { validateProviderSetup } from '../utils/setup-validator.js';
 import { getSettingsManager } from '../utils/settings-manager.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
+import { getTerminalStateManager } from '../utils/terminal-state.js';
+import { exitCancelled, exitWithError, ExitCode } from '../utils/exit-handler.js';
+// Logger imported for future structured logging improvements
+// import { getLogger } from '../utils/logger.js';
 import type { UserSettings } from '../schemas/settings-schemas.js';
 import { CONFIG_PATHS } from '../constants.js';
 import {
@@ -18,11 +22,14 @@ import { addMCPServer, removeMCPServer } from '../mcp/config.js';
 
 /**
  * Handle user cancellation - exits process if cancelled
+ * Uses unified exit handler for consistent cleanup
  */
 function exitIfCancelled<T>(value: T | symbol): asserts value is T {
   if (prompts.isCancel(value)) {
+    const terminalManager = getTerminalStateManager();
+    terminalManager.forceCleanup();
     prompts.cancel('Setup cancelled.');
-    process.exit(0);
+    exitCancelled('Setup cancelled by user');
   }
 }
 
@@ -321,52 +328,100 @@ export function createSetupCommand(): Command {
         // ═══════════════════════════════════════════════════════════════════
         prompts.log.step(chalk.bold('Step 4/5 — Validate Connection'));
 
-        const spinner = prompts.spinner();
-        spinner.start('Validating connection...');
+        if (!options.validate) {
+          prompts.log.info('Skipping validation (--no-validate)');
+        } else {
+          const spinner = prompts.spinner();
+          spinner.start('Testing endpoint connectivity...');
 
-        const validationResult = await validateProviderSetup(
-          {
-            baseURL: selectedProvider.baseURL,
-            apiKey: apiKey,
-            model: chosenModel,
-            providerName: selectedProvider.name,
-          },
-          !options.validate
-        );
+          const validationResult = await validateProviderSetup(
+            {
+              baseURL: selectedProvider.baseURL,
+              apiKey: apiKey,
+              model: chosenModel,
+              providerName: selectedProvider.name,
+            },
+            false // Don't skip - we already checked above
+          );
 
-        spinner.stop('Validation complete');
+          // IMPORTANT: Stop spinner BEFORE any prompts or additional output
+          // This prevents terminal state corruption that can cause hangs
+          if (validationResult.success) {
+            spinner.stop('All checks passed');
+          } else {
+            spinner.stop('Validation encountered issues');
+          }
 
-        // If validator returned models list, offer quick re-pick
-        if (validationResult.availableModels && validationResult.availableModels.length > 0) {
-          const uniqueAvailable = Array.from(new Set(validationResult.availableModels));
-          const availableChoices = uniqueAvailable.map(model => ({
-            value: model,
-            label: model,
-          }));
-          availableChoices.push({ value: chosenModel, label: `${chosenModel} (keep current)` });
+          // Now display detailed results (spinner is stopped, safe to output)
+          if (validationResult.endpoint) {
+            if (validationResult.endpoint.success) {
+              prompts.log.success(`Endpoint: ${validationResult.endpoint.message}`);
+            } else {
+              prompts.log.error(`Endpoint: ${validationResult.endpoint.error || validationResult.endpoint.message}`);
+            }
+          }
 
-          const altModel = await prompts.select({
-            message: 'Select a validated model (or keep current):',
-            options: availableChoices,
-            initialValue: chosenModel,
-          });
-          exitIfCancelled(altModel);
-          chosenModel = altModel;
-        }
+          if (validationResult.authentication) {
+            if (validationResult.authentication.success) {
+              prompts.log.success(`Authentication: ${validationResult.authentication.message}`);
+            } else {
+              prompts.log.error(`Authentication: ${validationResult.authentication.error || validationResult.authentication.message}`);
 
-        if (validationResult.success) {
-          prompts.log.success('Connection validated successfully');
-        } else if (options.validate !== false) {
-          prompts.log.warn('Validation failed, but you can still save the configuration.');
+              // Show troubleshooting tips
+              if (validationResult.authentication.details) {
+                console.log(''); // Blank line for readability
+                prompts.log.info('Troubleshooting tips:');
+                for (const detail of validationResult.authentication.details) {
+                  prompts.log.message(`  • ${detail}`);
+                }
+                console.log(''); // Blank line
+              }
+            }
+          }
 
-          const proceedAnyway = await prompts.confirm({
-            message: 'Save configuration anyway?',
-            initialValue: false,
-          });
+          if (validationResult.model) {
+            if (validationResult.model.success) {
+              prompts.log.success(`Model: ${validationResult.model.message}`);
+            } else {
+              prompts.log.error(`Model: ${validationResult.model.error || validationResult.model.message}`);
+            }
+          }
 
-          if (prompts.isCancel(proceedAnyway) || !proceedAnyway) {
-            prompts.cancel('Setup cancelled. Please check your settings and try again.');
-            process.exit(0);
+          // If validator returned models list, offer quick re-pick
+          if (validationResult.availableModels && validationResult.availableModels.length > 0) {
+            const uniqueAvailable = Array.from(new Set(validationResult.availableModels));
+            const availableChoices = uniqueAvailable.slice(0, 10).map(model => ({
+              value: model,
+              label: model,
+            }));
+            availableChoices.push({ value: chosenModel, label: `${chosenModel} (keep current)` });
+
+            const altModel = await prompts.select({
+              message: 'Select a validated model (or keep current):',
+              options: availableChoices,
+              initialValue: chosenModel,
+            });
+            exitIfCancelled(altModel);
+            chosenModel = altModel;
+          }
+
+          // Handle validation failure - ask user what to do
+          if (!validationResult.success) {
+            console.log(''); // Ensure clean line before prompt
+
+            const proceedAnyway = await prompts.confirm({
+              message: 'Validation failed. Save configuration anyway?',
+              initialValue: false,
+            });
+
+            if (prompts.isCancel(proceedAnyway) || !proceedAnyway) {
+              const terminalManager = getTerminalStateManager();
+              terminalManager.forceCleanup();
+              prompts.cancel('Setup cancelled. Please check your settings and try again.');
+              exitCancelled('Setup cancelled - validation failed');
+            }
+
+            prompts.log.warn('Proceeding with unvalidated configuration');
           }
         }
 
@@ -393,8 +448,10 @@ export function createSetupCommand(): Command {
         exitIfCancelled(confirmSave);
 
         if (!confirmSave) {
+          const terminalManager = getTerminalStateManager();
+          terminalManager.forceCleanup();
           prompts.cancel('Setup cancelled. No changes saved.');
-          process.exit(0);
+          exitCancelled('Setup cancelled - user declined to save');
         }
 
         // Create configuration object
@@ -412,9 +469,20 @@ export function createSetupCommand(): Command {
         } as UserSettings;
 
         // Persist using settings manager to ensure encryption + permissions
-        settingsManager.saveUserSettings(mergedConfig);
-
-        prompts.log.success('Configuration saved successfully!');
+        try {
+          settingsManager.saveUserSettings(mergedConfig);
+          prompts.log.success('Configuration saved successfully!');
+        } catch (saveError) {
+          const terminalManager = getTerminalStateManager();
+          terminalManager.forceCleanup();
+          prompts.log.error(`Failed to save configuration: ${extractErrorMessage(saveError)}`);
+          prompts.log.info(`Config path: ${configPath}`);
+          prompts.log.info('Please check file permissions and disk space.');
+          exitWithError('Failed to save configuration', ExitCode.CONFIG_ERROR, {
+            command: 'setup',
+            operation: 'save-settings',
+          });
+        }
 
         // ═══════════════════════════════════════════════════════════════════
         // Z.AI MCP Integration
@@ -590,14 +658,21 @@ export function createSetupCommand(): Command {
 
         prompts.outro(chalk.green('Setup complete! Happy coding!'));
 
-      } catch (error: any) {
-        if (error?.message === 'canceled' || error?.name === 'canceled') {
+      } catch (error: unknown) {
+        const terminalManager = getTerminalStateManager();
+        terminalManager.forceCleanup();
+
+        const err = error as { message?: string; name?: string };
+        if (err?.message === 'canceled' || err?.name === 'canceled') {
           prompts.cancel('Setup cancelled by user.');
-          process.exit(0);
+          exitCancelled('Setup cancelled by user');
         }
 
         prompts.log.error(`Setup failed: ${extractErrorMessage(error)}`);
-        process.exit(1);
+        exitWithError('Setup failed', ExitCode.GENERAL_ERROR, {
+          command: 'setup',
+          error: extractErrorMessage(error),
+        });
       }
     });
 
