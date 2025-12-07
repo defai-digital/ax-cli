@@ -223,6 +223,9 @@ ax-glm memory status    # View token distribution
 
 ## Changelog
 
+### v4.1.18 - CI/CD Fix
+- **Fixed Tests**: Added missing `provider/config.ts` to root src for test compatibility
+
 ### v4.1.17 - Grok Model Fixes
 - **Fixed Grok Model Names**: Updated to correct xAI API model IDs (`grok-2-1212`, `grok-2-vision-1212`)
 - **Model Validation**: Grok models now properly recognized (no more "custom model" warnings)
