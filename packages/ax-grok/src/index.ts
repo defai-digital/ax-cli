@@ -15,9 +15,14 @@
  */
 
 import { runCLI, GROK_PROVIDER } from '@defai.digital/ax-core';
+import { createRequire } from 'module';
+
+// Get version from package.json
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json');
 
 // Run the CLI with Grok configuration
 runCLI({
   provider: GROK_PROVIDER,
-  version: '1.0.0',
+  version: pkg.version,
 });

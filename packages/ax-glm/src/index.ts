@@ -13,9 +13,14 @@
  */
 
 import { runCLI, GLM_PROVIDER } from '@defai.digital/ax-core';
+import { createRequire } from 'module';
+
+// Get version from package.json
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json');
 
 // Run the CLI with GLM configuration
 runCLI({
   provider: GLM_PROVIDER,
-  version: '1.0.0',
+  version: pkg.version,
 });
