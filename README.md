@@ -223,6 +223,13 @@ ax-glm memory status    # View token distribution
 
 ## Changelog
 
+### v4.3.2 - Enter Key Fix
+
+- **Bug Fix**: Fixed Enter key not working in certain terminal environments
+  - Enter key was being interpreted as newline character instead of submit
+  - Now properly detects Enter from multiple sources (key.return, carriage return, newline)
+  - Preserves Ctrl+J behavior for explicit newline insertion
+
 ### v4.3.1 - Patch Release
 
 - **Bug Fixes**: Minor stability improvements and fixes

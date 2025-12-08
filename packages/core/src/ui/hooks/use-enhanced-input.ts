@@ -645,7 +645,13 @@ export function useEnhancedInput({
     if (disabled) return;
 
     const shiftEnterDetected = isShiftEnterKey(inputChar, key);
-    const enterPressed = key.return || shiftEnterDetected;
+    // BUG FIX: Detect Enter from multiple sources:
+    // 1. key.return (standard Ink detection)
+    // 2. inputChar === '\r' (carriage return - some terminals send this for Enter)
+    // 3. inputChar === '\n' without Ctrl modifier (newline - other terminals send this for Enter)
+    // Note: Ctrl+J sends '\n' but should insert newline, not submit, so we exclude Ctrl modifier
+    const isPlainEnter = inputChar === '\r' || (inputChar === '\n' && !key.ctrl);
+    const enterPressed = key.return || shiftEnterDetected || isPlainEnter;
 
     // Handle Ctrl+C - check multiple ways it could be detected
     if ((key.ctrl && inputChar === "c") || inputChar === "\x03") {
