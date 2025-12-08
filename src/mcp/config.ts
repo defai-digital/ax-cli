@@ -7,6 +7,7 @@ import { migrateConfig } from "./config-migrator.js";
 import { detectConfigFormat } from "./config-detector.js";
 import { formatMCPConfigError, formatWarning, formatInfo } from "./error-formatter.js";
 import { ZAI_SERVER_NAMES, isZAIServer } from "./zai-templates.js";
+import { loadProviderMCPConfig } from "./provider-mcp-loader.js";
 
 export interface MCPConfig {
   servers: MCPServerConfig[];
@@ -173,7 +174,28 @@ export function loadMCPConfig(): MCPConfig {
     }
   }
 
-  // Load AutomatosX servers (if exists)
+  // Load provider-specific MCP config following Claude Code best practices:
+  // 1. .ax-glm/.mcp.json or .ax-grok/.mcp.json (Claude Code format - recommended)
+  // 2. .ax-glm/mcp-config.json or .ax-grok/mcp-config.json (legacy format)
+  // This ensures ax-glm and ax-grok use their own config directories
+  const providerMCPResult = loadProviderMCPConfig();
+  const providerMCPServers = providerMCPResult.serverConfigs;
+
+  if (providerMCPResult.found && !hasShownMigrationWarnings) {
+    if (providerMCPResult.error) {
+      console.warn(
+        formatWarning('Provider MCP config found but has errors:', [providerMCPResult.error])
+      );
+    }
+
+    if (providerMCPResult.warnings.length > 0 && process.env.DEBUG) {
+      providerMCPResult.warnings.forEach(warning => {
+        console.warn(formatInfo(warning));
+      });
+    }
+  }
+
+  // Load AutomatosX servers from .automatosx/config.json (legacy location)
   const automatosXResult = loadAutomatosXMCPServers();
 
   if (automatosXResult.found && !hasShownMigrationWarnings) {
@@ -190,11 +212,30 @@ export function loadMCPConfig(): MCPConfig {
     }
   }
 
-  // Merge configs if we have both sources
+  // Merge all config sources with priority:
+  // 1. ax-cli project settings (highest priority)
+  // 2. Provider-specific MCP config (.ax-glm/mcp-config.json or .ax-grok/mcp-config.json)
+  // 3. AutomatosX config (.automatosx/config.json) (lowest priority)
   let finalServers: MCPServerConfig[];
 
-  if (automatosXResult.found && automatosXResult.servers.length > 0) {
-    const mergeResult = mergeConfigs(axCliServers, automatosXResult.servers);
+  // Start with AutomatosX servers (lowest priority)
+  let mergedServers = automatosXResult.found && automatosXResult.servers.length > 0
+    ? automatosXResult.servers
+    : [];
+
+  // Merge provider-specific MCP servers (higher priority than AutomatosX)
+  if (providerMCPServers.length > 0) {
+    const providerMergeResult = mergeConfigs(providerMCPServers, mergedServers);
+    mergedServers = providerMergeResult.servers;
+
+    if (!hasShownMigrationWarnings && process.env.DEBUG) {
+      console.log(formatInfo(`Loaded ${providerMCPServers.length} server(s) from provider MCP config`));
+    }
+  }
+
+  // Merge ax-cli servers (highest priority)
+  if (axCliServers.length > 0 || mergedServers.length > 0) {
+    const mergeResult = mergeConfigs(axCliServers, mergedServers);
     finalServers = mergeResult.servers;
 
     // Show merge info only in debug mode or if there are conflicts
@@ -213,7 +254,7 @@ export function loadMCPConfig(): MCPConfig {
   }
 
   // Mark that we've shown warnings this session
-  if (axCliHadLegacy || automatosXResult.found) {
+  if (axCliHadLegacy || automatosXResult.found || providerMCPResult.found) {
     hasShownMigrationWarnings = true;
   }
 

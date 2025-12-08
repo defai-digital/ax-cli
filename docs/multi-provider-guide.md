@@ -24,9 +24,13 @@ Each provider has **isolated** configuration and state:
 Project directory:
 ├── .ax-glm/              # GLM project-specific state
 │   ├── memory.json       # GLM context cache
+│   ├── .mcp.json         # GLM MCP server config (Claude Code format)
+│   ├── mcp-config.json   # GLM MCP config (legacy format)
 │   └── checkpoints/      # GLM checkpoints
 └── .ax-grok/             # Grok project-specific state
     ├── memory.json       # Grok context cache
+    ├── .mcp.json         # Grok MCP server config (Claude Code format)
+    ├── mcp-config.json   # Grok MCP config (legacy format)
     └── checkpoints/      # Grok checkpoints
 ```
 
@@ -459,6 +463,110 @@ Project directory:
     ├── memory.json
     ├── checkpoints/
     └── plans/
+```
+
+## Provider-Specific MCP Configuration
+
+Each provider has its own MCP (Model Context Protocol) configuration, ensuring ax-glm and ax-grok can run simultaneously without conflicts.
+
+### Claude Code Format (Recommended)
+
+The recommended format follows Claude Code best practices. Create `.mcp.json` in the provider directory:
+
+**`.ax-glm/.mcp.json`** (for ax-glm):
+```json
+{
+  "mcpServers": {
+    "automatosx": {
+      "command": "automatosx",
+      "args": ["mcp", "server"],
+      "env": {
+        "AUTOMATOSX_PROJECT_DIR": "/path/to/project",
+        "AUTOMATOSX_USE_MEMORY": "true"
+      }
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+**`.ax-grok/.mcp.json`** (for ax-grok):
+```json
+{
+  "mcpServers": {
+    "automatosx": {
+      "command": "automatosx",
+      "args": ["mcp", "server"],
+      "env": {
+        "AUTOMATOSX_PROJECT_DIR": "/path/to/project"
+      }
+    }
+  }
+}
+```
+
+### Legacy Format (Backward Compatible)
+
+The legacy `mcp-config.json` format is also supported:
+
+**`.ax-glm/mcp-config.json`**:
+```json
+{
+  "mcp": {
+    "enabled": true,
+    "serverCommand": "automatosx",
+    "serverArgs": ["mcp", "server"],
+    "autoConnect": true,
+    "timeout": 30000
+  },
+  "provider": {
+    "name": "glm",
+    "apiKeyEnv": "ZAI_API_KEY"
+  },
+  "integration": {
+    "useMemory": true,
+    "useAgentContext": true,
+    "saveResponsesToMemory": true
+  }
+}
+```
+
+### Configuration Priority
+
+MCP configurations are loaded with this priority (highest to lowest):
+
+1. **Project settings** (`.ax-glm/settings.json` or `.ax-grok/settings.json`)
+2. **Provider-specific MCP config** (`.ax-glm/.mcp.json` or `.ax-grok/.mcp.json`)
+3. **Legacy provider config** (`.ax-glm/mcp-config.json` or `.ax-grok/mcp-config.json`)
+4. **AutomatosX config** (`.automatosx/config.json`)
+
+### Benefits of Provider-Specific MCP
+
+- **No conflicts**: ax-glm and ax-grok can have different MCP server configurations
+- **Claude Code compatibility**: Uses the same `.mcp.json` format as Claude Code
+- **Isolation**: Each provider's MCP servers are independent
+- **Flexibility**: Mix and match MCP servers per provider
+
+### SDK Usage
+
+```typescript
+import {
+  loadProviderMCPConfig,
+  providerMCPConfigExists,
+} from '@defai.digital/ax-cli';
+
+// Check if provider has MCP config
+if (providerMCPConfigExists()) {
+  const result = loadProviderMCPConfig();
+  console.log(`Found ${result.serverConfigs.length} MCP servers`);
+  console.log(`Format: ${result.format}`); // 'claude-code' or 'legacy'
+}
 ```
 
 ## Migration from ax-cli

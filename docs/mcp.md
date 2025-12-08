@@ -816,10 +816,90 @@ MCP server configurations are stored in your project's `.ax/settings.json`:
 When multiple configurations exist, AX CLI uses this priority:
 
 1. **CLI Flags** (highest priority) - command-line arguments
-2. **Environment Variables** - `GROK_*` prefixed variables
-3. **Project Settings** - `.ax/settings.json`
-4. **User Settings** - `~/.ax-cli/config.json`
-5. **Defaults** (lowest priority) - built-in defaults
+2. **Environment Variables** - `GROK_*` or `ZAI_*` prefixed variables
+3. **Project Settings** - `.ax-glm/settings.json` or `.ax-grok/settings.json`
+4. **Provider-Specific MCP Config** - `.ax-glm/.mcp.json` or `.ax-grok/.mcp.json` (Claude Code format)
+5. **Legacy Provider MCP Config** - `.ax-glm/mcp-config.json` or `.ax-grok/mcp-config.json`
+6. **AutomatosX Config** - `.automatosx/config.json`
+7. **User Settings** - `~/.ax-glm/config.json` or `~/.ax-grok/config.json`
+8. **Defaults** (lowest priority) - built-in defaults
+
+### Provider-Specific MCP Configuration
+
+When running `ax-glm` or `ax-grok`, each CLI loads MCP servers from its own provider-specific directory. This allows you to install and use both CLIs simultaneously without conflicts.
+
+#### Claude Code Format (Recommended)
+
+Create a `.mcp.json` file in the provider directory following Claude Code conventions:
+
+**For ax-glm** (`.ax-glm/.mcp.json`):
+```json
+{
+  "mcpServers": {
+    "automatosx": {
+      "command": "automatosx",
+      "args": ["mcp", "server"],
+      "env": {
+        "AUTOMATOSX_PROJECT_DIR": "/path/to/project"
+      }
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+**For ax-grok** (`.ax-grok/.mcp.json`):
+```json
+{
+  "mcpServers": {
+    "automatosx": {
+      "command": "automatosx",
+      "args": ["mcp", "server"],
+      "env": {
+        "AUTOMATOSX_PROJECT_DIR": "/path/to/project"
+      }
+    }
+  }
+}
+```
+
+#### Legacy Format (Backward Compatible)
+
+The legacy `mcp-config.json` format is also supported for backward compatibility:
+
+```json
+{
+  "mcp": {
+    "enabled": true,
+    "serverCommand": "automatosx",
+    "serverArgs": ["mcp", "server"],
+    "timeout": 30000
+  },
+  "provider": {
+    "name": "glm",
+    "apiKeyEnv": "ZAI_API_KEY"
+  },
+  "integration": {
+    "useMemory": true,
+    "useAgentContext": true
+  }
+}
+```
+
+#### Benefits of Provider-Specific MCP
+
+| Benefit | Description |
+|---------|-------------|
+| **No Conflicts** | ax-glm and ax-grok can have completely different MCP configurations |
+| **Claude Code Compatible** | Uses the same `.mcp.json` format as Claude Code |
+| **Isolation** | Each provider's MCP servers are independent |
+| **Flexibility** | Configure different servers for different providers |
 
 ### Environment Variable Usage
 

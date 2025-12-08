@@ -76,6 +76,12 @@ The MCP module uses a layered architecture:
 | `resources.ts` | MCP resource reference resolution |
 | `prompts.ts` | MCP prompt utilities |
 
+### Provider-Specific MCP
+
+| File | Purpose |
+|------|---------|
+| `provider-mcp-loader.ts` | Load MCP config from provider directories (.ax-glm/.mcp.json, .ax-grok/.mcp.json) |
+
 ### Z.AI Integration
 
 | File | Purpose |

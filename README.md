@@ -223,6 +223,29 @@ ax-glm memory status    # View token distribution
 
 ## Changelog
 
+### v4.2.0 - Provider-Specific MCP Configuration
+
+**Provider MCP Isolation**: ax-glm and ax-grok now have separate MCP configurations, allowing both CLIs to run simultaneously without conflicts.
+
+- **Claude Code Format Support**: New `.mcp.json` format following Claude Code best practices
+- **Provider-Specific Directories**: `.ax-glm/.mcp.json` and `.ax-grok/.mcp.json` for isolated MCP server configs
+- **Legacy Format Support**: Backward compatible with existing `mcp-config.json` files
+- **Configuration Priority**: Clear priority order for MCP config loading (project settings > provider MCP > AutomatosX config)
+- **Documentation Updates**: Comprehensive guides for multi-provider MCP setup
+
+**MCP Configuration Example** (`.ax-glm/.mcp.json`):
+```json
+{
+  "mcpServers": {
+    "automatosx": {
+      "command": "automatosx",
+      "args": ["mcp", "server"],
+      "env": { "AUTOMATOSX_PROJECT_DIR": "/path/to/project" }
+    }
+  }
+}
+```
+
 ### v4.1.18 - CI/CD Fix
 - **Fixed Tests**: Added missing `provider/config.ts` to root src for test compatibility
 

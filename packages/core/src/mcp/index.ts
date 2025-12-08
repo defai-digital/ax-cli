@@ -63,6 +63,20 @@ export {
 } from "./config.js";
 export type { MCPConfig } from "./config.js";
 
+// Provider-specific MCP config loading (Claude Code format support)
+export {
+  loadProviderMCPConfig,
+  getProviderMCPServers,
+  providerMCPConfigExists,
+  getClaudeCodeMCPConfigPath,
+  getLegacyMCPConfigPath,
+} from "./provider-mcp-loader.js";
+export type {
+  ProviderMCPLoadResult,
+  ClaudeCodeMCPConfig,
+  LegacyProviderMCPConfig,
+} from "./provider-mcp-loader.js";
+
 // Config detection and migration
 export { detectConfigFormat, detectMultipleConfigs, getDetectionSummary } from "./config-detector.js";
 export { migrateConfig, batchMigrateConfigs, formatBatchMigrationResult } from "./config-migrator.js";
