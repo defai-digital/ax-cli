@@ -223,6 +223,10 @@ ax-glm memory status    # View token distribution
 
 ## Changelog
 
+### v4.3.1 - Patch Release
+
+- **Bug Fixes**: Minor stability improvements and fixes
+
 ### v4.3.0 - MCP Client V2 & Resource Support
 
 **Enhanced MCP Integration**: Major upgrade to MCP client with improved resource handling and connection reliability.
