@@ -3,9 +3,13 @@
  *
  * Enables users to reference MCP-exposed resources using @mcp: syntax
  * Similar to file references, but for database tables, API endpoints, etc.
+ *
+ * BUG FIX: Updated to use v2 manager's connection state instead of legacy clients Map.
+ * The v1 MCPManager now wraps v2 internally, so we access the v2 instance.
  */
 
 import type { MCPManager } from './client.js';
+import { MCPManagerV2, createServerName } from './client-v2.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
 
 export interface MCPResource {
@@ -24,15 +28,28 @@ export interface MCPResource {
 }
 
 /**
+ * Get the v2 manager from either v1 or v2 instance
+ */
+function getV2Manager(mcpManager: MCPManager | MCPManagerV2): MCPManagerV2 {
+  // If it's already v2, return it directly
+  if (mcpManager instanceof MCPManagerV2) {
+    return mcpManager;
+  }
+  // Otherwise, it's v1 wrapper - access the internal v2 instance
+  return (mcpManager as any).v2 as MCPManagerV2;
+}
+
+/**
  * List all resources from MCP servers
  */
-export async function listAllResources(mcpManager: MCPManager): Promise<MCPResource[]> {
+export async function listAllResources(mcpManager: MCPManager | MCPManagerV2): Promise<MCPResource[]> {
   const resources: MCPResource[] = [];
-  const servers = mcpManager.getServers();
+  const v2 = getV2Manager(mcpManager);
+  const servers = v2.getServers();
 
   for (const serverName of servers) {
     try {
-      const serverResources = await listServerResources(mcpManager, serverName);
+      const serverResources = await listServerResources(mcpManager, String(serverName));
       resources.push(...serverResources);
     } catch {
       // Silently skip servers that don't support resources
@@ -47,66 +64,56 @@ export async function listAllResources(mcpManager: MCPManager): Promise<MCPResou
  * List resources from a specific MCP server
  */
 export async function listServerResources(
-  mcpManager: MCPManager,
+  mcpManager: MCPManager | MCPManagerV2,
   serverName: string
 ): Promise<MCPResource[]> {
-  try {
-    // Get the client for this server
-    const client = (mcpManager as any).clients.get(serverName);
-    if (!client) {
-      return [];
-    }
+  const v2 = getV2Manager(mcpManager);
+  const brandedServerName = createServerName(serverName);
 
-    // Try to list resources
-    const result = await client.listResources();
-
-    // Convert to our resource format
-    return result.resources.map((resource: any) => ({
-      uri: resource.uri,
-      name: resource.name || resource.uri,
-      description: resource.description,
-      mimeType: resource.mimeType,
-      serverName,
-      reference: `@mcp:${serverName}/${resource.uri}`
-    }));
-  } catch {
-    // Server doesn't support resources
+  if (!brandedServerName) {
     return [];
   }
+
+  // Use the v2 manager's listResources method
+  const result = await v2.listResources(brandedServerName);
+
+  if (!result.success) {
+    return [];
+  }
+
+  // Convert to our resource format
+  return result.value.map(resource => ({
+    uri: resource.uri,
+    name: resource.name || resource.uri,
+    description: resource.description,
+    mimeType: resource.mimeType,
+    serverName,
+    reference: `@mcp:${serverName}/${resource.uri}`
+  }));
 }
 
 /**
  * Get resource content from MCP server
  */
 export async function getResourceContent(
-  mcpManager: MCPManager,
+  mcpManager: MCPManager | MCPManagerV2,
   serverName: string,
   uri: string
 ): Promise<string> {
-  try {
-    const client = (mcpManager as any).clients.get(serverName);
-    if (!client) {
-      throw new Error(`Server "${serverName}" not connected`);
-    }
+  const v2 = getV2Manager(mcpManager);
+  const brandedServerName = createServerName(serverName);
 
-    const result = await client.readResource({ uri });
-
-    // Extract text content
-    if (result.contents && result.contents.length > 0) {
-      const content = result.contents[0];
-      if (content.text) {
-        return content.text;
-      }
-      if (content.blob) {
-        // Handle base64 encoded content
-        return Buffer.from(content.blob, 'base64').toString('utf-8');
-      }
-    }
-
-    return '';
-  } catch (error) {
-    throw new Error(`Failed to read resource ${uri}: ${extractErrorMessage(error)}`);
+  if (!brandedServerName) {
+    throw new Error(`Invalid server name: "${serverName}"`);
   }
+
+  const result = await v2.readResource(brandedServerName, uri);
+
+  if (!result.success) {
+    throw new Error(`Failed to read resource ${uri}: ${extractErrorMessage(result.error)}`);
+  }
+
+  return result.value;
 }
 
 /**
@@ -153,7 +160,7 @@ export function extractMCPReferences(text: string): string[] {
  */
 export async function resolveMCPReferences(
   text: string,
-  mcpManager: MCPManager
+  mcpManager: MCPManager | MCPManagerV2
 ): Promise<string> {
   const references = extractMCPReferences(text);
   let result = text;

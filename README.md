@@ -223,6 +223,16 @@ ax-glm memory status    # View token distribution
 
 ## Changelog
 
+### v4.3.0 - MCP Client V2 & Resource Support
+
+**Enhanced MCP Integration**: Major upgrade to MCP client with improved resource handling and connection reliability.
+
+- **MCP Client V2**: Rewritten MCP client with better error handling, connection pooling, and retry logic
+- **Resource Support**: Full support for MCP resources with read/subscribe capabilities
+- **Provider MCP Loader**: Improved provider-specific MCP configuration loading
+- **Connection Stability**: Better handling of MCP server disconnections and reconnections
+- **Bug Fixes**: Various stability improvements and edge case handling
+
 ### v4.2.0 - Provider-Specific MCP Configuration
 
 **Provider MCP Isolation**: ax-glm and ax-grok now have separate MCP configurations, allowing both CLIs to run simultaneously without conflicts.

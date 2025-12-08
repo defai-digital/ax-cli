@@ -45,6 +45,7 @@ export {
   type ConnectionState,
   type ReconnectionConfig,
   type MCPPrompt,
+  type MCPServerCapabilities,
 } from "./client-v2.js";
 export type { ServerName, ToolName } from "./client-v2.js";
 
@@ -68,7 +69,9 @@ export {
   loadProviderMCPConfig,
   getProviderMCPServers,
   providerMCPConfigExists,
+  getProviderMCPConfigPath,
   getClaudeCodeMCPConfigPath,
+  getUserMCPConfigPath,
   getLegacyMCPConfigPath,
 } from "./provider-mcp-loader.js";
 export type {

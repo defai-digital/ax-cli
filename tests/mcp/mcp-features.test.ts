@@ -34,6 +34,7 @@ import {
   getToolOutputValidator,
   resetToolOutputValidator,
 } from '../../src/mcp/schema-validator.js';
+import { MCPManagerV2 } from '../../src/mcp/client-v2.js';
 import { createServerName, createToolName } from '../../src/mcp/type-safety.js';
 
 // ============================================================================
@@ -486,6 +487,80 @@ describe('Cancellation Support', () => {
       const instance2 = getCancellationManager();
       expect(instance1).not.toBe(instance2);
     });
+  });
+});
+
+// ============================================================================
+// MCP Tool Metadata (Progress + Cancellation) Tests
+// ============================================================================
+
+describe('MCP tool metadata forwarding', () => {
+  let manager: MCPManagerV2;
+  const serverName = createServerName('figma-server')!;
+  const toolName = createToolName('mcp__figma-server__export')!;
+  let client: any;
+
+  beforeEach(() => {
+    resetProgressTracker();
+    resetCancellationManager();
+    manager = new MCPManagerV2();
+
+    client = {
+      callTool: vi.fn(async () => ({ content: [] })),
+      getServerCapabilities: vi.fn(() => ({})),
+      listResources: vi.fn(async () => ({ resources: [] })),
+      readResource: vi.fn(async () => ({ contents: [] })),
+      notification: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+    };
+    const transport = {
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      getType: () => 'http',
+    };
+
+    const managerAny = manager as any;
+    managerAny.connections.set(serverName, {
+      status: 'connected',
+      serverName,
+      client,
+      transport,
+      connectedAt: Date.now(),
+    });
+    managerAny.tools.set(toolName, {
+      name: toolName,
+      description: 'Test tool',
+      inputSchema: {},
+      serverName,
+    });
+  });
+
+  afterEach(() => {
+    resetProgressTracker();
+    resetCancellationManager();
+  });
+
+  it('forwards progress tokens to MCP tool calls', async () => {
+    const result = await manager.callToolWithProgress(toolName, { foo: 'bar' });
+
+    expect(result.success).toBe(true);
+    expect(client.callTool).toHaveBeenCalled();
+
+    const [params] = (client.callTool as any).mock.calls[0];
+    expect(params._meta?.progressToken).toBeDefined();
+    expect(params._meta?.requestId).toBeUndefined();
+  });
+
+  it('forwards requestId and abort signal for cancellable calls', async () => {
+    const result = await manager.callToolCancellable(toolName, { foo: 'bar' });
+
+    expect(result.success).toBe(true);
+    expect(client.callTool).toHaveBeenCalled();
+
+    const [params, , options] = (client.callTool as any).mock.calls.at(-1)!;
+    expect(params._meta?.requestId).toBeDefined();
+    expect(options?.signal).toBeDefined();
+    expect(options.signal.aborted).toBe(false);
   });
 });
 

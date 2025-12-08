@@ -205,6 +205,49 @@ export interface MCPPrompt {
 }
 
 /**
+ * MCP Server Capabilities Summary
+ *
+ * Provides a structured view of what an MCP server supports.
+ * This enables agents to tailor their behavior based on server capabilities.
+ *
+ * For example, Figma MCP servers may support:
+ * - Resource subscriptions for real-time design updates
+ * - Progress notifications for long-running exports
+ * - Tools with output schemas for structured responses
+ */
+export interface MCPServerCapabilities {
+  // Resources
+  /** Whether the server supports resources/list and resources/read */
+  supportsResources: boolean;
+  /** Whether the server supports resources/subscribe for real-time updates */
+  supportsResourceSubscriptions: boolean;
+  /** Whether the server emits notifications/resources/list_changed */
+  supportsResourceListChanged: boolean;
+
+  // Tools
+  /** Whether the server supports tools/list and tools/call */
+  supportsTools: boolean;
+  /** Whether the server emits notifications/tools/list_changed */
+  supportsToolListChanged: boolean;
+
+  // Prompts
+  /** Whether the server supports prompts/list and prompts/get */
+  supportsPrompts: boolean;
+  /** Whether the server emits notifications/prompts/list_changed */
+  supportsPromptListChanged: boolean;
+
+  // Logging
+  /** Whether the server supports logging/setLevel */
+  supportsLogging: boolean;
+
+  // Experimental features (server-specific)
+  experimental: Record<string, unknown>;
+
+  // Raw capabilities for advanced use cases
+  raw: Record<string, unknown>;
+}
+
+/**
  * Type-safe MCP Manager with improved safety
  */
 export class MCPManagerV2 extends EventEmitter {
@@ -634,13 +677,23 @@ export class MCPManagerV2 extends EventEmitter {
    *
    * @param toolName - The tool to call
    * @param arguments_ - Tool arguments
-   * @param options - Optional settings for validation
+   * @param options - Optional settings for validation and MCP _meta
    * @returns Result containing the tool result with optional schema validation
    */
   async callTool(
     toolName: ToolName,
     arguments_: Record<string, unknown> | null | undefined,
-    options?: { validateOutput?: boolean }
+    options?: {
+      validateOutput?: boolean;
+      /** MCP _meta for progress tracking and cancellation */
+      _meta?: {
+        progressToken?: string | number;
+        /** Request ID for cancellation (custom extension) */
+        requestId?: string | number;
+      };
+      /** AbortSignal for cancellation */
+      signal?: AbortSignal;
+    }
   ): Promise<Result<ValidatedToolResult, Error>> {
     if (this.disposed) {
       return Err(new Error('MCPManager is disposed'));
@@ -698,12 +751,37 @@ export class MCPManagerV2 extends EventEmitter {
       const serverConfig = this.serverConfigs.get(tool.serverName);
       const timeout = serverConfig?.timeout ?? MCP_CONFIG.DEFAULT_TIMEOUT;
 
-      // Call tool with timeout (mutex released, but client reference is still valid)
-      // MCP SDK accepts { timeout?: number } as third parameter
-      const result = await client.callTool({
+      // Build call params with optional _meta for progress/cancellation
+      const callParams: {
+        name: string;
+        arguments: Record<string, unknown>;
+        _meta?: { progressToken?: string | number; requestId?: string | number };
+      } = {
         name: originalToolName,
         arguments: safeArgs
-      }, undefined, { timeout });
+      };
+
+      // Include _meta fields if provided (for progress tracking and cancellation)
+      const meta: { progressToken?: string | number; requestId?: string | number } = {};
+      if (options?._meta?.progressToken !== undefined) {
+        meta.progressToken = options._meta.progressToken;
+      }
+      if (options?._meta?.requestId !== undefined) {
+        meta.requestId = options._meta.requestId;
+      }
+      if (meta.progressToken !== undefined || meta.requestId !== undefined) {
+        callParams._meta = meta;
+      }
+
+      // Build request options with timeout and optional abort signal
+      const requestOptions: { timeout: number; signal?: AbortSignal } = { timeout };
+      if (options?.signal) {
+        requestOptions.signal = options.signal;
+      }
+
+      // Call tool with timeout (mutex released, but client reference is still valid)
+      // MCP SDK accepts { timeout?: number, signal?: AbortSignal } as third parameter
+      const result = await client.callTool(callParams, undefined, requestOptions);
 
       // Apply token limiting
       if (MCP_CONFIG.TRUNCATION_ENABLED) {
@@ -770,6 +848,9 @@ export class MCPManagerV2 extends EventEmitter {
    *
    * MCP Specification: Supports notifications/progress for long-running operations.
    *
+   * FIX: Now properly forwards _meta.progressToken to the MCP server so it can
+   * attach progress notifications to this specific request.
+   *
    * @param toolName - The tool to call
    * @param arguments_ - Tool arguments
    * @param options - Progress tracking options
@@ -791,9 +872,11 @@ export class MCPManagerV2 extends EventEmitter {
     }
 
     try {
-      // Call the base callTool - progress notifications will be handled via setupNotificationHandlers
-      // Note: The MCP SDK's callTool accepts a _meta.progressToken but we handle notifications globally
-      return await this.callTool(toolName, arguments_);
+      // Call the base callTool with _meta.progressToken so the server knows
+      // where to send progress notifications
+      return await this.callTool(toolName, arguments_, {
+        _meta: { progressToken: token }
+      });
     } finally {
       progressTracker.cleanup(token);
     }
@@ -803,6 +886,10 @@ export class MCPManagerV2 extends EventEmitter {
    * Call MCP tool with cancellation support
    *
    * MCP Specification: Supports notifications/cancelled for aborting operations.
+   *
+   * FIX: Now properly propagates AbortSignal to the MCP SDK so cancellation
+   * actually stops the server work instead of just racing locally. Also sends
+   * notifications/cancelled to the server so it can clean up.
    *
    * @param toolName - The tool to call
    * @param arguments_ - Tool arguments
@@ -834,47 +921,42 @@ export class MCPManagerV2 extends EventEmitter {
       abortController,
     });
 
-    // BUG FIX: Store abort handler so we can remove it after race completes.
-    // This prevents memory leaks from accumulated event listeners on long-running sessions.
-    let abortHandler: (() => void) | null = null;
-
     try {
-      // Create abort promise with removable event listener
-      const abortPromise = new Promise<never>((_, reject) => {
-        abortHandler = () => {
-          reject(new Error('Request cancelled'));
-        };
-        abortController.signal.addEventListener('abort', abortHandler);
+      // FIX: Pass AbortSignal directly to the MCP SDK so cancellation actually
+      // stops the server work. The SDK will abort the underlying request when
+      // the signal is triggered.
+      const result = await this.callTool(toolName, arguments_, {
+        _meta: { requestId },
+        signal: abortController.signal
       });
 
-      // Attach a no-op catch to prevent unhandled rejection warning
-      // This is still needed in case abort fires after race completes
-      abortPromise.catch(() => {
-        // Intentionally empty - prevents unhandled rejection warning
-      });
-
-      // Race between tool call and abort
-      const result = await Promise.race([
-        this.callTool(toolName, arguments_),
-        abortPromise,
-      ]);
-
-      return result;
-    } catch (error) {
-      // Check if this was a cancellation
-      if (cancellationManager.isCancelled(requestId) || isRequestCancelled(error)) {
+      // Check if the signal was aborted after the call completed
+      if (abortController.signal.aborted) {
         return Ok({
           content: [],
           isCancelled: true,
           cancelReason: 'User cancelled',
         } as CallToolResult & { isCancelled: boolean; cancelReason: string });
       }
-      return Err(toError(error));
-    } finally {
-      // BUG FIX: Remove the abort event listener to prevent memory leaks
-      if (abortHandler) {
-        abortController.signal.removeEventListener('abort', abortHandler);
+
+      return result;
+    } catch (error) {
+      // Check if this was a cancellation (either from our manager or SDK abort)
+      const err = toError(error);
+      const isAborted = abortController.signal.aborted ||
+                        cancellationManager.isCancelled(requestId) ||
+                        isRequestCancelled(error) ||
+                        err.name === 'AbortError';
+
+      if (isAborted) {
+        return Ok({
+          content: [],
+          isCancelled: true,
+          cancelReason: 'User cancelled',
+        } as CallToolResult & { isCancelled: boolean; cancelReason: string });
       }
+      return Err(err);
+    } finally {
       cancellationManager.cleanup(requestId);
     }
   }
@@ -1281,6 +1363,208 @@ export class MCPManagerV2 extends EventEmitter {
 
     const type = state.transport.getType();
     return Ok(type);
+  }
+
+  // =========================================================================
+  // Server Capabilities (Figma MCP Fix #3)
+  // =========================================================================
+
+  /**
+   * Get capabilities for a specific MCP server
+   *
+   * This allows agents to tailor their behavior based on server capabilities.
+   * For example, Figma MCP servers may support long-running exports with progress.
+   *
+   * @param serverName - The server to query capabilities for
+   * @returns Result containing capability summary or error
+   *
+   * @example
+   * ```typescript
+   * const caps = manager.getServerCapabilities(serverName);
+   * if (caps.success && caps.value.supportsProgress) {
+   *   // Use callToolWithProgress for better UX
+   *   await manager.callToolWithProgress(toolName, args, { onProgress });
+   * }
+   * ```
+   */
+  getServerCapabilities(serverName: ServerName): Result<MCPServerCapabilities, Error> {
+    if (this.disposed) {
+      return Err(new Error('MCPManager is disposed'));
+    }
+
+    const state = this.connections.get(serverName);
+    if (!state) {
+      return Err(new Error(`Server ${serverName} not found`));
+    }
+
+    if (state.status !== 'connected') {
+      return Err(new Error(`Server ${serverName} not connected (status: ${state.status})`));
+    }
+
+    try {
+      const rawCaps = state.client.getServerCapabilities();
+
+      const capabilities: MCPServerCapabilities = {
+        // Resources support
+        supportsResources: Boolean(rawCaps?.resources),
+        supportsResourceSubscriptions: Boolean(rawCaps?.resources?.subscribe),
+        supportsResourceListChanged: Boolean(rawCaps?.resources?.listChanged),
+
+        // Tools support
+        supportsTools: Boolean(rawCaps?.tools),
+        supportsToolListChanged: Boolean(rawCaps?.tools?.listChanged),
+
+        // Prompts support
+        supportsPrompts: Boolean(rawCaps?.prompts),
+        supportsPromptListChanged: Boolean(rawCaps?.prompts?.listChanged),
+
+        // Logging support
+        supportsLogging: Boolean(rawCaps?.logging),
+
+        // Experimental features
+        experimental: rawCaps?.experimental || {},
+
+        // Raw capabilities for advanced use
+        raw: rawCaps || {},
+      };
+
+      return Ok(capabilities);
+    } catch (error) {
+      return Err(toError(error));
+    }
+  }
+
+  /**
+   * Get capabilities for all connected servers
+   *
+   * @returns Map of server names to their capabilities
+   */
+  getAllServerCapabilities(): Map<ServerName, MCPServerCapabilities> {
+    const result = new Map<ServerName, MCPServerCapabilities>();
+
+    for (const serverName of this.getServers()) {
+      const caps = this.getServerCapabilities(serverName);
+      if (caps.success) {
+        result.set(serverName, caps.value);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Check if a server supports a specific capability
+   *
+   * @param serverName - Server to check
+   * @param capability - Capability to check for
+   * @returns true if the server supports the capability
+   */
+  serverSupports(
+    serverName: ServerName,
+    capability: keyof Omit<MCPServerCapabilities, 'experimental' | 'raw'>
+  ): boolean {
+    const caps = this.getServerCapabilities(serverName);
+    if (!caps.success) {
+      return false;
+    }
+    return Boolean(caps.value[capability]);
+  }
+
+  // =========================================================================
+  // Resource Access (Fix for resources.ts compatibility)
+  // =========================================================================
+
+  /**
+   * Get the MCP client for a specific server
+   *
+   * This is used by resources.ts to access listResources/readResource
+   *
+   * @param serverName - The server name
+   * @returns Result containing the client or error
+   */
+  getClient(serverName: ServerName): Result<Client, Error> {
+    if (this.disposed) {
+      return Err(new Error('MCPManager is disposed'));
+    }
+
+    const state = this.connections.get(serverName);
+    if (!state) {
+      return Err(new Error(`Server ${serverName} not found`));
+    }
+
+    if (state.status !== 'connected') {
+      return Err(new Error(`Server ${serverName} not connected (status: ${state.status})`));
+    }
+
+    return Ok(state.client);
+  }
+
+  /**
+   * List resources from a specific server
+   *
+   * @param serverName - The server name
+   * @returns Result containing resources or error
+   */
+  async listResources(serverName: ServerName): Promise<Result<Array<{ uri: string; name: string; description?: string; mimeType?: string }>, Error>> {
+    if (this.disposed) {
+      return Err(new Error('MCPManager is disposed'));
+    }
+
+    const clientResult = this.getClient(serverName);
+    if (!clientResult.success) {
+      return clientResult;
+    }
+
+    try {
+      const result = await clientResult.value.listResources();
+      return Ok(result.resources.map(r => ({
+        uri: r.uri,
+        name: r.name || r.uri,
+        description: r.description,
+        mimeType: r.mimeType,
+      })));
+    } catch (error) {
+      // Server may not support resources
+      return Ok([]);
+    }
+  }
+
+  /**
+   * Read a resource from a specific server
+   *
+   * @param serverName - The server name
+   * @param uri - Resource URI
+   * @returns Result containing resource content or error
+   */
+  async readResource(serverName: ServerName, uri: string): Promise<Result<string, Error>> {
+    if (this.disposed) {
+      return Err(new Error('MCPManager is disposed'));
+    }
+
+    const clientResult = this.getClient(serverName);
+    if (!clientResult.success) {
+      return clientResult;
+    }
+
+    try {
+      const result = await clientResult.value.readResource({ uri });
+
+      // Extract text content
+      if (result.contents && result.contents.length > 0) {
+        const content = result.contents[0];
+        if ('text' in content && content.text) {
+          return Ok(content.text);
+        }
+        if ('blob' in content && content.blob) {
+          // Handle base64 encoded content
+          return Ok(Buffer.from(content.blob, 'base64').toString('utf-8'));
+        }
+      }
+
+      return Ok('');
+    } catch (error) {
+      return Err(toError(error));
+    }
   }
 
   /**

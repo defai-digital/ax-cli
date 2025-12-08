@@ -1,12 +1,13 @@
 /**
  * Provider-Specific MCP Configuration Loader
  *
- * Loads MCP configurations from provider-specific directories following
- * Claude Code best practices:
+ * Loads MCP configurations from multiple locations following Claude Code best practices.
  *
  * Priority (highest to lowest):
- * 1. .ax-glm/.mcp.json or .ax-grok/.mcp.json (Claude Code format - recommended)
- * 2. .ax-glm/mcp-config.json or .ax-grok/mcp-config.json (legacy format)
+ * 1. .ax-glm/.mcp.json or .ax-grok/.mcp.json (provider-specific directory)
+ * 2. Project root .mcp.json (Claude Code standard location)
+ * 3. ~/.ax-glm/.mcp.json or ~/.ax-grok/.mcp.json (user-level config)
+ * 4. .ax-glm/mcp-config.json or .ax-grok/mcp-config.json (legacy format)
  *
  * Claude Code Format (.mcp.json):
  * ```json
@@ -27,6 +28,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { homedir } from 'os';
 import { getActiveConfigPaths, getActiveProvider } from '../provider/config.js';
 import type { MCPServerConfig, MCPTransportConfig } from '../schemas/settings-schemas.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
@@ -100,12 +102,29 @@ export interface ProviderMCPLoadResult {
 }
 
 /**
- * Get the path to the Claude Code format MCP config file (.mcp.json)
+ * Get the path to the provider-specific MCP config file (.ax-glm/.mcp.json or .ax-grok/.mcp.json)
  */
-export function getClaudeCodeMCPConfigPath(projectRoot?: string): string {
+export function getProviderMCPConfigPath(projectRoot?: string): string {
   const configPaths = getActiveConfigPaths();
   const root = projectRoot || process.cwd();
   return path.join(root, configPaths.DIR_NAME, '.mcp.json');
+}
+
+/**
+ * Get the path to the Claude Code format MCP config file (.mcp.json in project root)
+ * This is the standard Claude Code location that users may already have configured
+ */
+export function getClaudeCodeMCPConfigPath(projectRoot?: string): string {
+  const root = projectRoot || process.cwd();
+  return path.join(root, '.mcp.json');
+}
+
+/**
+ * Get the path to the user-level MCP config file (~/.ax-glm/.mcp.json or ~/.ax-grok/.mcp.json)
+ */
+export function getUserMCPConfigPath(): string {
+  const configPaths = getActiveConfigPaths();
+  return path.join(homedir(), configPaths.DIR_NAME, '.mcp.json');
 }
 
 /**
@@ -118,28 +137,58 @@ export function getLegacyMCPConfigPath(projectRoot?: string): string {
 }
 
 /**
- * Check if provider-specific MCP config exists (either format)
+ * Check if provider-specific MCP config exists (any format/location)
  */
 export function providerMCPConfigExists(projectRoot?: string): boolean {
-  return fs.existsSync(getClaudeCodeMCPConfigPath(projectRoot)) ||
+  return fs.existsSync(getProviderMCPConfigPath(projectRoot)) ||
+         fs.existsSync(getClaudeCodeMCPConfigPath(projectRoot)) ||
+         fs.existsSync(getUserMCPConfigPath()) ||
          fs.existsSync(getLegacyMCPConfigPath(projectRoot));
 }
 
 /**
  * Load provider-specific MCP configuration
  *
- * This function:
- * 1. First tries to load Claude Code format (.mcp.json) - recommended
- * 2. Falls back to legacy format (mcp-config.json)
- * 3. Converts to MCPServerConfig[] format
- * 4. Returns the configs or error information
+ * This function checks multiple locations in priority order:
+ * 1. Provider-specific directory (.ax-glm/.mcp.json or .ax-grok/.mcp.json)
+ * 2. Project root .mcp.json (Claude Code standard location)
+ * 3. User-level config (~/.ax-glm/.mcp.json or ~/.ax-grok/.mcp.json)
+ * 4. Legacy format (.ax-glm/mcp-config.json or .ax-grok/mcp-config.json)
+ *
+ * The first config found is used. Converts to MCPServerConfig[] format.
  */
 export function loadProviderMCPConfig(projectRoot?: string): ProviderMCPLoadResult {
   const warnings: string[] = [];
-  const claudeCodePath = getClaudeCodeMCPConfigPath(projectRoot);
-  const legacyPath = getLegacyMCPConfigPath(projectRoot);
 
-  // Try Claude Code format first (.mcp.json)
+  // Priority 1: Provider-specific directory (.ax-glm/.mcp.json or .ax-grok/.mcp.json)
+  const providerPath = getProviderMCPConfigPath(projectRoot);
+  if (fs.existsSync(providerPath)) {
+    try {
+      const raw = fs.readFileSync(providerPath, 'utf-8');
+      const config = JSON.parse(raw) as ClaudeCodeMCPConfig;
+      const serverConfigs = convertClaudeCodeFormat(config);
+
+      return {
+        found: true,
+        configPath: providerPath,
+        format: 'claude-code',
+        serverConfigs,
+        warnings,
+      };
+    } catch (error) {
+      return {
+        found: true,
+        configPath: providerPath,
+        format: 'claude-code',
+        serverConfigs: [],
+        error: `Failed to parse ${providerPath}: ${extractErrorMessage(error)}`,
+        warnings,
+      };
+    }
+  }
+
+  // Priority 2: Project root .mcp.json (Claude Code standard location)
+  const claudeCodePath = getClaudeCodeMCPConfigPath(projectRoot);
   if (fs.existsSync(claudeCodePath)) {
     try {
       const raw = fs.readFileSync(claudeCodePath, 'utf-8');
@@ -165,7 +214,35 @@ export function loadProviderMCPConfig(projectRoot?: string): ProviderMCPLoadResu
     }
   }
 
-  // Fall back to legacy format (mcp-config.json)
+  // Priority 3: User-level config (~/.ax-glm/.mcp.json or ~/.ax-grok/.mcp.json)
+  const userPath = getUserMCPConfigPath();
+  if (fs.existsSync(userPath)) {
+    try {
+      const raw = fs.readFileSync(userPath, 'utf-8');
+      const config = JSON.parse(raw) as ClaudeCodeMCPConfig;
+      const serverConfigs = convertClaudeCodeFormat(config);
+
+      return {
+        found: true,
+        configPath: userPath,
+        format: 'claude-code',
+        serverConfigs,
+        warnings,
+      };
+    } catch (error) {
+      return {
+        found: true,
+        configPath: userPath,
+        format: 'claude-code',
+        serverConfigs: [],
+        error: `Failed to parse ${userPath}: ${extractErrorMessage(error)}`,
+        warnings,
+      };
+    }
+  }
+
+  // Priority 4: Legacy format (.ax-glm/mcp-config.json or .ax-grok/mcp-config.json)
+  const legacyPath = getLegacyMCPConfigPath(projectRoot);
   if (fs.existsSync(legacyPath)) {
     warnings.push(
       `Using legacy mcp-config.json format. Consider migrating to .mcp.json (Claude Code format)`
