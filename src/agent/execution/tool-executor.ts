@@ -491,6 +491,83 @@ export class ToolExecutor {
   }
 
   /**
+   * Format AutomatosX agent NDJSON output to human-readable format
+   * @param ndjsonOutput Raw NDJSON output from AutomatosX agent
+   * @returns Formatted output string
+   */
+  private formatAutomatosXOutput(ndjsonOutput: string): string {
+    const lines = ndjsonOutput.trim().split('\n');
+    const parts: string[] = [];
+    let finalContent = '';
+    let stats: { total_tokens?: number; duration_ms?: number; tool_calls?: number } | null = null;
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+
+      try {
+        const parsed = JSON.parse(line);
+
+        // Extract assistant's final response
+        if (parsed.type === 'message' && parsed.role === 'assistant' && parsed.content) {
+          finalContent = parsed.content;
+        }
+
+        // Extract execution stats
+        if (parsed.type === 'result' && parsed.stats) {
+          stats = parsed.stats;
+        }
+      } catch {
+        // Not JSON, might be plain text - include it
+        if (line.trim() && !line.startsWith('{')) {
+          parts.push(line);
+        }
+      }
+    }
+
+    // Build formatted output
+    const outputParts: string[] = [];
+
+    // Add the main response content
+    if (finalContent) {
+      outputParts.push(finalContent);
+    } else if (parts.length > 0) {
+      outputParts.push(parts.join('\n'));
+    }
+
+    // Add stats summary if available
+    if (stats) {
+      const statsParts: string[] = [];
+      if (stats.duration_ms) {
+        statsParts.push(`${(stats.duration_ms / 1000).toFixed(1)}s`);
+      }
+      if (stats.total_tokens) {
+        const tokens = stats.total_tokens >= 1000
+          ? `${(stats.total_tokens / 1000).toFixed(1)}k`
+          : String(stats.total_tokens);
+        statsParts.push(`${tokens} tokens`);
+      }
+      if (stats.tool_calls) {
+        statsParts.push(`${stats.tool_calls} tool calls`);
+      }
+      if (statsParts.length > 0) {
+        outputParts.push(`\n_Agent completed in ${statsParts.join(', ')}_`);
+      }
+    }
+
+    return outputParts.join('\n') || 'Agent completed successfully';
+  }
+
+  /**
+   * Check if output looks like AutomatosX NDJSON
+   */
+  private isAutomatosXOutput(output: string): boolean {
+    // Check for characteristic NDJSON patterns from AutomatosX
+    return output.includes('{"type":"init"') ||
+           output.includes('{"type":"message"') ||
+           output.includes('{"type":"result"');
+  }
+
+  /**
    * Execute an MCP tool
    */
   private async executeMCPTool(toolCall: LLMToolCall): Promise<ToolResult> {
@@ -522,7 +599,7 @@ export class ToolExecutor {
       }
 
       // Extract content from result
-      const output = result.content && Array.isArray(result.content)
+      let output = result.content && Array.isArray(result.content)
         ? result.content
           .map((item) => {
             if (item.type === "text") {
@@ -534,6 +611,11 @@ export class ToolExecutor {
           })
           .join("\n")
         : "";
+
+      // Format AutomatosX agent output if detected
+      if (toolCall.function.name.startsWith("mcp__automatosx__") && this.isAutomatosXOutput(output)) {
+        output = this.formatAutomatosXOutput(output);
+      }
 
       return {
         success: true,

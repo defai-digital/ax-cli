@@ -225,6 +225,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.3.4**: Improved AutomatosX MCP agent output formatting (clean, readable results instead of raw NDJSON).
 *   **v4.3.3**: Stability improvements and code cleanup.
 *   **v4.3.2**: Fixed Enter key not working in certain terminal environments.
 *   **v4.3.1**: Minor stability improvements and bug fixes.
