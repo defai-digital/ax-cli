@@ -8,6 +8,7 @@ import { detectConfigFormat } from "./config-detector.js";
 import { formatMCPConfigError, formatWarning, formatInfo } from "./error-formatter.js";
 import { ZAI_SERVER_NAMES, isZAIServer } from "./zai-templates.js";
 import { loadProviderMCPConfig } from "./provider-mcp-loader.js";
+import { getAutoDiscoveredServers, detectAutomatosX } from "./automatosx-auto-discovery.js";
 
 export interface MCPConfig {
   servers: MCPServerConfig[];
@@ -212,16 +213,32 @@ export function loadMCPConfig(): MCPConfig {
     }
   }
 
+  // Auto-discover AutomatosX MCP server if installed
+  // This provides seamless integration when AutomatosX is available
+  const autoDiscoveredServers = getAutoDiscoveredServers();
+  const autoDiscoveryDetection = detectAutomatosX();
+
+  if (autoDiscoveredServers.length > 0 && !hasShownMigrationWarnings && process.env.DEBUG) {
+    console.log(formatInfo(
+      `Auto-discovered AutomatosX MCP (v${autoDiscoveryDetection.version || 'unknown'})`
+    ));
+  }
+
   // Merge all config sources with priority:
   // 1. ax-cli project settings (highest priority)
-  // 2. Provider-specific MCP config (.ax-glm/mcp-config.json or .ax-grok/mcp-config.json)
-  // 3. AutomatosX config (.automatosx/config.json) (lowest priority)
+  // 2. Provider-specific MCP config (.ax-glm/.mcp.json or .ax-grok/.mcp.json)
+  // 3. AutomatosX config (.automatosx/config.json)
+  // 4. Auto-discovered AutomatosX MCP server (lowest priority)
   let finalServers: MCPServerConfig[];
 
-  // Start with AutomatosX servers (lowest priority)
-  let mergedServers = automatosXResult.found && automatosXResult.servers.length > 0
-    ? automatosXResult.servers
-    : [];
+  // Start with auto-discovered servers (lowest priority)
+  let mergedServers = autoDiscoveredServers;
+
+  // Merge AutomatosX config servers (higher priority than auto-discovered)
+  if (automatosXResult.found && automatosXResult.servers.length > 0) {
+    const autoMergeResult = mergeConfigs(automatosXResult.servers, mergedServers);
+    mergedServers = autoMergeResult.servers;
+  }
 
   // Merge provider-specific MCP servers (higher priority than AutomatosX)
   if (providerMCPServers.length > 0) {
@@ -254,7 +271,7 @@ export function loadMCPConfig(): MCPConfig {
   }
 
   // Mark that we've shown warnings this session
-  if (axCliHadLegacy || automatosXResult.found || providerMCPResult.found) {
+  if (axCliHadLegacy || automatosXResult.found || providerMCPResult.found || autoDiscoveredServers.length > 0) {
     hasShownMigrationWarnings = true;
   }
 

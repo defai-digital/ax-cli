@@ -77,6 +77,19 @@ export type {
   LegacyProviderMCPConfig,
 } from "./provider-mcp-loader.js";
 
+// AutomatosX auto-discovery (seamless integration when AutomatosX is installed)
+export {
+  detectAutomatosX,
+  getAutoDiscoveredServers,
+  generateAutoDiscoveryConfig,
+  isAutoDiscoveredServer,
+  clearDetectionCache,
+} from "./automatosx-auto-discovery.js";
+export type {
+  AutomatosXDetectionResult,
+  AutoDiscoveryOptions,
+} from "./automatosx-auto-discovery.js";
+
 // Config detection and migration
 export { detectConfigFormat, detectMultipleConfigs, getDetectionSummary } from "./config-detector.js";
 export { migrateConfig, batchMigrateConfigs, formatBatchMigrationResult } from "./config-migrator.js";
