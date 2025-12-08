@@ -158,10 +158,22 @@ export class CancellationManager extends EventEmitter {
    */
   async cancelAll(reason?: string): Promise<CancellationResult[]> {
     const requests = Array.from(this.activeRequests.values());
-    const results = await Promise.all(
+    // Use allSettled to ensure all cancellations are attempted even if some fail
+    const results = await Promise.allSettled(
       requests.map((req) => this.cancel(req.id, reason))
     );
-    return results;
+    // Convert PromiseSettledResult to CancellationResult, treating rejections as failures
+    return results.map((result, index) => {
+      if (result.status === 'fulfilled') {
+        return result.value;
+      }
+      // Return a failure result for rejected promises
+      return {
+        success: false,
+        requestId: requests[index].id,
+        error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+      };
+    });
   }
 
   /**

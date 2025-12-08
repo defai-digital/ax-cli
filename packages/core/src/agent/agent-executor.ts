@@ -246,10 +246,19 @@ export async function isAxAvailable(): Promise<boolean> {
       stdio: 'pipe',
       shell: isWindows, // Windows needs shell for 'where'
     });
+
+    // Timeout to prevent hanging if spawn process doesn't respond
+    const timeout = setTimeout(() => {
+      process_.kill();
+      resolve(false);
+    }, 5000);
+
     process_.on('close', (code) => {
+      clearTimeout(timeout);
       resolve(code === 0);
     });
     process_.on('error', () => {
+      clearTimeout(timeout);
       resolve(false);
     });
   });

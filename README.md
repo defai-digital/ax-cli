@@ -15,9 +15,7 @@
   <strong>Enterprise-grade AI coding assistant optimized for GLM and Grok</strong>
 </p>
 
----
-
-## Quick Start
+To get started quickly, choose your preferred AI provider below. For new users, we recommend installing `ax-glm` or `ax-grok` directly for optimized experience. The `@defai.digital/ax-cli` package is maintained for backward compatibility.
 
 ### For GLM Users (Z.AI)
 
@@ -132,13 +130,13 @@ ax-glm -p "fix TypeScript errors" -d /path/to/project
 
 ### Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+O` | Toggle verbosity |
-| `Ctrl+K` | Quick actions |
-| `Ctrl+B` | Background mode |
-| `Shift+Tab` | Auto-edit mode |
-| `Esc` ×2 | Cancel/clear |
+| Shortcut | Action | Description |
+|----------|--------|-------------|
+| `Ctrl+O` | Toggle verbosity | Show/hide detailed logs and internal processes |
+| `Ctrl+K` | Quick actions | Access common commands and tools |
+| `Ctrl+B` | Background mode | Run tasks in the background |
+| `Shift+Tab` | Auto-edit mode | Trigger AI-powered code suggestions and refactoring |
+| `Esc` ×2 | Cancel/clear | Clear current input or cancel an ongoing operation |
 
 ---
 
@@ -223,94 +221,17 @@ ax-glm memory status    # View token distribution
 
 ## Changelog
 
-### v4.3.2 - Enter Key Fix
+Stay up-to-date with the latest improvements and features.
 
-- **Bug Fix**: Fixed Enter key not working in certain terminal environments
-  - Enter key was being interpreted as newline character instead of submit
-  - Now properly detects Enter from multiple sources (key.return, carriage return, newline)
-  - Preserves Ctrl+J behavior for explicit newline insertion
+### Recent Highlights:
 
-### v4.3.1 - Patch Release
+*   **v4.3.3**: Stability improvements and code cleanup.
+*   **v4.3.2**: Fixed Enter key not working in certain terminal environments.
+*   **v4.3.1**: Minor stability improvements and bug fixes.
+*   **v4.3.0**: Major upgrade to MCP client (V2) with enhanced resource handling and connection reliability.
+*   **v4.2.0**: Introduced provider-specific MCP configurations, allowing `ax-glm` and `ax-grok` to run simultaneously without conflicts.
 
-- **Bug Fixes**: Minor stability improvements and fixes
-
-### v4.3.0 - MCP Client V2 & Resource Support
-
-**Enhanced MCP Integration**: Major upgrade to MCP client with improved resource handling and connection reliability.
-
-- **MCP Client V2**: Rewritten MCP client with better error handling, connection pooling, and retry logic
-- **Resource Support**: Full support for MCP resources with read/subscribe capabilities
-- **Provider MCP Loader**: Improved provider-specific MCP configuration loading
-- **Connection Stability**: Better handling of MCP server disconnections and reconnections
-- **Bug Fixes**: Various stability improvements and edge case handling
-
-### v4.2.0 - Provider-Specific MCP Configuration
-
-**Provider MCP Isolation**: ax-glm and ax-grok now have separate MCP configurations, allowing both CLIs to run simultaneously without conflicts.
-
-- **Claude Code Format Support**: New `.mcp.json` format following Claude Code best practices
-- **Provider-Specific Directories**: `.ax-glm/.mcp.json` and `.ax-grok/.mcp.json` for isolated MCP server configs
-- **Legacy Format Support**: Backward compatible with existing `mcp-config.json` files
-- **Configuration Priority**: Clear priority order for MCP config loading (project settings > provider MCP > AutomatosX config)
-- **Documentation Updates**: Comprehensive guides for multi-provider MCP setup
-
-**MCP Configuration Example** (`.ax-glm/.mcp.json`):
-```json
-{
-  "mcpServers": {
-    "automatosx": {
-      "command": "automatosx",
-      "args": ["mcp", "server"],
-      "env": { "AUTOMATOSX_PROJECT_DIR": "/path/to/project" }
-    }
-  }
-}
-```
-
-### v4.1.18 - CI/CD Fix
-- **Fixed Tests**: Added missing `provider/config.ts` to root src for test compatibility
-
-### v4.1.17 - Grok Model Fixes
-- **Fixed Grok Model Names**: Updated to correct xAI API model IDs (`grok-2-1212`, `grok-2-vision-1212`)
-- **Model Validation**: Grok models now properly recognized (no more "custom model" warnings)
-- **Default Model**: Set `grok-3` as default for ax-grok
-
-### v4.1.16 - Code Quality & Stability Improvements
-- **Terminal State Management**: Integrated terminal lifecycle manager to prevent corruption from overlapping spinners/prompts
-- **Unified Exit Handling**: Centralized exit handler with proper cleanup callbacks and exit codes
-- **Structured Logging**: Replaced console.log/warn/error with structured logger in settings-manager
-- **Silent Error Fixes**: Added debug logging for previously silent catches (enable with `AX_DEBUG=true`)
-- **TypeScript Fixes**: Fixed Zod API usage and removed unused imports
-- **Security**: Added `.ax-glm/` and `.ax-grok/` to `.gitignore` to protect API keys
-
-### v4.1.13 - SDK 1.4.0 Multi-Provider Support
-- **SDK 1.4.0**: Multi-provider support with ProviderContext
-- `createGLMAgent()` and `createGrokAgent()` factory functions
-- Provider-specific context stores and file caching
-- File locking for concurrent access safety
-- Provider settings management
-
-### v4.1.12 - Figma & MCP Improvements
-- Figma component instance detection (`instanceOf` field)
-- Figma text style extraction (fontSize, fontFamily, fontWeight, lineHeight)
-- MCP debug mode with comprehensive diagnostics
-- Alias validation command with batch support
-- Fixed cache invalidation for parameterized Figma API calls
-
-### v4.1.11 - Provider Branding
-- Unique ASCII logos for ax-glm and ax-grok
-- Provider-specific color schemes
-
-### v4.1.10 - Grok Fixes
-- `reasoning_effort` for Grok-3 thinking mode
-- Enhanced web search parameters
-- Auto-switch to grok-2-vision for images
-
-### v4.1.9 - Setup Wizard
-- Provider selection flow
-- Provider-specific config directories
-
-[View all releases](https://github.com/defai-digital/ax-cli/releases)
+For a complete history of changes, please refer to the [full release notes on GitHub](https://github.com/defai-digital/ax-cli/releases).
 
 ---
 

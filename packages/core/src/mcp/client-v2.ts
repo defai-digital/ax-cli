@@ -274,9 +274,14 @@ export class MCPManagerV2 extends EventEmitter {
   private healthCheckTimer: NodeJS.Timeout | null = null;
   private healthCheckInFlight = false;
 
+  // MCP Client identification (sent to MCP servers during initialization)
+  private clientName: string;
+  private clientVersion: string;
+
   constructor(
     reconnectionConfig: Partial<ReconnectionConfig> = {},
-    healthCheckConfig: Partial<HealthCheckConfig> = {}
+    healthCheckConfig: Partial<HealthCheckConfig> = {},
+    clientConfig?: { name?: string; version?: string }
   ) {
     super();
     this.reconnectionConfig = {
@@ -287,6 +292,9 @@ export class MCPManagerV2 extends EventEmitter {
       ...DEFAULT_HEALTH_CHECK_CONFIG,
       ...healthCheckConfig
     };
+    // Use provided client name/version or fall back to MCP_CONFIG defaults
+    this.clientName = clientConfig?.name ?? MCP_CONFIG.CLIENT_NAME;
+    this.clientVersion = clientConfig?.version ?? MCP_CONFIG.CLIENT_VERSION;
 
     // Start health checks if enabled
     if (this.healthCheckConfig.enabled) {
@@ -424,11 +432,11 @@ export class MCPManagerV2 extends EventEmitter {
           // Create transport (with quiet option for stderr suppression)
           const transport = createTransport(transportWithQuiet);
 
-          // Create client
+          // Create client with provider-specific identification
           const client = new Client(
             {
-              name: MCP_CONFIG.CLIENT_NAME,
-              version: MCP_CONFIG.CLIENT_VERSION
+              name: this.clientName,
+              version: this.clientVersion
             },
             {
               capabilities: {}  // SDK v1.22+ doesn't have tools in client capabilities
@@ -1601,6 +1609,12 @@ export class MCPManagerV2 extends EventEmitter {
 
     // Schedule reconnection attempt
     const timer = setTimeout(async () => {
+      // BUG FIX: Check if disposed before attempting reconnection
+      // Timer may fire after dispose() was called
+      if (this.disposing) {
+        return;
+      }
+
       // Increment attempt count
       this.reconnectionAttempts.set(serverName, attempts + 1);
 

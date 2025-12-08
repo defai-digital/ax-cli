@@ -215,7 +215,14 @@ export function loadMCPConfig(): MCPConfig {
 
   // Auto-discover AutomatosX MCP server if installed
   // This provides seamless integration when AutomatosX is available
-  const autoDiscoveredServers = getAutoDiscoveredServers();
+  // BUT skip auto-discovery if an "automatosx" server is already configured
+  // (to avoid duplicate servers: "automatosx" from .mcp.json + "automatosx-{provider}" from auto-discovery)
+  const hasExistingAutomatosX =
+    providerMCPServers.some(s => s.name === 'automatosx' || s.name.startsWith('automatosx-')) ||
+    automatosXResult.servers.some(s => s.name === 'automatosx' || s.name.startsWith('automatosx-')) ||
+    axCliServers.some(s => s.name === 'automatosx' || s.name.startsWith('automatosx-'));
+
+  const autoDiscoveredServers = hasExistingAutomatosX ? [] : getAutoDiscoveredServers();
   const autoDiscoveryDetection = detectAutomatosX();
 
   if (autoDiscoveredServers.length > 0 && !hasShownMigrationWarnings && process.env.DEBUG) {

@@ -29,19 +29,45 @@ export const LLM_TOOLS: LLMTool[] = TOOL_DEFINITIONS.map(toOpenAIFormat);
 
 // Global MCP manager instance (singleton pattern)
 let mcpManager: MCPManager | null = null;
+// Store the client config used to create the manager (for debugging/inspection)
+let _mcpClientConfig: { name?: string; version?: string } | undefined = undefined;
 
 /**
  * Get or create the MCP manager singleton
  * Note: MCPManager constructor is synchronous, so no race condition is possible
  * in single-threaded JavaScript. The flag is only useful across async boundaries.
+ *
+ * @param clientConfig - Optional MCP client identification (name/version)
+ *                       Only used on first call to create the manager.
+ *                       Subsequent calls ignore this parameter.
  */
-export function getMCPManager(): MCPManager {
+export function getMCPManager(clientConfig?: { name?: string; version?: string }): MCPManager {
   if (!mcpManager) {
     // MCPManager constructor is synchronous, so no spin-wait needed
     // JavaScript is single-threaded - this code runs atomically
-    mcpManager = new MCPManager();
+    _mcpClientConfig = clientConfig;
+    mcpManager = new MCPManager(clientConfig);
   }
   return mcpManager;
+}
+
+/**
+ * Reset the MCP manager singleton (primarily for testing)
+ * This allows creating a new manager with different client config
+ */
+export function resetMCPManager(): void {
+  if (mcpManager) {
+    mcpManager.dispose();
+    mcpManager = null;
+    _mcpClientConfig = undefined;
+  }
+}
+
+/**
+ * Get the current MCP client configuration (for debugging/inspection)
+ */
+export function getMCPClientConfig(): { name?: string; version?: string } | undefined {
+  return _mcpClientConfig;
 }
 
 /**
@@ -82,6 +108,10 @@ function enableStderrSuppression(): void {
 }
 
 function disableStderrSuppression(): void {
+  // Guard against going negative (mismatched enable/disable calls)
+  if (stderrSuppressionCount <= 0) {
+    return;
+  }
   stderrSuppressionCount--;
   if (stderrSuppressionCount === 0 && originalStderrWrite) {
     // Last caller - restore original
@@ -94,9 +124,12 @@ function disableStderrSuppression(): void {
  * Initialize MCP servers from config
  * BUG FIX: Use reference-counted stderr suppression to handle concurrent calls
  * PERF FIX: Initialize servers in parallel so slow servers don't block others
+ *
+ * @param clientConfig - Optional MCP client identification (e.g., { name: 'ax-glm', version: '4.3.0' })
+ *                       This is sent to MCP servers during the protocol handshake.
  */
-export async function initializeMCPServers(): Promise<void> {
-  const manager = getMCPManager();
+export async function initializeMCPServers(clientConfig?: { name?: string; version?: string }): Promise<void> {
+  const manager = getMCPManager(clientConfig);
   const config = loadMCPConfig();
 
   // Temporarily suppress verbose MCP connection logs (reference counted)

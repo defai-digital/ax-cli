@@ -63,8 +63,8 @@ export const PasteSettingsSchema = z.object({
 
 // Input Settings Schema (for multi-line input behavior) - Phase 1
 export const InputSettingsSchema = z.object({
-  // Enter key behavior: newline (default), submit (legacy), smart (auto-detect)
-  enterBehavior: z.enum(['newline', 'submit', 'smart']).optional().default('newline'),
+  // Enter key behavior: submit (default), newline, smart (auto-detect)
+  enterBehavior: z.enum(['newline', 'submit', 'smart']).optional().default('submit'),
   // Submit keys configuration (default: shift+enter)
   submitKeys: z.array(z.string()).optional().default(['shift+enter']),
   // Multi-line indicator for continuation lines

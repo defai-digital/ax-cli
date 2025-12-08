@@ -105,12 +105,15 @@ export class LLMAgent extends EventEmitter {
   private toolApprovalTimeouts: Map<string, NodeJS.Timeout> = new Map();
   /** BUG FIX: Track resolved state to prevent double-resolution race condition */
   private toolApprovalResolved: Map<string, boolean> = new Map();
+  /** MCP client identification (sent to MCP servers during protocol handshake) */
+  private mcpClientConfig?: { name?: string; version?: string };
 
   constructor(
     apiKey: string,
     baseURL?: string,
     model?: string,
-    maxToolRounds?: number
+    maxToolRounds?: number,
+    mcpClientConfig?: { name?: string; version?: string }
   ) {
     super();
     const manager = getSettingsManager();
@@ -122,6 +125,7 @@ export class LLMAgent extends EventEmitter {
     }
 
     this.maxToolRounds = maxToolRounds || 400;
+    this.mcpClientConfig = mcpClientConfig;
     this.llmClient = new LLMClient(apiKey, modelToUse, baseURL);
 
     // Initialize ToolExecutor with checkpoint callback (Phase 2 refactoring)
@@ -286,7 +290,8 @@ export class LLMAgent extends EventEmitter {
     this.runBackgroundTask(
       'MCP initialization',
       async () => {
-        await initializeMCPServers();
+        // Pass provider-specific client config (e.g., 'ax-glm', 'ax-grok', 'ax-cli')
+        await initializeMCPServers(this.mcpClientConfig);
         // After MCP servers are initialized, update system prompt to include MCP tools
         this.updateSystemPromptWithMCPTools();
       },

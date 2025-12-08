@@ -227,14 +227,17 @@ async function promptConfirm(message: string): Promise<boolean> {
     output: process.stdout,
   });
 
-  return new Promise<boolean>((resolve) => {
-    rl.question(chalk.yellow(message), (answer) => {
-      rl.close();
-      resolve(
-        equalsIgnoreCase(answer, "y") || equalsIgnoreCase(answer, "yes")
-      );
+  try {
+    return await new Promise<boolean>((resolve) => {
+      rl.question(chalk.yellow(message), (answer) => {
+        resolve(
+          equalsIgnoreCase(answer, "y") || equalsIgnoreCase(answer, "yes")
+        );
+      });
     });
-  });
+  } finally {
+    rl.close();
+  }
 }
 
 /**

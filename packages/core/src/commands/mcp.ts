@@ -468,7 +468,7 @@ export function createMCPCommand(): Command {
           console.log('  Tools:');
           tools.forEach(tool => {
             const displayName = tool.name.replace(`mcp__${name}__`, '');
-            console.log(`    - ${displayName}: ${tool.description}`);
+            console.log(`    - ${displayName}: ${tool.description || 'No description'}`);
           });
         }
 
@@ -797,7 +797,7 @@ export function createMCPCommand(): Command {
               prompts.note(serverInfo.join('\n'), titleColor(`${statusIcon} ${server.serverName} (${statusText})`));
             }
 
-            prompts.log.message(chalk.dim('Next update in 60 seconds...'));
+            prompts.log.message(chalk.dim(`Next update in ${MCP_CONFIG.HEALTH_CHECK_INTERVAL / 1000} seconds...`));
           };
 
           // Display immediately

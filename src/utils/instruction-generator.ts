@@ -187,7 +187,7 @@ Generated: ${new Date(projectInfo.lastAnalyzed).toLocaleString()}`;
       workflow += `${projectInfo.scripts.lint ? '2' : '1'}. Run tests: \`${projectInfo.scripts.test}\`\n`;
     }
     if (projectInfo.scripts.build) {
-      const step = projectInfo.scripts.lint && projectInfo.scripts.test ? '3' : projectInfo.scripts.lint || projectInfo.scripts.test ? '2' : '1';
+      const step = (projectInfo.scripts.lint && projectInfo.scripts.test) ? '3' : (projectInfo.scripts.lint || projectInfo.scripts.test) ? '2' : '1';
       workflow += `${step}. Build: \`${projectInfo.scripts.build}\`\n`;
     }
 

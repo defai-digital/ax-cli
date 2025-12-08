@@ -71,6 +71,7 @@ import { initializeMCPServers } from '../llm/tools.js';
 import { z } from 'zod';
 import { SDKError, SDKErrorCode } from './errors.js';
 import { GLM_PROVIDER, GROK_PROVIDER, getApiKeyFromEnv, type ProviderDefinition } from '../provider/config.js';
+import { MCP_CONFIG } from '../constants.js';
 
 // ============================================================================
 // LLM Client
@@ -141,6 +142,8 @@ export {
   getMCPPrompts,
   discoverMCPPrompts,
   getMCPResources,
+  resetMCPManager,
+  getMCPClientConfig,
 } from '../llm/tools.js';
 export type { MCPConfig } from '../mcp/config.js';
 export type { MCPServerConfig, MCPTool } from '../mcp/client.js';
@@ -1016,8 +1019,12 @@ export async function createProviderAgent(
     console.error(`[${cliName.toUpperCase()} SDK DEBUG]   Thinking enabled: ${enableThinking ?? 'default'}`);
   }
 
-  // Create agent instance
-  const agent = new LLMAgent(apiKey, baseURL, model, maxToolRounds);
+  // Create agent instance with provider-specific MCP client identification
+  // This sends the provider name (ax-glm, ax-grok, ax-cli) to MCP servers during handshake
+  const agent = new LLMAgent(apiKey, baseURL, model, maxToolRounds, {
+    name: cliName,
+    version: MCP_CONFIG.CLIENT_VERSION
+  });
 
   // Configure thinking mode if supported and requested
   if (provider.features.supportsThinking && enableThinking !== undefined) {

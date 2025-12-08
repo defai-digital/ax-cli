@@ -87,9 +87,9 @@ export class MCPManager extends EventEmitter {
   /** @internal v2 implementation */
   private v2: MCPManagerV2;
 
-  constructor() {
+  constructor(clientConfig?: { name?: string; version?: string }) {
     super();
-    this.v2 = new MCPManagerV2();
+    this.v2 = new MCPManagerV2({}, {}, clientConfig);
 
     // Forward all v2 events to v1 listeners
     this.v2.on('serverAdded', (...args) => this.emit('serverAdded', ...args));

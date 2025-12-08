@@ -41,16 +41,13 @@ const PRIVATE_IP_RANGES = [
 /**
  * Blocked hostnames (cloud metadata endpoints, etc.)
  */
-const BLOCKED_HOSTNAMES = [
-  // AWS metadata
+const BLOCKED_HOSTNAMES: readonly string[] = [
+  // AWS/Azure metadata (same IP)
   '169.254.169.254',
   'metadata.google.internal',
 
   // GCP metadata
   'metadata.goog',
-
-  // Azure metadata
-  '169.254.169.254',
 
   // Kubernetes metadata
   'kubernetes.default.svc',
@@ -65,7 +62,7 @@ const BLOCKED_HOSTNAMES = [
   // DNS rebinding targets
   '0x7f000001', // 127.0.0.1 in hex
   '2130706433', // 127.0.0.1 in decimal
-] as const;
+];
 
 /**
  * Allowed protocols
@@ -133,7 +130,7 @@ function isBlockedHostname(hostname: string): boolean {
   const normalized = hostname.toLowerCase().trim();
 
   // Check exact matches
-  if (BLOCKED_HOSTNAMES.includes(normalized as any)) {
+  if (BLOCKED_HOSTNAMES.includes(normalized)) {
     return true;
   }
 
