@@ -115,7 +115,8 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "package=${{ github.event.inputs.package }}" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref_name }}" == v*.*.* ]]; then
-            echo "package=ax-cli" >> $GITHUB_OUTPUT
+            # Main version tag (v4.3.1) publishes all packages
+            echo "package=all" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref_name }}" == ax-glm@* ]]; then
             echo "package=ax-glm" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref_name }}" == ax-grok@* ]]; then
