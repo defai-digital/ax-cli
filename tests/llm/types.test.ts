@@ -101,8 +101,8 @@ describe('GLM-4.6 Type Validation', () => {
     });
 
     it('should cap max tokens at model limit', () => {
-      const options = createDefaultChatOptions('glm-4.5v');
-      expect(options.maxTokens).toBeLessThanOrEqual(GLM_MODELS['glm-4.5v'].maxOutputTokens);
+      const options = createDefaultChatOptions('glm-4.6v');
+      expect(options.maxTokens).toBeLessThanOrEqual(GLM_MODELS['glm-4.6v'].maxOutputTokens);
     });
   });
 

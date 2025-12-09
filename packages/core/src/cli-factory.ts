@@ -254,11 +254,16 @@ export function createCLI(options: CLIFactoryOptions): Command {
         }
       }
 
-      // Handle --continue flag
+      // Initialize history manager with project directory
+      // This ensures history is ALWAYS stored per-project so --continue can find it
+      const currentDir = process.cwd();
+      const { getHistoryManager } = await import("./utils/history-manager.js");
+      // Always create with projectDir so ChatInterface gets the correct singleton
+      getHistoryManager(currentDir, true);
+
+      // Handle --continue flag: show status about loaded history
       if (cliOptions.continue) {
-        const currentDir = process.cwd();
-        const { getHistoryManager } = await import("./utils/history-manager.js");
-        const historyManager = getHistoryManager(currentDir, true);
+        const historyManager = getHistoryManager(currentDir);
         const previousHistory = historyManager.loadHistory();
 
         if (previousHistory.length > 0) {

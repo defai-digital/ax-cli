@@ -43,7 +43,7 @@ interface ProviderInfo {
 // Z.AI Cloud models
 const ZAI_MODELS: ModelInfo[] = [
   { id: 'glm-4.6', name: 'GLM-4.6', description: 'Most capable GLM model with thinking mode (200K context)' },
-  { id: 'glm-4.5v', name: 'GLM-4.5V', description: 'Vision-capable GLM model (64K context)' },
+  { id: 'glm-4.6v', name: 'GLM-4.6V', description: 'Latest vision model with thinking mode (128K context)' },
   { id: 'glm-4', name: 'GLM-4', description: 'Standard GLM-4 model (128K context)' },
   { id: 'glm-4-flash', name: 'GLM-4 Flash', description: 'Fast, efficient GLM model (128K context)' },
 ];

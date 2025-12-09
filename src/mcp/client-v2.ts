@@ -1552,7 +1552,7 @@ export class MCPManagerV2 extends EventEmitter {
         description: r.description,
         mimeType: r.mimeType,
       })));
-    } catch (error) {
+    } catch {
       // Server may not support resources
       return Ok([]);
     }
@@ -1907,9 +1907,15 @@ export class MCPManagerV2 extends EventEmitter {
 
   /**
    * Clean up resources and remove all event listeners.
+   * @deprecated Use dispose() instead for complete cleanup.
+   * This method now delegates to dispose() for backwards compatibility.
    */
   destroy(): void {
-    this.removeAllListeners();
+    // Fire-and-forget since dispose() is async
+    // Callers needing to await cleanup should use dispose() directly
+    this.dispose().catch(() => {
+      // Suppress errors during destroy - best effort cleanup
+    });
   }
 
 }

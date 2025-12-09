@@ -411,7 +411,7 @@ cat .ax/settings.json | grep -A5 '"models"'
   "models": [
     "glm-4.6",
     "grok-code-fast-1",
-    "glm-4.5v"
+    "glm-4.6v"
   ]
 }
 ```
@@ -422,7 +422,7 @@ cat .ax/settings.json | grep -A5 '"models"'
 ax-cli --help  # Shows default models
 
 # Some providers use different naming:
-# Z.AI: glm-4.6, glm-4.5v
+# Z.AI: glm-4.6, glm-4.6v
 # X.AI: grok-code-fast-1, grok-4-latest
 # OpenAI: gpt-4, gpt-4o
 ```

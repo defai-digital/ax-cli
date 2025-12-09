@@ -110,8 +110,9 @@ export const GLM_PROVIDER: ProviderDefinition = {
       defaultTemperature: 0.7,
       description: 'Latest vision model with 128K context and thinking mode',
     },
+    // Note: glm-4.5v is deprecated, use glm-4.6v instead
     'glm-4.5v': {
-      name: 'GLM-4.5V',
+      name: 'GLM-4.5V (Deprecated)',
       contextWindow: 64000,
       maxOutputTokens: 16000,
       supportsThinking: true,
@@ -119,7 +120,7 @@ export const GLM_PROVIDER: ProviderDefinition = {
       supportsSearch: false,
       supportsSeed: false,
       defaultTemperature: 0.7,
-      description: 'Vision-capable GLM model',
+      description: 'Deprecated: Use glm-4.6v for vision tasks',
     },
     'glm-4': {
       name: 'GLM-4',
@@ -158,7 +159,7 @@ export const GLM_PROVIDER: ProviderDefinition = {
   },
   features: {
     supportsThinking: true,
-    supportsVision: true, // via glm-4.5v
+    supportsVision: true, // via glm-4.6v
     supportsSearch: false,
     supportsSeed: false,
     supportsDoSample: true,
@@ -172,13 +173,12 @@ export const GLM_PROVIDER: ProviderDefinition = {
     secondaryColor: 'gray',
     tagline: 'Powered by Z.AI',
     asciiLogo: `
-
-  █████╗ ██╗  ██╗      ██████╗ ██╗     ███╗   ███╗
- ██╔══██╗╚██╗██╔╝     ██╔════╝ ██║     ████╗ ████║
- ███████║ ╚███╔╝█████╗██║  ███╗██║     ██╔████╔██║
- ██╔══██║ ██╔██╗╚════╝██║   ██║██║     ██║╚██╔╝██║
- ██║  ██║██╔╝ ██╗     ╚██████╔╝███████╗██║ ╚═╝ ██║
- ╚═╝  ╚═╝╚═╝  ╚═╝      ╚═════╝ ╚══════╝╚═╝     ╚═╝`,
+   ██████╗ ██╗     ███╗   ███╗
+  ██╔════╝ ██║     ████╗ ████║
+  ██║  ███╗██║     ██╔████╔██║
+  ██║   ██║██║     ██║╚██╔╝██║
+  ╚██████╔╝███████╗██║ ╚═╝ ██║
+   ╚═════╝ ╚══════╝╚═╝     ╚═╝`,
   },
 };
 
@@ -314,12 +314,12 @@ export const GROK_PROVIDER: ProviderDefinition = {
     secondaryColor: 'white',
     tagline: 'Powered by xAI',
     asciiLogo: `
-
-  A   X   X        GGG  RRRR   OOO  K   K 
- A A   X X        G     R   R O   O K  K  
-AAAAA   X    ---  G GG  RRRR  O   O KKK   
-A   A  X X        G   G R  R  O   O K  K  
-A   A X   X        GGG  R   R  OOO  K   K`,
+   ██████╗ ██████╗  ██████╗ ██╗  ██╗
+  ██╔════╝ ██╔══██╗██╔═══██╗██║ ██╔╝
+  ██║  ███╗██████╔╝██║   ██║█████╔╝ 
+  ██║   ██║██╔══██╗██║   ██║██╔═██╗ 
+  ╚██████╔╝██║  ██║╚██████╔╝██║  ██╗
+   ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝`,
   },
 };
 

@@ -236,7 +236,7 @@ describe('UsageTracker', () => {
     });
 
     it('should handle multiple models in one session', () => {
-      const models = ['glm-4.6', 'grok-code-fast-1', 'glm-4.5v', 'custom-model'];
+      const models = ['glm-4.6', 'grok-code-fast-1', 'glm-4.6v', 'custom-model'];
 
       models.forEach((model, index) => {
         tracker.trackUsage(model, {

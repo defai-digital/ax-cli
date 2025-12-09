@@ -96,8 +96,7 @@ Run `/init` inside the CLI to initialize your project context.
 | Model | Context | Features | Alias |
 |-------|---------|----------|-------|
 | `glm-4.6` | 200K | **Thinking mode**: detailed thought processes and planning | `glm-latest` |
-| `glm-4.6v` | 128K | **Vision + Thinking**: latest vision model with thinking mode | `glm-vision` |
-| `glm-4.5v` | 64K | **Vision support**: analyze and understand images | |
+| `glm-4.6v` | 128K | **Vision + Thinking**: latest vision model with native multimodal function calling | `glm-vision` |
 | `glm-4-flash` | 128K | Fast, efficient for quick tasks | `glm-fast` |
 | `cogview-4` | - | **Image generation**: text-to-image with variable resolutions | `glm-image` |
 

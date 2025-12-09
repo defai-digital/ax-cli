@@ -258,6 +258,62 @@ export class PlanStorage {
   }
 
   /**
+   * Clean up stale/interrupted plans (plans not updated within staleDays)
+   * This handles plans left in CREATED, APPROVED, PAUSED, EXECUTING, or FAILED state
+   * after interruption (Ctrl+C) or crash.
+   *
+   * @param staleDays Number of days after which a non-completed plan is considered stale (default: 1)
+   * @param force If true, deletes stale plans immediately. Otherwise, marks them as ABANDONED first.
+   */
+  async cleanupStalePlans(staleDays: number = 1, force: boolean = false): Promise<number> {
+    const allPlans = await this.listPlans();
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - staleDays);
+
+    let cleanedCount = 0;
+
+    for (const plan of allPlans) {
+      // Only process non-terminal plans (not completed/abandoned)
+      const isTerminal = plan.status === PlanStatus.COMPLETED || plan.status === PlanStatus.ABANDONED;
+      if (isTerminal) continue;
+
+      // Check if plan is stale (not updated within staleDays)
+      if (plan.updatedAt < cutoffDate) {
+        if (force) {
+          // Delete immediately
+          const deleted = await this.deletePlan(plan.id);
+          if (deleted) cleanedCount++;
+        } else {
+          // Mark as abandoned first
+          const fullPlan = await this.loadPlan(plan.id);
+          if (fullPlan) {
+            fullPlan.status = PlanStatus.ABANDONED;
+            fullPlan.updatedAt = new Date();
+            await this.savePlan(fullPlan);
+            cleanedCount++;
+          }
+        }
+      }
+    }
+
+    return cleanedCount;
+  }
+
+  /**
+   * List stale plans (plans not updated within staleDays that are not completed/abandoned)
+   */
+  async listStalePlans(staleDays: number = 1): Promise<PlanSummary[]> {
+    const allPlans = await this.listPlans();
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - staleDays);
+
+    return allPlans.filter((plan) => {
+      const isTerminal = plan.status === PlanStatus.COMPLETED || plan.status === PlanStatus.ABANDONED;
+      return !isTerminal && plan.updatedAt < cutoffDate;
+    });
+  }
+
+  /**
    * Check if a plan exists
    */
   planExists(planId: string): boolean {

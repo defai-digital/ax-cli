@@ -81,7 +81,7 @@ const PROVIDERS: Record<Provider, ProviderInfo> = {
 // GLM models
 const GLM_MODELS: ModelInfo[] = [
   { id: 'glm-4.6', name: 'GLM-4.6', description: 'Most capable GLM model with thinking mode', contextWindow: 200000, supportsThinking: true },
-  { id: 'glm-4.5v', name: 'GLM-4.5V', description: 'Vision-capable GLM model', contextWindow: 64000, supportsVision: true },
+  { id: 'glm-4.6v', name: 'GLM-4.6V', description: 'Latest vision model with 128K context and thinking mode', contextWindow: 128000, supportsVision: true, supportsThinking: true },
   { id: 'glm-4', name: 'GLM-4', description: 'Standard GLM-4 model', contextWindow: 128000 },
   { id: 'glm-4-flash', name: 'GLM-4 Flash', description: 'Fast, efficient GLM model', contextWindow: 128000 },
 ];

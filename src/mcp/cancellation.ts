@@ -308,6 +308,13 @@ export class CancellationManager extends EventEmitter {
 export const CANCELLED_ERROR_CODE = -32800;
 
 /**
+ * Cancellation error with JSON-RPC error code
+ */
+export interface CancellationError extends Error {
+  code: number;
+}
+
+/**
  * Check if an error indicates a cancelled request
  *
  * @param error - Error to check
@@ -330,11 +337,11 @@ export function isRequestCancelled(error: unknown): boolean {
  * Create an abort error for cancelled requests
  *
  * @param reason - Cancellation reason
- * @returns Error object
+ * @returns Error object with JSON-RPC error code
  */
-export function createCancellationError(reason?: string): Error {
-  const error = new Error(reason ?? 'Request cancelled');
-  (error as any).code = CANCELLED_ERROR_CODE;
+export function createCancellationError(reason?: string): CancellationError {
+  const error = new Error(reason ?? 'Request cancelled') as CancellationError;
+  error.code = CANCELLED_ERROR_CODE;
   return error;
 }
 

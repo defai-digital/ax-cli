@@ -352,7 +352,8 @@ export class LLMAgent extends EventEmitter {
 
     // Auto-switch to vision model if messages contain images
     if (!result.model && this.hasMultimodalContent()) {
-      result.model = 'glm-4.5v';
+      // Use glm-4.6v (latest vision model with 128K context)
+      result.model = 'glm-4.6v';
     }
 
     return result;
@@ -2305,9 +2306,11 @@ export class LLMAgent extends EventEmitter {
 
   /**
    * Clean up resources and remove all event listeners.
+   * @deprecated Use dispose() instead for complete cleanup.
+   * This method now delegates to dispose() for backwards compatibility.
    */
   destroy(): void {
-    this.removeAllListeners();
+    this.dispose();
   }
 
 }

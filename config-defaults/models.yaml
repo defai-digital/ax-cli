@@ -28,8 +28,9 @@ models:
       max: 2.0
     token_efficiency: 1.0
 
+  # Note: glm-4.5v is deprecated, use glm-4.6v instead
   glm-4.5v:
-    name: glm-4.5v
+    name: glm-4.5v (deprecated)
     context_window: 64000  # 64K multimodal context
     max_output_tokens: 16000  # 16K max output
     default_max_tokens: 8192
@@ -40,3 +41,17 @@ models:
       min: 0.6
       max: 1.0
     token_efficiency: 1.2
+    deprecated: true  # Use glm-4.6v instead
+
+  glm-4.6v:
+    name: glm-4.6v
+    context_window: 128000  # 128K multimodal context (upgraded from 64K)
+    max_output_tokens: 128000  # 128K max output
+    default_max_tokens: 16384
+    supports_thinking: true  # Supports deep reasoning mode
+    supports_vision: true  # Native multimodal function calling
+    default_temperature: 0.7
+    temperature_range:
+      min: 0.6
+      max: 1.0
+    token_efficiency: 1.3

@@ -404,7 +404,8 @@ export function createMCPCommand(): Command {
   mcpCommand
     .command('list')
     .description('List configured MCP servers')
-    .action(() => {
+    .option('--connect', 'Connect to servers before listing to show accurate status')
+    .action(async (options) => {
       const config = loadMCPConfig();
       const manager = getMCPManager();
 
@@ -413,17 +414,36 @@ export function createMCPCommand(): Command {
         return;
       }
 
+      // If --connect flag is provided, try to connect to all servers first
+      if (options.connect) {
+        console.log(chalk.blue('Connecting to servers...'));
+        for (const server of config.servers) {
+          if (!manager.getServers().includes(server.name)) {
+            try {
+              await manager.addServer(server);
+            } catch {
+              // Connection failure will be shown in status
+            }
+          }
+        }
+        console.log();
+      }
+
       ConsoleMessenger.bold('mcp_commands.list_header');
       console.log();
 
       for (const server of config.servers) {
         const isConnected = manager.getServers().includes(server.name);
+        // BUG FIX: Show "Not Connected" instead of "Disconnected" when connection wasn't attempted
+        // "Disconnected" implies a connection was lost, which is misleading
         const statusMsg = isConnected
           ? chalk.green('✓ Connected')
-          : chalk.red('✗ Disconnected');
+          : options.connect
+            ? chalk.red('✗ Failed to connect')
+            : chalk.yellow('○ Not connected (use --connect to test)');
 
         console.log(`${chalk.bold(server.name)}: ${statusMsg}`);
-        
+
         // Display transport information
         if (server.transport) {
           console.log(`  Transport: ${server.transport.type}`);
@@ -436,13 +456,13 @@ export function createMCPCommand(): Command {
           // Legacy format
           console.log(`  Command: ${server.command} ${(server.args || []).join(' ')}`);
         }
-        
+
         if (isConnected) {
           const transportType = manager.getTransportType(server.name);
           if (transportType) {
             console.log(`  Active Transport: ${transportType}`);
           }
-          
+
           const tools = manager.getTools().filter(t => t.serverName === server.name);
           console.log(`  Tools: ${tools.length}`);
           if (tools.length > 0) {
@@ -452,7 +472,13 @@ export function createMCPCommand(): Command {
             });
           }
         }
-        
+
+        console.log();
+      }
+
+      if (!options.connect) {
+        console.log(chalk.gray(`💡 Use --connect to test server connections: ${getCliName()} mcp list --connect`));
+        console.log(chalk.gray(`   Or test a specific server: ${getCliName()} mcp test <server-name>`));
         console.log();
       }
     });
@@ -743,10 +769,31 @@ export function createMCPCommand(): Command {
     .description('Check health status of MCP servers')
     .option('--json', 'Output in JSON format')
     .option('--watch', 'Continuously monitor health (updates every 60s)')
+    .option('--no-connect', 'Skip connecting to servers (show config-only status)')
     .action(async (serverName: string | undefined, options) => {
       try {
         const { MCPHealthMonitor } = await import('../mcp/health.js');
         const manager = getMCPManager();
+        const config = loadMCPConfig();
+
+        // BUG FIX: Connect to servers before checking health
+        // The health command should actually test connectivity, not just show config state
+        if (options.connect !== false) {
+          const serversToConnect = serverName
+            ? config.servers.filter(s => s.name === serverName)
+            : config.servers;
+
+          for (const server of serversToConnect) {
+            if (!manager.getServers().includes(server.name)) {
+              try {
+                await manager.addServer(server);
+              } catch {
+                // Connection failure will be reported in health status
+              }
+            }
+          }
+        }
+
         const healthMonitor = new MCPHealthMonitor(manager);
 
         // JSON mode - plain output
@@ -852,10 +899,25 @@ export function createMCPCommand(): Command {
 
           if (health.length === 0) {
             if (serverName) {
-              prompts.log.warn(`Server "${serverName}" not found`);
+              // Check if server exists in config but couldn't connect
+              const serverInConfig = config.servers.find(s => s.name === serverName);
+              if (serverInConfig) {
+                prompts.log.error(`Server "${serverName}" is configured but failed to connect`);
+                prompts.log.info(`Test connection with: ${getCliName()} mcp test ${serverName}`);
+              } else {
+                prompts.log.warn(`Server "${serverName}" not found in configuration`);
+                prompts.log.info(`Add it with: ${getCliName()} mcp add ${serverName} --template`);
+              }
             } else {
-              prompts.log.warn('No MCP servers connected');
-              prompts.log.info('To add a server: ax-cli mcp add figma --template');
+              // Check if there are configured servers that couldn't connect
+              if (config.servers.length > 0) {
+                prompts.log.error(`${config.servers.length} server(s) configured but none connected`);
+                prompts.log.info(`Configured servers: ${config.servers.map(s => s.name).join(', ')}`);
+                prompts.log.info(`Test connections with: ${getCliName()} mcp test <server-name>`);
+              } else {
+                prompts.log.warn('No MCP servers configured');
+                prompts.log.info(`To add a server: ${getCliName()} mcp add figma --template`);
+              }
             }
             prompts.outro('');
             return;

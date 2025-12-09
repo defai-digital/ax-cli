@@ -676,7 +676,7 @@ export function createFrontendCommand(): Command {
     .command('compare-design <figma-url>')
     .description('Compare implementation with Figma design using visual AI')
     .option('--file <path>', 'Implementation file(s) to compare (comma-separated)', 'src/components')
-    .option('--model <name>', 'Vision model to use', 'glm-4.5v')
+    .option('--model <name>', 'Vision model to use', 'glm-4.6v')
     .option('--export-screenshot', 'Export screenshot from Figma', true)
     .option('--format <type>', 'Output format (markdown, html, json)', 'markdown')
     .action(async (figmaUrl: string, options) => {
@@ -730,7 +730,7 @@ export function createFrontendCommand(): Command {
         console.log(chalk.blue('📋 What this will do:'));
         console.log(chalk.gray('  1. Export screenshot from Figma design'));
         console.log(chalk.gray('  2. Read your implementation files'));
-        console.log(chalk.gray('  3. Use GLM-4.5V vision model to compare visual appearance'));
+        console.log(chalk.gray('  3. Use GLM-4.6V vision model to compare visual appearance'));
         console.log(chalk.gray('  4. Generate detailed difference report'));
         console.log();
 

@@ -65,14 +65,14 @@ describe('Frontend Commands - Phase 3 Features', () => {
   });
 
   describe('Visual Comparison - Model Validation', () => {
-    it('should use glm-4.5v as default vision model', () => {
-      const defaultModel = 'glm-4.5v';
-      expect(defaultModel).toBe('glm-4.5v');
+    it('should use glm-4.6v as default vision model', () => {
+      const defaultModel = 'glm-4.6v';
+      expect(defaultModel).toBe('glm-4.6v');
     });
 
     it('should validate vision model supports multimodal', () => {
-      const visionModels = ['glm-4.5v'];
-      expect(visionModels).toContain('glm-4.5v');
+      const visionModels = ['glm-4.6v'];
+      expect(visionModels).toContain('glm-4.6v');
     });
   });
 
@@ -96,7 +96,7 @@ describe('Frontend Commands - Phase 3 Features', () => {
       const prompt = buildVisualComparisonPrompt({
         fileId: 'abc123',
         filePaths: ['src/Button.tsx'],
-        model: 'glm-4.5v',
+        model: 'glm-4.6v',
         exportScreenshot: true,
         outputFormat: 'markdown'
       });
@@ -109,7 +109,7 @@ describe('Frontend Commands - Phase 3 Features', () => {
         fileId: 'abc123',
         nodeId: '1:234',
         filePaths: ['src/Button.tsx'],
-        model: 'glm-4.5v',
+        model: 'glm-4.6v',
         exportScreenshot: true,
         outputFormat: 'markdown'
       });
@@ -122,7 +122,7 @@ describe('Frontend Commands - Phase 3 Features', () => {
       const prompt = buildVisualComparisonPrompt({
         fileId: 'abc123',
         filePaths,
-        model: 'glm-4.5v',
+        model: 'glm-4.6v',
         exportScreenshot: true,
         outputFormat: 'markdown'
       });
@@ -136,19 +136,19 @@ describe('Frontend Commands - Phase 3 Features', () => {
       const prompt = buildVisualComparisonPrompt({
         fileId: 'abc123',
         filePaths: ['src/Button.tsx'],
-        model: 'glm-4.5v',
+        model: 'glm-4.6v',
         exportScreenshot: true,
         outputFormat: 'markdown'
       });
 
-      expect(prompt).toContain('glm-4.5v');
+      expect(prompt).toContain('glm-4.6v');
     });
 
     it('should indicate screenshot export preference', () => {
       const promptWithExport = buildVisualComparisonPrompt({
         fileId: 'abc123',
         filePaths: ['src/Button.tsx'],
-        model: 'glm-4.5v',
+        model: 'glm-4.6v',
         exportScreenshot: true,
         outputFormat: 'markdown'
       });
@@ -158,7 +158,7 @@ describe('Frontend Commands - Phase 3 Features', () => {
       const promptWithoutExport = buildVisualComparisonPrompt({
         fileId: 'abc123',
         filePaths: ['src/Button.tsx'],
-        model: 'glm-4.5v',
+        model: 'glm-4.6v',
         exportScreenshot: false,
         outputFormat: 'markdown'
       });
@@ -173,7 +173,7 @@ describe('Frontend Commands - Phase 3 Features', () => {
         const prompt = buildVisualComparisonPrompt({
           fileId: 'abc123',
           filePaths: ['src/Button.tsx'],
-          model: 'glm-4.5v',
+          model: 'glm-4.6v',
           exportScreenshot: true,
           outputFormat: format
         });

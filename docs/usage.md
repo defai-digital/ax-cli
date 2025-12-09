@@ -858,7 +858,7 @@ FILE_NAME="utils.ts"
 ax-cli -p "analyze $FILE_NAME" -d "$PROJECT_PATH"
 
 # With substitution
-for model in glm-4.6 grok-code-fast-1 glm-4.5v; do
+for model in glm-4.6 grok-code-fast-1 glm-4.6v; do
   echo "Testing with $model..."
   ax-cli -p "simple task" --model "$model"
 done
@@ -1222,7 +1222,7 @@ ax-cli mcp add github --transport stdio --args "@modelcontextprotocol/server-git
 |-------|-------|-----------|----------|
 | glm-4.6 | Medium | Excellent | Complex tasks, deep reasoning |
 | grok-code-fast-1 | Fast | Good | Quick code tasks, API requests |
-| glm-4.5v | Medium | Excellent | Vision and multimodal tasks |
+| glm-4.6v | Medium | Excellent | Vision and multimodal tasks |
 | llama3.1 | Depends | Good | Offline, local computation |
 
 ### File Structure

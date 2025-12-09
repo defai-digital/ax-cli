@@ -420,8 +420,8 @@ export class LLMAgent extends EventEmitter {
         // For Grok, use grok-2-vision
         result.model = 'grok-2-vision-latest';
       } else {
-        // For GLM, use glm-4.5v
-        result.model = 'glm-4.5v';
+        // For GLM, use glm-4.6v (latest vision model with 128K context)
+        result.model = 'glm-4.6v';
       }
     }
 
@@ -2130,6 +2130,72 @@ export class LLMAgent extends EventEmitter {
   }
 
   /**
+   * Restore conversation from existing chat history entries
+   * Used by --continue flag to restore previous conversation context
+   *
+   * @param entries - Array of ChatEntry objects from loaded history
+   */
+  restoreFromHistory(entries: ChatEntry[]): void {
+    if (!entries || entries.length === 0) {
+      return;
+    }
+
+    // Set chat history
+    this.chatHistory = [...entries];
+
+    // Rebuild messages array from chat history
+    // Safely preserve system message if it exists
+    const systemMessage = this.messages.length > 0 ? this.messages[0] : null;
+    this.messages = systemMessage ? [systemMessage] : [];
+
+    // Track tool calls to validate tool results
+    // Prevents API errors from orphaned tool results without corresponding tool calls
+    const toolCallIds = new Set<string>();
+
+    for (const entry of entries) {
+      if (entry.type === 'user') {
+        this.messages.push({
+          role: 'user',
+          content: entry.content,
+        });
+      } else if (entry.type === 'assistant') {
+        // Track tool call IDs from assistant messages
+        if (entry.toolCalls && Array.isArray(entry.toolCalls)) {
+          for (const toolCall of entry.toolCalls) {
+            if (toolCall?.id) {
+              toolCallIds.add(toolCall.id);
+            }
+          }
+        }
+
+        this.messages.push({
+          role: 'assistant',
+          content: entry.content,
+          tool_calls: entry.toolCalls,
+        } as LLMMessage);
+      } else if (entry.type === 'tool_result' && entry.toolCall) {
+        // Only add tool result if corresponding tool call exists
+        // This prevents "tool message without corresponding tool call" API errors
+        if (toolCallIds.has(entry.toolCall.id)) {
+          this.messages.push({
+            role: 'tool',
+            content: entry.content,
+            tool_call_id: entry.toolCall.id,
+          });
+        }
+      }
+    }
+
+    // Rebuild tool call index map for O(1) lookups
+    this.toolCallIndexMap.clear();
+    this.chatHistory.forEach((entry, index) => {
+      if (entry.type === 'tool_call' && entry.toolCall?.id) {
+        this.toolCallIndexMap.set(entry.toolCall.id, index);
+      }
+    });
+  }
+
+  /**
    * Get checkpoint manager instance
    */
   getCheckpointManager(): CheckpointManager {
@@ -2392,8 +2458,10 @@ export class LLMAgent extends EventEmitter {
 
   /**
    * Clean up resources and remove all event listeners.
+   * @deprecated Use dispose() instead for complete cleanup.
+   * This method now delegates to dispose() for backwards compatibility.
    */
   destroy(): void {
-    this.removeAllListeners();
+    this.dispose();
   }
 }

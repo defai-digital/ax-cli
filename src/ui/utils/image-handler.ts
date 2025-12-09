@@ -182,7 +182,7 @@ const HELP_TEXT = `Image Input Methods:
 Supported formats: ${SUPPORTED_IMAGE_FORMATS.join(', ')}
 Maximum size: ${formatBytes(MAX_IMAGE_SIZE_BYTES)}
 
-Note: Images require glm-4.5v model (auto-switched)`;
+Note: Images require glm-4.6v model (auto-switched)`;
 
 /** Get help text for image input */
 export function getImageHelpText(): string {

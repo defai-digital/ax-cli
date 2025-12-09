@@ -734,13 +734,16 @@ program
         }
       }
 
-      // Handle --continue flag: load directory-specific session
-      if (options.continue) {
-        const currentDir = process.cwd();
-        const { getHistoryManager } = await import("./utils/history-manager.js");
+      // Initialize history manager with project directory
+      // This ensures history is ALWAYS stored per-project so --continue can find it
+      const currentDir = process.cwd();
+      const { getHistoryManager } = await import("./utils/history-manager.js");
+      // Always create with projectDir so ChatInterface gets the correct singleton
+      getHistoryManager(currentDir, true);
 
-        // Create a new history manager instance for this project directory
-        const historyManager = getHistoryManager(currentDir, true);
+      // Handle --continue flag: show status about loaded history
+      if (options.continue) {
+        const historyManager = getHistoryManager(currentDir);
         const previousHistory = historyManager.loadHistory();
 
         if (previousHistory.length > 0) {
@@ -749,11 +752,9 @@ program
         } else {
           console.log(`💬 Starting new conversation in ${currentDir}\n`);
         }
-
-        console.log("🤖 Starting AX CLI AI Assistant...\n");
-      } else {
-        console.log("🤖 Starting AX CLI AI Assistant...\n");
       }
+
+      console.log("🤖 Starting AX CLI AI Assistant...\n");
 
       ensureUserSettingsDirectory();
 

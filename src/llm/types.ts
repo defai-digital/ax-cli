@@ -345,6 +345,7 @@ export const GLM_MODELS = {
     temperatureRange: { min: 0.6, max: 1.0 },
     tokenEfficiency: 1.3,       // 30% more efficient
   },
+  // Note: glm-4.5v is deprecated, use glm-4.6v instead
   "glm-4.5v": {
     contextWindow: 64000,       // 64K multimodal context
     maxOutputTokens: 16000,     // 16K max output
@@ -353,6 +354,15 @@ export const GLM_MODELS = {
     defaultTemperature: 0.7,
     temperatureRange: { min: 0.6, max: 1.0 },
     tokenEfficiency: 1.2,
+  },
+  "glm-4.6v": {
+    contextWindow: 128000,      // 128K multimodal context (upgraded from 64K)
+    maxOutputTokens: 128000,    // 128K max output
+    supportsThinking: true,
+    supportsVision: true,       // Native multimodal function calling
+    defaultTemperature: 0.7,
+    temperatureRange: { min: 0.6, max: 1.0 },
+    tokenEfficiency: 1.3,
   },
 } as const;
 

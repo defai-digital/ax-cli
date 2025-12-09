@@ -68,7 +68,7 @@ While optimized for GLM, AX CLI supports a wide ecosystem of AI providers and mo
 
 **GLM Models** (Default, Recommended)
 - `glm-4.6`: Flagship model with 200K context window and reasoning mode (32K max output)
-- `glm-4.5v`: Vision-capable variant for multimodal workflows
+- `glm-4.6v`: Latest vision model with 128K context and native multimodal function calling
 
 ### Local Models via Ollama
 

@@ -4,7 +4,7 @@
  * Pre-configured templates for Z.AI's official MCP servers:
  * - Web Reader: Extract content from web pages
  * - Web Search: Real-time web search
- * - Vision: Image and video analysis via GLM-4.5V
+ * - Vision: Image and video analysis via GLM-4.6V
  *
  * These templates enable seamless integration for GLM users.
  */
@@ -76,7 +76,7 @@ export const ZAI_MCP_TEMPLATES: Record<ZAIServerName, ZAIMCPTemplate> = {
   [ZAI_SERVER_NAMES.VISION]: {
     name: ZAI_SERVER_NAMES.VISION,
     displayName: 'Z.AI Vision',
-    description: 'Image and video analysis via GLM-4.5V',
+    description: 'Image and video analysis via GLM-4.6V',
     tools: ['image_analysis', 'video_analysis'],
     transport: 'stdio',
     quotaType: 'vision',

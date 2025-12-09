@@ -172,6 +172,16 @@ function ChatInterfaceWithAgent({
     checkAx();
   }, []);
 
+  // BUG FIX: Restore agent's conversation state from loaded history
+  // This syncs the loaded chat history to the agent's internal state
+  // so the agent has context from previous conversations (--continue flag)
+  useEffect(() => {
+    if (loadPreviousHistory && chatHistory.length > 0 && agent) {
+      agent.restoreFromHistory(chatHistory);
+    }
+    // Only run once on mount - chatHistory is initialized from loadHistory() on first render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Flash effect helper - triggers a brief highlight then clears
   const triggerFlash = useCallback((setter: React.Dispatch<React.SetStateAction<boolean>>) => {

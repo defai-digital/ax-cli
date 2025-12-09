@@ -491,6 +491,204 @@ describe("PlanStorage", () => {
     });
   });
 
+  describe("cleanupStalePlans", () => {
+    it("should mark stale non-terminal plans as abandoned", async () => {
+      const stalePlan = createTestPlan({
+        id: "stale-paused",
+        status: PlanStatus.PAUSED,
+      });
+
+      await storage.savePlan(stalePlan);
+
+      // Manually set old date (2 days ago)
+      const planFile = path.join(testDir, stalePlan.id, "plan.json");
+      const content = JSON.parse(fs.readFileSync(planFile, "utf-8"));
+      content.updatedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+      fs.writeFileSync(planFile, JSON.stringify(content));
+
+      const cleaned = await storage.cleanupStalePlans(1, false);
+
+      expect(cleaned).toBe(1);
+
+      // Verify plan was marked as abandoned
+      const loaded = await storage.loadPlan(stalePlan.id);
+      expect(loaded?.status).toBe(PlanStatus.ABANDONED);
+    });
+
+    it("should delete stale plans when force is true", async () => {
+      const stalePlan = createTestPlan({
+        id: "stale-created",
+        status: PlanStatus.CREATED,
+      });
+
+      await storage.savePlan(stalePlan);
+
+      // Manually set old date (2 days ago)
+      const planFile = path.join(testDir, stalePlan.id, "plan.json");
+      const content = JSON.parse(fs.readFileSync(planFile, "utf-8"));
+      content.updatedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+      fs.writeFileSync(planFile, JSON.stringify(content));
+
+      const cleaned = await storage.cleanupStalePlans(1, true);
+
+      expect(cleaned).toBe(1);
+      expect(storage.planExists(stalePlan.id)).toBe(false);
+    });
+
+    it("should not cleanup completed plans", async () => {
+      const completedPlan = createTestPlan({
+        id: "old-completed",
+        status: PlanStatus.COMPLETED,
+      });
+
+      await storage.savePlan(completedPlan);
+
+      // Manually set old date
+      const planFile = path.join(testDir, completedPlan.id, "plan.json");
+      const content = JSON.parse(fs.readFileSync(planFile, "utf-8"));
+      content.updatedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+      fs.writeFileSync(planFile, JSON.stringify(content));
+
+      const cleaned = await storage.cleanupStalePlans(1, true);
+
+      expect(cleaned).toBe(0);
+    });
+
+    it("should not cleanup abandoned plans", async () => {
+      const abandonedPlan = createTestPlan({
+        id: "old-abandoned",
+        status: PlanStatus.ABANDONED,
+      });
+
+      await storage.savePlan(abandonedPlan);
+
+      // Manually set old date
+      const planFile = path.join(testDir, abandonedPlan.id, "plan.json");
+      const content = JSON.parse(fs.readFileSync(planFile, "utf-8"));
+      content.updatedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+      fs.writeFileSync(planFile, JSON.stringify(content));
+
+      const cleaned = await storage.cleanupStalePlans(1, true);
+
+      expect(cleaned).toBe(0);
+    });
+
+    it("should not cleanup recent non-terminal plans", async () => {
+      const recentPlan = createTestPlan({
+        id: "recent-paused",
+        status: PlanStatus.PAUSED,
+      });
+
+      await storage.savePlan(recentPlan);
+
+      const cleaned = await storage.cleanupStalePlans(1, true);
+
+      expect(cleaned).toBe(0);
+    });
+
+    it("should cleanup all stale statuses", async () => {
+      const statuses = [
+        { id: "stale-created", status: PlanStatus.CREATED },
+        { id: "stale-approved", status: PlanStatus.APPROVED },
+        { id: "stale-executing", status: PlanStatus.EXECUTING },
+        { id: "stale-paused", status: PlanStatus.PAUSED },
+        { id: "stale-failed", status: PlanStatus.FAILED },
+      ];
+
+      for (const { id, status } of statuses) {
+        const plan = createTestPlan({ id, status });
+        await storage.savePlan(plan);
+
+        // Manually set old date (2 days ago)
+        const planFile = path.join(testDir, id, "plan.json");
+        const content = JSON.parse(fs.readFileSync(planFile, "utf-8"));
+        content.updatedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+        fs.writeFileSync(planFile, JSON.stringify(content));
+      }
+
+      const cleaned = await storage.cleanupStalePlans(1, true);
+
+      expect(cleaned).toBe(5);
+    });
+  });
+
+  describe("listStalePlans", () => {
+    it("should list stale non-terminal plans", async () => {
+      const stalePlan = createTestPlan({
+        id: "stale-plan",
+        status: PlanStatus.PAUSED,
+      });
+
+      await storage.savePlan(stalePlan);
+
+      // Manually set old date (2 days ago)
+      const planFile = path.join(testDir, stalePlan.id, "plan.json");
+      const content = JSON.parse(fs.readFileSync(planFile, "utf-8"));
+      content.updatedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+      fs.writeFileSync(planFile, JSON.stringify(content));
+
+      const stale = await storage.listStalePlans(1);
+
+      expect(stale).toHaveLength(1);
+      expect(stale[0].id).toBe("stale-plan");
+    });
+
+    it("should not list recent plans", async () => {
+      const recentPlan = createTestPlan({
+        id: "recent-plan",
+        status: PlanStatus.PAUSED,
+      });
+
+      await storage.savePlan(recentPlan);
+
+      const stale = await storage.listStalePlans(1);
+
+      expect(stale).toHaveLength(0);
+    });
+
+    it("should not list completed plans", async () => {
+      const completedPlan = createTestPlan({
+        id: "completed-plan",
+        status: PlanStatus.COMPLETED,
+      });
+
+      await storage.savePlan(completedPlan);
+
+      // Manually set old date
+      const planFile = path.join(testDir, completedPlan.id, "plan.json");
+      const content = JSON.parse(fs.readFileSync(planFile, "utf-8"));
+      content.updatedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+      fs.writeFileSync(planFile, JSON.stringify(content));
+
+      const stale = await storage.listStalePlans(1);
+
+      expect(stale).toHaveLength(0);
+    });
+
+    it("should respect custom staleDays parameter", async () => {
+      const stalePlan = createTestPlan({
+        id: "medium-stale",
+        status: PlanStatus.PAUSED,
+      });
+
+      await storage.savePlan(stalePlan);
+
+      // Set date to 3 days ago
+      const planFile = path.join(testDir, stalePlan.id, "plan.json");
+      const content = JSON.parse(fs.readFileSync(planFile, "utf-8"));
+      content.updatedAt = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+      fs.writeFileSync(planFile, JSON.stringify(content));
+
+      // With 7 days threshold, should not be stale
+      const notStale = await storage.listStalePlans(7);
+      expect(notStale).toHaveLength(0);
+
+      // With 1 day threshold, should be stale
+      const isStale = await storage.listStalePlans(1);
+      expect(isStale).toHaveLength(1);
+    });
+  });
+
   describe("planExists", () => {
     it("should return true for existing plan", async () => {
       const plan = createTestPlan();

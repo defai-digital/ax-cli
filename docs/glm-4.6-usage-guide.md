@@ -117,9 +117,9 @@ export const GLM_MODELS = {
     supportsThinking: true,
     temperatureRange: { min: 0.6, max: 1.0 },
   },
-  'glm-4.5v': {
-    contextWindow: 64000,
-    maxOutputTokens: 16000,
+  'glm-4.6v': {
+    contextWindow: 128000,
+    maxOutputTokens: 128000,
     supportsThinking: true,
     temperatureRange: { min: 0.6, max: 1.0 },
     supportsVision: true,
@@ -146,7 +146,7 @@ const client = new GrokClient(apiKey, 'glm-4.6');
 |-------|---------|--------|----------|-------------------|
 | glm-4.6 | 200K | 128K | ✅ Yes | 0.6 - 1.0 |
 | grok-code-fast-1 | 128K | 4096 | ❌ No | 0.0 - 2.0 |
-| glm-4.5v | 64K | 16K | ✅ Yes | 0.6 - 1.0 |
+| glm-4.6v | 128K | 128K | ✅ Yes | 0.6 - 1.0 |
 
 ---
 

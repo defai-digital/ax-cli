@@ -210,7 +210,7 @@ describe('ImageInputHandler', () => {
       expect(help).toContain('Image Input Methods');
       expect(help).toContain('@path/to/image.png');
       expect(help).toContain('Supported formats');
-      expect(help).toContain('glm-4.5v');
+      expect(help).toContain('glm-4.6v');
     });
   });
 
