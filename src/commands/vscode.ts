@@ -19,7 +19,7 @@ const __dirname = path.dirname(__filename);
 const EXTENSION_ID = 'defai-digital.ax-cli-vscode';
 const VSIX_BASENAME = 'ax-cli-vscode';
 // Fallback if we can't discover the VSIX dynamically (kept in sync with vscode-extension/package.json)
-const DEFAULT_VSIX = 'ax-cli-vscode-0.3.1.vsix';
+const DEFAULT_VSIX = 'ax-cli-vscode-0.4.0.vsix';
 
 /**
  * Detect if VSCode is installed
@@ -261,8 +261,9 @@ export function createVSCodeCommand(): Command {
         console.log(chalk.gray('   ax-cli vscode uninstall  - Remove extension'));
         console.log();
 
-      } catch (error: any) {
-        ConsoleMessenger.error('vscode_commands.error_checking_status', { error: error.message });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        ConsoleMessenger.error('vscode_commands.error_checking_status', { error: message });
         process.exit(1);
       }
     });
@@ -350,8 +351,9 @@ export function createVSCodeCommand(): Command {
         console.log(chalk.gray('  3. Start chatting with AX CLI!'));
         console.log();
 
-      } catch (error: any) {
-        ConsoleMessenger.error('vscode_commands.error_installing', { error: error.message });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        ConsoleMessenger.error('vscode_commands.error_installing', { error: message });
         process.exit(1);
       }
     });
@@ -389,8 +391,9 @@ export function createVSCodeCommand(): Command {
         console.log(chalk.green('✓ Extension uninstalled successfully'));
         console.log();
 
-      } catch (error: any) {
-        ConsoleMessenger.error('vscode_commands.error_uninstalling', { error: error.message });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        ConsoleMessenger.error('vscode_commands.error_uninstalling', { error: message });
         process.exit(1);
       }
     });

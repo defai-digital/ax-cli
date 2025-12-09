@@ -1880,6 +1880,13 @@ export class MCPManagerV2 extends EventEmitter {
 
     return this.disposePromise;
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }
 
 // Re-export from type-safety for external use

@@ -1,10 +1,9 @@
 import * as vscode from 'vscode';
-import { CLIBridgeSDK } from './cli-bridge-sdk.js'; // Use SDK instead of CLI spawning!
+import { CLIBridgeSDK } from './cli-bridge-sdk.js';
 import { ChatViewProvider } from './chat-view-provider.js';
 import { ContextProvider } from './context-provider.js';
 import { StatusBarManager } from './status-bar.js';
 import { IPCServer, DiffPayload, TaskSummaryPayload, StreamChunkPayload, FileRevealPayload } from './ipc-server.js';
-import { initializeSecretStorage, SecretStorageService } from './secret-storage.js';
 import { CheckpointManager } from './checkpoint-manager.js';
 import { AutoErrorRecovery } from './auto-error-recovery.js';
 import { SessionManager } from './session-manager.js';
@@ -16,7 +15,6 @@ let contextProvider: ContextProvider | undefined;
 let statusBar: StatusBarManager | undefined;
 let ipcServer: IPCServer | undefined;
 let diffContentProvider: DiffContentProvider | undefined;
-let secretStorage: SecretStorageService | undefined;
 let inlineDiffDecorator: InlineDiffDecorator | undefined;
 let checkpointManager: CheckpointManager | undefined;
 let autoErrorRecovery: AutoErrorRecovery | undefined;
@@ -24,27 +22,10 @@ let sessionManager: SessionManager | undefined;
 let hooksManager: HooksManager | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
-  console.log('AX CLI extension is now active (SDK mode with diff preview)');
+  console.log('AX CLI extension is now active (supports ax-grok and ax-glm)');
 
-  // Initialize secret storage for secure API key management
-  secretStorage = initializeSecretStorage(context);
-
-  // Migrate any existing plaintext API key to SecretStorage
-  // Wrap in try-catch to prevent extension activation failure
-  try {
-    const migrated = await secretStorage.migrateFromPlaintextSettings();
-    if (migrated) {
-      vscode.window.showInformationMessage(
-        'AX CLI: Your API key has been migrated to secure storage.'
-      );
-    }
-  } catch (error) {
-    // Log error but continue activation - secret storage migration is not critical
-    console.error('[AX] Failed to migrate API key to secret storage:', error);
-  }
-
-  // Initialize components with SDK bridge (Claude Code-like integration)
-  cliBridge = new CLIBridgeSDK(secretStorage);
+  // Initialize components - API keys are handled by CLI tools via env vars
+  cliBridge = new CLIBridgeSDK();
   contextProvider = new ContextProvider();
   statusBar = new StatusBarManager();
   chatProvider = new ChatViewProvider(context.extensionUri, cliBridge);
@@ -639,27 +620,57 @@ function registerCommands(context: vscode.ExtensionContext) {
     })
   );
 
-  // Select model
+  // Select model - grouped by provider
   context.subscriptions.push(
     vscode.commands.registerCommand('ax-cli.selectModel', async () => {
-      const models = [
-        'grok-code-fast-1',
-        'grok-4-latest',
-        'glm-4.6',
-        'claude-3-5-sonnet-20241022',
-        'gpt-4o',
-        'deepseek-chat',
+      interface ModelOption {
+        label: string;
+        description: string;
+        model: string;
+        kind?: vscode.QuickPickItemKind;
+      }
+
+      const models: ModelOption[] = [
+        // Grok models (xAI)
+        { label: '$(rocket) xAI Grok', description: '', model: '', kind: vscode.QuickPickItemKind.Separator },
+        { label: 'Grok 3 Fast', description: 'Optimized for speed', model: 'grok-3-fast' },
+        { label: 'Grok 3', description: 'Full reasoning model', model: 'grok-3' },
+        { label: 'Grok 3 Mini', description: 'Lightweight model', model: 'grok-3-mini' },
+        { label: 'Grok 3 Mini Fast', description: 'Fastest Grok model', model: 'grok-3-mini-fast' },
+        { label: 'Grok 2 Vision', description: 'Multimodal vision', model: 'grok-2-vision' },
+        // GLM models (Z.AI)
+        { label: '$(beaker) Z.AI GLM', description: '', model: '', kind: vscode.QuickPickItemKind.Separator },
+        { label: 'GLM-4.6', description: 'Primary coding model', model: 'glm-4.6' },
+        { label: 'GLM-4.5 Flash', description: 'Fast inference', model: 'glm-4.5-flash' },
+        { label: 'GLM-Z1 Air', description: 'Lightweight thinking', model: 'glm-z1-air' },
+        { label: 'GLM-Z1 AirX', description: 'Extended thinking', model: 'glm-z1-airx' },
+        { label: 'GLM-Z1 Flash', description: 'Fast thinking', model: 'glm-z1-flash' },
+        // Claude models (Anthropic)
+        { label: '$(hubot) Anthropic Claude', description: '', model: '', kind: vscode.QuickPickItemKind.Separator },
+        { label: 'Claude Sonnet 4', description: 'Latest Claude model', model: 'claude-sonnet-4-20250514' },
+        { label: 'Claude 3.5 Sonnet', description: 'Balanced model', model: 'claude-3-5-sonnet-20241022' },
+        // OpenAI models
+        { label: '$(symbol-misc) OpenAI', description: '', model: '', kind: vscode.QuickPickItemKind.Separator },
+        { label: 'GPT-4o', description: 'Flagship model', model: 'gpt-4o' },
+        { label: 'GPT-4o Mini', description: 'Fast & affordable', model: 'gpt-4o-mini' },
+        { label: 'o1', description: 'Reasoning model', model: 'o1' },
+        { label: 'o1 Mini', description: 'Fast reasoning', model: 'o1-mini' },
+        // DeepSeek models
+        { label: '$(search) DeepSeek', description: '', model: '', kind: vscode.QuickPickItemKind.Separator },
+        { label: 'DeepSeek Chat', description: 'Coding model', model: 'deepseek-chat' },
+        { label: 'DeepSeek Reasoner', description: 'Thinking model', model: 'deepseek-reasoner' },
       ];
 
       const selected = await vscode.window.showQuickPick(models, {
         placeHolder: 'Select AI model',
+        matchOnDescription: true,
       });
 
-      if (selected) {
+      if (selected && selected.model) {
         const config = vscode.workspace.getConfiguration('ax-cli');
-        await config.update('model', selected, vscode.ConfigurationTarget.Global);
-        vscode.window.showInformationMessage(`Model changed to: ${selected}`);
-        statusBar?.updateModel(selected);
+        await config.update('model', selected.model, vscode.ConfigurationTarget.Global);
+        vscode.window.showInformationMessage(`Model changed to: ${selected.label}`);
+        statusBar?.updateModel(selected.model);
       }
     })
   );
@@ -671,63 +682,72 @@ function registerCommands(context: vscode.ExtensionContext) {
     })
   );
 
-  // Set API Key (secure storage)
+  // Set API Key - show help on how to configure via environment variables
   context.subscriptions.push(
     vscode.commands.registerCommand('ax-cli.setApiKey', async () => {
-      if (secretStorage) {
-        await secretStorage.promptForApiKey();
+      const config = vscode.workspace.getConfiguration('ax-cli');
+      const model = config.get<string>('model', 'grok-3-fast');
+
+      // Determine which env var to use based on model
+      let envVar = 'XAI_API_KEY';
+      let provider = 'xAI Grok';
+      let docsUrl = 'https://github.com/defai-digital/ax-cli/tree/main/packages/ax-grok#readme';
+
+      if (model.startsWith('glm-')) {
+        envVar = 'Z_API_KEY';
+        provider = 'Z.AI GLM';
+        docsUrl = 'https://github.com/defai-digital/ax-cli/tree/main/packages/ax-glm#readme';
+      } else if (model.startsWith('gpt-') || model.startsWith('o1')) {
+        envVar = 'OPENAI_API_KEY';
+        provider = 'OpenAI';
+        docsUrl = 'https://github.com/defai-digital/ax-cli#configuration';
+      } else if (model.startsWith('claude-')) {
+        envVar = 'ANTHROPIC_API_KEY';
+        provider = 'Anthropic';
+        docsUrl = 'https://github.com/defai-digital/ax-cli#configuration';
+      } else if (model.startsWith('deepseek-')) {
+        envVar = 'DEEPSEEK_API_KEY';
+        provider = 'DeepSeek';
+        docsUrl = 'https://github.com/defai-digital/ax-cli#configuration';
+      }
+
+      const selection = await vscode.window.showInformationMessage(
+        `To use ${provider}, set ${envVar} in your environment.\n\n` +
+        `Example: export ${envVar}=your-api-key`,
+        'View Docs',
+        'Copy Command'
+      );
+
+      if (selection === 'View Docs') {
+        await vscode.env.openExternal(vscode.Uri.parse(docsUrl));
+      } else if (selection === 'Copy Command') {
+        await vscode.env.clipboard.writeText(`export ${envVar}=your-api-key`);
+        vscode.window.showInformationMessage('Command copied to clipboard');
       }
     })
   );
 
-  // Clear API Key
+  // Clear API Key - now just shows info
   context.subscriptions.push(
     vscode.commands.registerCommand('ax-cli.clearApiKey', async () => {
-      if (secretStorage) {
-        const confirm = await vscode.window.showWarningMessage(
-          'Are you sure you want to remove your API key?',
-          { modal: true },
-          'Yes, Remove'
-        );
-
-        if (confirm === 'Yes, Remove') {
-          await secretStorage.clearApiKey();
-          vscode.window.showInformationMessage('API key removed');
-        }
-      }
+      vscode.window.showInformationMessage(
+        'API keys are managed via environment variables. ' +
+        'Unset the appropriate variable (XAI_API_KEY, Z_API_KEY, etc.) to remove access.'
+      );
     })
   );
 
-  // Show API Key Status
+  // Show API Key Status - show env var info
   context.subscriptions.push(
     vscode.commands.registerCommand('ax-cli.showApiKeyStatus', async () => {
-      if (secretStorage) {
-        const hasKey = await secretStorage.hasApiKey();
-        const masked = await secretStorage.getMaskedApiKey();
-
-        if (hasKey) {
-          const action = await vscode.window.showInformationMessage(
-            `API Key: ${masked}`,
-            'Change Key',
-            'Remove Key'
-          );
-
-          if (action === 'Change Key') {
-            await secretStorage.promptForApiKey();
-          } else if (action === 'Remove Key') {
-            vscode.commands.executeCommand('ax-cli.clearApiKey');
-          }
-        } else {
-          const action = await vscode.window.showWarningMessage(
-            'No API key configured',
-            'Set API Key'
-          );
-
-          if (action === 'Set API Key') {
-            await secretStorage.promptForApiKey();
-          }
-        }
-      }
+      vscode.window.showInformationMessage(
+        'API keys are managed via environment variables:\n' +
+        '• XAI_API_KEY for Grok models\n' +
+        '• Z_API_KEY for GLM models\n' +
+        '• OPENAI_API_KEY for OpenAI models\n' +
+        '• ANTHROPIC_API_KEY for Claude models\n' +
+        '• DEEPSEEK_API_KEY for DeepSeek models'
+      );
     })
   );
 
@@ -918,7 +938,6 @@ export function deactivate() {
   chatProvider?.dispose();
   statusBar?.dispose();
   ipcServer?.dispose();
-  secretStorage?.dispose();
   diffContentProvider?.dispose();
   inlineDiffDecorator?.dispose();
   checkpointManager?.dispose();

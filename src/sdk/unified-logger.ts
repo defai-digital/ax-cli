@@ -381,6 +381,34 @@ export class UnifiedLogger extends EventEmitter {
     const logs = this.getLogs(filter);
     return logs.map(log => this.format(log, options)).join('\n');
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }
 
 /**

@@ -283,6 +283,34 @@ export class SubscriptionManager extends EventEmitter {
       this.emit('unsubscribed', sub.uri, sub.serverName);
     }
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }
 
 // Singleton instance

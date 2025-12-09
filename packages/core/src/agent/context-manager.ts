@@ -478,4 +478,11 @@ export class ContextManager extends EventEmitter {
 
     return `📊 Context: ${stats.currentTokens.toLocaleString()}/${stats.contextWindow.toLocaleString()} tokens (${stats.percentage.toFixed(1)}% remaining)`;
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }

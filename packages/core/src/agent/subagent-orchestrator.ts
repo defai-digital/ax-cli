@@ -581,4 +581,11 @@ export class SubagentOrchestrator extends EventEmitter {
     // For now, just emit an event
     this.emit('message-sent', { subagentId, message });
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }

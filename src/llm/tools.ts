@@ -97,12 +97,18 @@ function enableStderrSuppression(): void {
     // Capture the original write function in a local variable for type safety
     const boundOriginalWrite = process.stderr.write.bind(process.stderr);
     originalStderrWrite = boundOriginalWrite;
-    process.stderr.write = function(chunk: any, encoding?: any, callback?: any): boolean {
+    process.stderr.write = function(
+      chunk: Uint8Array | string,
+      encodingOrCallback?: BufferEncoding | ((err?: Error) => void),
+      callback?: (err?: Error) => void
+    ): boolean {
       if (shouldSuppressMcpLog(chunk.toString())) {
-        if (callback) callback();
+        // Handle the case where encoding is actually a callback
+        const cb = typeof encodingOrCallback === 'function' ? encodingOrCallback : callback;
+        if (cb) cb();
         return true;
       }
-      return boundOriginalWrite.call(this, chunk, encoding, callback);
+      return boundOriginalWrite.call(this, chunk, encodingOrCallback as BufferEncoding, callback);
     };
   }
 }
@@ -215,8 +221,8 @@ export function mergeWithMCPTools(baseTools: LLMTool[]): LLMTool[] {
 export async function getAllTools(): Promise<LLMTool[]> {
   const manager = getMCPManager();
 
+  let timeoutId: NodeJS.Timeout | undefined;
   try {
-    let timeoutId: NodeJS.Timeout | undefined;
     const timeoutPromise = new Promise<void>((_, reject) => {
       timeoutId = setTimeout(
         () => reject(new Error('MCP init timeout')),
@@ -228,13 +234,14 @@ export async function getAllTools(): Promise<LLMTool[]> {
     timeoutPromise.catch(() => {});
 
     await Promise.race([
-      manager.ensureServersInitialized().finally(() => {
-        if (timeoutId) clearTimeout(timeoutId);
-      }),
+      manager.ensureServersInitialized(),
       timeoutPromise,
     ]);
   } catch (error) {
     console.warn('MCP server initialization failed:', extractErrorMessage(error));
+  } finally {
+    // Always clear timeout to prevent timer leak, regardless of which promise won
+    if (timeoutId) clearTimeout(timeoutId);
   }
 
   return mergeWithMCPTools(LLM_TOOLS);

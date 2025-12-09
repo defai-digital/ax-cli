@@ -376,6 +376,13 @@ export class ProcessPool extends EventEmitter {
   isAtCapacity(): boolean {
     return this.activeProcesses.size >= this.maxProcesses;
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }
 
 /**

@@ -34,7 +34,7 @@ export class StatusBarManager {
     }
 
     const config = vscode.workspace.getConfiguration('ax-cli');
-    const model = config.get<string>('model', 'grok-code-fast-1');
+    const model = config.get<string>('model', 'grok-3-fast');
 
     this.statusBarItem.text = `$(robot) AX: ${this.formatModelName(model)}`;
     this.statusBarItem.tooltip = `AX CLI - Click to change model\nCurrent: ${model}`;
@@ -43,12 +43,31 @@ export class StatusBarManager {
   private formatModelName(model: string): string {
     // Shorten model names for display
     const shortNames: Record<string, string> = {
-      'grok-code-fast-1': 'Grok Fast',
+      // Grok models (xAI)
+      'grok-3-fast': 'Grok 3 Fast',
+      'grok-3': 'Grok 3',
+      'grok-3-mini': 'Grok Mini',
+      'grok-3-mini-fast': 'Grok Mini Fast',
+      'grok-2-vision': 'Grok Vision',
+      'grok-code-fast-1': 'Grok Code',
       'grok-4-latest': 'Grok 4',
+      // GLM models (Z.AI)
       'glm-4.6': 'GLM 4.6',
+      'glm-4.5-flash': 'GLM Flash',
+      'glm-z1-air': 'GLM Z1 Air',
+      'glm-z1-airx': 'GLM Z1 AirX',
+      'glm-z1-flash': 'GLM Z1 Flash',
+      // Claude models (Anthropic)
+      'claude-sonnet-4-20250514': 'Claude 4',
       'claude-3-5-sonnet-20241022': 'Claude 3.5',
+      // OpenAI models
       'gpt-4o': 'GPT-4o',
+      'gpt-4o-mini': 'GPT-4o Mini',
+      'o1': 'o1',
+      'o1-mini': 'o1 Mini',
+      // DeepSeek models
       'deepseek-chat': 'DeepSeek',
+      'deepseek-reasoner': 'DeepSeek R',
     };
 
     return shortNames[model] || model;

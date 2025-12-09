@@ -291,6 +291,13 @@ export class CancellationManager extends EventEmitter {
     // Clear cancelled IDs immediately since we're cleaning everything
     this.cancelledIds.clear();
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }
 
 /**

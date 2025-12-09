@@ -518,6 +518,13 @@ export class HookRunner extends EventEmitter {
       this.config = DEFAULT_CONFIG;
     }
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }
 
 /**

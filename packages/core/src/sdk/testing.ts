@@ -271,6 +271,13 @@ export class MockAgent extends EventEmitter {
       throw new Error('MockAgent has been disposed and cannot be used');
     }
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }
 
 /**

@@ -2,7 +2,7 @@
   "name": "ax-cli-vscode",
   "displayName": "AX CLI",
   "description": "AI-powered coding assistant with multi-provider flexibility",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "publisher": "defai-digital",
   "icon": "resources/icon.png",
   "engines": {
@@ -194,22 +194,68 @@
     "configuration": {
       "title": "AX CLI",
       "properties": {
-        "ax-cli.baseURL": {
+        "ax-cli.provider": {
           "type": "string",
-          "default": "https://api.x.ai/v1",
-          "description": "Base URL for AI API",
+          "default": "grok",
+          "enum": [
+            "grok",
+            "glm",
+            "openai",
+            "anthropic",
+            "deepseek"
+          ],
+          "enumDescriptions": [
+            "xAI Grok (api.x.ai) - Grok 3, Grok 2 models",
+            "Z.AI GLM (open.z.ai) - GLM-4.6, GLM-Z1 models",
+            "OpenAI (api.openai.com) - GPT-4o, o1 models",
+            "Anthropic (api.anthropic.com) - Claude models",
+            "DeepSeek (api.deepseek.com) - DeepSeek models"
+          ],
+          "description": "AI provider to use",
           "order": 1
         },
         "ax-cli.model": {
           "type": "string",
-          "default": "grok-code-fast-1",
+          "default": "grok-3-fast",
           "enum": [
-            "grok-code-fast-1",
-            "grok-4-latest",
+            "grok-3-fast",
+            "grok-3",
+            "grok-3-mini",
+            "grok-3-mini-fast",
+            "grok-2-vision",
             "glm-4.6",
+            "glm-4.5-flash",
+            "glm-z1-air",
+            "glm-z1-airx",
+            "glm-z1-flash",
+            "claude-sonnet-4-20250514",
             "claude-3-5-sonnet-20241022",
             "gpt-4o",
-            "deepseek-chat"
+            "gpt-4o-mini",
+            "o1",
+            "o1-mini",
+            "deepseek-chat",
+            "deepseek-reasoner"
+          ],
+          "enumDescriptions": [
+            "Grok 3 Fast - Optimized for speed (xAI)",
+            "Grok 3 - Full reasoning model (xAI)",
+            "Grok 3 Mini - Lightweight model (xAI)",
+            "Grok 3 Mini Fast - Fastest Grok model (xAI)",
+            "Grok 2 Vision - Multimodal vision model (xAI)",
+            "GLM-4.6 - Primary coding model (Z.AI)",
+            "GLM-4.5 Flash - Fast inference (Z.AI)",
+            "GLM-Z1 Air - Lightweight thinking (Z.AI)",
+            "GLM-Z1 AirX - Extended thinking (Z.AI)",
+            "GLM-Z1 Flash - Fast thinking (Z.AI)",
+            "Claude Sonnet 4 - Latest Anthropic model",
+            "Claude 3.5 Sonnet - Balanced model (Anthropic)",
+            "GPT-4o - Flagship model (OpenAI)",
+            "GPT-4o Mini - Fast & affordable (OpenAI)",
+            "o1 - Reasoning model (OpenAI)",
+            "o1 Mini - Fast reasoning (OpenAI)",
+            "DeepSeek Chat - Coding model (DeepSeek)",
+            "DeepSeek Reasoner - Thinking model (DeepSeek)"
           ],
           "description": "AI model to use",
           "order": 2

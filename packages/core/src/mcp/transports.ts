@@ -161,6 +161,13 @@ export class HttpTransport extends EventEmitter implements MCPTransport {
   getType(): TransportType {
     return 'http';
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }
 
 export class SSETransport extends EventEmitter implements MCPTransport {

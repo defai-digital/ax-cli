@@ -271,4 +271,11 @@ export class ConfirmationService extends EventEmitter {
   ) {
     this.sessionFlags[flagType] = value;
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }

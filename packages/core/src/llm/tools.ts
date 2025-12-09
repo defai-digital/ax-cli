@@ -58,7 +58,7 @@ export function getMCPManager(clientConfig?: { name?: string; version?: string }
  */
 export function resetMCPManager(): void {
   if (mcpManager) {
-    mcpManager.dispose();
+    void mcpManager.dispose();
     mcpManager = null;
     _mcpClientConfig = undefined;
   }
@@ -249,8 +249,8 @@ export function mergeWithMCPTools(
 export async function getAllTools(): Promise<LLMTool[]> {
   const manager = getMCPManager();
 
+  let timeoutId: NodeJS.Timeout | undefined;
   try {
-    let timeoutId: NodeJS.Timeout | undefined;
     const timeoutPromise = new Promise<void>((_, reject) => {
       timeoutId = setTimeout(
         () => reject(new Error('MCP init timeout')),
@@ -262,13 +262,14 @@ export async function getAllTools(): Promise<LLMTool[]> {
     timeoutPromise.catch(() => {});
 
     await Promise.race([
-      manager.ensureServersInitialized().finally(() => {
-        if (timeoutId) clearTimeout(timeoutId);
-      }),
+      manager.ensureServersInitialized(),
       timeoutPromise,
     ]);
   } catch (error) {
     console.warn('MCP server initialization failed:', extractErrorMessage(error));
+  } finally {
+    // Always clear timeout to prevent timer leak, regardless of which promise won
+    if (timeoutId) clearTimeout(timeoutId);
   }
 
   return mergeWithMCPTools(LLM_TOOLS);

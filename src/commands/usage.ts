@@ -187,8 +187,8 @@ export function createUsageCommand(): Command {
     });
 
   // Default action (show usage)
-  usageCommand.action(() => {
-    usageCommand.commands.find(cmd => cmd.name() === 'show')?.parseAsync(['node', 'ax', 'usage', 'show'], { from: 'user' });
+  usageCommand.action(async () => {
+    await usageCommand.commands.find(cmd => cmd.name() === 'show')?.parseAsync(['node', 'ax', 'usage', 'show'], { from: 'user' });
   });
 
   return usageCommand;

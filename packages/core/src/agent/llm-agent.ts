@@ -106,6 +106,8 @@ export class LLMAgent extends EventEmitter {
   private toolApprovalTimeouts: Map<string, NodeJS.Timeout> = new Map();
   /** BUG FIX: Track resolved state to prevent double-resolution race condition */
   private toolApprovalResolved: Map<string, boolean> = new Map();
+  /** BUG FIX: Track cleanup timeouts for toolApprovalResolved to clear on dispose */
+  private toolApprovalCleanupTimeouts: Set<NodeJS.Timeout> = new Set();
   /** MCP client identification (sent to MCP servers during protocol handshake) */
   private mcpClientConfig?: { name?: string; version?: string };
   /** BUG FIX: Store subagent event listeners for proper cleanup in dispose() */
@@ -589,7 +591,13 @@ export class LLMAgent extends EventEmitter {
       this.toolApprovalCallbacks.delete(toolCallId);
 
       // Clean up resolved tracking after a short delay
-      setTimeout(() => this.toolApprovalResolved.delete(toolCallId), 1000);
+      // BUG FIX: Track cleanup timeout so it can be cleared on dispose
+      const cleanupTimeout = setTimeout(() => {
+        if (this.disposed) return; // Don't modify state after disposal
+        this.toolApprovalResolved.delete(toolCallId);
+        this.toolApprovalCleanupTimeouts.delete(cleanupTimeout);
+      }, 1000);
+      this.toolApprovalCleanupTimeouts.add(cleanupTimeout);
     }
   }
 
@@ -632,7 +640,13 @@ export class LLMAgent extends EventEmitter {
         resolve(false); // Auto-reject on timeout
 
         // Clean up resolved tracking after a short delay
-        setTimeout(() => this.toolApprovalResolved.delete(toolCall.id), 1000);
+        // BUG FIX: Track cleanup timeout so it can be cleared on dispose
+        const cleanupTimeout = setTimeout(() => {
+          if (this.disposed) return; // Don't modify state after disposal
+          this.toolApprovalResolved.delete(toolCall.id);
+          this.toolApprovalCleanupTimeouts.delete(cleanupTimeout);
+        }, 1000);
+        this.toolApprovalCleanupTimeouts.add(cleanupTimeout);
       }, TIMEOUT_CONFIG.TOOL_APPROVAL);
 
       // Track the timeout for cleanup
@@ -2326,6 +2340,12 @@ export class LLMAgent extends EventEmitter {
     }
     this.toolApprovalTimeouts.clear();
 
+    // BUG FIX: Clear all cleanup timeouts to prevent post-disposal timer callbacks
+    for (const timeout of this.toolApprovalCleanupTimeouts) {
+      clearTimeout(timeout);
+    }
+    this.toolApprovalCleanupTimeouts.clear();
+
     // Resolve any pending approval callbacks so awaiting promises don't hang forever
     for (const [, callback] of this.toolApprovalCallbacks) {
       try {
@@ -2335,6 +2355,7 @@ export class LLMAgent extends EventEmitter {
       }
     }
     this.toolApprovalCallbacks.clear();
+    this.toolApprovalResolved.clear();
 
     // Clear conversation history to free memory
     this.chatHistory = [];
@@ -2367,5 +2388,12 @@ export class LLMAgent extends EventEmitter {
     // Note: We don't disconnect MCP servers here because they might be shared
     // across multiple agent instances. MCP connections are managed globally
     // by the MCPManager singleton and will be cleaned up on process exit.
+  }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
   }
 }

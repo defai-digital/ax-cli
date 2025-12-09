@@ -559,6 +559,13 @@ export class BackgroundTaskManager extends EventEmitter {
     }
     this.tasks.clear();
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }
 
 // Export singleton getter

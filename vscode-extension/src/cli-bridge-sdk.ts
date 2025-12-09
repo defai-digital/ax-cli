@@ -1,19 +1,75 @@
 /**
- * CLI Bridge - Stub Implementation
+ * CLI Bridge - SDK Implementation
  *
- * This is a placeholder that allows the extension to compile without
- * requiring the @defai.digital/ax-cli package.
+ * This bridges the VS Code extension with the AX CLI tools (ax-grok, ax-glm).
+ * API keys are handled by the CLI tools via environment variables or config files.
  *
- * The IPC-based diff preview works independently via WebSocket communication
- * between the CLI and extension (see ipc-server.ts).
- *
- * To enable full SDK integration:
- * 1. Install: npm install @defai.digital/ax-cli
- * 2. Replace this file with the SDK implementation
+ * Supports:
+ * - ax-grok (xAI Grok models) - uses XAI_API_KEY env var
+ * - ax-glm (Z.AI GLM models) - uses Z_API_KEY env var
+ * - Other providers via appropriate CLI commands
  */
 
 import * as vscode from 'vscode';
-import type { SecretStorageService } from './secret-storage.js';
+
+/**
+ * Supported AI providers
+ */
+type Provider = 'grok' | 'glm' | 'openai' | 'anthropic' | 'deepseek';
+
+interface ProviderInfo {
+  command: string;
+  displayName: string;
+  envVar: string;
+  docsUrl: string;
+}
+
+const PROVIDER_INFO: Record<Provider, ProviderInfo> = {
+  grok: {
+    command: 'ax-grok',
+    displayName: 'xAI (Grok)',
+    envVar: 'XAI_API_KEY',
+    docsUrl: 'https://github.com/defai-digital/ax-cli/tree/main/packages/ax-grok#readme',
+  },
+  glm: {
+    command: 'ax-glm',
+    displayName: 'Z.AI (GLM)',
+    envVar: 'Z_API_KEY',
+    docsUrl: 'https://github.com/defai-digital/ax-cli/tree/main/packages/ax-glm#readme',
+  },
+  openai: {
+    command: 'ax-cli',
+    displayName: 'OpenAI',
+    envVar: 'OPENAI_API_KEY',
+    docsUrl: 'https://github.com/defai-digital/ax-cli#configuration',
+  },
+  anthropic: {
+    command: 'ax-cli',
+    displayName: 'Anthropic',
+    envVar: 'ANTHROPIC_API_KEY',
+    docsUrl: 'https://github.com/defai-digital/ax-cli#configuration',
+  },
+  deepseek: {
+    command: 'ax-cli',
+    displayName: 'DeepSeek',
+    envVar: 'DEEPSEEK_API_KEY',
+    docsUrl: 'https://github.com/defai-digital/ax-cli#configuration',
+  },
+};
+
+/**
+ * Get provider from model name
+ */
+function getProviderFromModel(model: string): Provider {
+  if (model.startsWith('grok-')) return 'grok';
+  if (model.startsWith('glm-')) return 'glm';
+  if (model.startsWith('gpt-') || model.startsWith('o1')) return 'openai';
+  if (model.startsWith('claude-')) return 'anthropic';
+  if (model.startsWith('deepseek-')) return 'deepseek';
+  // Default to configured provider
+  const config = vscode.workspace.getConfiguration('ax-cli');
+  return config.get<Provider>('provider', 'grok');
+}
 
 export interface CLIRequest {
   id: string;
@@ -63,21 +119,20 @@ interface StreamingChunk {
 }
 
 /**
- * Stub CLI Bridge
+ * CLI Bridge SDK
  *
- * This stub provides the interface for the chat functionality.
- * For now, it shows a message directing users to use the terminal CLI.
+ * Bridges VS Code with the AX CLI tools (ax-grok, ax-glm).
+ * API keys are managed externally via environment variables or CLI config.
  *
  * The IPC-based diff preview (Accept/Reject changes in VS Code) works
- * independently when running `ax` in the integrated terminal.
+ * independently when running CLI tools in the integrated terminal.
  */
 export class CLIBridgeSDK {
   private pendingChanges: Map<string, PendingChange> = new Map();
-  private secretStorage: SecretStorageService | undefined;
   private activeTerminal: vscode.Terminal | undefined;
 
-  constructor(secretStorage?: SecretStorageService) {
-    this.secretStorage = secretStorage;
+  constructor() {
+    // No dependencies - API keys are handled by the CLI tools themselves
   }
 
   /**
@@ -103,90 +158,68 @@ export class CLIBridgeSDK {
   }
 
   /**
-   * Send a request - shows info message directing to terminal
+   * Get the CLI command and provider info for the current model
+   */
+  private getProviderInfo(): { provider: Provider; info: ProviderInfo } {
+    const config = vscode.workspace.getConfiguration('ax-cli');
+    const model = config.get<string>('model', 'grok-3-fast');
+    const provider = getProviderFromModel(model);
+    return { provider, info: PROVIDER_INFO[provider] };
+  }
+
+  /**
+   * Send a request - opens terminal with the appropriate CLI command
+   * API keys are handled by the CLI tools via environment variables
    */
   async sendRequest(
     request: CLIRequest,
     _onStream?: (chunk: StreamingChunk) => void
   ): Promise<CLIResponse | CLIError> {
     try {
-      // Check if API key is configured
-      let hasApiKey = false;
-      try {
-        hasApiKey = this.secretStorage ? await this.secretStorage.hasApiKey() : false;
-      } catch (error) {
-        console.error('[AX] Failed to check API key:', error);
-      }
-
-      if (!hasApiKey) {
-        const selection = await vscode.window.showWarningMessage(
-          'No API key configured. Please set your API key first.',
-          'Set API Key',
-          'Learn More'
-        );
-
-        if (selection === 'Set API Key') {
-          try {
-            await this.secretStorage?.promptForApiKey();
-          } catch (error) {
-            console.error('[AX] Failed to prompt for API key:', error);
-          }
-        } else if (selection === 'Learn More') {
-          await vscode.env.openExternal(vscode.Uri.parse('https://github.com/defai-digital/ax-cli#configuration'));
-        }
-
-        return {
-          id: request.id,
-          error: {
-            message: 'No API key configured',
-            type: 'ConfigurationError',
-          },
-          timestamp: new Date().toISOString()
-        };
-      }
+      const { provider, info } = this.getProviderInfo();
 
       // Show info message directing to terminal
       const selection = await vscode.window.showInformationMessage(
-        'For the best experience, run "ax" in the integrated terminal. ' +
-        'File changes will show as diffs in VS Code for approval.',
+        `Run "${info.command}" in the integrated terminal. ` +
+        `Make sure ${info.envVar} is set. File changes will show as diffs for approval.`,
         'Open Terminal',
         'Learn More'
       );
 
       if (selection === 'Open Terminal') {
         try {
-          // Get API key from secure storage and pass via environment variable
-          const apiKey = await this.secretStorage?.getApiKey();
-
           // Reuse existing terminal or create new one
-          // This prevents terminal accumulation from multiple requests
           // Note: exitStatus is undefined while terminal is active, defined when exited
           const terminalIsActive = this.activeTerminal && this.activeTerminal.exitStatus === undefined;
           if (!terminalIsActive) {
             this.activeTerminal = vscode.window.createTerminal({
-              name: 'AX CLI',
-              env: apiKey ? { AX_API_KEY: apiKey } : undefined
+              name: `AX CLI (${info.displayName})`,
             });
           }
           this.activeTerminal!.show();
-          this.activeTerminal!.sendText('ax');
+          this.activeTerminal!.sendText(info.command);
         } catch (error) {
           console.error('[AX] Failed to create terminal:', error);
           vscode.window.showErrorMessage('Failed to open terminal');
         }
       } else if (selection === 'Learn More') {
-        await vscode.env.openExternal(vscode.Uri.parse('https://github.com/defai-digital/ax-cli#vscode-integration'));
+        await vscode.env.openExternal(vscode.Uri.parse(info.docsUrl));
       }
 
-      // Return stub response
+      // Return response
       return {
         id: request.id,
         messages: [{
           role: 'assistant',
-          content: 'Please use the `ax` command in the integrated terminal for full functionality. ' +
+          content: `Please use the \`${info.command}\` command in the integrated terminal for full functionality.\n\n` +
+                   `**Setup:**\n` +
+                   `\`\`\`bash\n` +
+                   `export ${info.envVar}=your-api-key\n` +
+                   `${info.command}\n` +
+                   `\`\`\`\n\n` +
                    'File changes will appear as diffs in VS Code for you to accept or reject.'
         }],
-        model: 'stub',
+        model: provider,
         timestamp: new Date().toISOString()
       };
     } catch (error) {

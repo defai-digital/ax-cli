@@ -14,6 +14,23 @@ import {
   getAvailableModelsWithAliases,
 } from "../provider/config.js";
 
+/**
+ * Model information for display
+ */
+interface ModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+  contextWindow: number;
+  maxOutputTokens: number;
+  supportsThinking: boolean;
+  current: boolean;
+  alias?: string;
+  supportsVision?: boolean;
+  isDefault?: boolean;
+  note?: string;
+}
+
 export function createModelsCommand(): Command {
   const modelsCmd = new Command("models")
     .alias("model")
@@ -47,7 +64,7 @@ export function createModelsCommand(): Command {
         }));
 
         // Add Ollama models if configured
-        const customModels: any[] = [];
+        const customModels: ModelInfo[] = [];
         if (baseURL?.includes("localhost:11434") || baseURL?.includes("ollama")) {
           customModels.push({
             id: "llama3.1:8b",

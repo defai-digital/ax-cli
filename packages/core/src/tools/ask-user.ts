@@ -305,6 +305,13 @@ export class AskUserService extends EventEmitter {
     this.collectedResults = [];
     this.currentQuestionIndex = 0;
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }
 
 /**

@@ -246,6 +246,13 @@ export class ProgressReporter extends EventEmitter {
       maxListeners: this.getMaxListeners(),
     };
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }
 
 /**
