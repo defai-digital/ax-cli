@@ -35,6 +35,7 @@ import { resolveMCPReferences, extractMCPReferences } from "../mcp/resources.js"
 import { SDKError, SDKErrorCode } from "../sdk/errors.js";
 import { getStatusReporter } from "./status-reporter.js";
 import { getLoopDetector, resetLoopDetector, LoopDetectionResult } from "./loop-detector.js";
+import { getActiveProvider } from "../provider/config.js";
 
 // Import from extracted modules (Phase 2 refactoring)
 import { ToolExecutor } from "./execution/index.js";
@@ -325,10 +326,24 @@ export class LLMAgent extends EventEmitter {
       })
       .join('\n');
 
+    // Provider-aware search instructions
+    // Only recommend MCP for web search if the provider doesn't have native search
+    const activeProvider = getActiveProvider();
+    const hasNativeSearch = activeProvider.features.supportsSearch;
+
+    let searchInstructions: string;
+    if (hasNativeSearch) {
+      // Provider has native search (e.g., Grok) - use it directly
+      searchInstructions = `\nIMPORTANT: You have NATIVE web search capability through the ${activeProvider.displayName} API. For web searches, simply ask questions that require current information - the API will automatically search the web. Use MCP tools for fetching specific URLs and other external data access.`;
+    } else {
+      // Provider doesn't have native search (e.g., GLM) - use MCP tools
+      searchInstructions = '\nIMPORTANT: Use MCP tools for web search, fetching URLs, and external data access. You HAVE network access through these tools.';
+    }
+
     const mcpSection = [
       '\n\nMCP Tools (External Capabilities):',
       mcpToolsList,
-      '\nIMPORTANT: Use MCP tools for web search, fetching URLs, and external data access. You HAVE network access through these tools.',
+      searchInstructions,
     ].join('\n');
 
     // Append MCP tools section to system prompt
@@ -363,6 +378,20 @@ export class LLMAgent extends EventEmitter {
       } else {
         // For GLM, use glm-4.5v
         result.model = 'glm-4.5v';
+      }
+    }
+
+    // Provider-aware search options
+    // Enable native search for providers that support it (e.g., Grok)
+    // Disable for providers without native search (e.g., GLM) - they use MCP tools instead
+    if (!result.searchOptions) {
+      const activeProvider = getActiveProvider();
+      if (activeProvider.features.supportsSearch) {
+        // Provider supports native search - use auto mode
+        result.searchOptions = { search_parameters: { mode: "auto" } };
+      } else {
+        // Provider doesn't support native search - disable it
+        result.searchOptions = { search_parameters: { mode: "off" } };
       }
     }
 
@@ -1101,12 +1130,11 @@ export class LLMAgent extends EventEmitter {
         const tools = await this.loadToolsSafely();
 
         // Create chat stream
+        // Note: searchOptions are automatically set by buildChatOptions based on provider
         const stream = this.llmClient.chatStream(
           this.messages,
           tools,
-          this.buildChatOptions({
-            searchOptions: { search_parameters: { mode: "off" } }
-          })
+          this.buildChatOptions()
         );
 
         // Process streaming chunks (delegated to StreamHandler - Phase 2 refactoring)
@@ -1217,12 +1245,11 @@ export class LLMAgent extends EventEmitter {
 
     try {
       const tools = await getAllTools();
+      // Note: searchOptions are automatically set by buildChatOptions based on provider
       let currentResponse = await this.llmClient.chat(
         this.messages,
         tools,
-        this.buildChatOptions({
-          searchOptions: { search_parameters: { mode: "off" } }
-        })
+        this.buildChatOptions()
       );
 
       // Agent loop - continue until no more tool calls or max rounds reached
@@ -1361,12 +1388,11 @@ export class LLMAgent extends EventEmitter {
           this.applyContextPruning();
 
           // Get next response - this might contain more tool calls
+          // Note: searchOptions are automatically set by buildChatOptions based on provider
           currentResponse = await this.llmClient.chat(
             this.messages,
             tools,
-            this.buildChatOptions({
-              searchOptions: { search_parameters: { mode: "off" } }
-            })
+            this.buildChatOptions()
           );
         } else {
           // No more tool calls, add final response
@@ -1767,12 +1793,11 @@ export class LLMAgent extends EventEmitter {
         }
 
         // Create chat stream
+        // Note: searchOptions are automatically set by buildChatOptions based on provider
         const stream = this.llmClient.chatStream(
           this.messages,
           tools,
-          this.buildChatOptions({
-            searchOptions: { search_parameters: { mode: "off" } }
-          })
+          this.buildChatOptions()
         );
 
         // Process streaming chunks (delegated to StreamHandler - Phase 2 refactoring)

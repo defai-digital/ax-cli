@@ -2,11 +2,14 @@
  * System Prompt Builder
  * Builds AI assistant prompts from YAML configuration
  * Integrates project memory for z.ai GLM-4.6 caching
+ * Includes priority-based tool selection guidance
  */
 
 import { loadPromptsConfig, type PromptSection } from './config-loader.js';
 import { getContextInjector } from '../memory/index.js';
 import { getMCPManager } from '../llm/tools.js';
+import { getActiveProvider } from '../provider/config.js';
+import { getPriorityRegistry } from '../tools/priority-registry.js';
 
 /**
  * Build the system prompt for the AI assistant
@@ -78,7 +81,27 @@ export function buildSystemPrompt(options: {
       })
       .join('\n');
     sections.push(mcpToolsList);
-    sections.push('\nIMPORTANT: Use MCP tools for web search, fetching URLs, and external data access. You HAVE network access through these tools.');
+
+    // Provider-aware search instructions
+    // Only recommend MCP for web search if the provider doesn't have native search
+    const activeProvider = getActiveProvider();
+    const hasNativeSearch = activeProvider.features.supportsSearch;
+
+    if (hasNativeSearch) {
+      // Provider has native search (e.g., Grok) - use it directly
+      sections.push(`\nIMPORTANT: You have NATIVE web search capability through the ${activeProvider.displayName} API. For web searches, simply ask questions that require current information - the API will automatically search the web. Use MCP tools for fetching specific URLs and other external data access.`);
+    } else {
+      // Provider doesn't have native search (e.g., GLM) - use MCP tools
+      sections.push('\nIMPORTANT: Use MCP tools for web search, fetching URLs, and external data access. You HAVE network access through these tools.');
+    }
+
+    // Add priority-based tool selection guidance
+    const registry = getPriorityRegistry();
+    const guidance = registry.getCapabilityGuidance();
+    if (guidance.length > 0) {
+      sections.push('\nTool Selection Guidelines:');
+      sections.push(guidance.map(g => `- ${g}`).join('\n'));
+    }
   }
 
   // Add all configured sections

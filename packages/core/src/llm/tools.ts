@@ -5,6 +5,7 @@ import { extractErrorMessage } from "../utils/error-handler.js";
 import { TIMEOUT_CONFIG } from "../constants.js";
 import { TOOL_DEFINITIONS } from "../tools/definitions/index.js";
 import { toOpenAIFormat } from "../tools/format-generators.js";
+import { getPriorityRegistry } from "../tools/priority-registry.js";
 
 // MCP initialization timeout
 const MCP_INIT_TIMEOUT_MS = TIMEOUT_CONFIG.MCP_INIT;
@@ -197,13 +198,48 @@ export function convertMCPToolToLLMTool(mcpTool: MCPTool): LLMTool {
 
 /**
  * Merge base tools with MCP tools
+ * Applies priority-based filtering to prevent lower-priority tools from
+ * overshadowing higher-priority alternatives.
+ *
+ * Priority filtering behavior:
+ * - Grok provider: Native web search > MCP web search (AutomatosX hidden)
+ * - GLM provider: Z.AI MCP web search > AutomatosX MCP web search
+ * - All providers: Domain-specific MCPs (Figma, GitHub) take precedence
+ *
+ * @param baseTools - Built-in ax-cli tools
+ * @param options - Optional configuration
+ * @param options.applyPriorityFilter - Whether to filter based on priorities (default: true)
+ * @returns Merged and filtered tools
  */
-export function mergeWithMCPTools(baseTools: LLMTool[]): LLMTool[] {
+export function mergeWithMCPTools(
+  baseTools: LLMTool[],
+  options?: { applyPriorityFilter?: boolean }
+): LLMTool[] {
   if (!mcpManager) {
     return baseTools;
   }
+
   const mcpTools = mcpManager.getTools().map(convertMCPToolToLLMTool);
-  return [...baseTools, ...mcpTools];
+  const allTools = [...baseTools, ...mcpTools];
+
+  // Apply priority filtering unless explicitly disabled
+  const applyFilter = options?.applyPriorityFilter !== false;
+  if (!applyFilter) {
+    return allTools;
+  }
+
+  const registry = getPriorityRegistry();
+  const { filtered, hidden } = registry.filterTools(allTools);
+
+  // Debug logging for hidden tools (only in DEBUG mode)
+  if (process.env.DEBUG && hidden.length > 0) {
+    console.log('[Priority Filter] Hidden tools:');
+    for (const { tool, reason } of hidden) {
+      console.log(`  - ${tool.function.name}: ${reason}`);
+    }
+  }
+
+  return filtered;
 }
 
 /**

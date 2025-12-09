@@ -416,12 +416,49 @@ export function getConfigPathsByProviderName(providerName: string): ProviderConf
 let activeProvider: ProviderDefinition | null = null;
 let activeConfigPaths: ProviderConfigPaths | null = null;
 
+// Cache the priority registry update function to avoid repeated dynamic imports
+let _updatePriorityRegistryProvider: ((provider: ProviderDefinition) => void) | null = null;
+
 /**
  * Set the active provider (called by cli-factory on startup)
+ * Also updates the priority registry to use the correct provider
  */
 export function setActiveProviderConfigPaths(provider: ProviderDefinition): void {
   activeProvider = provider;
   activeConfigPaths = getProviderConfigPaths(provider);
+
+  // Update priority registry with the new provider synchronously if available
+  // This avoids the race condition where getPriorityRegistry() is called before the update
+  if (_updatePriorityRegistryProvider) {
+    _updatePriorityRegistryProvider(provider);
+  } else {
+    // First call - load the module and cache the function
+    // Use synchronous require-style import pattern for reliability
+    import('../tools/priority-registry.js').then(({ updatePriorityRegistryProvider }) => {
+      _updatePriorityRegistryProvider = updatePriorityRegistryProvider;
+      updatePriorityRegistryProvider(provider);
+    }).catch(() => {
+      // Silent fail - priority registry not critical for startup
+    });
+  }
+}
+
+/**
+ * Initialize the priority registry synchronously
+ * Call this early in the startup sequence to ensure the registry is ready
+ */
+export async function initializePriorityRegistry(): Promise<void> {
+  if (!_updatePriorityRegistryProvider) {
+    try {
+      const { updatePriorityRegistryProvider } = await import('../tools/priority-registry.js');
+      _updatePriorityRegistryProvider = updatePriorityRegistryProvider;
+      if (activeProvider) {
+        updatePriorityRegistryProvider(activeProvider);
+      }
+    } catch {
+      // Silent fail
+    }
+  }
 }
 
 /**

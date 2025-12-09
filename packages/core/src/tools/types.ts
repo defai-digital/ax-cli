@@ -8,6 +8,8 @@
  * @see PRD-AX-CLI-TOOL-SYSTEM-V3-FINAL.md
  */
 
+import type { ToolCapability } from './priority.js';
+
 /**
  * Tool categories for organization and filtering
  */
@@ -180,6 +182,19 @@ export interface ToolDefinition {
 
   /** Related tools that work well together */
   relatedTools?: string[];
+
+  /**
+   * Capability types this tool provides (for priority-based selection)
+   * Used to determine which tool to prefer when multiple tools can do the same thing
+   */
+  capabilities?: ToolCapability[];
+
+  /**
+   * Priority level for this tool (higher = preferred)
+   * Used when multiple tools provide the same capability
+   * @see ToolPriority enum in priority.ts
+   */
+  priority?: number;
 }
 
 /**
