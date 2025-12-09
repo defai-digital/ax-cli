@@ -11,6 +11,7 @@ import { getSettingsManager } from "../../utils/settings-manager.js";
 import { ProjectAnalyzer } from "../../utils/project-analyzer.js";
 import { InstructionGenerator } from "../../utils/instruction-generator.js";
 import { getUsageTracker } from "../../utils/usage-tracker.js";
+import { getActiveProvider } from "../../provider/config.js";
 import { getHistoryManager } from "../../utils/history-manager.js";
 import { handleRewindCommand, handleCheckpointsCommand, handleCheckpointCleanCommand } from "../../commands/rewind.js";
 import {
@@ -738,7 +739,7 @@ export function useInputHandler({
     if (trimmedInput === "/retry") {
       // Find the last user message index and re-send it
       // Use findLastIndex instead of reverse().find() + lastIndexOf() to avoid object reference issues
-      const lastUserIndex = chatHistory.findLastIndex(entry => entry.type === "user");
+      const lastUserIndex = chatHistory.findLastIndex((entry: { type: string }) => entry.type === "user");
       if (lastUserIndex >= 0 && chatHistory[lastUserIndex]?.content) {
         // Store the message content and history state before clearing
         const messageToRetry = chatHistory[lastUserIndex].content;
@@ -752,9 +753,13 @@ export function useInputHandler({
         // Track timeout for cleanup on unmount
         retryTimeoutRef.current = setTimeout(() => {
           retryTimeoutRef.current = null;
-          // Call async function and handle promise rejection
-          handleInputSubmit(messageToRetry).catch(() => {
-            // Restore history if retry fails
+          // BUG FIX: Properly handle async errors with explicit Promise chain
+          // The catch must be attached immediately to prevent unhandled rejection
+          void handleInputSubmit(messageToRetry).catch((error) => {
+            // Log error for debugging, then restore history
+            if (process.env.DEBUG || process.env.AX_DEBUG) {
+              console.error('Retry failed:', error);
+            }
             setChatHistory(historyBackup);
           });
         }, 50);
@@ -1014,11 +1019,16 @@ Examples:
     if (trimmedInput === "/usage") {
       const tracker = getUsageTracker();
       const stats = tracker.getSessionStats();
+      const provider = getActiveProvider();
+      const isGrok = provider.name === 'grok';
+      const currentModel = getSettingsManager().getCurrentModel() || provider.defaultModel;
 
-      let usageContent = "📊 **API Usage & Limits (Z.AI)**\n\n";
+      const providerName = isGrok ? 'xAI (Grok)' : 'Z.AI (GLM)';
+      let usageContent = `📊 **API Usage & Limits (${providerName})**\n\n`;
 
       // Session statistics
       usageContent += "**📱 Current Session:**\n";
+      usageContent += `  • Model: ${currentModel}\n`;
       if (stats.totalRequests === 0) {
         usageContent += "  No API requests made yet. Ask me something to start tracking!\n";
       } else {
@@ -1039,32 +1049,86 @@ Examples:
         }
       }
 
-      // Z.AI account information
-      usageContent += `\n**🔑 Z.AI Account Usage & Limits:**\n`;
-      usageContent += `  ⚠️  API does not provide programmatic access to usage data\n`;
-      usageContent += `\n  **Check your account:**\n`;
-      usageContent += `  • Billing & Usage: https://z.ai/manage-apikey/billing\n`;
-      usageContent += `  • Rate Limits: https://z.ai/manage-apikey/rate-limits\n`;
-      usageContent += `  • API Keys: https://z.ai/manage-apikey/apikey-list\n`;
+      if (isGrok) {
+        // xAI/Grok account information
+        usageContent += `\n**🔑 xAI Account Usage & Limits:**\n`;
+        usageContent += `  ⚠️  API does not provide programmatic access to usage data\n`;
+        usageContent += `\n  **Check your account:**\n`;
+        usageContent += `  • Usage Explorer: https://console.x.ai\n`;
+        usageContent += `  • Billing & Team: https://console.x.ai/team\n`;
+        usageContent += `  • API Keys: https://console.x.ai/api-keys\n`;
 
-      usageContent += `\n**ℹ️  Notes:**\n`;
-      usageContent += `  • Billing reflects previous day (n-1) consumption\n`;
-      usageContent += `  • Current day usage may not be immediately visible\n`;
-      usageContent += `  • Cached content: 1/5 of original price\n`;
+        usageContent += `\n**ℹ️  Notes:**\n`;
+        usageContent += `  • Usage is tracked in real-time on the xAI console\n`;
+        usageContent += `  • Cached input tokens: 75% discount\n`;
 
-      usageContent += `\n**💰 GLM-4.6 Pricing:**\n`;
-      usageContent += `  • Input: $0.11 per 1M tokens\n`;
-      usageContent += `  • Output: $0.28 per 1M tokens\n`;
+        // Grok pricing based on model
+        const modelLower = currentModel.toLowerCase();
+        if (modelLower.includes('grok-4.1-fast')) {
+          usageContent += `\n**💰 Grok 4.1 Fast Pricing:**\n`;
+          usageContent += `  • Input: $0.20 per 1M tokens\n`;
+          usageContent += `  • Output: $0.50 per 1M tokens\n`;
+        } else if (modelLower.includes('grok-4')) {
+          usageContent += `\n**💰 Grok 4 Pricing:**\n`;
+          usageContent += `  • Input: $3.00 per 1M tokens\n`;
+          usageContent += `  • Output: $15.00 per 1M tokens\n`;
+          usageContent += `  • Cached: $0.75 per 1M tokens\n`;
+        } else if (modelLower.includes('grok-3-mini')) {
+          usageContent += `\n**💰 Grok 3 Mini Pricing:**\n`;
+          usageContent += `  • Input: $0.30 per 1M tokens\n`;
+          usageContent += `  • Output: $0.50 per 1M tokens\n`;
+        } else {
+          usageContent += `\n**💰 Grok 3 Pricing:**\n`;
+          usageContent += `  • Input: $3.00 per 1M tokens\n`;
+          usageContent += `  • Output: $15.00 per 1M tokens\n`;
+          usageContent += `  • Cached: $0.75 per 1M tokens\n`;
+        }
 
-      if (stats.totalRequests > 0) {
-        // Calculate estimated cost for this session
-        const inputCost = (stats.totalPromptTokens / 1000000) * 0.11;
-        const outputCost = (stats.totalCompletionTokens / 1000000) * 0.28;
-        const totalCost = inputCost + outputCost;
-        usageContent += `\n**💵 Estimated Session Cost:**\n`;
-        usageContent += `  • Input: $${inputCost.toFixed(6)} (${stats.totalPromptTokens.toLocaleString()} tokens)\n`;
-        usageContent += `  • Output: $${outputCost.toFixed(6)} (${stats.totalCompletionTokens.toLocaleString()} tokens)\n`;
-        usageContent += `  • **Total: ~$${totalCost.toFixed(6)}**\n`;
+        if (stats.totalRequests > 0) {
+          // Calculate estimated cost based on model
+          let inputRate = 3.0, outputRate = 15.0;
+          if (modelLower.includes('grok-4.1-fast')) {
+            inputRate = 0.20; outputRate = 0.50;
+          } else if (modelLower.includes('grok-3-mini')) {
+            inputRate = 0.30; outputRate = 0.50;
+          }
+          const inputCost = (stats.totalPromptTokens / 1000000) * inputRate;
+          const outputCost = (stats.totalCompletionTokens / 1000000) * outputRate;
+          const totalCost = inputCost + outputCost;
+          usageContent += `\n**💵 Estimated Session Cost:**\n`;
+          usageContent += `  • Input: $${inputCost.toFixed(6)} (${stats.totalPromptTokens.toLocaleString()} tokens)\n`;
+          usageContent += `  • Output: $${outputCost.toFixed(6)} (${stats.totalCompletionTokens.toLocaleString()} tokens)\n`;
+          usageContent += `  • **Total: ~$${totalCost.toFixed(6)}**\n`;
+        }
+      } else {
+        // Z.AI/GLM account information
+        usageContent += `\n**🔑 Z.AI Account Usage & Limits:**\n`;
+        usageContent += `  ⚠️  API does not provide programmatic access to usage data\n`;
+        usageContent += `\n  **Check your account:**\n`;
+        usageContent += `  • Billing & Usage: https://z.ai/manage-apikey/billing\n`;
+        usageContent += `  • Rate Limits: https://z.ai/manage-apikey/rate-limits\n`;
+        usageContent += `  • API Keys: https://z.ai/manage-apikey/apikey-list\n`;
+
+        usageContent += `\n**ℹ️  Notes:**\n`;
+        usageContent += `  • Billing reflects previous day (n-1) consumption\n`;
+        usageContent += `  • Current day usage may not be immediately visible\n`;
+        usageContent += `  • Cached content: 1/5 of original price\n`;
+
+        usageContent += `\n**💰 GLM-4.6 Pricing:**\n`;
+        usageContent += `  • Input: $2.00 per 1M tokens\n`;
+        usageContent += `  • Output: $10.00 per 1M tokens\n`;
+        usageContent += `  • Cached: $0.50 per 1M tokens\n`;
+
+        if (stats.totalRequests > 0) {
+          // Calculate estimated cost for this session
+          const inputCost = (stats.totalPromptTokens / 1000000) * 2.0;
+          const outputCost = (stats.totalCompletionTokens / 1000000) * 10.0;
+          const totalCost = inputCost + outputCost;
+          usageContent += `\n**💵 Estimated Session Cost:**\n`;
+          usageContent += `  • Input: $${inputCost.toFixed(6)} (${stats.totalPromptTokens.toLocaleString()} tokens)\n`;
+          usageContent += `  • Output: $${outputCost.toFixed(6)} (${stats.totalCompletionTokens.toLocaleString()} tokens)\n`;
+          usageContent += `  • **Total: ~$${totalCost.toFixed(6)}**\n`;
+        }
       }
 
       const usageEntry: ChatEntry = {
@@ -1088,7 +1152,7 @@ Examples:
       setChatHistory((prev) => [...prev, doctorEntry]);
 
       // Execute doctor command asynchronously (non-blocking)
-      void (async () => {
+      (async () => {
         try {
           const { exec } = await import("child_process");
           const { promisify } = await import("util");
@@ -1272,7 +1336,7 @@ Examples:
         setChatHistory((prev) => [...prev, userEntry]);
 
         // Execute the prompt asynchronously
-        void (async () => {
+        (async () => {
           try {
             const manager = getMCPManager();
             const v2 = manager.getV2Instance();
@@ -2216,7 +2280,8 @@ Respond with ONLY the commit message, no additional text.`;
       "mv",
       "rm",
     ];
-    const firstWord = trimmedInput.split(" ")[0];
+    // BUG FIX: Added fallback for empty input to prevent undefined access
+    const firstWord = trimmedInput.split(" ")[0] || "";
 
     if (directBashCommands.includes(firstWord)) {
       const userEntry: ChatEntry = {
@@ -2300,7 +2365,7 @@ Respond with ONLY the commit message, no additional text.`;
 
         const infoEntry: ChatEntry = {
           type: "assistant",
-          content: `📷 Processing ${imageResult.images.length} image(s):\n${imageInfo}\n\n*Using glm-4.5v for vision analysis*`,
+          content: `📷 Processing ${imageResult.images.length} image(s):\n${imageInfo}\n\n*Auto-switching to vision model for analysis*`,
           timestamp: new Date(),
         };
         setChatHistory((prev) => [...prev, infoEntry]);
