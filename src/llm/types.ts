@@ -12,14 +12,22 @@ import type { LLMTool, LLMToolCall, SearchOptions } from "./client.js";
 import { DEFAULT_MODEL } from "../constants.js";
 
 /**
- * Thinking/Reasoning configuration for GLM-4.6
+ * Thinking/Reasoning configuration for models with extended thinking support
+ *
+ * Supports two styles of thinking mode:
+ * - GLM (Z.AI): Uses `thinking_mode` parameter with type "enabled"/"disabled"
+ * - Grok 3 (xAI): Uses `reasoning_effort` parameter with "low"/"high" values
  *
  * When enabled, the model will include reasoning_content in responses,
  * showing the step-by-step thought process before generating the final answer.
  *
  * @example
  * ```typescript
+ * // GLM style (default)
  * const thinking: ThinkingConfig = { type: "enabled" };
+ *
+ * // Grok 3 style with reasoning effort
+ * const thinking: ThinkingConfig = { type: "enabled", reasoningEffort: "high" };
  * const response = await client.chat(messages, [], { thinking });
  * ```
  */
@@ -30,39 +38,55 @@ export interface ThinkingConfig {
    * - "disabled": Standard response without reasoning
    */
   type: "enabled" | "disabled";
+
+  /**
+   * Reasoning effort level for Grok 3 models (xAI)
+   * Only used when the provider uses 'reasoning_effort' style
+   * - "low": Light reasoning for simpler tasks
+   * - "high": Deep reasoning for complex tasks (default when enabled)
+   */
+  reasoningEffort?: "low" | "high";
 }
 
 /**
  * Sampling configuration for controlling output diversity and reproducibility
  *
- * When do_sample is false, the model uses greedy decoding for deterministic output.
- *
- * Note: z.ai API only supports do_sample and top_p. The seed parameter is NOT
- * supported by z.ai and will be ignored.
+ * Provider-specific behaviors:
+ * - GLM (Z.AI): Uses `do_sample` parameter. Set to `false` for deterministic output.
+ *   Seed is NOT supported by z.ai.
+ * - Grok (xAI): Uses `seed` parameter for reproducible outputs.
+ *   do_sample is NOT used by Grok.
  *
  * @example
  * ```typescript
- * // Deterministic mode for reproducible outputs
+ * // GLM: Deterministic mode for reproducible outputs
  * const sampling: SamplingConfig = { doSample: false };
+ *
+ * // Grok: Seed-based reproducible outputs
+ * const sampling: SamplingConfig = { seed: 42 };
+ *
  * const response = await client.chat(messages, [], { sampling });
  * ```
  */
 export interface SamplingConfig {
   /**
-   * Whether to sample the output to increase diversity
+   * Whether to sample the output to increase diversity (GLM only)
    * - true (default): Use random sampling based on temperature for creative outputs
    * - false: Use greedy decoding for deterministic, reproducible results
    *
    * When set to false, the model will always select the most probable token,
    * making outputs reproducible.
+   *
+   * Note: Only supported by GLM (z.ai). Ignored for Grok models.
    */
   doSample?: boolean;
 
   /**
-   * Random seed for reproducible sampling
+   * Random seed for reproducible sampling (Grok only)
    *
-   * @deprecated NOT supported by z.ai API - this parameter will be ignored.
-   * For deterministic outputs, use doSample: false instead.
+   * Use the same seed value to get reproducible outputs from Grok models.
+   *
+   * Note: Only supported by Grok (xAI). For GLM models, use doSample: false instead.
    *
    * @example 42, 12345, Date.now()
    */
@@ -381,6 +405,7 @@ export function validateMaxTokens(maxTokens: number, model: string): void {
 
 /**
  * Validate thinking configuration for a given model
+ * Supports both GLM models (glm-4.6) and Grok 3 models
  *
  * @throws Error if thinking is not supported by the model
  */
@@ -389,11 +414,19 @@ export function validateThinking(
   model: string
 ): void {
   if (thinking && thinking.type === "enabled") {
+    const modelLower = model.toLowerCase();
+
+    // Grok 3 models support thinking via reasoning_effort
+    if (modelLower.includes("grok-3")) {
+      return; // Valid for Grok 3
+    }
+
+    // Check GLM model configuration
     const config = getModelConfig(model);
     if (!config.supportsThinking) {
       throw new Error(
         `Thinking mode is not supported by model ${model}. ` +
-        `Use glm-4.6 for thinking capabilities.`
+        `Use glm-4.6 for thinking capabilities, or grok-3 for Grok models.`
       );
     }
   }
