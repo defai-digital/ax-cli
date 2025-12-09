@@ -55,9 +55,7 @@ const ANIMATION_CONFIG = {
  * - Last frame returns to idle for smooth loop
  */
 const AVATAR_FRAMES = [
-  // Frame 1: Idle/Neutral (0-1s)
   `
-
 
   ┌───────┐
   │ ■   ■ │
@@ -69,7 +67,6 @@ const AVATAR_FRAMES = [
   // Frame 2: Waving/Greeting (1-2s)
   `
 
-
   ┌───────┐
   │ ●   ● │  ╲
   │   ⌣   │
@@ -79,7 +76,6 @@ const AVATAR_FRAMES = [
 
   // Frame 3: Happy/Laughing (2-3s)
   `
-
 
   ┌───────┐
   │ ^   ^ │
@@ -91,7 +87,6 @@ const AVATAR_FRAMES = [
   // Frame 4: Thinking/Processing (3-4s)
   `
 
-
   ┌───────┐
   │ ◉   ◉ │ ≈≈
   │   ~   │
@@ -102,7 +97,6 @@ const AVATAR_FRAMES = [
   // Frame 5: Excited/Ready (4-5s)
   `
 
-
   ┌───────┐
   │ ★   ★ │
   │   ◠   │
@@ -112,7 +106,6 @@ const AVATAR_FRAMES = [
 
   // Frame 6: Back to Idle (5-6s, same as Frame 1)
   `
-
 
   ┌───────┐
   │ ■   ■ │

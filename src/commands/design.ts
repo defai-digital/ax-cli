@@ -298,10 +298,14 @@ export function createDesignCommand(): Command {
         const client = getFigmaClient();
         const response = await client.getLocalVariables(fileKey);
 
+        // BUG FIX: Validate parseInt result to prevent NaN in config
+        const parsedRemBase = parseInt(options.remBase, 10);
+        const remBase = isNaN(parsedRemBase) || parsedRemBase <= 0 ? 16 : parsedRemBase;
+
         const tokens = extractTokensFromVariables(response, {
           colorFormat: options.colorFormat,
           dimensionUnit: options.dimensionUnit,
-          remBase: parseInt(options.remBase, 10),
+          remBase,
         });
 
         const output = formatTokens(tokens, options.format);
@@ -391,7 +395,9 @@ export function createDesignCommand(): Command {
         const { findNodes, mapFigmaFile, getNodePath } = await import('../design/index.js');
 
         const mapResult = mapFigmaFile(response, fileKey);
-        const limit = parseInt(options.limit, 10);
+        // BUG FIX: Validate parseInt result to prevent NaN in findNodes
+        const parsedLimit = parseInt(options.limit, 10);
+        const limit = isNaN(parsedLimit) || parsedLimit <= 0 ? 10 : parsedLimit;
 
         // Pre-compute lowercase search terms once (avoid repeated toLowerCase in callback)
         const nameLower = options.name?.toLowerCase();

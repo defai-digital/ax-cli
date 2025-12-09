@@ -258,11 +258,15 @@ export async function retryWithBackoff<T>(
 
 /**
  * Retry wrapper specifically for streaming operations
- * Only retries before first chunk is yielded
+ *
+ * NOTE: This function retries on any error, including errors that occur
+ * after chunks have been yielded. This means consumers may receive
+ * duplicate chunks if a retry occurs mid-stream. For scenarios where
+ * duplicate chunks are unacceptable, handle retries at a higher level.
  *
  * @param fn - Async generator function to retry
  * @param options - Retry configuration options
- * @returns AsyncGenerator that retries until first successful chunk
+ * @returns AsyncGenerator that retries on retryable errors
  */
 export async function* retryStreamWithBackoff<T>(
   fn: () => AsyncGenerator<T>,
