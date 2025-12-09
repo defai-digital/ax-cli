@@ -70,18 +70,18 @@ async function runMigration(options: MigrationOptions): Promise<void> {
 
   // Load source config
   console.log(chalk.dim('Loading source configuration...'));
-  let sourceConfig: any;
+  let sourceConfig: Record<string, unknown>;
 
   try {
     const raw = fs.readFileSync(sourcePath, 'utf-8');
-    sourceConfig = JSON.parse(raw);
+    sourceConfig = JSON.parse(raw) as Record<string, unknown>;
   } catch (error) {
     console.error(chalk.red(`❌ Failed to parse source config: ${extractErrorMessage(error)}`));
     process.exit(1);
   }
 
   // Extract MCP servers
-  const mcpServers = sourceConfig.mcpServers || {};
+  const mcpServers = (sourceConfig.mcpServers || {}) as Record<string, unknown>;
 
   if (Object.keys(mcpServers).length === 0) {
     console.log(formatWarning('No MCP servers found in source config'));
@@ -132,20 +132,20 @@ async function runMigration(options: MigrationOptions): Promise<void> {
   }
 
   // Prepare target config
-  let targetConfig: any = {};
+  let targetConfig: Record<string, unknown> = {};
 
   if (fs.existsSync(targetPath)) {
     // Load existing target config
     try {
       const raw = fs.readFileSync(targetPath, 'utf-8');
-      targetConfig = JSON.parse(raw);
+      targetConfig = JSON.parse(raw) as Record<string, unknown>;
     } catch (error) {
       console.error(chalk.red(`❌ Failed to parse existing target config: ${extractErrorMessage(error)}`));
       process.exit(1);
     }
 
     // Check for conflicts
-    const existingServers = targetConfig.mcpServers || {};
+    const existingServers = (targetConfig.mcpServers || {}) as Record<string, unknown>;
     const conflicts = Object.keys(mcpServers).filter(name => existingServers[name]);
 
     if (conflicts.length > 0 && !options.force) {

@@ -121,11 +121,13 @@ export class MCPHealthMonitor extends EventEmitter {
       }
     }
 
+    // Use .unref() to prevent timer from blocking process exit
     this.healthCheckInterval = setInterval(() => {
       this.performHealthChecks().catch((error) => {
         console.error('Health check failed:', error);
       });
     }, intervalMs);
+    this.healthCheckInterval.unref();
   }
 
   /**

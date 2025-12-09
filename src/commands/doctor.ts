@@ -401,7 +401,7 @@ async function checkMCPServers(): Promise<CheckResult[]> {
       }
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     results.push({
       name: "MCP Servers",
       status: "warning",
@@ -492,7 +492,7 @@ async function checkZAIMCPStatus(): Promise<CheckResult[]> {
       }
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     results.push({
       name: "Z.AI MCP",
       status: "warning",
@@ -717,12 +717,13 @@ async function testEndpointReachability(baseURL: string): Promise<{ success: boo
       error: `Server returned ${response.status}`,
     };
 
-  } catch (error: any) {
-    if (error?.name === "AbortError" || error?.name === "TimeoutError") {
+  } catch (error: unknown) {
+    const err = error as { name?: string; code?: string; message?: string };
+    if (err?.name === "AbortError" || err?.name === "TimeoutError") {
       return { success: false, error: "Connection timeout" };
     }
 
-    if (error?.code === "ECONNREFUSED") {
+    if (err?.code === "ECONNREFUSED") {
       return { success: false, error: "Connection refused" };
     }
 
@@ -756,17 +757,18 @@ async function testApiConnection(
 
     return { success: true };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     let errorMessage = error instanceof Error ? error.message : "Connection failed";
 
-    if (error?.status === 401) {
+    const err = error as { status?: number; error?: { message?: string } };
+    if (err?.status === 401) {
       errorMessage = "Invalid or expired API key";
-    } else if (error?.status === 403) {
+    } else if (err?.status === 403) {
       errorMessage = "API key lacks required permissions";
-    } else if (error?.status === 404) {
+    } else if (err?.status === 404) {
       errorMessage = "Model not found";
-    } else if (error?.error?.message) {
-      errorMessage = error.error.message;
+    } else if (err?.error?.message) {
+      errorMessage = err.error.message;
     }
 
     return {

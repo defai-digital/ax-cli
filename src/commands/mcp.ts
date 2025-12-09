@@ -372,11 +372,27 @@ export function createMCPCommand(): Command {
     .command('remove <name>')
     .description('Remove an MCP server')
     .action(async (name: string) => {
-        const validatedName = MCPServerIdSchema.parse(name);
+      const validatedName = MCPServerIdSchema.parse(name);
       try {
-        const manager = getMCPManager();
-        await manager.removeServer(validatedName);
+        // BUG FIX: Check if server exists in config before removing
+        const config = loadMCPConfig();
+        const serverExists = config.servers.some(s => s.name === validatedName);
+        if (!serverExists) {
+          ConsoleMessenger.error('mcp_commands.error_removing_server', { error: `Server "${validatedName}" not found in configuration` });
+          process.exit(1);
+        }
+
+        // Remove from config file first (this always works)
         removeMCPServer(validatedName);
+
+        // Try to remove from runtime manager (may fail if server not connected, which is OK)
+        try {
+          const manager = getMCPManager();
+          await manager.removeServer(validatedName);
+        } catch {
+          // Server wasn't connected at runtime, that's fine - config was already removed
+        }
+
         ConsoleMessenger.plain('mcp_commands.server_removed', { name: validatedName });
       } catch (error: unknown) {
         ConsoleMessenger.error('mcp_commands.error_removing_server', { error: extractErrorMessage(error) });
@@ -805,11 +821,13 @@ export function createMCPCommand(): Command {
 
           // Set up interval (uses configured health check interval)
           // Wrap async function to handle promise rejection
+          // Use .unref() to prevent timer from blocking process exit
           const watchInterval = setInterval(() => {
             displayHealth().catch((err) => {
               console.error('Health check failed:', err);
             });
           }, MCP_CONFIG.HEALTH_CHECK_INTERVAL);
+          watchInterval.unref();
 
           // Handle Ctrl+C - use 'once' to prevent multiple handlers accumulating
           process.once('SIGINT', () => {

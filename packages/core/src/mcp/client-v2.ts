@@ -1726,11 +1726,13 @@ export class MCPManagerV2 extends EventEmitter {
     });
 
     // Schedule periodic checks
+    // Use .unref() to prevent timer from blocking process exit
     this.healthCheckTimer = setInterval(() => {
       runHealthChecks().catch(error => {
         console.warn('Health check error:', error);
       });
     }, this.healthCheckConfig.intervalMs);
+    this.healthCheckTimer.unref();
   }
 
   /**

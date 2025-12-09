@@ -299,6 +299,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.3.10**: Bug fixes - Fixed `mcp remove` command failing when server not connected, added `.unref()` to timer intervals to prevent process exit blocking, fixed TypeScript `any` type errors in doctor.ts and mcp-migrate.ts.
 *   **v4.3.9**: Fixed `/usage` slash command to show xAI/Grok info instead of GLM when using ax-grok.
 *   **v4.3.8**: New models and features - Added Grok 4 (`grok-4-0709`, `grok-4.1-fast`) and GLM 4.6V models, model alias system (`grok-latest`, `glm-fast`), fixed `/usage` CLI command for xAI with accurate Grok pricing, fixed reasoning_effort for Grok 4 models.
 *   **v4.3.7**: Bug fixes - Fixed ax-grok web search (native search instructions now added regardless of MCP tools), fixed temp file cleanup in history manager.

@@ -406,7 +406,9 @@ class DiffContentProvider implements vscode.TextDocumentContentProvider, vscode.
 
   constructor() {
     // Start periodic cleanup to remove stale entries
+    // Use .unref() to prevent timer from blocking process exit
     this.cleanupIntervalId = setInterval(() => this.cleanupStaleEntries(), DiffContentProvider.CLEANUP_INTERVAL_MS);
+    this.cleanupIntervalId.unref();
   }
 
   setContent(id: string, original: string, modified: string): void {
