@@ -4,7 +4,7 @@ import { safeValidateGrokResponse } from "../schemas/api-schemas.js";
 import { ErrorCategory, createErrorMessage } from "../utils/error-handler.js";
 import { extractAndTranslateError } from "../utils/error-translator.js";
 import { GLM_MODELS, type SupportedModel, TIMEOUT_CONFIG } from "../constants.js";
-import { GLM_PROVIDER, GROK_PROVIDER } from "../provider/config.js";
+import { GLM_PROVIDER, GROK_PROVIDER, resolveModelAlias } from "../provider/config.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
 import { RateLimiter, DEFAULT_RATE_LIMITS } from "../utils/rate-limiter.js";
 import { getAuditLogger, AuditCategory } from "../utils/audit-logger.js";
@@ -255,22 +255,26 @@ export class LLMClient {
    * Validate and normalize model name
    * For known models, validate against GLM_MODELS and provider models
    * For unknown models (e.g., Ollama), pass through without validation
+   * Also resolves model aliases (e.g., 'grok-latest' -> 'grok-4-0709')
    */
   private validateModel(model: string): string {
+    // First, resolve any alias to the actual model name
+    const resolvedModel = resolveModelAlias(model);
+
     // Check GLM models (legacy constant)
-    if (model in GLM_MODELS) {
-      return model as SupportedModel;
+    if (resolvedModel in GLM_MODELS) {
+      return resolvedModel as SupportedModel;
     }
 
     // Check provider-specific models (GLM and Grok)
-    if (model in GLM_PROVIDER.models || model in GROK_PROVIDER.models) {
-      return model;
+    if (resolvedModel in GLM_PROVIDER.models || resolvedModel in GROK_PROVIDER.models) {
+      return resolvedModel;
     }
 
     // Allow arbitrary model names for providers like Ollama
     // Don't fall back to DEFAULT_MODEL - respect user's choice
-    console.warn(`Using custom model "${model}" (not in predefined list)`);
-    return model;
+    console.warn(`Using custom model "${resolvedModel}" (not in predefined list)`);
+    return resolvedModel;
   }
 
   /**
@@ -492,11 +496,14 @@ export class LLMClient {
     // Add thinking/reasoning parameters based on provider
     if (thinking && thinking.type === 'enabled') {
       if (isGrokModel) {
-        // Grok uses reasoning_effort parameter (only for grok-3 models)
-        if (model.toLowerCase().includes('grok-3')) {
+        // Grok uses reasoning_effort parameter for models that support thinking
+        // Grok 3 and Grok 4 models support reasoning_effort (low/high)
+        // Grok 2 models don't support thinking - skip
+        const modelLower = model.toLowerCase();
+        const supportsReasoning = modelLower.includes('grok-3') || modelLower.includes('grok-4');
+        if (supportsReasoning) {
           payload.reasoning_effort = thinking.reasoningEffort || 'high';
         }
-        // Grok 2 models don't support thinking - skip
       } else {
         // GLM uses thinking parameter
         payload.thinking = thinking;

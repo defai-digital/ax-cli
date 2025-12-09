@@ -4,7 +4,7 @@ import { safeValidateGrokResponse } from "../schemas/api-schemas.js";
 import { ErrorCategory, createErrorMessage } from "../utils/error-handler.js";
 import { extractAndTranslateError } from "../utils/error-translator.js";
 import { GLM_MODELS, type SupportedModel, TIMEOUT_CONFIG } from "../constants.js";
-import { GLM_PROVIDER, GROK_PROVIDER } from "../provider/config.js";
+import { GLM_PROVIDER, GROK_PROVIDER, resolveModelAlias } from "../provider/config.js";
 import { getUsageTracker } from "../utils/usage-tracker.js";
 import { RateLimiter, DEFAULT_RATE_LIMITS } from "../utils/rate-limiter.js";
 import { getAuditLogger, AuditCategory } from "../utils/audit-logger.js";
@@ -65,8 +65,16 @@ export interface LLMToolCall {
 }
 
 export interface SearchParameters {
+  /** Search mode: "auto" (AI decides), "on" (always search), "off" (no search) */
   mode?: "auto" | "on" | "off";
-  // sources removed - let API use default sources to avoid format issues
+  /** Return citations in the response (default: true) */
+  return_citations?: boolean;
+  /** Maximum number of search results (1-50) */
+  max_search_results?: number;
+  /** Restrict search to results from this date (ISO8601 format) */
+  from_date?: string;
+  /** Restrict search to results until this date (ISO8601 format) */
+  to_date?: string;
 }
 
 export interface SearchOptions {
@@ -161,11 +169,17 @@ interface APIRequestPayload {
   tools?: LLMTool[];
   tool_choice?: "auto";
   stream?: boolean;
+  // GLM-style thinking mode
   thinking?: ThinkingConfig;
+  // Grok-style reasoning effort (alternative to thinking)
+  reasoning_effort?: "low" | "high";
+  // Web search parameters
   search_parameters?: SearchParameters;
   response_format?: { type: "text" | "json_object" };
   do_sample?: boolean;
   top_p?: number;
+  // Grok seed for reproducibility
+  seed?: number;
 }
 
 /** API error structure for type-safe error handling */
@@ -239,24 +253,28 @@ export class LLMClient {
 
   /**
    * Validate and normalize model name
-   * For known models, validate against GLM_MODELS
+   * For known models, validate against GLM_MODELS and provider models
    * For unknown models (e.g., Ollama), pass through without validation
+   * Also resolves model aliases (e.g., 'grok-latest' -> 'grok-4-0709')
    */
   private validateModel(model: string): string {
+    // First, resolve any alias to the actual model name
+    const resolvedModel = resolveModelAlias(model);
+
     // Check GLM models (legacy constant)
-    if (model in GLM_MODELS) {
-      return model as SupportedModel;
+    if (resolvedModel in GLM_MODELS) {
+      return resolvedModel as SupportedModel;
     }
 
     // Check provider-specific models (GLM and Grok)
-    if (model in GLM_PROVIDER.models || model in GROK_PROVIDER.models) {
-      return model;
+    if (resolvedModel in GLM_PROVIDER.models || resolvedModel in GROK_PROVIDER.models) {
+      return resolvedModel;
     }
 
     // Allow arbitrary model names for providers like Ollama
     // Don't fall back to DEFAULT_MODEL - respect user's choice
-    console.warn(`Using custom model "${model}" (not in predefined list)`);
-    return model;
+    console.warn(`Using custom model "${resolvedModel}" (not in predefined list)`);
+    return resolvedModel;
   }
 
   /**
@@ -472,12 +490,28 @@ export class LLMClient {
       // Note: tool_stream is NOT a valid z.ai parameter - removed to prevent API errors
     }
 
-    // Add GLM-4.6 thinking parameter if specified
-    if (thinking) {
-      payload.thinking = thinking;
+    // Detect if this is a Grok model (xAI)
+    const isGrokModel = model.toLowerCase().includes('grok');
+
+    // Add thinking/reasoning parameters based on provider
+    if (thinking && thinking.type === 'enabled') {
+      if (isGrokModel) {
+        // Grok uses reasoning_effort parameter for models that support thinking
+        // Grok 3 and Grok 4 models support reasoning_effort (low/high)
+        // Grok 2 models don't support thinking - skip
+        const modelLower = model.toLowerCase();
+        const supportsReasoning = modelLower.includes('grok-3') || modelLower.includes('grok-4');
+        if (supportsReasoning) {
+          payload.reasoning_effort = thinking.reasoningEffort || 'high';
+        }
+      } else {
+        // GLM uses thinking parameter
+        payload.thinking = thinking;
+      }
     }
 
     // Add search parameters if specified
+    // Works for both Grok (live search) and potentially other providers
     if (searchOptions?.search_parameters) {
       payload.search_parameters = searchOptions.search_parameters;
     }
@@ -488,16 +522,25 @@ export class LLMClient {
       payload.response_format = responseFormat;
     }
 
-    // Add sampling parameters for deterministic/reproducible mode
-    // do_sample=false enables greedy decoding for consistent outputs
-    // Note: seed is NOT a valid z.ai parameter - only do_sample and top_p are supported
+    // Add sampling parameters - provider-specific handling
     if (sampling) {
-      if (sampling.doSample !== undefined) {
-        payload.do_sample = sampling.doSample;
-      }
-      // seed is not supported by z.ai API - omitted to prevent "Invalid API parameter" error
-      if (sampling.topP !== undefined) {
-        payload.top_p = sampling.topP;
+      if (isGrokModel) {
+        // Grok uses seed for reproducibility (not do_sample)
+        if (sampling.seed !== undefined) {
+          payload.seed = sampling.seed;
+        }
+        if (sampling.topP !== undefined) {
+          payload.top_p = sampling.topP;
+        }
+      } else {
+        // GLM uses do_sample for deterministic mode
+        if (sampling.doSample !== undefined) {
+          payload.do_sample = sampling.doSample;
+        }
+        // seed is not supported by z.ai API - omitted
+        if (sampling.topP !== undefined) {
+          payload.top_p = sampling.topP;
+        }
       }
     }
 

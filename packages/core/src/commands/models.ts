@@ -7,7 +7,12 @@ import chalk from "chalk";
 import { getSettingsManager } from "../utils/settings-manager.js";
 import { formatTokenCount } from "../utils/token-counter.js";
 import { extractErrorMessage } from "../utils/error-handler.js";
-import { getActiveProvider } from "../provider/config.js";
+import {
+  getActiveProvider,
+  MODEL_ALIASES,
+  resolveModelAlias,
+  getAvailableModelsWithAliases,
+} from "../provider/config.js";
 
 export function createModelsCommand(): Command {
   const modelsCmd = new Command("models")
@@ -26,15 +31,19 @@ export function createModelsCommand(): Command {
         const baseURL = manager.getBaseURL();
         const activeProvider = getActiveProvider();
 
-        // Predefined models from the active provider's configuration
-        const predefinedModels = Object.entries(activeProvider.models).map(([id, config]) => ({
-          id,
-          name: config.name,
+        // Predefined models from the active provider's configuration with alias info
+        const modelsWithAliases = getAvailableModelsWithAliases(activeProvider);
+        const predefinedModels = modelsWithAliases.map(m => ({
+          id: m.model,
+          alias: m.alias,
+          name: activeProvider.models[m.model].name,
           provider: activeProvider.displayName,
-          contextWindow: config.contextWindow,
-          maxOutputTokens: config.maxOutputTokens,
-          supportsThinking: config.supportsThinking,
-          current: id === currentModel,
+          contextWindow: activeProvider.models[m.model].contextWindow,
+          maxOutputTokens: activeProvider.models[m.model].maxOutputTokens,
+          supportsThinking: activeProvider.models[m.model].supportsThinking,
+          supportsVision: activeProvider.models[m.model].supportsVision,
+          current: m.model === currentModel || m.alias === currentModel,
+          isDefault: m.isDefault,
         }));
 
         // Add Ollama models if configured
@@ -131,11 +140,22 @@ export function createModelsCommand(): Command {
               ? chalk.green.bold(model.id)
               : chalk.white(model.id);
 
-            console.log(`${marker}${nameDisplay}`);
+            // Show alias if available
+            const aliasDisplay = model.alias
+              ? chalk.gray(` (alias: ${chalk.cyan(model.alias)})`)
+              : model.isDefault
+                ? chalk.gray(" (default)")
+                : "";
+
+            console.log(`${marker}${nameDisplay}${aliasDisplay}`);
             console.log(chalk.dim(`    Context: ${formatTokenCount(model.contextWindow, { suffix: true, uppercase: true })} | Max Output: ${formatTokenCount(model.maxOutputTokens, { suffix: true, uppercase: true })}`));
 
-            if (model.supportsThinking) {
-              console.log(chalk.dim("    Features: ") + chalk.yellow("✨ Thinking Mode"));
+            // Show features
+            const features: string[] = [];
+            if (model.supportsThinking) features.push(chalk.yellow("✨ Thinking"));
+            if (model.supportsVision) features.push(chalk.blue("👁 Vision"));
+            if (features.length > 0) {
+              console.log(chalk.dim("    Features: ") + features.join(" | "));
             }
 
             if (model.note) {
@@ -149,7 +169,10 @@ export function createModelsCommand(): Command {
         console.log(chalk.dim("  • Use --provider to filter by provider (e.g., --provider glm)"));
         console.log(chalk.dim("  • For Ollama models, run 'ollama list' to see installed models"));
         const cliName = getActiveProvider().branding.cliName;
+        const providerName = activeProvider.name.toLowerCase();
+        const exampleAlias = providerName === 'grok' ? 'grok-latest' : 'glm-latest';
         console.log(chalk.dim(`  • Switch models with: ${cliName} -m <model-name>`));
+        console.log(chalk.dim(`  • Use aliases for convenience: ${cliName} -m ${exampleAlias}`));
         console.log(chalk.dim(`  • Configure default with: ${cliName} setup`));
         console.log();
 
@@ -161,26 +184,45 @@ export function createModelsCommand(): Command {
 
   modelsCmd
     .command("info <model-id>")
-    .description("Show detailed information about a specific model")
+    .description("Show detailed information about a specific model (supports aliases)")
     .action(async (modelId: string) => {
       try {
         const activeProvider = getActiveProvider();
-        const model = activeProvider.models[modelId];
+
+        // Resolve alias to actual model ID
+        const resolvedModelId = resolveModelAlias(modelId);
+        const wasAlias = resolvedModelId !== modelId;
+        const model = activeProvider.models[resolvedModelId];
 
         if (!model) {
           console.log(chalk.yellow(`\nModel "${modelId}" is not a predefined model for ${activeProvider.displayName}.`));
+          if (wasAlias) {
+            console.log(chalk.dim(`(Resolved from alias to "${resolvedModelId}")`));
+          }
           console.log(chalk.dim("This may be a custom model (e.g., from Ollama or another provider)."));
           console.log(chalk.dim("\nFor custom models, refer to your provider's documentation."));
           console.log(chalk.dim(`\nAvailable models for ${activeProvider.displayName}:`));
           for (const [id, m] of Object.entries(activeProvider.models)) {
-            console.log(chalk.dim(`  - ${id}: ${m.name}`));
+            // Find alias for this model
+            const alias = Object.entries(MODEL_ALIASES).find(([, v]) => v === id)?.[0];
+            const aliasInfo = alias ? chalk.cyan(` (alias: ${alias})`) : "";
+            console.log(chalk.dim(`  - ${id}${aliasInfo}: ${m.name}`));
           }
           process.exit(0);
         }
 
-        console.log(chalk.bold(`\n📄 Model Information: ${modelId}\n`));
+        // Find alias for this model
+        const alias = Object.entries(MODEL_ALIASES).find(([, v]) => v === resolvedModelId)?.[0];
+
+        console.log(chalk.bold(`\n📄 Model Information: ${resolvedModelId}\n`));
+        if (wasAlias) {
+          console.log(chalk.dim(`(Resolved from alias: ${modelId})\n`));
+        }
         console.log(chalk.cyan("Provider:"), activeProvider.displayName);
         console.log(chalk.cyan("Name:"), model.name);
+        if (alias) {
+          console.log(chalk.cyan("Alias:"), chalk.green(alias));
+        }
         console.log(chalk.cyan("Description:"), model.description);
         console.log(chalk.cyan("Context Window:"), formatTokenCount(model.contextWindow, { suffix: true, uppercase: true }));
         console.log(chalk.cyan("Max Output Tokens:"), formatTokenCount(model.maxOutputTokens, { suffix: true, uppercase: true }));
@@ -188,6 +230,7 @@ export function createModelsCommand(): Command {
         console.log(chalk.cyan("Thinking Mode:"), model.supportsThinking ? chalk.green("✓ Supported") : chalk.dim("Not supported"));
         console.log(chalk.cyan("Vision Support:"), model.supportsVision ? chalk.green("✓ Supported") : chalk.dim("Not supported"));
         console.log(chalk.cyan("Search Support:"), model.supportsSearch ? chalk.green("✓ Supported") : chalk.dim("Not supported"));
+        console.log(chalk.cyan("Seed Support:"), model.supportsSeed ? chalk.green("✓ Supported") : chalk.dim("Not supported"));
         console.log();
 
       } catch (error: unknown) {

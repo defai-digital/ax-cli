@@ -139,6 +139,20 @@ export interface SettingsYaml {
     loop_detection_threshold: number;
     enable_loop_detection: boolean;
   };
+  subagent?: {
+    general_max_tool_rounds?: number;
+    testing_max_tool_rounds?: number;
+    documentation_max_tool_rounds?: number;
+    refactoring_max_tool_rounds?: number;
+    analysis_max_tool_rounds?: number;
+    debug_max_tool_rounds?: number;
+    performance_max_tool_rounds?: number;
+    default_context_depth?: number;
+    deep_context_depth?: number;
+    shallow_context_depth?: number;
+    max_concurrent_agents?: number;
+    max_concurrent_tools?: number;
+  };
   file: {
     max_file_size: number;
     max_buffer_size: number;
@@ -172,6 +186,9 @@ export interface SettingsYaml {
     command_check?: number;
     mcp_init?: number;
     shutdown?: number;
+    npm_list?: number;
+    npm_view?: number;
+    update_install?: number;
     notification_display?: number;
     tool_approval?: number;
     context_cleanup_interval?: number;

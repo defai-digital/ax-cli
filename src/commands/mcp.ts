@@ -612,7 +612,7 @@ export function createMCPCommand(): Command {
           } else if (tool.inputSchema?.properties) {
             const params = Object.keys(tool.inputSchema.properties);
             if (params.length > 0) {
-              const required = tool.inputSchema.required || [];
+              const required = (tool.inputSchema.required as string[] | undefined) || [];
               const paramList = params.map(p => required.includes(p) ? `${p}*` : p).join(', ');
               console.log(chalk.gray(`   Parameters: ${paramList}`));
             }

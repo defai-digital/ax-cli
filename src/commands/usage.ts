@@ -26,6 +26,7 @@ export function createUsageCommand(): Command {
         const tracker = getUsageTracker();
         const manager = getSettingsManager();
         const baseURL = manager.getBaseURL() || 'unknown';
+        const currentModel = manager.getCurrentModel() || 'unknown';
         const provider = detectProvider(baseURL);
 
         const stats = tracker.getSessionStats();
@@ -34,8 +35,9 @@ export function createUsageCommand(): Command {
         if (options.json) {
           console.log(JSON.stringify({
             provider,
+            model: currentModel,
             session: stats,
-            supportsHistoricalData: provider === 'z.ai' ? false : 'unknown'
+            supportsHistoricalData: provider === 'z.ai' || provider === 'xai' ? false : 'unknown'
           }, null, 2));
           return;
         }
@@ -45,6 +47,7 @@ export function createUsageCommand(): Command {
 
         // Provider info
         prompts.log.message(`Provider: ${getProviderDisplay(provider, baseURL)}`);
+        prompts.log.message(`Model: ${chalk.cyan(currentModel)}`);
 
         if (stats.totalRequests === 0) {
           prompts.log.warn('No API requests made in this session.');
@@ -64,14 +67,27 @@ export function createUsageCommand(): Command {
           sessionLines.push(`Reasoning Tokens:    ${chalk.magenta(stats.totalReasoningTokens.toLocaleString())}`);
         }
 
-        // Calculate costs
+        // Calculate costs based on provider
         const cacheSavings = tracker.getCacheSavings();
-        const uncachedPromptTokens = stats.totalPromptTokens - cacheSavings.cachedTokens;
-        const cachedCost = cacheSavings.cachedTokens * 0.0000005;
-        const uncachedCost = uncachedPromptTokens * 0.000002;
-        const outputCost = stats.totalCompletionTokens * 0.00001;
-        const reasoningCost = stats.totalReasoningTokens * 0.000002;
-        const estimatedTotalCost = cachedCost + uncachedCost + outputCost + reasoningCost;
+        let estimatedTotalCost = 0;
+
+        if (provider === 'xai') {
+          // xAI/Grok pricing
+          const pricing = getGrokPricing(currentModel);
+          const uncachedPromptTokens = stats.totalPromptTokens - cacheSavings.cachedTokens;
+          const cachedCost = cacheSavings.cachedTokens * pricing.cached;
+          const uncachedCost = uncachedPromptTokens * pricing.input;
+          const outputCost = stats.totalCompletionTokens * pricing.output;
+          estimatedTotalCost = cachedCost + uncachedCost + outputCost;
+        } else if (provider === 'z.ai') {
+          // GLM pricing
+          const uncachedPromptTokens = stats.totalPromptTokens - cacheSavings.cachedTokens;
+          const cachedCost = cacheSavings.cachedTokens * GLM_PRICING.cached;
+          const uncachedCost = uncachedPromptTokens * GLM_PRICING.input;
+          const outputCost = stats.totalCompletionTokens * GLM_PRICING.output;
+          const reasoningCost = stats.totalReasoningTokens * GLM_PRICING.reasoning;
+          estimatedTotalCost = cachedCost + uncachedCost + outputCost + reasoningCost;
+        }
 
         if (estimatedTotalCost > 0) {
           sessionLines.push(`Est. Session Cost:   ${chalk.yellow('~$' + estimatedTotalCost.toFixed(4))}`);
@@ -85,13 +101,21 @@ export function createUsageCommand(): Command {
             ? ((cacheSavings.cachedTokens / stats.totalPromptTokens) * 100).toFixed(1)
             : '0.0';
 
+          // Calculate savings based on provider
+          let savingsAmount = cacheSavings.estimatedSavings;
+          if (provider === 'xai') {
+            const pricing = getGrokPricing(currentModel);
+            savingsAmount = cacheSavings.cachedTokens * (pricing.input - pricing.cached);
+          }
+
           const cacheLines = [
             `Cached Tokens:       ${chalk.cyan(cacheSavings.cachedTokens.toLocaleString())}`,
-            `Estimated Savings:   ${chalk.green('$' + cacheSavings.estimatedSavings.toFixed(4))}`,
+            `Estimated Savings:   ${chalk.green('$' + savingsAmount.toFixed(4))}`,
             `Cache Hit Rate:      ${chalk.yellow(cacheRate + '%')}`,
           ];
 
-          prompts.note(cacheLines.join('\n'), '💰 Cache Savings (GLM 4.6)');
+          const cacheTitle = provider === 'xai' ? '💰 Cache Savings (Grok)' : '💰 Cache Savings (GLM)';
+          prompts.note(cacheLines.join('\n'), cacheTitle);
         }
 
         // Per-model breakdown if detailed
@@ -108,12 +132,30 @@ export function createUsageCommand(): Command {
               modelLines.push(`Reasoning Tokens:   ${modelStats.reasoningTokens.toLocaleString()}`);
             }
 
+            // Calculate per-model cost
+            let modelCost = 0;
+            if (provider === 'xai') {
+              const pricing = getGrokPricing(model);
+              modelCost = modelStats.promptTokens * pricing.input + modelStats.completionTokens * pricing.output;
+            } else if (provider === 'z.ai') {
+              modelCost = modelStats.promptTokens * GLM_PRICING.input +
+                          modelStats.completionTokens * GLM_PRICING.output +
+                          modelStats.reasoningTokens * GLM_PRICING.reasoning;
+            }
+            if (modelCost > 0) {
+              modelLines.push(`Est. Cost:          ${chalk.yellow('~$' + modelCost.toFixed(4))}`);
+            }
+
             prompts.note(modelLines.join('\n'), `Model: ${model}`);
           }
         }
 
         // Provider-specific tips
-        if (provider === 'z.ai') {
+        if (provider === 'xai') {
+          prompts.log.info('Historical usage: https://console.x.ai (Usage Explorer)');
+          prompts.log.info('Billing info: https://console.x.ai/team (Manage Billing)');
+          prompts.outro(chalk.dim('Session tracking only - check xAI console for historical data'));
+        } else if (provider === 'z.ai') {
           prompts.log.info('Historical usage: https://z.ai/manage-apikey/billing');
           prompts.outro(chalk.dim('Billing reflects consumption from the previous day (n-1)'));
         } else {
@@ -121,8 +163,9 @@ export function createUsageCommand(): Command {
           prompts.outro(chalk.dim('Check provider dashboard for historical data'));
         }
 
-      } catch (error: any) {
-        prompts.log.error(`Error: ${error.message}`);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        prompts.log.error(`Error: ${message}`);
         process.exit(1);
       }
     });
@@ -136,15 +179,16 @@ export function createUsageCommand(): Command {
         const tracker = getUsageTracker();
         tracker.resetSession();
         console.log(chalk.green('✓ Session usage statistics reset'));
-      } catch (error: any) {
-        ConsoleMessenger.error('usage_commands.error_resetting_usage', { error: error.message });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        ConsoleMessenger.error('usage_commands.error_resetting_usage', { error: message });
         process.exit(1);
       }
     });
 
   // Default action (show usage)
-  usageCommand.action(async () => {
-    await usageCommand.commands.find(cmd => cmd.name() === 'show')?.parseAsync(['node', 'ax', 'usage', 'show'], { from: 'user' });
+  usageCommand.action(() => {
+    usageCommand.commands.find(cmd => cmd.name() === 'show')?.parseAsync(['node', 'ax', 'usage', 'show'], { from: 'user' });
   });
 
   return usageCommand;
@@ -156,7 +200,13 @@ export function createUsageCommand(): Command {
 function detectProvider(baseURL: string): string {
   const url = baseURL.toLowerCase();
 
-  if (url.includes('z.ai') || url.includes('api.x.ai')) {
+  // xAI/Grok detection (api.x.ai)
+  if (url.includes('api.x.ai') || url.includes('xai.')) {
+    return 'xai';
+  }
+
+  // Z.AI/GLM detection
+  if (url.includes('z.ai')) {
     return 'z.ai';
   }
 
@@ -192,6 +242,7 @@ function detectProvider(baseURL: string): string {
  */
 function getProviderDisplay(provider: string, baseURL: string): string {
   const providerMap: Record<string, string> = {
+    'xai': 'xAI (Grok Models)',
     'z.ai': 'Z.AI (GLM Models)',
     'openai': 'OpenAI',
     'anthropic': 'Anthropic (Claude)',
@@ -200,3 +251,77 @@ function getProviderDisplay(provider: string, baseURL: string): string {
 
   return providerMap[provider] || `${provider} (${baseURL})`;
 }
+
+/**
+ * Grok API pricing per token (as of Dec 2025)
+ * Source: https://docs.x.ai/docs/models
+ */
+const GROK_PRICING = {
+  // Grok 4 pricing
+  'grok-4': {
+    input: 3.0 / 1_000_000,      // $3.00 per 1M tokens
+    output: 15.0 / 1_000_000,    // $15.00 per 1M tokens
+    cached: 0.75 / 1_000_000,    // $0.75 per 1M tokens
+  },
+  // Grok 4.1 Fast pricing
+  'grok-4.1-fast': {
+    input: 0.20 / 1_000_000,     // $0.20 per 1M tokens
+    output: 0.50 / 1_000_000,    // $0.50 per 1M tokens
+    cached: 0.05 / 1_000_000,    // estimated
+  },
+  // Grok 3 pricing
+  'grok-3': {
+    input: 3.0 / 1_000_000,      // $3.00 per 1M tokens
+    output: 15.0 / 1_000_000,    // $15.00 per 1M tokens
+    cached: 0.75 / 1_000_000,    // $0.75 per 1M tokens
+  },
+  // Grok 3 Mini pricing
+  'grok-3-mini': {
+    input: 0.30 / 1_000_000,     // $0.30 per 1M tokens
+    output: 0.50 / 1_000_000,    // $0.50 per 1M tokens
+    cached: 0.075 / 1_000_000,   // estimated
+  },
+  // Grok 2 pricing (legacy)
+  'grok-2': {
+    input: 2.0 / 1_000_000,      // $2.00 per 1M tokens
+    output: 10.0 / 1_000_000,    // $10.00 per 1M tokens
+    cached: 0.50 / 1_000_000,    // estimated
+  },
+} as const;
+
+/**
+ * Get Grok pricing for a model
+ */
+function getGrokPricing(model: string): { input: number; output: number; cached: number } {
+  const modelLower = model.toLowerCase();
+
+  if (modelLower.includes('grok-4.1-fast') || modelLower.includes('grok-4.1')) {
+    return GROK_PRICING['grok-4.1-fast'];
+  }
+  if (modelLower.includes('grok-4')) {
+    return GROK_PRICING['grok-4'];
+  }
+  if (modelLower.includes('grok-3-mini')) {
+    return GROK_PRICING['grok-3-mini'];
+  }
+  if (modelLower.includes('grok-3')) {
+    return GROK_PRICING['grok-3'];
+  }
+  if (modelLower.includes('grok-2')) {
+    return GROK_PRICING['grok-2'];
+  }
+
+  // Default to Grok 3 pricing
+  return GROK_PRICING['grok-3'];
+}
+
+/**
+ * GLM API pricing per token
+ * Source: https://z.ai
+ */
+const GLM_PRICING = {
+  input: 2.0 / 1_000_000,        // $2.00 per 1M tokens (uncached)
+  output: 10.0 / 1_000_000,      // $10.00 per 1M tokens
+  cached: 0.50 / 1_000_000,      // $0.50 per 1M tokens (cached)
+  reasoning: 2.0 / 1_000_000,    // $2.00 per 1M tokens (thinking)
+};

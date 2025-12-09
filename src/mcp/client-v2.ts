@@ -859,7 +859,7 @@ export class MCPManagerV2 extends EventEmitter {
       // BUG FIX: Check if the error is due to server disconnection during call
       // This handles the race condition where removeServer was called mid-operation
       const currentState = this.connections.get(tool.serverName);
-      if (!currentState || currentState.status === 'disconnecting' || currentState.status === 'error') {
+      if (!currentState || currentState.status === 'disconnecting' || currentState.status === 'failed') {
         return Err(new Error(
           `Server ${tool.serverName} was disconnected during tool execution. Original error: ${toError(error).message}`
         ));
@@ -1358,18 +1358,22 @@ export class MCPManagerV2 extends EventEmitter {
 
   /**
    * Discover prompts from all connected servers
+   * PERF: Parallelized - servers are independent, no need to wait sequentially
    */
   async discoverPrompts(): Promise<void> {
-    // BUG FIX: Check disposed flag before operating on resources
     if (this.disposed) {
       return;
     }
 
     const connectedServers = this.getServers();
-
-    for (const serverName of connectedServers) {
-      await this.listServerPrompts(serverName);
+    if (connectedServers.length === 0) {
+      return;
     }
+
+    // Parallel discovery - each server is independent
+    await Promise.allSettled(
+      connectedServers.map(serverName => this.listServerPrompts(serverName))
+    );
   }
 
   /**
@@ -1713,6 +1717,7 @@ export class MCPManagerV2 extends EventEmitter {
 
   /**
    * Start periodic health checks for all connected servers
+   * PERF: Parallelized - health checks are independent per server
    */
   private startHealthChecks(): void {
     if (this.healthCheckTimer) {
@@ -1730,9 +1735,10 @@ export class MCPManagerV2 extends EventEmitter {
         .map(([name, _]) => name);
 
       try {
-        for (const serverName of connectedServers) {
-          await this.healthCheck(serverName);
-        }
+        // Parallel health checks - each server is independent
+        await Promise.allSettled(
+          connectedServers.map(serverName => this.healthCheck(serverName))
+        );
       } finally {
         this.healthCheckInFlight = false;
       }

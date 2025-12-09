@@ -181,16 +181,18 @@ export function convertMCPToolToLLMTool(mcpTool: MCPTool): LLMTool {
     description += `\n\nOutput schema: ${outputSchemaStr}`;
   }
 
+  // MCP tools use JSON Schema which is compatible with our JSONSchemaValue type
+  // Cast through unknown to satisfy TypeScript's strict type checking
+  const parameters = mcpTool.inputSchema
+    ? (mcpTool.inputSchema as unknown as LLMTool['function']['parameters'])
+    : { type: "object" as const, properties: {}, required: [] as string[] };
+
   return {
     type: "function",
     function: {
       name: mcpTool.name,
       description,
-      parameters: mcpTool.inputSchema || {
-        type: "object",
-        properties: {},
-        required: []
-      }
+      parameters
     }
   };
 }

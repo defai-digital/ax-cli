@@ -37,4 +37,10 @@ export {
   getAvailableProviders,
   getProviderModelConfig,
   getApiKeyFromEnv,
+  // Model alias system
+  MODEL_ALIASES,
+  resolveModelAlias,
+  getProviderModelAliases,
+  isModelAlias,
+  getAvailableModelsWithAliases,
 } from './config.js';

@@ -603,7 +603,7 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
   // Enable debug mode on agent if requested
   if (debug) {
     // Add debug event listener
-    const debugStreamListener = (chunk: StreamingChunk) => {
+    const debugStreamListener = (chunk: StreamingChunk): void => {
       if (chunk.type === 'tool_calls' && chunk.toolCalls) {
         const toolNames = chunk.toolCalls.map((tc) => tc.function.name).join(', ');
         console.error('[AX SDK DEBUG] Tool calls:', toolNames);
@@ -611,8 +611,8 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
         console.error('[AX SDK DEBUG] Tool result:', chunk.toolResult.success ? 'success' : 'failed');
       }
     };
-    agent.on('stream', debugStreamListener);
-    sdkListeners.push({ event: 'stream', listener: debugStreamListener });
+    agent.on('stream', debugStreamListener as (...args: unknown[]) => void);
+    sdkListeners.push({ event: 'stream', listener: debugStreamListener as (...args: unknown[]) => void });
 
     console.error('[AX SDK DEBUG] Agent created successfully');
   }
@@ -637,11 +637,11 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
     };
 
     // Also listen to stream errors
-    const errorListener = (error: Error) => {
+    const errorListener = (error: Error): void => {
       onError(error);
     };
-    agent.on('error', errorListener);
-    sdkListeners.push({ event: 'error', listener: errorListener });
+    agent.on('error', errorListener as (...args: unknown[]) => void);
+    sdkListeners.push({ event: 'error', listener: errorListener as (...args: unknown[]) => void });
   }
 
   // Store listeners reference for cleanup

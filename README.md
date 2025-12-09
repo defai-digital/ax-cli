@@ -8,7 +8,7 @@
 
 ## Table of Contents
 
-- [Dedicated CLIs](#for-glm-users-zai)
+- [Quick Start](#quick-start)
 - [Why AX CLI?](#why-ax-cli)
 - [Supported Models](#supported-models)
 - [Installation](#installation)
@@ -18,6 +18,7 @@
 - [VSCode Extension](#vscode-extension)
 - [Project Memory](#project-memory)
 - [Security](#security)
+- [Architecture](#architecture)
 - [Packages](#packages)
 - [Changelog](#changelog)
 - [Documentation](#documentation)
@@ -34,27 +35,44 @@
   <strong>Enterprise-grade AI coding assistant optimized for GLM and Grok</strong>
 </p>
 
-Get started in under a minute. Choose your AI provider and install the dedicated package for provider-specific optimizations, better defaults, and streamlined configuration. Running the installed CLI command will launch the interactive AI coding assistant.
+## Quick Start
 
-### For GLM Users (Z.AI)
+Get started in under a minute. Choose your AI provider and install the dedicated CLI:
+
+<table>
+<tr>
+<td width="50%">
+
+### GLM (Z.AI)
 
 ```bash
 npm install -g @defai.digital/ax-glm
 ax-glm setup
-ax-glm                   # Starts the interactive CLI
+ax-glm
 ```
 
-### For Grok Users (xAI)
+**Best for:** 200K context, thinking mode, Chinese language support
+
+</td>
+<td width="50%">
+
+### Grok (xAI)
 
 ```bash
 npm install -g @defai.digital/ax-grok
 ax-grok setup
-ax-grok                   # Starts the interactive CLI
+ax-grok
 ```
 
-That's it! Run `/init` inside the CLI to initialize your project.
+**Best for:** Live web search, vision, extended reasoning
 
-> **Legacy Package:** `@defai.digital/ax-cli` is maintained for backward compatibility but new users should install `ax-glm` or `ax-grok` directly.
+</td>
+</tr>
+</table>
+
+Run `/init` inside the CLI to initialize your project context.
+
+> **Which CLI should I install?** Install `ax-glm` if you have a Z.AI API key, or `ax-grok` if you have an xAI API key. Both provide the same full-featured coding assistant, optimized for their respective providers.
 
 ---
 
@@ -75,20 +93,26 @@ That's it! Run `/init` inside the CLI to initialize your project.
 
 ### GLM (Z.AI)
 
-| Model | Context | Features |
-|-------|---------|----------|
-| `glm-4.6` | 200K | **Thinking mode**: AI provides detailed thought processes and planning |
-| `glm-4.5v` | 64K | **Vision support**: Analyze and understand images for visual tasks |
-| `glm-4` | 128K | Balanced performance |
+| Model | Context | Features | Alias |
+|-------|---------|----------|-------|
+| `glm-4.6` | 200K | **Thinking mode**: detailed thought processes and planning | `glm-latest` |
+| `glm-4.6v` | 128K | **Vision + Thinking**: latest vision model with thinking mode | `glm-vision` |
+| `glm-4.5v` | 64K | **Vision support**: analyze and understand images | |
+| `glm-4-flash` | 128K | Fast, efficient for quick tasks | `glm-fast` |
+| `cogview-4` | - | **Image generation**: text-to-image with variable resolutions | `glm-image` |
 
 ### Grok (xAI)
 
-| Model | Features |
-|-------|----------|
-| `grok-3` | **Reasoning effort**: Advanced thinking mode for complex problems, 131K context |
-| `grok-3-mini` | Fast, cost-effective with **thinking capabilities** |
-| `grok-2-vision` | **Image understanding**: Analyze visual input for comprehensive insights |
-| `grok-2` | **Live web search**: Access real-time information directly from the web |
+| Model | Context | Features | Alias |
+|-------|---------|----------|-------|
+| `grok-4-0709` | 131K | **Most capable**: advanced reasoning, coding, vision | `grok-latest` |
+| `grok-4.1-fast` | 131K | Fast Grok 4.1 with agent tools support | `grok-fast` |
+| `grok-3` | 131K | **Reasoning effort**: advanced thinking mode | |
+| `grok-3-mini` | 131K | Fast, cost-effective with thinking | `grok-mini` |
+| `grok-2-vision-1212` | 32K | **Image understanding**: analyze visual input | `grok-vision` |
+| `grok-2-image-1212` | 32K | **Image generation**: text-to-image | `grok-image` |
+
+> **Model Aliases**: Use convenient aliases like `ax-grok -m grok-latest` instead of full model names.
 
 ---
 
@@ -227,14 +251,45 @@ ax-glm memory status    # View token distribution
 
 ---
 
+## Architecture
+
+AX CLI uses a modular architecture with provider-specific CLIs built on a shared core:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      User Installs                          │
+├─────────────────────────────┬───────────────────────────────┤
+│      @defai.digital/ax-glm  │    @defai.digital/ax-grok     │
+│         (ax-glm CLI)        │       (ax-grok CLI)           │
+│                             │                               │
+│  • GLM-4.6 thinking mode    │  • Grok 3 extended reasoning  │
+│  • Z.AI API defaults        │  • xAI API defaults           │
+│  • 200K context window      │  • Live web search            │
+│  • ~/.ax-glm/ config        │  • ~/.ax-grok/ config         │
+├─────────────────────────────┴───────────────────────────────┤
+│                   @defai.digital/ax-core                    │
+│                                                             │
+│  Shared functionality: 17 tools, MCP client, memory,        │
+│  checkpoints, React/Ink UI, file operations, git support    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Why separate CLIs?**
+- **Isolated configuration:** Run `ax-glm` and `ax-grok` simultaneously without conflicts
+- **Provider optimization:** Each CLI has tuned defaults for its AI provider
+- **Cleaner setup:** `ax-glm setup` only asks for Z.AI config, `ax-grok setup` only asks for xAI config
+
+---
+
 ## Packages
 
-| Package | Description |
-|---------|-------------|
-| [@defai.digital/ax-glm](https://www.npmjs.com/package/@defai.digital/ax-glm) | GLM-optimized CLI |
-| [@defai.digital/ax-grok](https://www.npmjs.com/package/@defai.digital/ax-grok) | Grok-optimized CLI |
-| [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | Shared core library |
-| [@defai.digital/ax-cli](https://www.npmjs.com/package/@defai.digital/ax-cli) | Legacy launcher (maintained for backward compatibility) |
+| Package | Install? | Description |
+|---------|:--------:|-------------|
+| [@defai.digital/ax-glm](https://www.npmjs.com/package/@defai.digital/ax-glm) | **Yes** | GLM-optimized CLI for Z.AI users |
+| [@defai.digital/ax-grok](https://www.npmjs.com/package/@defai.digital/ax-grok) | **Yes** | Grok-optimized CLI for xAI users |
+| [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | No | Shared core library (auto-installed as dependency) |
+| [@defai.digital/ax-schemas](https://www.npmjs.com/package/@defai.digital/ax-schemas) | No | Shared Zod schemas (auto-installed as dependency) |
+| [@defai.digital/ax-cli](https://www.npmjs.com/package/@defai.digital/ax-cli) | No | Legacy package (use ax-glm or ax-grok instead) |
 
 ---
 
@@ -244,6 +299,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.3.8**: New models and features - Added Grok 4 (`grok-4-0709`, `grok-4.1-fast`) and GLM 4.6V models, model alias system (`grok-latest`, `glm-fast`), fixed `/usage` command for xAI with accurate Grok pricing, fixed reasoning_effort for Grok 4 models.
 *   **v4.3.7**: Bug fixes - Fixed ax-grok web search (native search instructions now added regardless of MCP tools), fixed temp file cleanup in history manager.
 *   **v4.3.6**: Code quality improvements - ESLint configuration updates, TypeScript strict mode fixes, and dependency updates.
 *   **v4.3.5**: Tool Priority System refactoring - improved code quality, reduced duplication, performance optimizations, and bug fixes.

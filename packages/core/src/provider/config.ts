@@ -99,6 +99,17 @@ export const GLM_PROVIDER: ProviderDefinition = {
       defaultTemperature: 0.7,
       description: 'Most capable GLM model with thinking mode support',
     },
+    'glm-4.6v': {
+      name: 'GLM-4.6V',
+      contextWindow: 128000,
+      maxOutputTokens: 128000,
+      supportsThinking: true,
+      supportsVision: true,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'Latest vision model with 128K context and thinking mode',
+    },
     'glm-4.5v': {
       name: 'GLM-4.5V',
       contextWindow: 64000,
@@ -131,6 +142,18 @@ export const GLM_PROVIDER: ProviderDefinition = {
       supportsSeed: false,
       defaultTemperature: 0.7,
       description: 'Fast, efficient GLM model for quick tasks',
+    },
+    // Image generation model
+    'cogview-4': {
+      name: 'CogView-4',
+      contextWindow: 4096,
+      maxOutputTokens: 1024,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Text-to-image generation model with variable resolutions',
     },
   },
   features: {
@@ -172,6 +195,29 @@ export const GROK_PROVIDER: ProviderDefinition = {
   defaultModel: 'grok-3',
   configDirName: '.ax-grok',
   models: {
+    // Grok 4 models - latest generation with superior reasoning
+    'grok-4-0709': {
+      name: 'Grok-4',
+      contextWindow: 131072,
+      maxOutputTokens: 131072,
+      supportsThinking: true,
+      supportsVision: true,
+      supportsSearch: true,
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Most capable Grok model with advanced reasoning, coding, and visual processing',
+    },
+    'grok-4.1-fast': {
+      name: 'Grok-4.1 Fast',
+      contextWindow: 131072,
+      maxOutputTokens: 131072,
+      supportsThinking: true,
+      supportsVision: true,
+      supportsSearch: true,
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Fast Grok 4.1 model with agent tools support',
+    },
     // Grok 3 models with thinking mode (reasoning_effort)
     'grok-3': {
       name: 'Grok-3',
@@ -182,7 +228,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
       supportsSearch: true,
       supportsSeed: true,
       defaultTemperature: 0.7,
-      description: 'Most capable Grok model with extended thinking via reasoning_effort',
+      description: 'Capable Grok model with extended thinking via reasoning_effort',
     },
     'grok-3-mini': {
       name: 'Grok-3 Mini',
@@ -483,4 +529,105 @@ export function getActiveConfigPaths(): ProviderConfigPaths {
   // which can change during the session (e.g., if a tool changes directory)
   const provider = activeProvider || GLM_PROVIDER;
   return getProviderConfigPaths(provider);
+}
+
+/**
+ * Model aliases for convenient model selection
+ * Maps friendly names to actual model identifiers
+ */
+export const MODEL_ALIASES: Record<string, string> = {
+  // GLM aliases
+  'glm-latest': 'glm-4.6',
+  'glm-fast': 'glm-4-flash',
+  'glm-vision': 'glm-4.6v',
+  'glm-image': 'cogview-4',
+  // Grok aliases
+  'grok-latest': 'grok-4-0709',
+  'grok-fast': 'grok-4.1-fast',
+  'grok-vision': 'grok-2-vision-1212',
+  'grok-image': 'grok-2-image-1212',
+  'grok-mini': 'grok-3-mini',
+};
+
+/**
+ * Resolve a model name, handling aliases
+ * Returns the actual model name if alias exists, otherwise returns input unchanged
+ *
+ * @param modelName - Model name or alias
+ * @returns Resolved model name
+ *
+ * @example
+ * resolveModelAlias('grok-latest')  // Returns 'grok-4-0709'
+ * resolveModelAlias('glm-4.6')      // Returns 'glm-4.6' (unchanged)
+ */
+export function resolveModelAlias(modelName: string): string {
+  return MODEL_ALIASES[modelName.toLowerCase()] || modelName;
+}
+
+/**
+ * Get all model aliases for a provider
+ *
+ * @param provider - Provider definition
+ * @returns Array of alias entries { alias, model, description }
+ */
+export function getProviderModelAliases(
+  provider: ProviderDefinition
+): Array<{ alias: string; model: string; description: string }> {
+  const prefix = provider.name.toLowerCase();
+  const aliases: Array<{ alias: string; model: string; description: string }> = [];
+
+  for (const [alias, model] of Object.entries(MODEL_ALIASES)) {
+    if (alias.startsWith(prefix + '-')) {
+      const modelConfig = provider.models[model];
+      if (modelConfig) {
+        aliases.push({
+          alias,
+          model,
+          description: modelConfig.description,
+        });
+      }
+    }
+  }
+
+  return aliases;
+}
+
+/**
+ * Check if a model name is an alias
+ */
+export function isModelAlias(modelName: string): boolean {
+  return modelName.toLowerCase() in MODEL_ALIASES;
+}
+
+/**
+ * Get list of all available models for a provider (including aliases)
+ * Useful for CLI model selection and validation
+ *
+ * @param provider - Provider definition
+ * @returns Array of model entries with name, alias (if any), and description
+ */
+export function getAvailableModelsWithAliases(
+  provider: ProviderDefinition
+): Array<{ model: string; alias?: string; description: string; isDefault: boolean }> {
+  const result: Array<{ model: string; alias?: string; description: string; isDefault: boolean }> = [];
+
+  // Build reverse lookup for aliases
+  const aliasLookup: Record<string, string> = {};
+  for (const [alias, model] of Object.entries(MODEL_ALIASES)) {
+    if (alias.startsWith(provider.name.toLowerCase() + '-')) {
+      aliasLookup[model] = alias;
+    }
+  }
+
+  // Add all models
+  for (const [modelId, config] of Object.entries(provider.models)) {
+    result.push({
+      model: modelId,
+      alias: aliasLookup[modelId],
+      description: config.description,
+      isDefault: modelId === provider.defaultModel,
+    });
+  }
+
+  return result;
 }
