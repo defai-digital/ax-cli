@@ -184,13 +184,14 @@ async function runMigration(options: MigrationOptions): Promise<void> {
   }
 
   // Merge migrated servers into target config
-  targetConfig.mcpServers = targetConfig.mcpServers || {};
+  const targetServers = (targetConfig.mcpServers || {}) as Record<string, unknown>;
 
   for (const [name, result] of migrationResult.results.entries()) {
     if (result.success && result.migratedConfig) {
-      targetConfig.mcpServers[name] = result.migratedConfig;
+      targetServers[name] = result.migratedConfig;
     }
   }
+  targetConfig.mcpServers = targetServers;
 
   // Ensure target directory exists
   const targetDir = path.dirname(targetPath);
