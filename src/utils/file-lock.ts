@@ -28,6 +28,7 @@
  */
 
 import { existsSync, unlinkSync, writeFileSync, readFileSync, mkdirSync } from 'fs';
+import { sleep } from './retry-helper.js';
 import { dirname, resolve } from 'path';
 import { hostname } from 'os';
 
@@ -299,13 +300,6 @@ function releaseLock(filePath: string): void {
   } catch {
     // Ignore errors during release
   }
-}
-
-/**
- * Sleep for a specified duration
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**

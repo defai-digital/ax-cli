@@ -299,6 +299,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.3.12**: Transport cleanup improvements - Added `destroy()` methods to SSETransport and StreamableHttpTransport classes for complete EventEmitter cleanup coverage.
 *   **v4.3.11**: Code quality improvements - Added `destroy()` methods to all EventEmitter classes to prevent memory leaks, fixed duplicate function implementations, improved resource cleanup across MCP, agent, and SDK modules.
 *   **v4.3.10**: Bug fixes - Fixed `mcp remove` command failing when server not connected, added `.unref()` to timer intervals to prevent process exit blocking, fixed TypeScript `any` type errors in doctor.ts and mcp-migrate.ts.
 *   **v4.3.9**: Fixed `/usage` slash command to show xAI/Grok info instead of GLM when using ax-grok.

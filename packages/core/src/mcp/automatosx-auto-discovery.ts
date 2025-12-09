@@ -16,6 +16,7 @@
 import { execSync } from 'child_process';
 import type { MCPServerConfig, MCPTransportConfig } from '../schemas/settings-schemas.js';
 import { getActiveProvider } from '../provider/config.js';
+import { extractErrorMessage } from '../utils/error-handler.js';
 
 /**
  * Result of AutomatosX detection
@@ -112,7 +113,7 @@ export function detectAutomatosX(forceRefresh = false): AutomatosXDetectionResul
     cachedDetection = {
       installed: false,
       hasMCPServer: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: extractErrorMessage(error),
     };
     cacheTime = now;
     return cachedDetection;

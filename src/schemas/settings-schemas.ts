@@ -89,7 +89,7 @@ export const ShortcutsSettingsSchema = z.object({
 }).optional();
 
 // Theme names enum for type safety
-export const ThemeNameSchema = z.enum(['default', 'dark', 'light', 'dracula', 'monokai']);
+export const ThemeNameSchema = z.enum(['default', 'dark', 'light', 'dracula', 'monokai', 'business', 'japanese']);
 export type ThemeName = z.infer<typeof ThemeNameSchema>;
 
 // UI Settings Schema (for verbosity levels and tool grouping)

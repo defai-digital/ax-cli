@@ -8,6 +8,7 @@
  */
 
 import { getLogger } from './logger.js';
+import { extractErrorMessage } from './error-handler.js';
 
 /**
  * Standard exit codes following Unix conventions
@@ -66,7 +67,7 @@ async function runCleanup(): Promise<void> {
     } catch (error) {
       // Log but don't fail - we're exiting anyway
       logger.debug('Cleanup callback failed', {
-        error: error instanceof Error ? error.message : String(error),
+        error: extractErrorMessage(error),
       });
     }
   }

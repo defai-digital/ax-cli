@@ -62,6 +62,17 @@ let availabilityCache: {
 const AVAILABILITY_CACHE_TTL = 60000; // 1 minute
 
 /**
+ * Default result when no agent match is found (use direct LLM)
+ */
+const NO_MATCH_RESULT: AgentRoutingResult = {
+  agent: null,
+  systemPrefix: '',
+  transparencyNote: '',
+  confidence: 0,
+  matchedKeywords: [],
+};
+
+/**
  * Keyword to agent mapping (ordered by specificity)
  * High-confidence keywords that strongly indicate domain
  */
@@ -272,25 +283,13 @@ export function routeToAgent(
 ): AgentRoutingResult {
   // Check if routing is enabled
   if (!config.enabled) {
-    return {
-      agent: null,
-      systemPrefix: '',
-      transparencyNote: '',
-      confidence: 0,
-      matchedKeywords: [],
-    };
+    return NO_MATCH_RESULT;
   }
 
   // Check agent availability
   const { available, agents } = checkAgentAvailability();
   if (!available || agents.length === 0) {
-    return {
-      agent: null,
-      systemPrefix: '',
-      transparencyNote: '',
-      confidence: 0,
-      matchedKeywords: [],
-    };
+    return NO_MATCH_RESULT;
   }
 
   // Try to match agent by keywords
@@ -312,13 +311,7 @@ export function routeToAgent(
   }
 
   // No match, use direct LLM
-  return {
-    agent: null,
-    systemPrefix: '',
-    transparencyNote: '',
-    confidence: 0,
-    matchedKeywords: [],
-  };
+  return NO_MATCH_RESULT;
 }
 
 /**

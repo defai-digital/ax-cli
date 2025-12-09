@@ -8,6 +8,13 @@
 
 import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
+import { TIMEOUT_CONFIG } from '../constants.js';
+
+/** Default timeout for agent execution (60 minutes) */
+const AGENT_EXECUTION_TIMEOUT_MS = 60 * TIMEOUT_CONFIG.MS_PER_MINUTE;
+
+/** Exit code for timeout (Unix convention) */
+const EXIT_CODE_TIMEOUT = 124;
 
 /**
  * Result chunk from agent execution
@@ -61,7 +68,7 @@ export async function* executeAgent(
     agent,
     task,
     cwd = process.cwd(),
-    timeout = 3600000, // 60 minutes default
+    timeout = AGENT_EXECUTION_TIMEOUT_MS,
     env = {},
     streaming = true,
     noMemory = false,
@@ -150,7 +157,7 @@ export async function* executeAgent(
       if (process_ && !process_.killed) {
         process_.kill('SIGTERM');
         emitter.emit('chunk', { type: 'error', content: 'Agent execution timed out' });
-        emitter.emit('chunk', { type: 'done', exitCode: 124 });
+        emitter.emit('chunk', { type: 'done', exitCode: EXIT_CODE_TIMEOUT });
         emitter.emit('done');
       }
     };
@@ -251,7 +258,7 @@ export async function isAxAvailable(): Promise<boolean> {
     const timeout = setTimeout(() => {
       process_.kill();
       resolve(false);
-    }, 5000);
+    }, TIMEOUT_CONFIG.COMMAND_CHECK);
 
     process_.on('close', (code) => {
       clearTimeout(timeout);

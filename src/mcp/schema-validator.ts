@@ -11,6 +11,7 @@
 
 import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
 import type { JsonSchemaType } from '@modelcontextprotocol/sdk/validation/types.js';
+import { extractErrorMessage } from '../utils/error-handler.js';
 
 /**
  * Schema validation result status
@@ -90,7 +91,7 @@ export class ToolOutputValidator {
       // Schema compilation error
       return {
         status: 'invalid',
-        errors: [`Schema compilation error: ${error instanceof Error ? error.message : String(error)}`],
+        errors: [`Schema compilation error: ${extractErrorMessage(error)}`],
         schema,
       };
     }

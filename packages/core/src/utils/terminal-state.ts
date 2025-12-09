@@ -8,6 +8,7 @@
  */
 
 import { getLogger } from './logger.js';
+import { extractErrorMessage } from './error-handler.js';
 
 export enum TerminalState {
   NORMAL = 'normal',
@@ -158,7 +159,7 @@ class TerminalStateManager {
         callback();
       } catch (error) {
         logger.debug('Cleanup callback failed', {
-          error: error instanceof Error ? error.message : String(error),
+          error: extractErrorMessage(error),
         });
       }
     }

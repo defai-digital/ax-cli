@@ -10,6 +10,7 @@
 
 import { spawn } from "child_process";
 import type { ToolResult } from "../types/index.js";
+import { extractErrorMessage } from "../utils/error-handler.js";
 
 /**
  * Available AutomatosX agents with their specializations
@@ -92,7 +93,7 @@ export async function executeAxAgent(options: AxAgentOptions): Promise<ToolResul
   } catch (error) {
     return {
       success: false,
-      error: `Failed to invoke agent: ${error instanceof Error ? error.message : String(error)}`,
+      error: `Failed to invoke agent: ${extractErrorMessage(error)}`,
     };
   }
 }

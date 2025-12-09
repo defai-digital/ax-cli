@@ -214,6 +214,14 @@ export class SSETransport extends EventEmitter implements MCPTransport {
   getType(): TransportType {
     return 'sse';
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   * Required for EventEmitter-extending classes to prevent memory leaks.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }
 
 export class StreamableHttpTransport extends EventEmitter implements MCPTransport {
@@ -266,6 +274,14 @@ export class StreamableHttpTransport extends EventEmitter implements MCPTranspor
 
   getType(): TransportType {
     return 'streamable_http';
+  }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   * Required for EventEmitter-extending classes to prevent memory leaks.
+   */
+  destroy(): void {
+    this.removeAllListeners();
   }
 }
 

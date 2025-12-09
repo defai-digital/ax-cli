@@ -167,6 +167,48 @@ const monokaiTheme = createTheme({
 });
 
 /**
+ * Business theme - Professional blue and gray tones (for GLM)
+ */
+const businessTheme = createTheme({
+  name: 'business',
+  displayName: 'Business',
+  description: 'Professional business theme with blue and gray tones',
+  colors: {
+    primary: 'blue',
+    secondary: 'gray',
+    success: 'green',
+    warning: 'yellow',
+    error: 'red',
+    muted: 'gray',
+    border: 'blue',
+    accent: 'blueBright',
+    info: 'cyan',
+    textOnHighlight: 'white',
+  },
+});
+
+/**
+ * Japanese theme - Traditional red and white styling (for Grok)
+ */
+const japaneseTheme = createTheme({
+  name: 'japanese',
+  displayName: 'Japanese',
+  description: 'Traditional Japanese styling with red and white',
+  colors: {
+    primary: 'red',
+    secondary: 'white',
+    success: 'green',
+    warning: 'yellow',
+    error: 'redBright',
+    muted: 'gray',
+    border: 'red',
+    accent: 'white',
+    info: 'red',
+    textOnHighlight: 'white',
+  },
+});
+
+/**
  * Registry of all available themes
  * Frozen to prevent accidental modification of the registry
  */
@@ -176,6 +218,8 @@ export const themes: Readonly<Record<ThemeName, Theme>> = Object.freeze({
   light: lightTheme,
   dracula: draculaTheme,
   monokai: monokaiTheme,
+  business: businessTheme,
+  japanese: japaneseTheme,
 });
 
 /**

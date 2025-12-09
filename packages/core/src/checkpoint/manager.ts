@@ -26,6 +26,7 @@ import type {
 } from './types.js';
 import { DEFAULT_CHECKPOINT_CONFIG } from './types.js';
 import type { ChatEntry } from '../agent/llm-agent.js';
+import { extractErrorMessage } from '../utils/error-handler.js';
 
 export class CheckpointManager {
   private storage: CheckpointStorage;
@@ -159,7 +160,7 @@ export class CheckpointManager {
         filesFailed.push(snapshot.path);
         // BUG FIX: Use type guard to safely access error message
         // JavaScript allows throwing any value, not just Error objects
-        const msg = error instanceof Error ? error.message : String(error);
+        const msg = extractErrorMessage(error);
         console.error(`Failed to restore ${snapshot.path}: ${msg}`);
       }
     }
@@ -324,7 +325,7 @@ export class CheckpointManager {
       try {
         await this.compressOldCheckpoints();
       } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error);
+        const msg = extractErrorMessage(error);
         console.error(`Failed to compress old checkpoints: ${msg}`);
       }
 
@@ -332,7 +333,7 @@ export class CheckpointManager {
       try {
         await this.pruneOldCheckpoints();
       } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error);
+        const msg = extractErrorMessage(error);
         console.error(`Failed to prune old checkpoints: ${msg}`);
       }
 
@@ -340,7 +341,7 @@ export class CheckpointManager {
       try {
         await this.enforceCheckpointLimit();
       } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error);
+        const msg = extractErrorMessage(error);
         console.error(`Failed to enforce checkpoint limit: ${msg}`);
       }
 
@@ -348,7 +349,7 @@ export class CheckpointManager {
       try {
         await this.enforceStorageLimit();
       } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error);
+        const msg = extractErrorMessage(error);
         console.error(`Failed to enforce storage limit: ${msg}`);
       }
     } finally {

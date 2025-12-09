@@ -26,6 +26,7 @@ import type {
 } from './types.js';
 import { DEFAULT_CHECKPOINT_CONFIG } from './types.js';
 import type { ChatEntry } from '../agent/llm-agent.js';
+import { extractErrorMessage } from '../utils/error-handler.js';
 
 export class CheckpointManager {
   private storage: CheckpointStorage;
@@ -157,8 +158,7 @@ export class CheckpointManager {
         filesRestored.push(safePath);
       } catch (error: unknown) {
         filesFailed.push(snapshot.path);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`Failed to restore ${snapshot.path}: ${errorMessage}`);
+        console.error(`Failed to restore ${snapshot.path}: ${extractErrorMessage(error)}`);
       }
     }
 
@@ -319,32 +319,28 @@ export class CheckpointManager {
       try {
         await this.compressOldCheckpoints();
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`Failed to compress old checkpoints: ${errorMessage}`);
+        console.error(`Failed to compress old checkpoints: ${extractErrorMessage(error)}`);
       }
 
       // Prune very old checkpoints - catch errors to continue with other stages
       try {
         await this.pruneOldCheckpoints();
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`Failed to prune old checkpoints: ${errorMessage}`);
+        console.error(`Failed to prune old checkpoints: ${extractErrorMessage(error)}`);
       }
 
       // Enforce max checkpoints limit - catch errors to continue with other stages
       try {
         await this.enforceCheckpointLimit();
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`Failed to enforce checkpoint limit: ${errorMessage}`);
+        console.error(`Failed to enforce checkpoint limit: ${extractErrorMessage(error)}`);
       }
 
       // Enforce storage limit - catch errors to continue with other stages
       try {
         await this.enforceStorageLimit();
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`Failed to enforce storage limit: ${errorMessage}`);
+        console.error(`Failed to enforce storage limit: ${extractErrorMessage(error)}`);
       }
     } finally {
       // Always reset flag, even if operations fail

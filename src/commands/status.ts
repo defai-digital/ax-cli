@@ -4,6 +4,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { ConsoleMessenger } from '../utils/console-messenger.js';
 import { CONFIG_PATHS } from '../constants.js';
+import { extractErrorMessage } from '../utils/error-handler.js';
 
 async function readReportDirectory(outputDir: string): Promise<string[] | null> {
   try {
@@ -102,8 +103,7 @@ export function createStatusCommand(): Command {
         }
 
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        ConsoleMessenger.error('status_commands.error_showing_status', { error: errorMessage });
+        ConsoleMessenger.error('status_commands.error_showing_status', { error: extractErrorMessage(error) });
         process.exit(1);
       }
     });
@@ -165,8 +165,7 @@ export function createStatusCommand(): Command {
         console.log();
 
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        ConsoleMessenger.error('status_commands.error_listing_reports', { error: errorMessage });
+        ConsoleMessenger.error('status_commands.error_listing_reports', { error: extractErrorMessage(error) });
         process.exit(1);
       }
     });
@@ -187,8 +186,7 @@ export function createStatusCommand(): Command {
         console.log(chalk.gray('   To view existing reports: ax status show'));
         console.log();
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        ConsoleMessenger.error('status_commands.error_generating_report', { error: errorMessage });
+        ConsoleMessenger.error('status_commands.error_generating_report', { error: extractErrorMessage(error) });
         process.exit(1);
       }
     });
@@ -258,8 +256,7 @@ export function createStatusCommand(): Command {
         console.log();
 
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        ConsoleMessenger.error('status_commands.error_cleaning_reports', { error: errorMessage });
+        ConsoleMessenger.error('status_commands.error_cleaning_reports', { error: extractErrorMessage(error) });
         process.exit(1);
       }
     });

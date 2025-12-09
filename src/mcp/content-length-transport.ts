@@ -461,6 +461,14 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
   get pid(): number | undefined {
     return this.process?.pid;
   }
+
+  /**
+   * Clean up resources and remove all event listeners.
+   * Required for EventEmitter-extending classes to prevent memory leaks.
+   */
+  destroy(): void {
+    this.removeAllListeners();
+  }
 }
 
 /**

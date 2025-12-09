@@ -9,6 +9,7 @@
 
 import { EventEmitter } from 'events';
 import type { ServerName, ToolName } from './type-safety.js';
+import { extractErrorMessage } from '../utils/error-handler.js';
 
 /**
  * Cancellable request information
@@ -171,7 +172,7 @@ export class CancellationManager extends EventEmitter {
       return {
         success: false,
         requestId: requests[index].id,
-        error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+        error: extractErrorMessage(result.reason),
       };
     });
   }

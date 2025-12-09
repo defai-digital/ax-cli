@@ -168,8 +168,8 @@ export const GLM_PROVIDER: ProviderDefinition = {
     cliName: 'ax-glm',
     description: 'GLM-optimized AI coding assistant powered by Z.AI',
     welcomeMessage: '🤖 Starting AX-GLM AI Assistant (powered by Z.AI)...',
-    primaryColor: 'cyan',
-    secondaryColor: 'green',
+    primaryColor: 'blue',
+    secondaryColor: 'gray',
     tagline: 'Powered by Z.AI',
     asciiLogo: `
    ██████╗ ██╗     ███╗   ███╗
@@ -311,8 +311,8 @@ export const GROK_PROVIDER: ProviderDefinition = {
     cliName: 'ax-grok',
     description: 'Grok-optimized AI coding assistant powered by xAI',
     welcomeMessage: '🤖 Starting AX-Grok AI Assistant (powered by xAI)...',
-    primaryColor: 'magenta',
-    secondaryColor: 'yellow',
+    primaryColor: 'red',
+    secondaryColor: 'white',
     tagline: 'Powered by xAI',
     asciiLogo: `
    ██████╗ ██████╗  ██████╗ ██╗  ██╗
