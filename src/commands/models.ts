@@ -175,7 +175,7 @@ export function createModelsCommand(): Command {
               console.log(chalk.dim("    Features: ") + features.join(" | "));
             }
 
-            if (model.note) {
+            if ('note' in model && model.note) {
               console.log(chalk.dim(`    Note: ${model.note}`));
             }
           }

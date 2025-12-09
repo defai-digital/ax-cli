@@ -279,24 +279,4 @@ export class ConfirmationService extends EventEmitter {
     this.removeAllListeners();
   }
 
-  /**
-   * Clean up resources and remove all event listeners.
-   */
-  destroy(): void {
-    this.removeAllListeners();
-  }
-
-  /**
-   * Clean up resources and remove all event listeners.
-   */
-  destroy(): void {
-    this.removeAllListeners();
-  }
-
-  /**
-   * Clean up resources and remove all event listeners.
-   */
-  destroy(): void {
-    this.removeAllListeners();
-  }
 }

@@ -99,8 +99,8 @@ function enableStderrSuppression(): void {
     originalStderrWrite = boundOriginalWrite;
     process.stderr.write = function(
       chunk: Uint8Array | string,
-      encodingOrCallback?: BufferEncoding | ((err?: Error) => void),
-      callback?: (err?: Error) => void
+      encodingOrCallback?: BufferEncoding | ((err?: Error | null) => void),
+      callback?: (err?: Error | null) => void
     ): boolean {
       if (shouldSuppressMcpLog(chunk.toString())) {
         // Handle the case where encoding is actually a callback
