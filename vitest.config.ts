@@ -20,16 +20,15 @@ export default defineConfig({
         '**/*.d.ts',
         '**/*.config.*',
         '**/mockData',
-        'tests/',
         'vscode-extension/', // Exclude from coverage
       ],
-      // Coverage thresholds - start low and increase over time
-      // Current baseline: 0.8% - goal is to incrementally improve
+      // Coverage thresholds based on current baseline (47% lines, 47% statements, 51% functions, 43% branches)
+      // Set slightly below current to avoid CI failures while maintaining meaningful gates
       thresholds: {
-        statements: 1,
-        branches: 1,
-        functions: 1,
-        lines: 1,
+        statements: 45,
+        branches: 40,
+        functions: 50,
+        lines: 45,
       },
     },
   },

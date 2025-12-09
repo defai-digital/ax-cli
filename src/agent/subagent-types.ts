@@ -6,6 +6,7 @@
  */
 
 import type { LLMToolCall } from '../llm/client.js';
+import { SUBAGENT_CONFIG } from '../constants.js';
 
 // Import ChatEntry from llm-agent (which extends @defai.digital/ax-schemas)
 // This avoids circular dependency by importing the concrete type
@@ -323,44 +324,44 @@ export const DEFAULT_SUBAGENT_CONFIG: Record<SubagentRole, Partial<SubagentConfi
     // BUG FIX: Removed 'todo' - subagents don't need todo functionality
     // and there's no factory for it in TOOL_FACTORIES
     allowedTools: ['bash', 'text_editor', 'search'],
-    maxToolRounds: 30,
-    contextDepth: 20,
+    maxToolRounds: SUBAGENT_CONFIG.GENERAL_MAX_TOOL_ROUNDS,
+    contextDepth: SUBAGENT_CONFIG.DEEP_CONTEXT_DEPTH,
     priority: 1,
   },
   [SubagentRole.TESTING]: {
     allowedTools: ['bash', 'text_editor', 'search'],
-    maxToolRounds: 20,
-    contextDepth: 15,
+    maxToolRounds: SUBAGENT_CONFIG.TESTING_MAX_TOOL_ROUNDS,
+    contextDepth: SUBAGENT_CONFIG.DEFAULT_CONTEXT_DEPTH,
     priority: 2,
   },
   [SubagentRole.DOCUMENTATION]: {
     allowedTools: ['text_editor', 'search'],
-    maxToolRounds: 15,
-    contextDepth: 10,
+    maxToolRounds: SUBAGENT_CONFIG.DOCUMENTATION_MAX_TOOL_ROUNDS,
+    contextDepth: SUBAGENT_CONFIG.SHALLOW_CONTEXT_DEPTH,
     priority: 2,
   },
   [SubagentRole.REFACTORING]: {
     allowedTools: ['text_editor', 'search', 'bash'],
-    maxToolRounds: 25,
-    contextDepth: 20,
+    maxToolRounds: SUBAGENT_CONFIG.REFACTORING_MAX_TOOL_ROUNDS,
+    contextDepth: SUBAGENT_CONFIG.DEEP_CONTEXT_DEPTH,
     priority: 2,
   },
   [SubagentRole.ANALYSIS]: {
     allowedTools: ['search', 'bash'],
-    maxToolRounds: 15,
-    contextDepth: 15,
+    maxToolRounds: SUBAGENT_CONFIG.ANALYSIS_MAX_TOOL_ROUNDS,
+    contextDepth: SUBAGENT_CONFIG.DEFAULT_CONTEXT_DEPTH,
     priority: 3,
   },
   [SubagentRole.DEBUG]: {
     allowedTools: ['bash', 'text_editor', 'search'],
-    maxToolRounds: 25,
-    contextDepth: 20,
+    maxToolRounds: SUBAGENT_CONFIG.DEBUG_MAX_TOOL_ROUNDS,
+    contextDepth: SUBAGENT_CONFIG.DEEP_CONTEXT_DEPTH,
     priority: 3,
   },
   [SubagentRole.PERFORMANCE]: {
     allowedTools: ['bash', 'search', 'text_editor'],
-    maxToolRounds: 20,
-    contextDepth: 15,
+    maxToolRounds: SUBAGENT_CONFIG.PERFORMANCE_MAX_TOOL_ROUNDS,
+    contextDepth: SUBAGENT_CONFIG.DEFAULT_CONTEXT_DEPTH,
     priority: 2,
   },
 };

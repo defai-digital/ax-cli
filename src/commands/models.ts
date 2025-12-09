@@ -9,6 +9,17 @@ import { getSettingsManager } from "../utils/settings-manager.js";
 import { formatTokenCount } from "../utils/token-counter.js";
 import { extractErrorMessage } from "../utils/error-handler.js";
 
+interface ModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+  contextWindow: number;
+  maxOutputTokens: number;
+  supportsThinking: boolean;
+  current: boolean;
+  note?: string;
+}
+
 export function createModelsCommand(): Command {
   const modelsCmd = new Command("models")
     .alias("model")
@@ -26,7 +37,7 @@ export function createModelsCommand(): Command {
         const baseURL = manager.getBaseURL();
 
         // Predefined models from configuration
-        const predefinedModels = Object.entries(GLM_MODELS).map(([id, config]) => ({
+        const predefinedModels: ModelInfo[] = Object.entries(GLM_MODELS).map(([id, config]) => ({
           id,
           name: config.name,
           provider: "Z.AI (GLM)",
@@ -37,7 +48,7 @@ export function createModelsCommand(): Command {
         }));
 
         // Add Ollama models if configured
-        const customModels: any[] = [];
+        const customModels: ModelInfo[] = [];
         if (baseURL?.includes("localhost:11434") || baseURL?.includes("ollama")) {
           customModels.push({
             id: "llama3.1:8b",
@@ -119,12 +130,12 @@ export function createModelsCommand(): Command {
           }
           acc[model.provider].push(model);
           return acc;
-        }, {} as Record<string, typeof filteredModels>);
+        }, {} as Record<string, ModelInfo[]>);
 
         for (const [provider, models] of Object.entries(grouped)) {
           console.log(chalk.bold.cyan(`\n${provider}:`));
 
-          for (const model of (models as typeof filteredModels)) {
+          for (const model of models) {
             const marker = model.current ? chalk.green("➤ ") : "  ";
             const nameDisplay = model.current
               ? chalk.green.bold(model.id)
@@ -151,7 +162,7 @@ export function createModelsCommand(): Command {
         console.log(chalk.dim("  • Configure default with: ax-cli setup"));
         console.log();
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(chalk.red("Error listing models:"), extractErrorMessage(error));
         process.exit(1);
       }
@@ -182,7 +193,7 @@ export function createModelsCommand(): Command {
         console.log(chalk.cyan("Token Efficiency:"), `${model.tokenEfficiency}x`);
         console.log();
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(chalk.red("Error fetching model info:"), extractErrorMessage(error));
         process.exit(1);
       }

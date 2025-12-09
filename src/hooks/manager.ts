@@ -243,6 +243,8 @@ export class HooksManager {
 
       child.on("close", (code) => {
         clearTimeout(timeoutId);
+        // Clean up event listeners to prevent memory leaks
+        child.removeAllListeners();
 
         if (timedOut) {
           resolve({
@@ -263,7 +265,7 @@ export class HooksManager {
         // Try to parse JSON output for structured response
         try {
           if (stdout.trim().startsWith("{")) {
-            const parsed = JSON.parse(stdout.trim());
+            const parsed: Partial<HookOutput> = JSON.parse(stdout.trim());
             if (parsed.permissionDecision) {
               output.permissionDecision = parsed.permissionDecision;
             }
@@ -284,6 +286,8 @@ export class HooksManager {
 
       child.on("error", (error) => {
         clearTimeout(timeoutId);
+        // Clean up event listeners to prevent memory leaks
+        child.removeAllListeners();
         resolve({
           success: false,
           error: extractErrorMessage(error),

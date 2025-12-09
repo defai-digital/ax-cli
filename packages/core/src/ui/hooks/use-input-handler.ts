@@ -2220,7 +2220,8 @@ Respond with ONLY the commit message, no additional text.`;
       "mv",
       "rm",
     ];
-    const firstWord = trimmedInput.split(" ")[0];
+    // BUG FIX: Added fallback for empty input to prevent undefined access
+    const firstWord = trimmedInput.split(" ")[0] || "";
 
     if (directBashCommands.includes(firstWord)) {
       const userEntry: ChatEntry = {

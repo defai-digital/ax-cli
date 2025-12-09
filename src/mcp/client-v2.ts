@@ -185,8 +185,8 @@ export const DEFAULT_HEALTH_CHECK_CONFIG: HealthCheckConfig = {
 export interface MCPTool {
   name: ToolName;           // ✅ Branded type
   description: string;
-  inputSchema: any;
-  outputSchema?: any;       // ✅ NEW: Tool output schema (MCP 2025-06-18)
+  inputSchema: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;       // ✅ NEW: Tool output schema (MCP 2025-06-18)
   serverName: ServerName;   // ✅ Branded type
 }
 
@@ -744,6 +744,15 @@ export class MCPManagerV2 extends EventEmitter {
     const client = clientResult.value;
 
     try {
+      // BUG FIX: Re-validate connection state before making call to handle race with removeServer
+      // Between mutex release and here, removeServer could have been called
+      const currentState = this.connections.get(tool.serverName);
+      if (!currentState || currentState.status !== 'connected') {
+        return Err(new Error(
+          `Server ${tool.serverName} disconnected during tool call preparation (status: ${currentState?.status ?? 'removed'})`
+        ));
+      }
+
       // Extract original tool name
       const prefix = `mcp__${tool.serverName}__`;
       const originalToolName = toolName.startsWith(prefix)
@@ -847,6 +856,14 @@ export class MCPManagerV2 extends EventEmitter {
       return Ok(validatedResult);
 
     } catch (error) {
+      // BUG FIX: Check if the error is due to server disconnection during call
+      // This handles the race condition where removeServer was called mid-operation
+      const currentState = this.connections.get(tool.serverName);
+      if (!currentState || currentState.status === 'disconnecting' || currentState.status === 'error') {
+        return Err(new Error(
+          `Server ${tool.serverName} was disconnected during tool execution. Original error: ${toError(error).message}`
+        ));
+      }
       return Err(toError(error));
     }
   }
@@ -1608,7 +1625,7 @@ export class MCPManagerV2 extends EventEmitter {
     this.emit('reconnection-scheduled', serverName, attempts + 1, calculatedDelay);
 
     // Schedule reconnection attempt
-    const timer = setTimeout(async () => {
+    const timer = setTimeout(() => {
       // BUG FIX: Check if disposed before attempting reconnection
       // Timer may fire after dispose() was called
       if (this.disposing) {
@@ -1618,17 +1635,18 @@ export class MCPManagerV2 extends EventEmitter {
       // Increment attempt count
       this.reconnectionAttempts.set(serverName, attempts + 1);
 
-      // Attempt reconnection
-      const result = await this.addServer(config);
+      // Attempt reconnection (wrapped in IIFE to handle async properly)
+      void (async () => {
+        const result = await this.addServer(config);
 
-      if (result.success) {
-        // Success! Reset attempt counter
-        this.reconnectionAttempts.delete(serverName);
-        this.emit('reconnection-succeeded', serverName, attempts + 1);
-      } else {
+        if (result.success) {
+          // Success! Reset attempt counter
+          this.reconnectionAttempts.delete(serverName);
+          this.emit('reconnection-succeeded', serverName, attempts + 1);
+        }
         // Failed - will be rescheduled by addServer error handling
         // (which calls scheduleReconnection again)
-      }
+      })();
     }, calculatedDelay);
 
     this.reconnectionTimers.set(serverName, timer);

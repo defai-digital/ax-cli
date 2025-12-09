@@ -8,8 +8,8 @@ import { CONFIG_PATHS } from '../constants.js';
 async function readReportDirectory(outputDir: string): Promise<string[] | null> {
   try {
     return await fs.readdir(outputDir);
-  } catch (error: any) {
-    if (error?.code === 'ENOENT') {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
       return null;
     }
     throw error;
@@ -101,8 +101,9 @@ export function createStatusCommand(): Command {
           console.log();
         }
 
-      } catch (error: any) {
-        ConsoleMessenger.error('status_commands.error_showing_status', { error: error.message });
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        ConsoleMessenger.error('status_commands.error_showing_status', { error: errorMessage });
         process.exit(1);
       }
     });
@@ -163,8 +164,9 @@ export function createStatusCommand(): Command {
         console.log(chalk.gray('   View location: ' + outputDir));
         console.log();
 
-      } catch (error: any) {
-        ConsoleMessenger.error('status_commands.error_listing_reports', { error: error.message });
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        ConsoleMessenger.error('status_commands.error_listing_reports', { error: errorMessage });
         process.exit(1);
       }
     });
@@ -184,8 +186,9 @@ export function createStatusCommand(): Command {
         console.log();
         console.log(chalk.gray('   To view existing reports: ax status show'));
         console.log();
-      } catch (error: any) {
-        ConsoleMessenger.error('status_commands.error_generating_report', { error: error.message });
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        ConsoleMessenger.error('status_commands.error_generating_report', { error: errorMessage });
         process.exit(1);
       }
     });
@@ -254,8 +257,9 @@ export function createStatusCommand(): Command {
         console.log(chalk.green(`✓ Deleted ${filesToDelete.length} old report(s)`));
         console.log();
 
-      } catch (error: any) {
-        ConsoleMessenger.error('status_commands.error_cleaning_reports', { error: error.message });
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        ConsoleMessenger.error('status_commands.error_cleaning_reports', { error: errorMessage });
         process.exit(1);
       }
     });

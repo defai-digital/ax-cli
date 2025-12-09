@@ -72,6 +72,11 @@ export class HistoryManager {
    * Uses atomic write pattern (temp file + rename) to prevent corruption
    */
   saveHistory(chatHistory: ChatEntry[]): void {
+    // BUG FIX: Capture temp file path in outer scope so catch block can use the same path
+    const processId = process.pid;
+    const timestamp = Date.now();
+    const tempFile = `${this.historyFile}.tmp.${processId}.${timestamp}`;
+
     try {
       // Only save the most recent entries
       const entriesToSave = chatHistory.slice(-this.maxHistoryEntries);
@@ -92,9 +97,8 @@ export class HistoryManager {
         history: serialized,
       } : serialized;
 
-      // Atomic write pattern: write to temp file, then rename
-      // This prevents corruption if process crashes mid-write
-      const tempFile = `${this.historyFile}.tmp`;
+      // Atomic write pattern: write to unique temp file, then rename
+      // This prevents corruption if process crashes mid-write and avoids race conditions
       fs.writeFileSync(
         tempFile,
         JSON.stringify(data, null, 2),
@@ -105,9 +109,8 @@ export class HistoryManager {
       fs.renameSync(tempFile, this.historyFile);
     } catch (error) {
       console.error("Failed to save chat history:", error);
-      // Clean up temp file if it exists
+      // Clean up temp file if it exists (using the same path from outer scope)
       try {
-        const tempFile = `${this.historyFile}.tmp`;
         if (fs.existsSync(tempFile)) {
           fs.unlinkSync(tempFile);
         }

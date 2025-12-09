@@ -108,7 +108,7 @@ export class ReconnectionManager extends EventEmitter {
       clearTimeout(existingTimer);
     }
 
-    const timer = setTimeout(async () => {
+    const timer = setTimeout(() => {
       // BUG FIX: Remove timer reference immediately when it fires
       // This ensures cancelReconnection won't try to clear an already-fired timer
       this.reconnectTimers.delete(serverName);
@@ -127,47 +127,50 @@ export class ReconnectionManager extends EventEmitter {
         maxAttempts: this.strategy.maxRetries
       });
 
-      try {
-        await reconnectFn(config);
+      // Wrap async logic in void IIFE to handle promises properly
+      void (async () => {
+        try {
+          await reconnectFn(config);
 
-        // Success - reset attempts
-        this.retryAttempts.set(serverName, 0);
-        this.updateState(serverName, {
-          serverName,
-          attempts: 0,
-          lastAttempt: Date.now(),
-          nextAttempt: null,
-          status: 'connected'
-        });
+          // Success - reset attempts
+          this.retryAttempts.set(serverName, 0);
+          this.updateState(serverName, {
+            serverName,
+            attempts: 0,
+            lastAttempt: Date.now(),
+            nextAttempt: null,
+            status: 'connected'
+          });
 
-        this.emit('reconnection-success', {
-          serverName,
-          totalAttempts: attempts + 1
-        });
-      } catch (error) {
-        // Failure - schedule next attempt
-        this.retryAttempts.set(serverName, attempts + 1);
+          this.emit('reconnection-success', {
+            serverName,
+            totalAttempts: attempts + 1
+          });
+        } catch (error) {
+          // Failure - schedule next attempt
+          this.retryAttempts.set(serverName, attempts + 1);
 
-        const errorMessage = extractErrorMessage(error);
-        this.updateState(serverName, {
-          serverName,
-          attempts: attempts + 1,
-          lastAttempt: Date.now(),
-          nextAttempt: null,
-          status: 'idle',
-          lastError: errorMessage
-        });
+          const errorMessage = extractErrorMessage(error);
+          this.updateState(serverName, {
+            serverName,
+            attempts: attempts + 1,
+            lastAttempt: Date.now(),
+            nextAttempt: null,
+            status: 'idle',
+            lastError: errorMessage
+          });
 
-        this.emit('reconnection-failed', {
-          serverName,
-          attempt: attempts + 1,
-          maxAttempts: this.strategy.maxRetries,
-          error: errorMessage
-        });
+          this.emit('reconnection-failed', {
+            serverName,
+            attempt: attempts + 1,
+            maxAttempts: this.strategy.maxRetries,
+            error: errorMessage
+          });
 
-        // Schedule next attempt (timer reference is already cleared above)
-        await this.scheduleReconnection(serverName, config, reconnectFn);
-      }
+          // Schedule next attempt (timer reference is already cleared above)
+          await this.scheduleReconnection(serverName, config, reconnectFn);
+        }
+      })();
     }, delay);
 
     this.reconnectTimers.set(serverName, timer);

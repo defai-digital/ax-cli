@@ -15,11 +15,11 @@ import { extractErrorMessage } from '../utils/error-handler.js';
 
 export interface AutomatosXConfig {
   /** MCP server configurations */
-  mcpServers?: Record<string, any>;
+  mcpServers?: Record<string, unknown>;
   /** AutomatosX version (if present) */
   automatosxVersion?: string;
   /** Other AutomatosX-specific fields */
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface AutomatosXLoadResult {
@@ -45,8 +45,8 @@ export interface MergedConfigResult {
   /** Conflicts detected during merge */
   conflicts: Array<{
     serverName: string;
-    axCliConfig: any;
-    automatosXConfig: any;
+    axCliConfig: MCPServerConfig;
+    automatosXConfig: MCPServerConfig;
     resolution: 'ax-cli-wins' | 'automatosx-wins' | 'manual-required';
   }>;
   /** Warnings */
@@ -177,7 +177,8 @@ export function loadAutomatosXMCPServers(projectRoot?: string): AutomatosXLoadRe
   // Migrate each server
   for (const [name, serverConfig] of Object.entries(config.mcpServers)) {
     // Ensure server has name field
-    const configWithName = { ...serverConfig, name: serverConfig.name || name };
+    const serverConfigObj = serverConfig as any;
+    const configWithName = { ...serverConfigObj, name: serverConfigObj.name || name };
 
     // Detect format
     const detection = detectConfigFormat(configWithName);

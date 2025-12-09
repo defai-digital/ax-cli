@@ -456,7 +456,8 @@ export class PermissionManager extends EventEmitter {
   private getApprovalSignature(request: PermissionRequest): string {
     if (request.context.command) {
       // For bash, use command prefix (first word)
-      const cmdPrefix = request.context.command.split(/\s+/)[0];
+      // BUG FIX: Added fallback for empty/whitespace-only command to prevent undefined access
+      const cmdPrefix = request.context.command.split(/\s+/)[0] || request.context.command;
       return `${request.tool}:${cmdPrefix}`;
     }
 

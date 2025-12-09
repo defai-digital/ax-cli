@@ -126,7 +126,7 @@ export function createDoctorCommand(): Command {
 
         process.exit(hasFailures ? 1 : 0);
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         prompts.log.error(`Doctor command failed: ${extractErrorMessage(error)}`);
         process.exit(1);
       }

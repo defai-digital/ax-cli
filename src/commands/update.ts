@@ -6,6 +6,7 @@ import { createInterface } from "readline";
 import { parseJson } from "../utils/json-utils.js";
 import { equalsIgnoreCase } from "../utils/string-utils.js";
 import { getSettingsManager } from "../utils/settings-manager.js";
+import { TIMEOUT_CONFIG } from "../constants.js";
 
 const execAsync = promisify(exec);
 
@@ -18,7 +19,7 @@ function isAutomatosXInstalled(): boolean {
   try {
     const result = spawnSync('ax', ['--version'], {
       encoding: 'utf-8',
-      timeout: 5000,
+      timeout: TIMEOUT_CONFIG.API_HEALTH_CHECK,
       stdio: ['pipe', 'pipe', 'pipe']
     });
     return result.status === 0;
@@ -34,7 +35,7 @@ async function updateAutomatosX(): Promise<boolean> {
   try {
     execSync('ax update -y', {
       stdio: 'inherit',
-      timeout: 120000 // 2 minute timeout
+      timeout: TIMEOUT_CONFIG.UPDATE_INSTALL
     });
     return true;
   } catch {
@@ -50,7 +51,7 @@ export async function getCurrentVersion(): Promise<string> {
     // Try to get from npm global installation
     const { stdout } = await execAsync(
       `npm list -g ${PACKAGE_NAME} --depth=0 --json`,
-      { timeout: 10000 } // 10 second timeout
+      { timeout: TIMEOUT_CONFIG.NPM_LIST }
     );
 
     // Use json-utils for safe parsing
@@ -96,7 +97,7 @@ export async function getCurrentVersion(): Promise<string> {
  */
 export async function getLatestVersion(): Promise<string> {
   const { stdout } = await execAsync(`npm view ${PACKAGE_NAME} version`, {
-    timeout: 10000, // 10 second timeout
+    timeout: TIMEOUT_CONFIG.NPM_VIEW,
   });
   const version = stdout.trim();
   return version || "unknown";
@@ -436,44 +437,46 @@ export async function promptAndInstallUpdate(
 
     rl.question(
       chalk.yellow("Would you like to update now? (y/N) "),
-      async (answer) => {
+      (answer) => {
         rl.close();
 
         if (equalsIgnoreCase(answer, "y") || equalsIgnoreCase(answer, "yes")) {
-          try {
-            console.log(chalk.cyan("\n📥 Installing update...\n"));
-            await installUpdate(latestVersion);
-            console.log(
-              chalk.green.bold("✅ AX CLI updated successfully!")
-            );
-            console.log(chalk.gray("New version:"), chalk.cyan(latestVersion));
+          void (async () => {
+            try {
+              console.log(chalk.cyan("\n📥 Installing update...\n"));
+              await installUpdate(latestVersion);
+              console.log(
+                chalk.green.bold("✅ AX CLI updated successfully!")
+              );
+              console.log(chalk.gray("New version:"), chalk.cyan(latestVersion));
 
-            // Also update AutomatosX if installed
-            if (isAutomatosXInstalled()) {
-              console.log(chalk.blue("\n🔄 Updating AutomatosX...\n"));
-              const axUpdated = await updateAutomatosX();
-              if (axUpdated) {
-                console.log(chalk.green("✅ AutomatosX updated successfully!"));
-              } else {
-                console.log(chalk.yellow("⚠️  AutomatosX update failed. You can try manually: ax update -y"));
+              // Also update AutomatosX if installed
+              if (isAutomatosXInstalled()) {
+                console.log(chalk.blue("\n🔄 Updating AutomatosX...\n"));
+                const axUpdated = await updateAutomatosX();
+                if (axUpdated) {
+                  console.log(chalk.green("✅ AutomatosX updated successfully!"));
+                } else {
+                  console.log(chalk.yellow("⚠️  AutomatosX update failed. You can try manually: ax update -y"));
+                }
               }
-            }
 
-            console.log(
-              chalk.gray("\nPlease restart ax-cli to use the new version.\n")
-            );
-            resolve(true);
-          } catch (error) {
-            console.error(
-              chalk.red("❌ Failed to install update:"),
-              (error as Error).message
-            );
-            console.log(
-              chalk.gray("You can manually update with:"),
-              chalk.cyan(`npm install -g ${PACKAGE_NAME}@${latestVersion}\n`)
-            );
-            resolve(false);
-          }
+              console.log(
+                chalk.gray("\nPlease restart ax-cli to use the new version.\n")
+              );
+              resolve(true);
+            } catch (error) {
+              console.error(
+                chalk.red("❌ Failed to install update:"),
+                (error as Error).message
+              );
+              console.log(
+                chalk.gray("You can manually update with:"),
+                chalk.cyan(`npm install -g ${PACKAGE_NAME}@${latestVersion}\n`)
+              );
+              resolve(false);
+            }
+          })();
         } else {
           console.log(chalk.gray("Update skipped.\n"));
           resolve(false);

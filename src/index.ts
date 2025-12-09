@@ -125,14 +125,28 @@ function isConfigValid(): boolean {
   }
 }
 
-// Load API key from user settings if not in environment
+// Load API key from environment variables or user settings
 function loadApiKey(): string | undefined {
+  // First check environment variable
+  const envApiKey = process.env.YOUR_API_KEY;
+  if (envApiKey) {
+    return envApiKey;
+  }
+  
+  // Fall back to settings manager
   const manager = getSettingsManager();
   return manager.getApiKey();
 }
 
-// Load base URL from user settings if not in environment
+// Load base URL from environment variables or user settings
 function loadBaseURL(): string | undefined {
+  // First check environment variable
+  const envBaseUrl = process.env.AI_BASE_URL;
+  if (envBaseUrl) {
+    return envBaseUrl;
+  }
+  
+  // Fall back to settings manager
   const manager = getSettingsManager();
   return manager.getBaseURL();
 }
@@ -331,13 +345,14 @@ async function buildContextFromFlags(options: {
       const fs = await import("fs/promises");
       const path = await import("path");
 
-      // SECURITY FIX: Prevent path traversal attacks
-      // Resolve to absolute path and ensure it's within current working directory or explicitly allowed paths
+      // SECURITY FIX: Prevent path traversal attacks by using path.relative instead of startsWith
+      // (startsWith can be bypassed with sibling directories like /repo-evil still sharing the prefix)
       const filePath = path.resolve(options.file);
       const cwd = process.cwd();
+      const relativePath = path.relative(cwd, filePath);
 
-      // Check if resolved path is within current working directory
-      if (!filePath.startsWith(cwd)) {
+      // Deny if the resolved path escapes the current working directory
+      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
         contextParts.push(`Error: Access denied. File must be within current working directory.`);
         // Skip to next iteration
       } else {

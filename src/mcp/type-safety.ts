@@ -1,15 +1,4 @@
-/**
- * Advanced Type Safety for MCP Implementation
- *
- * This file implements compile-time safety mechanisms to catch logic bugs
- * that regular TypeScript can't detect. Uses advanced type system features:
- *
- * 1. Branded Types - Prevent mixing similar primitive types
- * 2. State Machines - Enforce valid state transitions
- * 3. Exhaustiveness Checking - Ensure all cases handled
- * 4. Phantom Types - Encode runtime invariants in types
- * 5. Linear Types - Ensure resources are used exactly once
- */
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
 /**
  * TECHNIQUE 1: Branded Types
@@ -90,8 +79,8 @@ export function createToolName(name: string): ToolName | null {
 export type ConnectionState =
   | { status: 'idle'; serverName: ServerName }
   | { status: 'connecting'; serverName: ServerName; startedAt: number }
-  | { status: 'connected'; serverName: ServerName; connectedAt: number; client: any }
-  | { status: 'disconnecting'; serverName: ServerName; client: any }
+  | { status: 'connected'; serverName: ServerName; connectedAt: number; client: Client }
+  | { status: 'disconnecting'; serverName: ServerName; client: Client }
   | { status: 'failed'; serverName: ServerName; error: Error; failedAt: number };
 
 /**
@@ -99,7 +88,7 @@ export type ConnectionState =
  */
 export type ValidTransition<T extends ConnectionState> =
   T extends { status: 'idle' } ? { status: 'connecting'; serverName: T['serverName']; startedAt: number } :
-  T extends { status: 'connecting' } ? { status: 'connected'; serverName: T['serverName']; connectedAt: number; client: any } | { status: 'failed'; serverName: T['serverName']; error: Error; failedAt: number } :
+  T extends { status: 'connecting' } ? { status: 'connected'; serverName: T['serverName']; connectedAt: number; client: Client } | { status: 'failed'; serverName: T['serverName']; error: Error; failedAt: number } :
   T extends { status: 'connected' } ? { status: 'disconnecting'; serverName: T['serverName']; client: T['client'] } :
   T extends { status: 'disconnecting' } ? { status: 'idle'; serverName: T['serverName'] } :
   T extends { status: 'failed' } ? { status: 'idle'; serverName: T['serverName'] } :
@@ -346,7 +335,7 @@ export function isValidConnectionState(value: unknown): value is ConnectionState
     return false;
   }
 
-  const state = value as any;
+  const state = value as Partial<ConnectionState>;
 
   if (typeof state.status !== 'string') {
     return false;

@@ -9,6 +9,7 @@ import * as prompts from '@clack/prompts';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { parseJsonFile } from '../utils/json-utils.js';
+import { extractErrorMessage } from '../utils/error-handler.js';
 import { TOKEN_CONFIG, CONFIG_DIR_NAME, FILE_NAMES, CONFIG_PATHS } from '../constants.js';
 import {
   ContextGenerator,
@@ -136,7 +137,7 @@ export function createMemoryCommand(): Command {
         console.log('\n💡 This context will be automatically included in ax plan/think/spec');
         console.log('   z.ai will cache identical content for faster responses\n');
       } catch (error) {
-        console.error('❌ Error during warmup:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error during warmup:', extractErrorMessage(error));
         process.exit(1);
       }
     });
@@ -205,7 +206,7 @@ export function createMemoryCommand(): Command {
         console.log(`   Previous: ${previousTokens.toLocaleString()} tokens`);
         console.log(`   Current:  ${newMemory.context.token_estimate.toLocaleString()} tokens (${diffStr})\n`);
       } catch (error) {
-        console.error('❌ Error during refresh:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error during refresh:', extractErrorMessage(error));
         process.exit(1);
       }
     });
@@ -280,7 +281,7 @@ export function createMemoryCommand(): Command {
 
         console.log('');
       } catch (error) {
-        console.error('❌ Error getting status:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error getting status:', extractErrorMessage(error));
         process.exit(1);
       }
     });
@@ -319,7 +320,7 @@ export function createMemoryCommand(): Command {
 
         console.log('✓ Project memory cleared\n');
       } catch (error) {
-        console.error('❌ Error clearing memory:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error clearing memory:', extractErrorMessage(error));
         process.exit(1);
       }
     });
@@ -369,7 +370,7 @@ export function createMemoryCommand(): Command {
 
         console.log('');
       } catch (error) {
-        console.error('❌ Error getting cache stats:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error getting cache stats:', extractErrorMessage(error));
         process.exit(1);
       }
     });
@@ -405,7 +406,7 @@ export function createMemoryCommand(): Command {
 
         console.log(`\n📝 ${content.length} characters\n`);
       } catch (error) {
-        console.error('❌ Error reading custom instructions:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error reading custom instructions:', extractErrorMessage(error));
         process.exit(1);
       }
     });
@@ -470,12 +471,12 @@ export function createMemoryCommand(): Command {
           console.log('✅ Custom instructions updated\n');
         } catch (error) {
           console.error(`❌ Failed to open editor '${editor}'`);
-          console.error(`   Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          console.error(`   Error: ${extractErrorMessage(error)}`);
           console.error(`   Try: EDITOR=vim ax-cli memory edit`);
           process.exit(1);
         }
       } catch (error) {
-        console.error('❌ Error editing custom instructions:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error editing custom instructions:', extractErrorMessage(error));
         process.exit(1);
       }
     });
@@ -536,7 +537,7 @@ export function createMemoryCommand(): Command {
         fs.writeFileSync(customMdPath, currentContent, 'utf-8');
         console.log('✅ Content added to custom instructions\n');
       } catch (error) {
-        console.error('❌ Error adding content:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error adding content:', extractErrorMessage(error));
         process.exit(1);
       }
     });
@@ -596,7 +597,7 @@ export function createMemoryCommand(): Command {
 
         console.log('✅ Custom instructions reset to defaults\n');
       } catch (error) {
-        console.error('❌ Error resetting custom instructions:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error resetting custom instructions:', extractErrorMessage(error));
         process.exit(1);
       }
     });
@@ -665,7 +666,7 @@ export function createMemoryCommand(): Command {
 
         console.log('');
       } catch (error) {
-        console.error('❌ Error calculating stats:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error calculating stats:', extractErrorMessage(error));
         process.exit(1);
       }
     });

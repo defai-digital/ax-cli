@@ -5,6 +5,7 @@
 import { Command } from 'commander';
 import * as prompts from '@clack/prompts';
 import { TemplateManager } from '../utils/template-manager.js';
+import { extractErrorMessage } from '../utils/error-handler.js';
 import type { TemplateCreateOptions } from '../types/template.js';
 
 export function createTemplatesCommand(): Command {
@@ -49,7 +50,7 @@ export function createTemplatesCommand(): Command {
           console.log('\n💡 Use --verbose to see more details\n');
         }
       } catch (error) {
-        console.error('❌ Error listing templates:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error listing templates:', extractErrorMessage(error));
         process.exit(1);
       }
     });
@@ -90,7 +91,7 @@ export function createTemplatesCommand(): Command {
 
         console.log('\n💡 Use this template with: ax-cli init --template', templateId, '\n');
       } catch (error) {
-        console.error('❌ Error showing template:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error showing template:', extractErrorMessage(error));
         process.exit(1);
       }
     });
@@ -187,7 +188,7 @@ export function createTemplatesCommand(): Command {
           process.exit(1);
         }
       } catch (error) {
-        console.error('❌ Error saving template:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error saving template:', extractErrorMessage(error));
         process.exit(1);
       }
     });
@@ -233,7 +234,7 @@ export function createTemplatesCommand(): Command {
           process.exit(1);
         }
       } catch (error) {
-        console.error('❌ Error deleting template:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error deleting template:', extractErrorMessage(error));
         process.exit(1);
       }
     });
@@ -253,7 +254,7 @@ export function createTemplatesCommand(): Command {
           process.exit(1);
         }
       } catch (error) {
-        console.error('❌ Error exporting template:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error exporting template:', extractErrorMessage(error));
         process.exit(1);
       }
     });
@@ -273,7 +274,7 @@ export function createTemplatesCommand(): Command {
           process.exit(1);
         }
       } catch (error) {
-        console.error('❌ Error importing template:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('❌ Error importing template:', extractErrorMessage(error));
         process.exit(1);
       }
     });

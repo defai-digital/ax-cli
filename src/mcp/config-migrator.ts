@@ -16,7 +16,7 @@ export interface MigrationResult {
   /** Migrated configuration (if successful) */
   migratedConfig?: MCPServerConfig;
   /** Original configuration */
-  originalConfig: any;
+  originalConfig: unknown;
   /** Changes made during migration */
   changes: string[];
   /** Errors encountered */
@@ -43,7 +43,7 @@ export interface BatchMigrationResult {
 /**
  * Migrate a legacy stdio-only config to modern format
  */
-export function migrateLegacyStdioConfig(config: any): MigrationResult {
+export function migrateLegacyStdioConfig(config: unknown): MigrationResult {
   const changes: string[] = [];
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -59,21 +59,28 @@ export function migrateLegacyStdioConfig(config: any): MigrationResult {
     };
   }
 
+  const legacyConfig = config as {
+    name: string;
+    command: string;
+    args?: string[];
+    env?: Record<string, string>;
+  };
+
   // Build modern config
   try {
     const transportConfig: MCPTransportConfig = {
       type: 'stdio',
-      command: config.command,
-      args: config.args || []
+      command: legacyConfig.command,
+      args: legacyConfig.args || []
     };
 
     // Only add env if it exists (cleaner than undefined)
-    if (config.env) {
-      transportConfig.env = config.env;
+    if (legacyConfig.env) {
+      transportConfig.env = legacyConfig.env;
     }
 
     const modernConfig: MCPServerConfig = {
-      name: config.name,
+      name: legacyConfig.name,
       transport: transportConfig
     };
 
@@ -98,22 +105,22 @@ export function migrateLegacyStdioConfig(config: any): MigrationResult {
     // Track changes
     changes.push('Converted from legacy stdio-only format to modern format');
     changes.push('Created "transport" object with type "stdio"');
-    changes.push(`Moved "command" field into transport: "${config.command}"`);
+    changes.push(`Moved "command" field into transport: "${legacyConfig.command}"`);
 
-    if (config.args) {
-      changes.push(`Moved "args" field into transport: [${config.args.length} args]`);
+    if (legacyConfig.args) {
+      changes.push(`Moved "args" field into transport: [${legacyConfig.args.length} args]`);
     } else {
       changes.push('Added empty "args" array to transport');
       warnings.push('No args specified in original config. Using empty array.');
     }
 
-    if (config.env) {
-      changes.push(`Moved "env" field into transport: [${Object.keys(config.env).length} vars]`);
+    if (legacyConfig.env) {
+      changes.push(`Moved "env" field into transport: [${Object.keys(legacyConfig.env).length} vars]`);
     }
 
     // Warn about removed fields
     const knownFields = ['name', 'command', 'args', 'env', 'transport'];
-    const unknownFields = Object.keys(config).filter(key => !knownFields.includes(key));
+    const unknownFields = Object.keys(legacyConfig).filter(key => !knownFields.includes(key));
 
     if (unknownFields.length > 0) {
       warnings.push(`Removed unknown fields: ${unknownFields.join(', ')}`);
@@ -147,7 +154,7 @@ export function migrateLegacyStdioConfig(config: any): MigrationResult {
  * we returned the raw config with just a type cast, which could leave
  * potentially invalid data structures in the returned config.
  */
-export function migrateConfig(config: any): MigrationResult {
+export function migrateConfig(config: unknown): MigrationResult {
   const detection = detectConfigFormat(config);
 
   // Already in modern format
@@ -206,7 +213,7 @@ export function migrateConfig(config: any): MigrationResult {
  * Batch migrate multiple configs
  */
 export function batchMigrateConfigs(
-  configs: Record<string, any>
+  configs: Record<string, unknown>
 ): BatchMigrationResult {
   const results = new Map<string, MigrationResult>();
   let migrated = 0;
@@ -215,7 +222,8 @@ export function batchMigrateConfigs(
 
   for (const [name, config] of Object.entries(configs)) {
     // Ensure config has name field
-    const configWithName = { ...config, name: config.name || name };
+    const configAsObject = config as Record<string, unknown>;
+    const configWithName = { ...configAsObject, name: configAsObject.name || name };
 
     const result = migrateConfig(configWithName);
     results.set(name, result);
@@ -257,9 +265,9 @@ export function batchMigrateConfigs(
 /**
  * Create backup of config before migration
  */
-export function createConfigBackup(config: any): {
+export function createConfigBackup(config: unknown): {
   success: boolean;
-  backup?: any;
+  backup?: unknown;
   error?: string;
 } {
   try {

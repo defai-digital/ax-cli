@@ -311,18 +311,16 @@ export function createMockAgent(responses?: string[]): MockAgent {
  * });
  * ```
  */
-export class MockSettingsManager {
-  private settings: {
-    apiKey?: string;
-    baseURL?: string;
-    model?: string;
-  };
+interface MockSettings {
+  apiKey?: string;
+  baseURL?: string;
+  model?: string;
+}
 
-  constructor(settings: {
-    apiKey?: string;
-    baseURL?: string;
-    model?: string;
-  } = {}) {
+export class MockSettingsManager {
+  private settings: MockSettings;
+
+  constructor(settings: MockSettings = {}) {
     // BUG FIX: Clone settings to prevent external mutation
     // Without this, the caller could modify the settings object after construction
     // and unexpectedly change the mock's behavior during tests
@@ -349,13 +347,8 @@ export class MockSettingsManager {
     return this.settings.model;
   }
 
-  updateUserSetting(key: string, value: unknown): void {
-    // Validate key is one of the valid settings keys
-    const validKeys = ['apiKey', 'baseURL', 'model'];
-    if (!validKeys.includes(key)) {
-      console.warn(`MockSettingsManager.updateUserSetting: '${key}' is not a recognized setting key`);
-    }
-    (this.settings as any)[key] = value;
+  updateUserSetting(key: keyof MockSettings, value: string | undefined): void {
+    this.settings[key] = value;
   }
 
   saveUserSettings(): void {
@@ -379,11 +372,7 @@ export class MockSettingsManager {
  * });
  * ```
  */
-export function createMockSettings(settings?: {
-  apiKey?: string;
-  baseURL?: string;
-  model?: string;
-}): MockSettingsManager {
+export function createMockSettings(settings?: MockSettings): MockSettingsManager {
   return new MockSettingsManager(settings);
 }
 
@@ -398,10 +387,10 @@ export interface MockMCPServerOptions {
     description: string;
     inputSchema: {
       type: 'object';
-      properties: Record<string, any>;
+      properties: Record<string, unknown>;
       required?: string[];
     };
-    handler: (args: any) => Promise<any>;
+    handler: (args: Record<string, unknown>) => Promise<unknown>;
   }>;
   resources?: Array<{
     uri: string;
@@ -412,7 +401,7 @@ export interface MockMCPServerOptions {
   prompts?: Array<{
     name: string;
     description?: string;
-    handler: (args?: any) => Promise<any>;
+    handler: (args?: Record<string, unknown>) => Promise<unknown>;
   }>;
 }
 
@@ -498,7 +487,7 @@ export class MockMCPServer {
    *
    * Returns deep copies of tool definitions to prevent external mutation.
    */
-  async listTools(): Promise<Array<{ name: string; description: string; inputSchema: any }>> {
+  async listTools(): Promise<Array<{ name: string; description: string; inputSchema: Record<string, unknown> }>> {
     if (!this.connected) {
       throw new Error('Server not connected');
     }
@@ -520,7 +509,7 @@ export class MockMCPServer {
    * @param args - Arguments to pass to the tool
    * @throws Error if server not connected, tool not found, or handler throws
    */
-  async callTool(name: string, args: any): Promise<any> {
+  async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
     if (!this.connected) {
       throw new Error('Server not connected');
     }
@@ -604,7 +593,7 @@ export class MockMCPServer {
    * @param args - Optional arguments for the prompt
    * @throws Error if server not connected, prompt not found, or handler throws
    */
-  async executePrompt(name: string, args?: any): Promise<any> {
+  async executePrompt(name: string, args?: Record<string, unknown>): Promise<unknown> {
     if (!this.connected) {
       throw new Error('Server not connected');
     }
@@ -694,14 +683,14 @@ export function createMockMCPServer(options: MockMCPServerOptions): MockMCPServe
  * ```
  */
 export async function waitForAgent(
-  agent: any,
+  agent: EventEmitter,
   options?: { timeout?: number }
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeout = options?.timeout || 5000;
     let resolved = false;
     let completionTimer: ReturnType<typeof setTimeout> | undefined;
-    let streamListener: ((chunk: any) => void) | undefined;
+    let streamListener: ((chunk: StreamingChunk) => void) | undefined;
     let errorListener: ((error: Error) => void) | undefined;
 
     const cleanup = () => {
@@ -736,7 +725,7 @@ export async function waitForAgent(
     // BUG FIX: Listen for 'done' stream event instead of arbitrary delay
     // This properly waits for the agent to complete rather than using a fixed timeout
     if (agent && typeof agent.on === 'function') {
-      streamListener = (chunk: any) => {
+      streamListener = (chunk: StreamingChunk) => {
         hasReceivedStreamEvent = true;
         if (chunk && chunk.type === 'done' && !resolved) {
           resolved = true;

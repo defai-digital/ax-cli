@@ -13,8 +13,8 @@
  * @module config-migrator
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync, accessSync, constants as fsConstants } from 'fs';
+import { join, basename } from 'path';
 import { homedir } from 'os';
 import * as prompts from '@clack/prompts';
 import chalk from 'chalk';
@@ -183,6 +183,41 @@ function detectApiKeyStatus(config: Record<string, unknown>): ApiKeyStatus {
  */
 export class ConfigMigrator {
   /**
+   * Resolve a writable target directory and config path.
+   * Falls back to project-local directory when home is not writable (e.g., sandboxed tests).
+   */
+  private static resolveTargetPaths(provider: ProviderDefinition): { targetDir: string; targetConfig: string } {
+    const configPaths = getProviderConfigPaths(provider);
+    const preferredDir = process.env.AX_CLI_HOME?.trim()
+      ? join(process.env.AX_CLI_HOME.trim())
+      : configPaths.USER_DIR;
+    const fallbackDir = configPaths.PROJECT_DIR;
+    const configFileName = basename(configPaths.USER_CONFIG);
+
+    const tryDir = (dir: string): string | null => {
+      try {
+        mkdirSync(dir, { recursive: true, mode: 0o700 });
+        accessSync(dir, fsConstants.W_OK);
+        return dir;
+      } catch {
+        return null;
+      }
+    };
+
+    const writableDir = tryDir(preferredDir) ?? tryDir(fallbackDir);
+    if (!writableDir) {
+      throw new Error(
+        `Unable to create writable config directory (tried ${preferredDir}${preferredDir !== fallbackDir ? ` and ${fallbackDir}` : ''})`
+      );
+    }
+
+    return {
+      targetDir: writableDir,
+      targetConfig: join(writableDir, configFileName),
+    };
+  }
+
+  /**
    * Check if legacy ax-cli config exists
    */
   static hasLegacyConfig(): boolean {
@@ -331,11 +366,11 @@ export class ConfigMigrator {
     const errors: string[] = [];
 
     try {
-      const configPaths = getProviderConfigPaths(provider);
+      const { targetDir, targetConfig } = this.resolveTargetPaths(provider);
 
       // Ensure target directory exists with secure permissions
-      if (!existsSync(configPaths.USER_DIR)) {
-        mkdirSync(configPaths.USER_DIR, { recursive: true, mode: 0o700 });
+      if (!existsSync(targetDir)) {
+        mkdirSync(targetDir, { recursive: true, mode: 0o700 });
       }
 
       // Build new config with only migratable settings
@@ -352,9 +387,9 @@ export class ConfigMigrator {
       if (migratedSettings.length > 0) {
         // Check if target config already exists
         let existingConfig: Record<string, unknown> = {};
-        if (existsSync(configPaths.USER_CONFIG)) {
+        if (existsSync(targetConfig)) {
           try {
-            const content = readFileSync(configPaths.USER_CONFIG, 'utf-8');
+            const content = readFileSync(targetConfig, 'utf-8');
             existingConfig = JSON.parse(content);
           } catch {
             // Ignore parse errors, will merge with empty object
@@ -370,7 +405,7 @@ export class ConfigMigrator {
         mergedConfig._migratedAt = new Date().toISOString();
 
         writeFileSync(
-          configPaths.USER_CONFIG,
+          targetConfig,
           JSON.stringify(mergedConfig, null, 2),
           { mode: 0o600 }
         );

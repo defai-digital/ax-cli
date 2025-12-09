@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-core",
-  "version": "4.3.6",
+  "version": "4.3.7",
   "description": "Core functionality for ax-cli, ax-glm, and ax-grok - includes all tools, UI, MCP, and agent infrastructure",
   "repository": {
     "type": "git",

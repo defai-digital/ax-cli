@@ -222,7 +222,22 @@ function buildGitHubSearchQuery(query: string, category?: string, transport?: st
 /**
  * Parse GitHub repository into RegistryServer
  */
-function parseGitHubRepo(repo: any): RegistryServer | null {
+interface GitHubRepo {
+  name: string;
+  description: string | null;
+  html_url: string;
+  stargazers_count: number;
+  topics: string[];
+  owner: {
+    login: string;
+  };
+  homepage: string | null;
+}
+
+/**
+ * Parse GitHub repository into RegistryServer
+ */
+function parseGitHubRepo(repo: GitHubRepo): RegistryServer | null {
   try {
     // Extract package name from description or README
     const packageName = extractPackageName(repo);
@@ -260,7 +275,7 @@ function parseGitHubRepo(repo: any): RegistryServer | null {
 /**
  * Extract NPM package name from repo metadata
  */
-function extractPackageName(repo: any): string | undefined {
+function extractPackageName(repo: GitHubRepo): string | undefined {
   // Check if description mentions package name
   const description = repo.description || '';
   const packageMatch = description.match(/@[\w-]+\/[\w-]+/);

@@ -505,7 +505,11 @@ export class SettingsManager {
    */
   public getApiKey(): string | undefined {
     // First check environment variable
-    const envApiKey = process.env.YOUR_API_KEY;
+    const envApiKey =
+      process.env.YOUR_API_KEY ||
+      process.env.AI_API_KEY ||
+      process.env.Z_AI_API_KEY ||
+      process.env.GLM_API_KEY;
     if (envApiKey) {
       return envApiKey;
     }

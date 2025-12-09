@@ -6,6 +6,25 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24.0.0-blue?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
+## Table of Contents
+
+- [Dedicated CLIs](#for-glm-users-zai)
+- [Why AX CLI?](#why-ax-cli)
+- [Supported Models](#supported-models)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [MCP Integration](#mcp-integration)
+- [VSCode Extension](#vscode-extension)
+- [Project Memory](#project-memory)
+- [Security](#security)
+- [Packages](#packages)
+- [Changelog](#changelog)
+- [Documentation](#documentation)
+- [Enterprise](#enterprise)
+
+---
+
 <p align="center">
   <img src=".github/assets/glm.png" alt="AX-GLM" width="400"/>
   <img src=".github/assets/grok.png" alt="AX-Grok" width="400"/>
@@ -15,14 +34,14 @@
   <strong>Enterprise-grade AI coding assistant optimized for GLM and Grok</strong>
 </p>
 
-To get started quickly, choose your preferred AI provider below. For new users, we recommend installing `ax-glm` or `ax-grok` directly for optimized experience. The `@defai.digital/ax-cli` package is maintained for backward compatibility.
+Get started in under a minute. Choose your AI provider and install the dedicated package for provider-specific optimizations, better defaults, and streamlined configuration. Running the installed CLI command will launch the interactive AI coding assistant.
 
 ### For GLM Users (Z.AI)
 
 ```bash
 npm install -g @defai.digital/ax-glm
 ax-glm setup
-ax-glm
+ax-glm                   # Starts the interactive CLI
 ```
 
 ### For Grok Users (xAI)
@@ -30,7 +49,7 @@ ax-glm
 ```bash
 npm install -g @defai.digital/ax-grok
 ax-grok setup
-ax-grok
+ax-grok                   # Starts the interactive CLI
 ```
 
 That's it! Run `/init` inside the CLI to initialize your project.
@@ -58,18 +77,18 @@ That's it! Run `/init` inside the CLI to initialize your project.
 
 | Model | Context | Features |
 |-------|---------|----------|
-| `glm-4.6` | 200K | Thinking mode, optimized for code |
-| `glm-4.5v` | 64K | Vision support for image analysis |
+| `glm-4.6` | 200K | **Thinking mode**: AI provides detailed thought processes and planning |
+| `glm-4.5v` | 64K | **Vision support**: Analyze and understand images for visual tasks |
 | `glm-4` | 128K | Balanced performance |
 
 ### Grok (xAI)
 
 | Model | Features |
 |-------|----------|
-| `grok-3` | Reasoning effort (thinking mode), 131K context |
-| `grok-3-mini` | Fast, cost-effective with thinking |
-| `grok-2-vision` | Image understanding |
-| `grok-2` | Live web search |
+| `grok-3` | **Reasoning effort**: Advanced thinking mode for complex problems, 131K context |
+| `grok-3-mini` | Fast, cost-effective with **thinking capabilities** |
+| `grok-2-vision` | **Image understanding**: Analyze visual input for comprehensive insights |
+| `grok-2` | **Live web search**: Access real-time information directly from the web |
 
 ---
 
@@ -94,10 +113,10 @@ npm install -g @defai.digital/ax-grok   # Grok (xAI)
 ax-glm setup   # or ax-grok setup
 ```
 
-The setup wizard will:
-1. Securely encrypt and store your API key (AES-256-GCM)
-2. Configure your default model
-3. Validate your configuration
+The setup wizard will guide you through:
+1. Securely encrypting and storing your API key (using AES-256-GCM encryption).
+2. Configuring your default AI model and other preferences.
+3. Validating your configuration to ensure everything is set up correctly.
 
 ---
 
@@ -106,7 +125,7 @@ The setup wizard will:
 ### Interactive Mode
 
 ```bash
-ax-glm              # Start chat
+ax-glm              # Starts the interactive CLI session
 ax-glm --continue   # Resume previous conversation
 ax-glm -c           # Short form
 ```
@@ -132,11 +151,11 @@ ax-glm -p "fix TypeScript errors" -d /path/to/project
 
 | Shortcut | Action | Description |
 |----------|--------|-------------|
-| `Ctrl+O` | Toggle verbosity | Show/hide detailed logs and internal processes |
-| `Ctrl+K` | Quick actions | Access common commands and tools |
-| `Ctrl+B` | Background mode | Run tasks in the background |
-| `Shift+Tab` | Auto-edit mode | Trigger AI-powered code suggestions and refactoring |
-| `Esc` ×2 | Cancel/clear | Clear current input or cancel an ongoing operation |
+| `Ctrl+O` | Toggle verbosity | Show or hide detailed logs and internal processes |
+| `Ctrl+K` | Quick actions | Open the quick actions menu for common commands |
+| `Ctrl+B` | Background mode | Run the current task in the background |
+| `Shift+Tab` | Auto-edit | Trigger AI-powered code suggestions |
+| `Esc` ×2 | Cancel | Clear current input or cancel ongoing operation |
 
 ---
 
@@ -164,7 +183,7 @@ export XAI_API_KEY=your_key    # Grok
 
 ## MCP Integration
 
-Extend capabilities with Model Context Protocol:
+Extend capabilities with [Model Context Protocol (MCP)](https://modelcontextprotocol.io) — an open standard for connecting AI assistants to external tools, APIs, and data sources:
 
 ```bash
 ax-glm mcp add figma --template
@@ -172,7 +191,7 @@ ax-glm mcp add github --template
 ax-glm mcp list
 ```
 
-**Available Templates:** Figma, GitHub, Vercel, Puppeteer, Storybook, Sentry, and more.
+**Available Templates:** Figma, GitHub, Vercel, Puppeteer, Storybook, Sentry, Jira, Confluence, Slack, Google Drive, and more.
 
 ---
 
@@ -191,7 +210,7 @@ code --install-extension defai-digital.ax-cli-vscode
 
 ## Project Memory
 
-Reduce token costs with intelligent caching:
+Reduce token costs and improve context recall with intelligent caching that stores and retrieves relevant project information, avoiding redundant processing.
 
 ```bash
 ax-glm memory warmup    # Generate context cache
@@ -204,7 +223,7 @@ ax-glm memory status    # View token distribution
 
 - **API Key Encryption:** AES-256-GCM with PBKDF2 (600K iterations)
 - **No Telemetry:** Zero data collection
-- **CVSS Protections:** Command injection (9.8), path traversal (8.6), SSRF (7.5)
+- **CVSS Protections:** Robust safeguards against common vulnerabilities like Command Injection (CVSS 9.8), Path Traversal (CVSS 8.6), and SSRF (CVSS 7.5).
 
 ---
 
@@ -215,7 +234,7 @@ ax-glm memory status    # View token distribution
 | [@defai.digital/ax-glm](https://www.npmjs.com/package/@defai.digital/ax-glm) | GLM-optimized CLI |
 | [@defai.digital/ax-grok](https://www.npmjs.com/package/@defai.digital/ax-grok) | Grok-optimized CLI |
 | [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | Shared core library |
-| [@defai.digital/ax-cli](https://www.npmjs.com/package/@defai.digital/ax-cli) | Legacy launcher |
+| [@defai.digital/ax-cli](https://www.npmjs.com/package/@defai.digital/ax-cli) | Legacy launcher (maintained for backward compatibility) |
 
 ---
 
@@ -225,6 +244,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.3.7**: Bug fixes - Fixed ax-grok web search (native search instructions now added regardless of MCP tools), fixed temp file cleanup in history manager.
 *   **v4.3.6**: Code quality improvements - ESLint configuration updates, TypeScript strict mode fixes, and dependency updates.
 *   **v4.3.5**: Tool Priority System refactoring - improved code quality, reduced duplication, performance optimizations, and bug fixes.
 *   **v4.3.4**: Improved AutomatosX MCP agent output formatting (clean, readable results instead of raw NDJSON).

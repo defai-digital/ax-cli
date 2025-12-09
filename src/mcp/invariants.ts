@@ -19,7 +19,7 @@
 export function invariant(
   condition: boolean,
   message: string,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): asserts condition {
   if (!condition) {
     const fullMessage = context

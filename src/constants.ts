@@ -83,6 +83,25 @@ export const AGENT_CONFIG = {
   ENABLE_LOOP_DETECTION: settingsYaml.agent.enable_loop_detection,
 } as const;
 
+// Subagent Configuration
+export const SUBAGENT_CONFIG = {
+  // Default tool rounds per role
+  GENERAL_MAX_TOOL_ROUNDS: settingsYaml.subagent?.general_max_tool_rounds || 30,
+  TESTING_MAX_TOOL_ROUNDS: settingsYaml.subagent?.testing_max_tool_rounds || 20,
+  DOCUMENTATION_MAX_TOOL_ROUNDS: settingsYaml.subagent?.documentation_max_tool_rounds || 15,
+  REFACTORING_MAX_TOOL_ROUNDS: settingsYaml.subagent?.refactoring_max_tool_rounds || 25,
+  ANALYSIS_MAX_TOOL_ROUNDS: settingsYaml.subagent?.analysis_max_tool_rounds || 15,
+  DEBUG_MAX_TOOL_ROUNDS: settingsYaml.subagent?.debug_max_tool_rounds || 25,
+  PERFORMANCE_MAX_TOOL_ROUNDS: settingsYaml.subagent?.performance_max_tool_rounds || 20,
+  // Context depth settings
+  DEFAULT_CONTEXT_DEPTH: settingsYaml.subagent?.default_context_depth || 15,
+  DEEP_CONTEXT_DEPTH: settingsYaml.subagent?.deep_context_depth || 20,
+  SHALLOW_CONTEXT_DEPTH: settingsYaml.subagent?.shallow_context_depth || 10,
+  // Concurrency limits
+  MAX_CONCURRENT_AGENTS: settingsYaml.subagent?.max_concurrent_agents || 5,
+  MAX_CONCURRENT_TOOLS: settingsYaml.subagent?.max_concurrent_tools || 4,
+} as const;
+
 // Convert YAML model config to runtime format
 export const GLM_MODELS = Object.entries(modelsYaml.models).reduce((acc, [key, model]) => {
   acc[key] = {
@@ -166,6 +185,9 @@ export const TIMEOUT_CONFIG = {
   COMMAND_CHECK: settingsYaml.timeouts?.command_check || 3000,
   MCP_INIT: settingsYaml.timeouts?.mcp_init || 5000,
   SHUTDOWN: settingsYaml.timeouts?.shutdown || 10000,
+  NPM_LIST: settingsYaml.timeouts?.npm_list || 10000,
+  NPM_VIEW: settingsYaml.timeouts?.npm_view || 10000,
+  UPDATE_INSTALL: settingsYaml.timeouts?.update_install || 120000,
 
   // UI timeouts
   NOTIFICATION_DISPLAY: settingsYaml.timeouts?.notification_display || 3000,

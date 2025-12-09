@@ -32,7 +32,7 @@ export interface FormattedError {
 export function formatMCPConfigError(
   serverName: string,
   error: z.ZodError,
-  originalConfig?: any
+  originalConfig?: unknown
 ): string {
   const lines: string[] = [];
 
@@ -93,13 +93,13 @@ export function formatMCPConfigError(
 /**
  * Get helpful hints based on error field
  */
-function getHintsForField(field: string, originalConfig?: any): string[] {
+function getHintsForField(field: string, originalConfig?: unknown): string[] {
   const hints: string[] = [];
 
   switch (field) {
     case 'transport':
       hints.push('Add "transport": { "type": "stdio", "command": "...", "args": [...] }');
-      if (originalConfig?.command) {
+      if ((originalConfig as Record<string, unknown>)?.command) {
         hints.push('Legacy format detected. Your "command" field should be inside "transport".');
       }
       break;
@@ -145,7 +145,7 @@ function getHintsForField(field: string, originalConfig?: any): string[] {
  */
 function getExampleConfig(
   errorsByField: Map<string, string[]>,
-  originalConfig?: any
+  originalConfig?: unknown
 ): string | null {
   const hasTransportError = Array.from(errorsByField.keys()).some(f =>
     f === 'transport' || f.startsWith('transport.')
@@ -156,7 +156,7 @@ function getExampleConfig(
   }
 
   // Check if it's likely a stdio config
-  const isStdio = originalConfig?.command || errorsByField.has('transport.command');
+  const isStdio = (originalConfig as Record<string, unknown>)?.command || errorsByField.has('transport.command');
 
   if (isStdio) {
     return `{

@@ -8,6 +8,7 @@ import { getTaskPlanner, PlanStatus, PhaseStatus } from "../planner/index.js";
 import { getPlanStorage } from "../planner/plan-storage.js";
 import type { TaskPlan, PlanSummary } from "../planner/types.js";
 import { formatDuration } from "../ui/utils/tool-grouper.js";
+import { extractErrorMessage } from "../utils/error-handler.js";
 
 // ============================================================================
 // Types
@@ -21,6 +22,16 @@ export interface PlanCommandResult {
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+/**
+ * Create a failed result with consistent error formatting
+ */
+function failedResult(action: string, error: unknown): PlanCommandResult {
+  return {
+    success: false,
+    output: `Failed to ${action}: ${extractErrorMessage(error)}`,
+  };
+}
 
 function getStatusIcon(status: PhaseStatus): string {
   switch (status) {
@@ -183,10 +194,7 @@ export async function handlePlansCommand(): Promise<PlanCommandResult> {
 
     return { success: true, output };
   } catch (error) {
-    return {
-      success: false,
-      output: `Failed to list plans: ${error instanceof Error ? error.message : "Unknown error"}`,
-    };
+    return failedResult("list plans", error);
   }
 }
 
@@ -218,10 +226,7 @@ export async function handlePlanCommand(
 
     return { success: true, output: formatPlanDetails(plan) };
   } catch (error) {
-    return {
-      success: false,
-      output: `Failed to load plan: ${error instanceof Error ? error.message : "Unknown error"}`,
-    };
+    return failedResult("load plan", error);
   }
 }
 
@@ -277,10 +282,7 @@ export async function handlePhasesCommand(): Promise<PlanCommandResult> {
 
     return { success: true, output };
   } catch (error) {
-    return {
-      success: false,
-      output: `Failed to show phases: ${error instanceof Error ? error.message : "Unknown error"}`,
-    };
+    return failedResult("show phases", error);
   }
 }
 
@@ -306,10 +308,7 @@ export async function handlePauseCommand(): Promise<PlanCommandResult> {
       output: "Plan execution paused. Use /resume to continue.",
     };
   } catch (error) {
-    return {
-      success: false,
-      output: `Failed to pause: ${error instanceof Error ? error.message : "Unknown error"}`,
-    };
+    return failedResult("pause", error);
   }
 }
 
@@ -361,10 +360,7 @@ export async function handleResumeCommand(
       output: `Plan ${targetPlanId} is ready to resume from phase ${plan.currentPhaseIndex + 1}.\n\nSend your next message to continue execution.`,
     };
   } catch (error) {
-    return {
-      success: false,
-      output: `Failed to check plan: ${error instanceof Error ? error.message : "Unknown error"}`,
-    };
+    return failedResult("check plan", error);
   }
 }
 
@@ -392,10 +388,7 @@ export async function handleSkipPhaseCommand(): Promise<PlanCommandResult> {
       output: `Skipped phase: ${currentPhase.name}`,
     };
   } catch (error) {
-    return {
-      success: false,
-      output: `Failed to skip phase: ${error instanceof Error ? error.message : "Unknown error"}`,
-    };
+    return failedResult("skip phase", error);
   }
 }
 
@@ -421,10 +414,7 @@ export async function handleAbandonCommand(): Promise<PlanCommandResult> {
       output: "Plan abandoned. All pending phases have been cancelled.",
     };
   } catch (error) {
-    return {
-      success: false,
-      output: `Failed to abandon plan: ${error instanceof Error ? error.message : "Unknown error"}`,
-    };
+    return failedResult("abandon plan", error);
   }
 }
 
@@ -449,9 +439,6 @@ export async function handleResumableCommand(): Promise<PlanCommandResult> {
 
     return { success: true, output };
   } catch (error) {
-    return {
-      success: false,
-      output: `Failed to list resumable plans: ${error instanceof Error ? error.message : "Unknown error"}`,
-    };
+    return failedResult("list resumable plans", error);
   }
 }

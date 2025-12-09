@@ -233,6 +233,11 @@ export class LLMAgent extends EventEmitter {
       content: systemPrompt + dynamicContext,
     });
 
+    // Add native search capability instructions for providers that support it
+    // This is done BEFORE MCP initialization to ensure Grok knows about search
+    // even when no MCP servers are configured
+    this.updateSystemPromptWithNativeSearch();
+
     // NEW: Listen for context pruning to generate summaries
     // CRITICAL FIX: Wrap async callback to prevent uncaught promise rejections
     // Event listeners don't handle async errors automatically, so we must catch them
@@ -306,6 +311,40 @@ export class LLMAgent extends EventEmitter {
   }
 
   /**
+   * Update the system prompt with native search capability instructions
+   * Called during initialization to inform the LLM about provider-level search
+   * This is separate from MCP tools - native search is built into the API
+   */
+  private updateSystemPromptWithNativeSearch(): void {
+    const activeProvider = getActiveProvider();
+
+    // Only add instructions for providers that support native search
+    if (!activeProvider.features.supportsSearch) return;
+
+    // Find the system message
+    const systemMessage = this.messages.find(m => m.role === 'system');
+    if (!systemMessage || typeof systemMessage.content !== 'string') return;
+
+    // Check if native search instructions already exist (avoid duplicates)
+    if (systemMessage.content.includes('NATIVE web search capability')) return;
+
+    // Add native search instructions
+    const searchInstructions = [
+      '',
+      '---',
+      '[Native Search Capability]',
+      `You have NATIVE web search capability through the ${activeProvider.displayName} API.`,
+      'When users ask about current events, recent information, or anything requiring up-to-date data:',
+      '- You CAN and SHOULD search the web - the API will automatically handle search queries',
+      '- Simply respond with information that requires current data - search happens automatically',
+      '- Do NOT say you cannot search the web or access current information',
+      '- The search is built into your API - you DO have real-time web access',
+    ].join('\n');
+
+    systemMessage.content += searchInstructions;
+  }
+
+  /**
    * Update the system prompt to include MCP tools after they're initialized
    * This ensures the LLM knows about available MCP capabilities (web search, etc.)
    */
@@ -332,18 +371,16 @@ export class LLMAgent extends EventEmitter {
       .join('\n');
 
     // Provider-aware search instructions
-    // Only recommend MCP for web search if the provider doesn't have native search
+    // Native search instructions are added separately via updateSystemPromptWithNativeSearch()
+    // Here we only add MCP-specific instructions
     const activeProvider = getActiveProvider();
     const hasNativeSearch = activeProvider.features.supportsSearch;
 
-    let searchInstructions: string;
-    if (hasNativeSearch) {
-      // Provider has native search (e.g., Grok) - use it directly
-      searchInstructions = `\nIMPORTANT: You have NATIVE web search capability through the ${activeProvider.displayName} API. For web searches, simply ask questions that require current information - the API will automatically search the web. Use MCP tools for fetching specific URLs and other external data access.`;
-    } else {
-      // Provider doesn't have native search (e.g., GLM) - use MCP tools
-      searchInstructions = '\nIMPORTANT: Use MCP tools for web search, fetching URLs, and external data access. You HAVE network access through these tools.';
-    }
+    // For providers without native search, tell them to use MCP tools for web access
+    // For providers WITH native search, just mention MCP is for specific URL fetching
+    const searchInstructions = hasNativeSearch
+      ? '\nUse MCP tools for fetching specific URLs, reading web pages, and other external data access.'
+      : '\nIMPORTANT: Use MCP tools for web search, fetching URLs, and external data access. You HAVE network access through these tools.';
 
     const mcpSection = [
       '\n\nMCP Tools (External Capabilities):',

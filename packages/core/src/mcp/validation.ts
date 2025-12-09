@@ -118,7 +118,8 @@ function validateCommandWhitelist(command: string): { valid: boolean; error?: st
   }
 
   // Check against whitelist
-  const baseCommand = command.split(/\s+/)[0]; // Get command name without args
+  // BUG FIX: Added fallback for empty command to prevent undefined access
+  const baseCommand = command.split(/\s+/)[0] || command; // Get command name without args
   if (!SAFE_MCP_COMMANDS.includes(baseCommand as SafeMCPCommand)) {
     return {
       valid: false,

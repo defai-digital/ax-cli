@@ -169,24 +169,25 @@ export class PlanStorage {
     }
 
     const entries = fs.readdirSync(this.plansDir, { withFileTypes: true });
-    const summaries: PlanSummary[] = [];
 
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
+    // Load all plans in parallel for better performance
+    const planPromises = entries
+      .filter(entry => entry.isDirectory())
+      .map(entry => this.loadPlan(entry.name));
 
-      const plan = await this.loadPlan(entry.name);
-      if (plan) {
-        summaries.push({
-          id: plan.id,
-          originalPrompt: plan.originalPrompt,
-          status: plan.status,
-          totalPhases: plan.phases.length,
-          completedPhases: plan.phasesCompleted,
-          createdAt: plan.createdAt,
-          updatedAt: plan.updatedAt,
-        });
-      }
-    }
+    const plans = await Promise.all(planPromises);
+
+    const summaries: PlanSummary[] = plans
+      .filter((plan): plan is TaskPlan => plan !== null)
+      .map(plan => ({
+        id: plan.id,
+        originalPrompt: plan.originalPrompt,
+        status: plan.status,
+        totalPhases: plan.phases.length,
+        completedPhases: plan.phasesCompleted,
+        createdAt: plan.createdAt,
+        updatedAt: plan.updatedAt,
+      }));
 
     // Sort by updatedAt descending (most recent first)
     // Defensive: handle cases where dates might not be proper Date objects
@@ -240,21 +241,19 @@ export class PlanStorage {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
-    let deletedCount = 0;
-
-    for (const plan of allPlans) {
-      // Only delete completed or abandoned plans
-      if (
+    // Filter plans eligible for deletion and delete in parallel
+    const plansToDelete = allPlans.filter(
+      plan =>
         (plan.status === PlanStatus.COMPLETED ||
           plan.status === PlanStatus.ABANDONED) &&
         plan.updatedAt < cutoffDate
-      ) {
-        const deleted = await this.deletePlan(plan.id);
-        if (deleted) deletedCount++;
-      }
-    }
+    );
 
-    return deletedCount;
+    const deleteResults = await Promise.all(
+      plansToDelete.map(plan => this.deletePlan(plan.id))
+    );
+
+    return deleteResults.filter(Boolean).length;
   }
 
   /**

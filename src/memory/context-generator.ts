@@ -155,16 +155,20 @@ export class ContextGenerator {
    * Build source configuration based on project structure
    */
   private buildSourceConfig(depth: number): SourceConfig {
-    // Find existing directories from defaults
+    // Find existing directories from defaults (single stat call per path)
     const directories: DirectoryConfig[] = [];
 
     for (const defaultDir of DEFAULT_SCAN_DIRECTORIES) {
       const fullPath = path.join(this.projectRoot, defaultDir.path);
-      if (fs.existsSync(fullPath) && fs.statSync(fullPath).isDirectory()) {
-        directories.push({
-          path: defaultDir.path,
-          max_depth: Math.min(defaultDir.max_depth, depth),
-        });
+      try {
+        if (fs.statSync(fullPath).isDirectory()) {
+          directories.push({
+            path: defaultDir.path,
+            max_depth: Math.min(defaultDir.max_depth, depth),
+          });
+        }
+      } catch {
+        // Path doesn't exist, skip
       }
     }
 
@@ -173,12 +177,16 @@ export class ContextGenerator {
       directories.push({ path: '.', max_depth: Math.min(2, depth) });
     }
 
-    // Find existing files from defaults
+    // Find existing files from defaults (single stat call per path)
     const files: string[] = [];
     for (const defaultFile of DEFAULT_INCLUDE_FILES) {
       const fullPath = path.join(this.projectRoot, defaultFile);
-      if (fs.existsSync(fullPath)) {
-        files.push(defaultFile);
+      try {
+        if (fs.statSync(fullPath).isFile()) {
+          files.push(defaultFile);
+        }
+      } catch {
+        // File doesn't exist, skip
       }
     }
 

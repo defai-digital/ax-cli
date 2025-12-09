@@ -136,6 +136,8 @@ async function runAxCommand(args: string[]): Promise<{ success: boolean; output?
     });
 
     child.on("error", (error) => {
+      // Clean up event listeners to prevent memory leaks
+      child.removeAllListeners();
       // If 'ax' fails, the command might not be installed
       if (error.message.includes("ENOENT") || error.message.includes("not found")) {
         resolveOnce({
@@ -151,6 +153,8 @@ async function runAxCommand(args: string[]): Promise<{ success: boolean; output?
     });
 
     child.on("close", (code) => {
+      // Clean up event listeners to prevent memory leaks
+      child.removeAllListeners();
       if (code === 0) {
         resolveOnce({
           success: true,

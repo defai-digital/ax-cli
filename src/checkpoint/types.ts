@@ -20,7 +20,7 @@ export interface FileSnapshot {
 export interface CheckpointMetadata {
   model: string;
   triggeredBy: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**

@@ -6,7 +6,7 @@
  */
 
 import { EventEmitter } from 'events';
-import type { MCPManager } from './client.js';
+import type { MCPManager, MCPTool } from './client.js';
 import { ReconnectionManager, type ReconnectionStrategy } from './reconnection.js';
 
 /**
@@ -182,7 +182,7 @@ export class MCPHealthMonitor extends EventEmitter {
    * Check health of a specific server
    */
   async checkServerHealth(serverName: string): Promise<ServerHealth> {
-    const tools = this.mcpManager.getTools().filter((t: any) => t.serverName === serverName);
+    const tools = this.mcpManager.getTools().filter((t: MCPTool) => t.serverName === serverName);
 
     const stats = this.getOrCreateStats(serverName);
 

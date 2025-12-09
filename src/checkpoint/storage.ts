@@ -109,7 +109,7 @@ export class CheckpointStorage {
 
       // Convert conversation state timestamps
       if (checkpoint.conversationState) {
-        checkpoint.conversationState = checkpoint.conversationState.map((entry: any) => ({
+        checkpoint.conversationState = checkpoint.conversationState.map((entry: { timestamp: string | Date; [key: string]: unknown }) => ({
           ...entry,
           timestamp: new Date(entry.timestamp),
         }));
@@ -204,7 +204,7 @@ export class CheckpointStorage {
       const stats = data.stats || { totalCount: 0, totalSize: 0, compressedCount: 0, oldestDate: null, newestDate: null };
 
       this.index = {
-        checkpoints: checkpoints.map((c: any) => ({
+        checkpoints: checkpoints.map((c: { timestamp: string | Date; id: string; description: string; filesChanged: string[]; size: number; compressed: boolean }) => ({
           ...c,
           timestamp: new Date(c.timestamp),
         })),

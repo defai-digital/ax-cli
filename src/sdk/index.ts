@@ -126,7 +126,7 @@ export { SubagentOrchestrator } from '../agent/subagent-orchestrator.js';
 export { ContextManager } from '../agent/context-manager.js';
 
 // Internal imports for SDK functions
-import { LLMAgent } from '../agent/llm-agent.js';
+import { LLMAgent, type StreamingChunk } from '../agent/llm-agent.js';
 import { Subagent } from '../agent/subagent.js';
 import { initializeMCPServers } from '../llm/tools.js';
 import { z } from 'zod';
@@ -598,14 +598,14 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
 
   // BUG FIX: Track SDK-added listeners so they can be removed on dispose
   // Without this, listeners would persist after disposal causing memory leaks
-  const sdkListeners: Array<{ event: string; listener: (...args: any[]) => void }> = [];
+  const sdkListeners: Array<{ event: string; listener: (...args: unknown[]) => void }> = [];
 
   // Enable debug mode on agent if requested
   if (debug) {
     // Add debug event listener
-    const debugStreamListener = (chunk: any) => {
+    const debugStreamListener = (chunk: StreamingChunk) => {
       if (chunk.type === 'tool_calls' && chunk.toolCalls) {
-        const toolNames = chunk.toolCalls.map((tc: any) => tc.function.name).join(', ');
+        const toolNames = chunk.toolCalls.map((tc) => tc.function.name).join(', ');
         console.error('[AX SDK DEBUG] Tool calls:', toolNames);
       } else if (chunk.type === 'tool_result' && chunk.toolResult) {
         console.error('[AX SDK DEBUG] Tool result:', chunk.toolResult.success ? 'success' : 'failed');
@@ -691,7 +691,7 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
 
     // BUG FIX: Remove SDK-added event listeners to prevent memory leaks
     // These include debug stream listener and onError listener
-    const listeners = (agent as any)._sdkListeners as Array<{ event: string; listener: (...args: any[]) => void }> | undefined;
+    const listeners = (agent as any)._sdkListeners as Array<{ event: string; listener: (...args: unknown[]) => void }> | undefined;
     if (listeners && listeners.length > 0 && typeof agent.off === 'function') {
       for (const { event, listener } of listeners) {
         agent.off(event, listener);
@@ -1654,7 +1654,7 @@ export async function disposeAsync(agent: LLMAgent): Promise<void> {
   }
 
   // Remove SDK-added event listeners
-  const listeners = (agent as any)._sdkListeners as Array<{ event: string; listener: (...args: any[]) => void }> | undefined;
+  const listeners = (agent as any)._sdkListeners as Array<{ event: string; listener: (...args: unknown[]) => void }> | undefined;
   if (listeners && listeners.length > 0 && typeof agent.off === 'function') {
     for (const { event, listener } of listeners) {
       agent.off(event, listener);

@@ -23,7 +23,7 @@ export interface ConfigDetectionResult {
   /** Warnings (non-breaking) */
   warnings: string[];
   /** Original config (for migration) */
-  originalConfig: any;
+  originalConfig: unknown;
 }
 
 /**
@@ -48,16 +48,17 @@ export interface ConfigDetectionResult {
  *   }
  * }
  */
-export function isLegacyStdioFormat(config: any): boolean {
+export function isLegacyStdioFormat(config: unknown): boolean {
   if (!config || typeof config !== 'object') {
     return false;
   }
+  const configObj = config as Record<string, unknown>;
 
   // BUG FIX: Legacy format only requires command and no transport
   // Previously required args array, but that contradicts the migration logic
   // which treats missing args as optional with empty array default
-  const hasCommand = typeof config.command === 'string' && config.command.length > 0;
-  const hasTransport = config.transport !== undefined;
+  const hasCommand = typeof configObj.command === 'string' && configObj.command.length > 0;
+  const hasTransport = configObj.transport !== undefined;
 
   // Legacy format: has command at root level and no transport wrapper
   return hasCommand && !hasTransport;
@@ -72,20 +73,21 @@ export function isLegacyStdioFormat(config: any): boolean {
  * - Have specific naming patterns
  * - May include AutomatosX-specific metadata
  */
-export function isAutomatosXConfig(config: any): boolean {
+export function isAutomatosXConfig(config: unknown): boolean {
   if (!config || typeof config !== 'object') {
     return false;
   }
+  const configObj = config as Record<string, unknown>;
 
   // Check for AutomatosX-specific markers
   const hasAutomatosXMetadata = !!(
-    config._automatosX ||
-    config.automatosxVersion ||
-    config.source === 'automatosx'
+    configObj._automatosX ||
+    configObj.automatosxVersion ||
+    configObj.source === 'automatosx'
   );
 
   // AutomatosX configs often have env field at root level (even in modern format)
-  const hasRootEnv = !!(config.env && typeof config.env === 'object');
+  const hasRootEnv = !!(configObj.env && typeof configObj.env === 'object');
 
   return hasAutomatosXMetadata || hasRootEnv;
 }
@@ -93,7 +95,7 @@ export function isAutomatosXConfig(config: any): boolean {
 /**
  * Comprehensive config detection
  */
-export function detectConfigFormat(config: any): ConfigDetectionResult {
+export function detectConfigFormat(config: unknown): ConfigDetectionResult {
   const issues: string[] = [];
   const warnings: string[] = [];
   let formatVersion: ConfigDetectionResult['formatVersion'] = 'unknown';
@@ -113,9 +115,10 @@ export function detectConfigFormat(config: any): ConfigDetectionResult {
       originalConfig: config
     };
   }
+  const configObj = config as Record<string, any>;
 
   // Check for required name field
-  if (!config.name || typeof config.name !== 'string') {
+  if (!configObj.name || typeof configObj.name !== 'string') {
     issues.push('Server name is required');
   }
 
@@ -129,19 +132,19 @@ export function detectConfigFormat(config: any): ConfigDetectionResult {
     issues.push('Legacy stdio format (missing transport wrapper)');
 
     // Validate legacy format requirements
-    if (!config.command) {
+    if (!configObj.command) {
       issues.push('Legacy format requires "command" field');
     }
 
     // BUG FIX: Don't warn about missing args since we handle it correctly
     // Legacy configs legitimately omit args when running simple commands
     // The migration code will use an empty array as default
-  } else if (!config.transport) {
+  } else if (!configObj.transport) {
     // No transport and not legacy - invalid
     issues.push('Missing transport configuration');
   } else {
     // Has transport - detect type
-    transportType = config.transport.type;
+    transportType = configObj.transport.type;
 
     // Try to validate as modern format
     const validationResult = MCPServerConfigSchema.safeParse(config);
@@ -182,7 +185,7 @@ export function detectConfigFormat(config: any): ConfigDetectionResult {
 /**
  * Validate a transport configuration
  */
-export function validateTransportConfig(transport: any): {
+export function validateTransportConfig(transport: unknown): {
   isValid: boolean;
   errors: string[];
   warnings: string[];
@@ -194,41 +197,42 @@ export function validateTransportConfig(transport: any): {
     errors.push('Transport configuration is required');
     return { isValid: false, errors, warnings };
   }
+  const transportObj = transport as Record<string, any>;
 
   // Check transport type
   const validTypes = ['stdio', 'http', 'sse', 'streamable_http'];
-  if (!transport.type || !validTypes.includes(transport.type)) {
+  if (!transportObj.type || !validTypes.includes(transportObj.type)) {
     errors.push(`Transport type must be one of: ${validTypes.join(', ')}`);
     return { isValid: false, errors, warnings };
   }
 
   // Type-specific validation
-  switch (transport.type) {
+  switch (transportObj.type) {
     case 'stdio':
-      if (!transport.command) {
+      if (!transportObj.command) {
         errors.push('stdio transport requires command');
       }
-      if (!transport.args || !Array.isArray(transport.args)) {
+      if (!transportObj.args || !Array.isArray(transportObj.args)) {
         warnings.push('stdio transport should have "args" array');
       }
       break;
 
     case 'http':
     case 'sse':
-      if (!transport.url) {
-        errors.push(`${transport.type} transport requires url`);
+      if (!transportObj.url) {
+        errors.push(`${transportObj.type} transport requires url`);
       } else {
         try {
-          new URL(transport.url);
+          new URL(transportObj.url);
         } catch {
-          errors.push(`Invalid URL format: ${transport.url}`);
+          errors.push(`Invalid URL format: ${transportObj.url}`);
         }
       }
       break;
 
     case 'streamable_http':
       warnings.push('streamable_http transport is experimental and may not work with all MCP servers');
-      if (!transport.url) {
+      if (!transportObj.url) {
         errors.push('streamable_http transport requires url');
       }
       break;
@@ -245,7 +249,7 @@ export function validateTransportConfig(transport: any): {
  * Batch detect multiple configs
  */
 export function detectMultipleConfigs(
-  configs: Record<string, any> | null | undefined
+  configs: Record<string, unknown> | null | undefined
 ): Array<{ serverName: string; detection: ConfigDetectionResult }> {
   if (!configs || typeof configs !== 'object') {
     return [];
@@ -255,7 +259,8 @@ export function detectMultipleConfigs(
 
   for (const [name, config] of Object.entries(configs)) {
     // Ensure config has name field
-    const configWithName = { ...config, name: config.name || name };
+    const configAsObject = config as Record<string, any>;
+    const configWithName = { ...configAsObject, name: configAsObject.name || name };
     const result = detectConfigFormat(configWithName);
     results.push({ serverName: name, detection: result });
   }
