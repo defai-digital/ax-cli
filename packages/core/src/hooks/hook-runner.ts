@@ -410,16 +410,26 @@ export class HookRunner extends EventEmitter {
       let stdout = '';
       let stderr = '';
 
-      proc.stdout?.on('data', (data) => {
+      // BUG FIX: Store listener references for proper cleanup to prevent memory leaks
+      const onStdoutData = (data: Buffer) => {
         stdout += data.toString();
-      });
-
-      proc.stderr?.on('data', (data) => {
+      };
+      const onStderrData = (data: Buffer) => {
         stderr += data.toString();
-      });
+      };
+
+      proc.stdout?.on('data', onStdoutData);
+      proc.stderr?.on('data', onStderrData);
+
+      // Helper to clean up event listeners
+      const cleanup = () => {
+        proc.stdout?.removeListener('data', onStdoutData);
+        proc.stderr?.removeListener('data', onStderrData);
+        this.runningProcesses.delete(proc);
+      };
 
       proc.on('close', (code) => {
-        this.runningProcesses.delete(proc);
+        cleanup();
 
         // Handle exit codes
         if (code === EXIT_CODES.BLOCK) {
@@ -455,7 +465,7 @@ export class HookRunner extends EventEmitter {
       });
 
       proc.on('error', (error) => {
-        this.runningProcesses.delete(proc);
+        cleanup();
         reject(error);
       });
 

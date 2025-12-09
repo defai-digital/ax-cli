@@ -296,14 +296,14 @@ export function MCPDashboard({
           return;
         }
         if (key.return && availableTemplates[wizardTemplateIndex]) {
-          handleInstallTemplate(availableTemplates[wizardTemplateIndex]);
+          void handleInstallTemplate(availableTemplates[wizardTemplateIndex]);
           return;
         }
         // Quick number selection for templates
         if (input >= "1" && input <= "9") {
           const idx = parseInt(input, 10) - 1;
           if (idx < availableTemplates.length) {
-            handleInstallTemplate(availableTemplates[idx]);
+            void handleInstallTemplate(availableTemplates[idx]);
           }
           return;
         }
@@ -371,7 +371,7 @@ export function MCPDashboard({
       if (key.return && servers[selectedIndex]) {
         const server = servers[selectedIndex];
         if (server.status === "disconnected" || server.status === "failed") {
-          handleRetryConnection(server.name);
+          void handleRetryConnection(server.name);
         } else {
           setView("detail");
         }

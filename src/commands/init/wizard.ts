@@ -78,7 +78,7 @@ export class InitWizard {
   private async showWelcome(): Promise<void> {
     prompts.intro('Welcome to AX CLI Project Initialization!');
 
-    await prompts.note(
+    prompts.note(
       `This will set up your project for AX CLI.\n\n` +
       `Steps:\n\n` +
       `  ⏩ Step 1/2: Preferences\n` +
@@ -161,7 +161,7 @@ export class InitWizard {
     const templates = TemplateManager.listTemplates();
 
     if (templates.length === 0) {
-      await prompts.note(
+      prompts.note(
         'No templates available. You can create templates with:\n' +
         '  ax-cli templates save <name>',
         'No Templates'
@@ -214,7 +214,7 @@ export class InitWizard {
       `  • Auto-confirm: ${result.preferences.autoConfirm ? 'Enabled' : 'Disabled'}`,
     ].filter(Boolean).join('\n');
 
-    await prompts.note(summary, 'Summary');
+    prompts.note(summary, 'Summary');
 
     const nextSteps = [
       '🚀 Next Steps:',
@@ -222,7 +222,7 @@ export class InitWizard {
       '  2. Start chatting with the AI',
     ].join('\n');
 
-    await prompts.note(nextSteps, 'Get Started');
+    prompts.note(nextSteps, 'Get Started');
 
     // Mark onboarding as complete
     if (this.isFirstRun) {

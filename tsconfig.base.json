@@ -22,8 +22,13 @@
     "noImplicitThis": true,
     "alwaysStrict": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": false,
+    "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true
+
+    // TODO: Enable these stricter checks after refactoring existing code
+    // These catch real bugs but require significant changes to enable:
+    // "noUncheckedIndexedAccess": true,    // Catches array[0] without bounds check
+    // "exactOptionalPropertyTypes": true   // Catches undefined vs missing property
   }
 }

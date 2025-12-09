@@ -111,8 +111,12 @@ export class BashTool extends EventEmitter {
               if (!processToAdopt.killed && processToAdopt.exitCode === null) {
                 processToAdopt.kill('SIGKILL');
               }
-            } catch {
-              // Process already terminated
+            } catch (forceKillError) {
+              // BUG FIX: Log force kill errors for debugging instead of silently ignoring
+              // This helps diagnose process termination issues in production
+              if (process.env.DEBUG || process.env.AX_DEBUG) {
+                console.warn(`Failed to force-kill orphaned process: ${forceKillError}`);
+              }
             }
           }, 2000);
 
@@ -122,8 +126,11 @@ export class BashTool extends EventEmitter {
           // Clear timeout when process exits
           processToAdopt.once('exit', () => clearTimeout(forceKillTimeout));
         }
-      } catch {
-        // Ignore kill errors
+      } catch (killError) {
+        // BUG FIX: Log kill errors for debugging instead of silently ignoring
+        if (process.env.DEBUG || process.env.AX_DEBUG) {
+          console.warn(`Failed to kill orphaned process: ${killError}`);
+        }
       }
 
       return null;

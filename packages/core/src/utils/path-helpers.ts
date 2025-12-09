@@ -1,14 +1,13 @@
-import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { CONFIG_DIR_NAME, CONFIG_PATHS } from '../constants.js';
+import { getActiveConfigPaths } from '../provider/config.js';
 
 /**
  * Resolve the base directory for AX CLI user data.
  *
  * - Honors AX_CLI_HOME when set (useful for tests and sandboxed environments)
- * - Defaults to ~/.ax-cli to preserve existing behavior
- * - Falls back to <cwd>/.ax-cli when the home directory is not writable
+ * - Defaults to ~/.ax-glm or ~/.ax-grok (provider-specific) to preserve existing behavior
+ * - Falls back to <cwd>/.ax-glm or <cwd>/.ax-grok when the home directory is not writable
  */
 export function getAxBaseDir(): string {
   const override = process.env.AX_CLI_HOME;
@@ -16,7 +15,9 @@ export function getAxBaseDir(): string {
     return path.resolve(override);
   }
 
-  const defaultDir = path.join(os.homedir(), CONFIG_DIR_NAME);
+  // Use provider-specific user directory
+  const configPaths = getActiveConfigPaths();
+  const defaultDir = configPaths.USER_DIR;
 
   // If defaultDir is writable, use it
   try {
@@ -24,7 +25,7 @@ export function getAxBaseDir(): string {
     return defaultDir;
   } catch {
     // Fallback to workspace-local directory to avoid EPERM in sandboxed environments
-    const fallbackDir = CONFIG_PATHS.PROJECT_DIR;
+    const fallbackDir = configPaths.PROJECT_DIR;
     try {
       fs.mkdirSync(fallbackDir, { recursive: true });
     } catch {

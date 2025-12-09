@@ -178,7 +178,8 @@ export function generateAutoDiscoveryConfig(options?: AutoDiscoveryOptions): MCP
     name: serverName,
     enabled: true,
     transport,
-    initTimeout: 30000,
+    // AutomatosX MCP server typically starts quickly, but allow 60s for safety
+    initTimeout: 60000,
     // Mark as auto-discovered
     quiet: true,
   };

@@ -343,7 +343,11 @@ export class LoopDetector {
     if (last4[0] === last4[2] && last4[1] === last4[3]) {
       // Check if this pattern has repeated 3+ times
       let patternCount = 1;
-      for (let i = len - 4; i >= 1; i -= 2) {
+      // BUG FIX: Changed >= 1 to > 0 to prevent i - 1 from going negative
+      // When i = 1, i - 1 = 0 is valid; but loop condition >= 1 allows i = 1,
+      // then next iteration i = -1 which would cause i - 1 = -2 (invalid)
+      // The real issue was accessing [i - 1] when i could be 0 on final valid iteration
+      for (let i = len - 4; i > 0; i -= 2) {
         if (this.recentSequence[i] === last4[1] && this.recentSequence[i - 1] === last4[0]) {
           patternCount++;
         } else {

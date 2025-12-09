@@ -1,6 +1,17 @@
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 
+/**
+ * ESLint Configuration for ax-cli
+ *
+ * BUG PREVENTION RULES ADDED:
+ * - no-floating-promises: Catches unhandled promises (missing await)
+ * - require-await: Catches async functions that don't await
+ * - no-explicit-any: Changed from 'warn' to 'error' to enforce type safety
+ * - await-thenable: Catches awaiting non-promise values
+ *
+ * These rules prevent the most common bug categories found in code review.
+ */
 export default [
   {
     ignores: [
@@ -37,11 +48,19 @@ export default [
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
       }],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      // BUG PREVENTION: Changed from 'warn' to 'error' - catch (error: any) causes type safety bugs
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-non-null-assertion': 'warn',
       'no-console': 'off',
+
+      // BUG PREVENTION: Promise/async rules to catch unhandled rejections
+      // These catch: promise.then() without await, async fn without await, etc.
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/require-await': 'warn',
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
     },
   },
   {
@@ -61,6 +80,7 @@ export default [
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
       }],
+      // Tests can use 'any' more liberally for mocking
       '@typescript-eslint/no-explicit-any': 'warn',
       'no-console': 'off',
     },

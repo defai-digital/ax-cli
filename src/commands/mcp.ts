@@ -804,7 +804,12 @@ export function createMCPCommand(): Command {
           await displayHealth();
 
           // Set up interval (uses configured health check interval)
-          const watchInterval = setInterval(displayHealth, MCP_CONFIG.HEALTH_CHECK_INTERVAL);
+          // Wrap async function to handle promise rejection
+          const watchInterval = setInterval(() => {
+            displayHealth().catch((err) => {
+              console.error('Health check failed:', err);
+            });
+          }, MCP_CONFIG.HEALTH_CHECK_INTERVAL);
 
           // Handle Ctrl+C - use 'once' to prevent multiple handlers accumulating
           process.once('SIGINT', () => {
@@ -1127,7 +1132,7 @@ export function createMCPCommand(): Command {
         }
 
         // Add server to configuration
-        await addMCPServer(config);
+        addMCPServer(config);
         console.log(chalk.green(`✅ Server "${server.name}" added to configuration\n`));
 
         // Connect if requested

@@ -14,7 +14,7 @@ import { batchMigrateConfigs, formatBatchMigrationResult } from '../mcp/config-m
 import { detectMultipleConfigs, getDetectionSummary } from '../mcp/config-detector.js';
 import { formatSuccess, formatWarning, formatInfo } from '../mcp/error-formatter.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
-import { CONFIG_PATHS } from '../constants.js';
+import { getActiveConfigPaths } from '../provider/config.js';
 
 export function createMCPMigrateCommand(): Command {
   const command = new Command('migrate');
@@ -51,7 +51,7 @@ async function runMigration(options: MigrationOptions): Promise<void> {
 
   // Determine source and target paths
   const sourcePath = options.from || getAutomatosXConfigPath();
-  const targetPath = options.to || CONFIG_PATHS.PROJECT_SETTINGS;
+  const targetPath = options.to || getActiveConfigPaths().PROJECT_SETTINGS;
 
   console.log(formatInfo(`Source: ${sourcePath}`));
   console.log(formatInfo(`Target: ${targetPath}`));

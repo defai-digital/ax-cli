@@ -23,7 +23,7 @@ import {
   getRecommendedServers,
   generateZAIServerConfig,
 } from '../mcp/index.js';
-import { addMCPServer, removeMCPServer } from '../mcp/config.js';
+import { addUserMCPServer, removeUserMCPServer } from '../mcp/config.js';
 
 /**
  * Handle user cancellation - exits process if cancelled
@@ -519,20 +519,22 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
             const status = await detectZAIServices();
             const serversToAdd = getRecommendedServers(status);
 
-            // Remove existing Z.AI MCP servers first
+            // Remove existing Z.AI MCP servers first (from user-level settings)
             for (const serverName of serversToAdd) {
               try {
-                removeMCPServer(serverName);
+                removeUserMCPServer(serverName);
               } catch {
                 // Ignore errors if server doesn't exist
               }
             }
 
+            // Add Z.AI MCP servers to user-level settings (global across all projects)
+            // This ensures they're available from any directory, not just the setup directory
             let successCount = 0;
             for (const serverName of serversToAdd) {
               try {
                 const config = generateZAIServerConfig(serverName, apiKey);
-                addMCPServer(config);
+                addUserMCPServer(config);
                 successCount++;
               } catch {
                 // Skip failed servers

@@ -69,6 +69,10 @@ export interface ToolMetadata {
  * Extract server name from MCP tool name
  * e.g., 'mcp__automatosx__run_agent' → 'automatosx'
  *
+ * ASSUMPTION: Server names do NOT contain "__" (double underscore).
+ * This is enforced by MCPServerIdSchema in @defai.digital/ax-schemas.
+ * If server names could contain "__", this parsing would fail.
+ *
  * Returns undefined for:
  * - Non-MCP tools (don't start with MCP_TOOL_PREFIX)
  * - Malformed MCP tools with empty server name (e.g., 'mcp__' or 'mcp____tool')
@@ -78,8 +82,18 @@ export function extractServerNameFromTool(toolName: string): string | undefined 
     return undefined;
   }
   // Format: mcp__serverName__toolName - server name is at index 1
-  const serverName = toolName.split(MCP_NAME_SEPARATOR)[1];
-  return serverName || undefined;
+  // Note: This assumes server names don't contain "__" (enforced by MCPServerIdSchema)
+  const parts = toolName.split(MCP_NAME_SEPARATOR);
+  // BUG FIX: Validate that tool name has correct format (at least 3 parts: 'mcp', serverName, toolName)
+  // Malformed names like 'mcp__' or 'mcp____tool' would return empty/undefined server names
+  if (parts.length < 3 || !parts[1]) {
+    // Only log in debug mode to avoid console spam
+    if (process.env.DEBUG || process.env.AX_DEBUG) {
+      console.warn(`Malformed MCP tool name: "${toolName}". Expected format: mcp__serverName__toolName`);
+    }
+    return undefined;
+  }
+  return parts[1];
 }
 
 /**

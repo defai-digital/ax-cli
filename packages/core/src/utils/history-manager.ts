@@ -2,7 +2,8 @@ import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
 import { ChatEntry } from "../agent/llm-agent.js";
-import { CONFIG_PATHS, FILE_NAMES } from "../constants.js";
+import { FILE_NAMES } from "../constants.js";
+import { getActiveConfigPaths } from "../provider/config.js";
 
 /**
  * HistoryManager - Manages conversation history persistence
@@ -20,19 +21,21 @@ export class HistoryManager {
   }
 
   constructor(
-    baseDir: string = CONFIG_PATHS.USER_DIR,
+    baseDir?: string,
     maxEntries: number = 50,
     projectDir?: string
   ) {
-    this.historyDir = baseDir;
+    // Use provider-specific user directory if not specified
+    const resolvedBaseDir = baseDir ?? getActiveConfigPaths().USER_DIR;
+    this.historyDir = resolvedBaseDir;
     this.currentProjectDir = projectDir;
 
     // Use project-specific history file if projectDir is provided
     if (projectDir) {
       const sessionId = this.getSessionIdForDirectory(projectDir);
-      this.historyFile = path.join(baseDir, FILE_NAMES.SESSIONS_DIR, `${sessionId}.json`);
+      this.historyFile = path.join(resolvedBaseDir, FILE_NAMES.SESSIONS_DIR, `${sessionId}.json`);
     } else {
-      this.historyFile = path.join(baseDir, FILE_NAMES.HISTORY_JSON);
+      this.historyFile = path.join(resolvedBaseDir, FILE_NAMES.HISTORY_JSON);
     }
 
     this.maxHistoryEntries = maxEntries;
@@ -216,8 +219,9 @@ export function getHistoryManager(projectDir?: string, force = false): HistoryMa
     (projectDir && historyManagerInstance.projectDir !== projectDir);
 
   if (needsNewInstance) {
+    // Use provider-specific user directory (e.g., ~/.ax-glm or ~/.ax-grok)
     const instance = new HistoryManager(
-      CONFIG_PATHS.USER_DIR,
+      getActiveConfigPaths().USER_DIR,
       50,
       projectDir
     );

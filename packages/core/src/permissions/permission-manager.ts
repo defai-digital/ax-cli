@@ -502,6 +502,26 @@ export class PermissionManager extends EventEmitter {
       console.warn('Failed to save permission config:', error);
     }
   }
+
+  /**
+   * BUG FIX: Dispose method to clean up pending approvals and prevent memory leaks
+   * Clears all timeouts and rejects pending approval requests
+   */
+  dispose(): void {
+    // Clear all pending approval timeouts to prevent memory leaks
+    for (const [_requestId, pending] of this.pendingApprovals) {
+      clearTimeout(pending.timeout);
+      // Reject the pending request (auto-deny on dispose)
+      pending.resolve(false);
+    }
+    this.pendingApprovals.clear();
+
+    // Clear session approvals
+    this.sessionApprovals.clear();
+
+    // Remove all event listeners
+    this.removeAllListeners();
+  }
 }
 
 /**

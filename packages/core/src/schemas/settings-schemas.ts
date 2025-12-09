@@ -286,6 +286,9 @@ export const UserSettingsSchema: z.ZodType<any> = z.object({
   autoUpdate: AutoUpdateSettingsSchema,
   // Agent-first mode settings
   agentFirst: AgentFirstSettingsSchema,
+  // User-level MCP server configurations (global across all projects)
+  // Used for provider-specific MCP servers like Z.AI that should work from any directory
+  mcpServers: z.record(z.string(), z.any()).optional(),
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Project Settings Schema

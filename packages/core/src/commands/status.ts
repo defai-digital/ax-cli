@@ -266,8 +266,12 @@ export function createStatusCommand(): Command {
     });
 
   // Default action (show latest)
-  statusCommand.action(() => {
-    statusCommand.commands.find(cmd => cmd.name() === 'show')?.parseAsync(['node', 'ax', 'status', 'show'], { from: 'user' });
+  statusCommand.action(async () => {
+    const showCommand = statusCommand.commands.find(cmd => cmd.name() === 'show');
+    if (showCommand) {
+      // Directly execute the show subcommand's action with default options
+      await showCommand.parseAsync([], { from: 'user' });
+    }
   });
 
   return statusCommand;

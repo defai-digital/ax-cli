@@ -23,6 +23,14 @@ export default defineConfig({
         'tests/',
         'vscode-extension/', // Exclude from coverage
       ],
+      // Coverage thresholds - start low and increase over time
+      // Current baseline: 0.8% - goal is to incrementally improve
+      thresholds: {
+        statements: 1,
+        branches: 1,
+        functions: 1,
+        lines: 1,
+      },
     },
   },
 });

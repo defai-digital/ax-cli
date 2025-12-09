@@ -1088,7 +1088,7 @@ Examples:
       setChatHistory((prev) => [...prev, doctorEntry]);
 
       // Execute doctor command asynchronously (non-blocking)
-      (async () => {
+      void (async () => {
         try {
           const { exec } = await import("child_process");
           const { promisify } = await import("util");
@@ -1272,7 +1272,7 @@ Examples:
         setChatHistory((prev) => [...prev, userEntry]);
 
         // Execute the prompt asynchronously
-        (async () => {
+        void (async () => {
           try {
             const manager = getMCPManager();
             const v2 = manager.getV2Instance();

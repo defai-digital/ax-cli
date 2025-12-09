@@ -202,7 +202,7 @@ export function createInitCommand(): Command {
         }
 
         // Show completion summary
-        await prompts.note(
+        prompts.note(
           `Project: ${projectInfo.name} (${projectInfo.projectType})\n` +
           `Language: ${projectInfo.primaryLanguage}\n` +
           (projectInfo.techStack.length > 0 ? `Stack: ${projectInfo.techStack.join(', ')}\n` : '') +
@@ -212,7 +212,7 @@ export function createInitCommand(): Command {
           'Project Summary'
         );
 
-        await prompts.note(
+        prompts.note(
           '1. Review .ax-cli/CUSTOM.md and customize if needed\n' +
           '2. Start chatting: ax-cli\n' +
           '3. Use --force to regenerate after project changes',

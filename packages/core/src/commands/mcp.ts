@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { addMCPServer, removeMCPServer, loadMCPConfig, PREDEFINED_SERVERS, getTemplate, generateConfigFromTemplate } from '../mcp/config.js';
+import { addMCPServer, removeMCPServer, addUserMCPServer, removeUserMCPServer, loadMCPConfig, PREDEFINED_SERVERS, getTemplate, generateConfigFromTemplate } from '../mcp/config.js';
 import { getTemplateNames, getTemplatesByCategory } from '../mcp/templates.js';
 import { getMCPManager } from '../llm/tools.js';
 import { MCPServerConfig } from '../mcp/client.js';
@@ -32,6 +32,15 @@ import {
   formatZAIStatus,
   type ZAIServerName,
 } from '../mcp/index.js';
+import { getActiveProvider } from '../provider/config.js';
+
+/**
+ * Get the CLI name from the active provider.
+ * Defaults to 'ax' if no provider is set.
+ */
+function getCliName(): string {
+  return getActiveProvider().branding.cliName;
+}
 
 const VALID_TEMPLATE_CATEGORIES = ['design', 'deployment', 'testing', 'monitoring', 'backend', 'version-control'] as const;
 type TemplateCategory = typeof VALID_TEMPLATE_CATEGORIES[number];
@@ -160,19 +169,19 @@ export function createMCPCommand(): Command {
 
               // Option 1: Interactive mode (easiest)
               console.log(chalk.white('  Option 1: Use interactive mode (easiest):'));
-              console.log(chalk.cyan(`    ax-cli mcp add ${name} --template --interactive\n`));
+              console.log(chalk.cyan(`    ${getCliName()} mcp add ${name} --template --interactive\n`));
 
               // Option 2: Pass directly via --env flag
               const envFlags = missingEnvVarsList.map(e => `--env ${e.name}=YOUR_VALUE`).join(' ');
               console.log(chalk.white('  Option 2: Pass directly with --env flag:'));
-              console.log(chalk.cyan(`    ax-cli mcp add ${name} --template ${envFlags}\n`));
+              console.log(chalk.cyan(`    ${getCliName()} mcp add ${name} --template ${envFlags}\n`));
 
               // Option 3: Export in current shell
               console.log(chalk.white('  Option 3: Export in current shell:'));
               for (const envVar of missingEnvVarsList) {
                 console.log(chalk.cyan(`    export ${envVar.name}="your_value"`));
               }
-              console.log(chalk.cyan(`    ax-cli mcp add ${name} --template\n`));
+              console.log(chalk.cyan(`    ${getCliName()} mcp add ${name} --template\n`));
 
               // Option 4: Add to shell profile
               console.log(chalk.white('  Option 4: Add to shell profile (~/.bashrc or ~/.zshrc):'));
@@ -539,13 +548,13 @@ export function createMCPCommand(): Command {
             console.log(chalk.gray(`  Requires: ${envVarNames}`));
           }
 
-          console.log(chalk.blue(`  Usage: ax-cli mcp add ${template.name} --template`));
+          console.log(chalk.blue(`  Usage: ${getCliName()} mcp add ${template.name} --template`));
           console.log();
         });
       }
 
       console.log(chalk.gray('💡 Tip: Use --category to filter templates by type'));
-      console.log(chalk.gray(`Example: ax-cli mcp templates --category design`));
+      console.log(chalk.gray(`Example: ${getCliName()} mcp templates --category design`));
       console.log();
     });
 
@@ -569,7 +578,7 @@ export function createMCPCommand(): Command {
           if (!serverConfig) {
             console.error(chalk.red(`❌ Server "${serverName}" not found.`));
             console.log(chalk.gray('\nAdd it first with:'));
-            console.log(chalk.blue(`  ax-cli mcp add ${serverName} --template`));
+            console.log(chalk.blue(`  ${getCliName()} mcp add ${serverName} --template`));
             process.exit(1);
           }
 
@@ -683,7 +692,7 @@ export function createMCPCommand(): Command {
         console.log();
       }
 
-      console.log(chalk.gray('💡 Tip: Use "ax-cli mcp tools <server-name>" to see all tools from a server'));
+      console.log(chalk.gray(`💡 Tip: Use "${getCliName()} mcp tools <server-name>" to see all tools from a server`));
       console.log();
     });
 
@@ -708,16 +717,16 @@ export function createMCPCommand(): Command {
 
           console.log(`${icon} ${chalk.bold(template.name)}`);
           console.log(chalk.gray(`   ${template.description}`));
-          console.log(chalk.blue(`   Quick start: ax-cli mcp add ${name} --template`));
+          console.log(chalk.blue(`   Quick start: ${getCliName()} mcp add ${name} --template`));
           console.log();
         }
       });
 
       console.log(chalk.gray('📚 View all templates:'));
-      console.log(chalk.blue('   ax-cli mcp templates'));
+      console.log(chalk.blue(`   ${getCliName()} mcp templates`));
       console.log();
       console.log(chalk.gray('🔍 Search templates:'));
-      console.log(chalk.blue('   ax-cli mcp templates --category design'));
+      console.log(chalk.blue(`   ${getCliName()} mcp templates --category design`));
       console.log();
     });
 
@@ -832,7 +841,7 @@ export function createMCPCommand(): Command {
               prompts.log.warn(`Server "${serverName}" not found`);
             } else {
               prompts.log.warn('No MCP servers connected');
-              prompts.log.info('To add a server: ax-cli mcp add figma --template');
+              prompts.log.info(`To add a server: ${getCliName()} mcp add figma --template`);
             }
             prompts.outro('');
             return;
@@ -933,7 +942,7 @@ export function createMCPCommand(): Command {
           console.log(chalk.blue('💡 Configuration is valid but has warnings. Review them before connecting.'));
           console.log();
         } else {
-          console.log(chalk.green('🚀 Ready to connect! Use: ax-cli mcp add ' + name + ' --template'));
+          console.log(chalk.green(`🚀 Ready to connect! Use: ${getCliName()} mcp add ${name} --template`));
           console.log();
         }
 
@@ -1061,7 +1070,7 @@ export function createMCPCommand(): Command {
           console.log(chalk.gray(`  ${server.description}`));
           console.log(chalk.gray(`  Category: ${server.category} | Transport: ${server.transport}`));
           if (server.packageName) {
-            console.log(chalk.blue(`  Install: ax-cli mcp install ${server.name}`));
+            console.log(chalk.blue(`  Install: ${getCliName()} mcp install ${server.name}`));
           } else {
             console.log(chalk.gray(`  Repository: ${server.repository}`));
           }
@@ -1094,8 +1103,8 @@ export function createMCPCommand(): Command {
         if (!server) {
           console.error(chalk.red(`❌ Server "${name}" not found in registry\n`));
           console.log(chalk.gray('Available options:'));
-          console.log(chalk.gray('  • Search registry: ax-cli mcp registry --search <query>'));
-          console.log(chalk.gray('  • Browse all: ax-cli mcp registry'));
+          console.log(chalk.gray(`  • Search registry: ${getCliName()} mcp registry --search <query>`));
+          console.log(chalk.gray(`  • Browse all: ${getCliName()} mcp registry`));
           console.log();
           process.exit(1);
         }
@@ -1154,7 +1163,7 @@ export function createMCPCommand(): Command {
             }
           } catch (error) {
             console.error(chalk.yellow(`⚠️  Server added but connection failed: ${extractErrorMessage(error)}\n`));
-            console.log(chalk.gray('You can try connecting manually with: ax-cli mcp add ' + server.name + ' --template'));
+            console.log(chalk.gray(`You can try connecting manually with: ${getCliName()} mcp add ${server.name} --template`));
             console.log();
           }
         }
@@ -1188,12 +1197,12 @@ export function createMCPCommand(): Command {
         if (!status.hasApiKey) {
           console.log(chalk.yellow('To get started with Z.AI MCP:'));
           console.log(chalk.gray('  1. Get an API key from https://z.ai'));
-          console.log(chalk.gray('  2. Set it: ax-cli config set apiKey YOUR_API_KEY'));
-          console.log(chalk.gray('  3. Enable servers: ax-cli mcp add-zai'));
+          console.log(chalk.gray(`  2. Set it: ${getCliName()} config set apiKey YOUR_API_KEY`));
+          console.log(chalk.gray(`  3. Enable servers: ${getCliName()} mcp add-zai`));
           console.log();
         } else if (status.enabledServers.length === 0) {
           console.log(chalk.blue('API key configured. Enable Z.AI MCP servers with:'));
-          console.log(chalk.cyan('  ax-cli mcp add-zai'));
+          console.log(chalk.cyan(`  ${getCliName()} mcp add-zai`));
           console.log();
         }
 
@@ -1291,9 +1300,10 @@ export function createMCPCommand(): Command {
           try {
             const config = generateZAIServerConfig(serverName, apiKey);
 
-            // Connect first, then save config only on success
+            // Connect first, then save config to user-level settings only on success
+            // User-level settings ensure Z.AI servers work from any directory
             await manager.addServer(config);
-            addMCPServer(config);
+            addUserMCPServer(config);
 
             const tools = manager.getTools().filter(t => t.serverName === serverName);
             console.log(chalk.green(`  ✓ Connected (${tools.length} tool${tools.length !== 1 ? 's' : ''})`));
@@ -1380,7 +1390,8 @@ export function createMCPCommand(): Command {
 
           try {
             await manager.removeServer(serverName);
-            removeMCPServer(serverName);
+            // Z.AI servers are stored in user-level settings, not project settings
+            removeUserMCPServer(serverName);
             console.log(chalk.green(`  ✓ Removed`));
             successCount++;
           } catch (error) {

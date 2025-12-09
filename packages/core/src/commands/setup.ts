@@ -12,13 +12,13 @@ import { exitCancelled, exitWithError, ExitCode } from '../utils/exit-handler.js
 // Logger imported for future structured logging improvements
 // import { getLogger } from '../utils/logger.js';
 import type { UserSettings } from '../schemas/settings-schemas.js';
-import { CONFIG_PATHS } from '../constants.js';
+import { getActiveConfigPaths, getActiveProvider } from '../provider/config.js';
 import {
   detectZAIServices,
   getRecommendedServers,
   generateZAIServerConfig,
 } from '../mcp/index.js';
-import { addMCPServer, removeMCPServer } from '../mcp/config.js';
+import { addUserMCPServer, removeUserMCPServer } from '../mcp/config.js';
 
 /**
  * Handle user cancellation - exits process if cancelled
@@ -157,7 +157,7 @@ function getProviderFromBaseURL(baseURL: string): string | null {
 }
 
 /**
- * Setup command - Initialize ~/.ax-cli/config.json with provider selection
+ * Setup command - Initialize provider config (e.g., ~/.ax-glm/config.json)
  */
 export function createSetupCommand(): Command {
   const setupCommand = new Command('setup');
@@ -172,10 +172,11 @@ export function createSetupCommand(): Command {
     }) => {
       try {
         // Show intro
-        prompts.intro(chalk.cyan('AX CLI Setup'));
+        const provider = getActiveProvider();
+        prompts.intro(chalk.cyan(`${provider.branding.cliName} Setup`));
 
-        // Always use the NEW path ~/.ax-cli/config.json
-        const configPath = CONFIG_PATHS.USER_CONFIG;
+        // Use provider-specific config path (~/.ax-glm/config.json or ~/.ax-grok/config.json)
+        const configPath = getActiveConfigPaths().USER_CONFIG;
         const configDir = dirname(configPath);
         const settingsManager = getSettingsManager();
 
@@ -503,20 +504,22 @@ export function createSetupCommand(): Command {
             const status = await detectZAIServices();
             const serversToAdd = getRecommendedServers(status);
 
-            // Remove existing Z.AI MCP servers first
+            // Remove existing Z.AI MCP servers first (from user-level settings)
             for (const serverName of serversToAdd) {
               try {
-                removeMCPServer(serverName);
+                removeUserMCPServer(serverName);
               } catch {
                 // Ignore errors if server doesn't exist
               }
             }
 
+            // Add Z.AI MCP servers to user-level settings (global across all projects)
+            // This ensures they're available from any directory, not just the setup directory
             let successCount = 0;
             for (const serverName of serversToAdd) {
               try {
                 const config = generateZAIServerConfig(serverName, apiKey);
-                addMCPServer(config);
+                addUserMCPServer(config);
                 successCount++;
               } catch {
                 // Skip failed servers
@@ -527,7 +530,7 @@ export function createSetupCommand(): Command {
           } catch (error) {
             mcpSpinner.stop('Could not set up Z.AI MCP servers');
             prompts.log.warn(`${extractErrorMessage(error)}`);
-            prompts.log.info('You can enable them later with: ax-cli mcp add-zai');
+            prompts.log.info(`You can enable them later with: ${provider.branding.cliName} mcp add-zai`);
           }
         }
 
@@ -587,7 +590,7 @@ export function createSetupCommand(): Command {
         // Agent-First Mode Configuration (only ask if AutomatosX is available)
         if (axStatus.installed) {
           await prompts.note(
-            'When enabled, ax-cli automatically routes tasks to specialized agents\n' +
+            `When enabled, ${provider.branding.cliName} automatically routes tasks to specialized agents\n` +
             'based on keywords (e.g., "test" → testing agent, "refactor" → refactoring agent).\n' +
             'When disabled (default), you use the direct LLM and can invoke agents explicitly.',
             'Agent-First Mode'
@@ -638,20 +641,21 @@ export function createSetupCommand(): Command {
           'Configuration Details'
         );
 
+        const cliName = provider.branding.cliName;
         await prompts.note(
           '1. Start interactive mode:\n' +
-          '   $ ax-cli\n\n' +
-          '2. Initialize your project (inside ax-cli):\n' +
+          `   $ ${cliName}\n\n` +
+          `2. Initialize your project (inside ${cliName}):\n` +
           '   > /init\n\n' +
           '3. Or run a quick test:\n' +
-          '   $ ax-cli -p "Hello, introduce yourself"',
+          `   $ ${cliName} -p "Hello, introduce yourself"`,
           'Next Steps'
         );
 
         await prompts.note(
           `• Edit config manually:  ${configPath}\n` +
           '• See example configs:   Check "_examples" in config file\n' +
-          '• View help:             ax-cli --help\n' +
+          `• View help:             ${cliName} --help\n` +
           '• Documentation:         https://github.com/defai-digital/ax-cli',
           'Tips'
         );

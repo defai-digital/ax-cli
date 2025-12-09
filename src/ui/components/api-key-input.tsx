@@ -27,7 +27,7 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
     }
 
     if (key.return) {
-      handleSubmit();
+      void handleSubmit();
       return;
     }
 

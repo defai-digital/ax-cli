@@ -60,9 +60,6 @@ const DEFAULT_PROJECT_SETTINGS: Partial<ProjectSettings> = {
 export class SettingsManager {
   private static instance: SettingsManager;
 
-  private userSettingsPath: string;
-  private projectSettingsPath: string;
-
   // Cache for settings to avoid repeated file I/O
   private userSettingsCache: UserSettings | null = null;
   private projectSettingsCache: ProjectSettings | null = null;
@@ -72,15 +69,30 @@ export class SettingsManager {
   };
   private readonly CACHE_TTL = TIMEOUT_CONFIG.SETTINGS_CACHE_TTL;
 
+  // BUG FIX: Paths are now computed dynamically via getters instead of being
+  // cached in constructor. This fixes a race condition where the singleton
+  // could be created before setActiveProviderConfigPaths() is called,
+  // resulting in permanently wrong paths (GLM defaults) being used.
+
+  /**
+   * Get user settings path dynamically from active provider
+   * This ensures correct paths even if provider is set after singleton creation
+   */
+  private get userSettingsPath(): string {
+    return getActiveConfigPaths().USER_CONFIG;
+  }
+
+  /**
+   * Get project settings path dynamically from active provider
+   * This ensures correct paths even if provider is set after singleton creation
+   */
+  private get projectSettingsPath(): string {
+    return getActiveConfigPaths().PROJECT_SETTINGS;
+  }
+
   private constructor() {
-    // Use provider-specific config paths (set by cli-factory on startup)
-    const configPaths = getActiveConfigPaths();
-
-    // User settings path: ~/.ax-glm/config.json or ~/.ax-grok/config.json
-    this.userSettingsPath = configPaths.USER_CONFIG;
-
-    // Project settings path: .ax-glm/settings.json or .ax-grok/settings.json
-    this.projectSettingsPath = configPaths.PROJECT_SETTINGS;
+    // No longer cache paths in constructor - they're now computed dynamically
+    // via getters to avoid race conditions with provider initialization
   }
 
   /**
@@ -93,6 +105,18 @@ export class SettingsManager {
     return SettingsManager.instance;
   }
 
+  /**
+   * Reset singleton instance (for testing or when provider changes)
+   * This clears the instance and all caches, forcing re-creation on next access
+   */
+  public static resetInstance(): void {
+    if (SettingsManager.instance) {
+      SettingsManager.instance.userSettingsCache = null;
+      SettingsManager.instance.projectSettingsCache = null;
+      SettingsManager.instance.cacheTimestamp = { user: 0, project: 0 };
+    }
+    SettingsManager.instance = null as unknown as SettingsManager;
+  }
 
   /**
    * Ensure directory exists for a given file path

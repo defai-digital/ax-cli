@@ -196,8 +196,8 @@ export class LLMAgent extends EventEmitter {
     // Initialize checkpoint manager
     this.initializeCheckpointManager();
 
-    // Initialize MCP servers if configured
-    this.initializeMCP();
+    // Initialize MCP servers if configured (fire-and-forget - runs in background)
+    void this.initializeMCP();
 
     // Build system prompt from YAML configuration
     const customInstructions = loadCustomInstructions();

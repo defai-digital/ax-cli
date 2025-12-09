@@ -162,7 +162,7 @@ function ChatInterfaceWithAgent({
       const available = await isAutomatosXAvailable();
       setAxEnabled(available);
     };
-    checkAx();
+    void checkAx();
   }, []);
 
 
@@ -682,7 +682,7 @@ function ChatInterfaceWithAgent({
         processingStartTime.current = 0;
       };
 
-    processInitialMessage();
+    void processInitialMessage();
 
     return () => {
       cancelled = true;

@@ -13,7 +13,8 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import OpenAI from "openai";
 import { getSettingsManager } from "../utils/settings-manager.js";
-import { GLM_MODELS, CONFIG_PATHS } from "../constants.js";
+import { GLM_MODELS } from "../constants.js";
+import { getActiveProvider, getActiveConfigPaths } from "../provider/config.js";
 import {
   detectZAIServices,
   isGLMModel,
@@ -165,24 +166,26 @@ async function checkNodeVersion(): Promise<CheckResult> {
  */
 function checkConfigFiles(): CheckResult[] {
   const results: CheckResult[] = [];
+  const configPaths = getActiveConfigPaths();
+  const cliName = getActiveProvider().branding.cliName;
 
-  // User config - use centralized path constant
-  if (existsSync(CONFIG_PATHS.USER_CONFIG)) {
-    const parseResult = parseJsonFile<UserSettings>(CONFIG_PATHS.USER_CONFIG);
+  // User config - use provider-specific path
+  if (existsSync(configPaths.USER_CONFIG)) {
+    const parseResult = parseJsonFile<UserSettings>(configPaths.USER_CONFIG);
     if (parseResult.success) {
       results.push({
         name: "User Config File",
         status: "pass",
         message: "Found and valid",
-        details: [`Location: ${CONFIG_PATHS.USER_CONFIG}`],
+        details: [`Location: ${configPaths.USER_CONFIG}`],
       });
     } else {
       results.push({
         name: "User Config File",
         status: "fail",
         message: "Found but corrupted",
-        details: [`Location: ${CONFIG_PATHS.USER_CONFIG}`, `Error: ${parseResult.error}`],
-        suggestion: "Run 'ax-cli setup' to recreate configuration",
+        details: [`Location: ${configPaths.USER_CONFIG}`, `Error: ${parseResult.error}`],
+        suggestion: `Run '${cliName} setup' to recreate configuration`,
       });
     }
   } else {
@@ -190,28 +193,28 @@ function checkConfigFiles(): CheckResult[] {
       name: "User Config File",
       status: "warning",
       message: "Not found",
-      details: [`Expected location: ${CONFIG_PATHS.USER_CONFIG}`],
-      suggestion: "Run 'ax-cli setup' to create configuration",
+      details: [`Expected location: ${configPaths.USER_CONFIG}`],
+      suggestion: `Run '${cliName} setup' to create configuration`,
     });
   }
 
-  // Project settings - use centralized path constant
-  if (existsSync(CONFIG_PATHS.PROJECT_SETTINGS)) {
-    const parseResult = parseJsonFile<ProjectSettings>(CONFIG_PATHS.PROJECT_SETTINGS);
+  // Project settings - use provider-specific path
+  if (existsSync(configPaths.PROJECT_SETTINGS)) {
+    const parseResult = parseJsonFile<ProjectSettings>(configPaths.PROJECT_SETTINGS);
     if (parseResult.success) {
       results.push({
         name: "Project Settings",
         status: "pass",
         message: "Found and valid",
-        details: [`Location: ${CONFIG_PATHS.PROJECT_SETTINGS}`],
+        details: [`Location: ${configPaths.PROJECT_SETTINGS}`],
       });
     } else {
       results.push({
         name: "Project Settings",
         status: "warning",
         message: "Found but corrupted",
-        details: [`Location: ${CONFIG_PATHS.PROJECT_SETTINGS}`, `Error: ${parseResult.error}`],
-        suggestion: "Run 'ax-cli init' to recreate project settings",
+        details: [`Location: ${configPaths.PROJECT_SETTINGS}`, `Error: ${parseResult.error}`],
+        suggestion: `Run '${cliName} init' to recreate project settings`,
       });
     }
   } else {
@@ -219,7 +222,7 @@ function checkConfigFiles(): CheckResult[] {
       name: "Project Settings",
       status: "pass",
       message: "Not configured (using user settings)",
-      details: [`Optional: ${CONFIG_PATHS.PROJECT_SETTINGS}`],
+      details: [`Optional: ${configPaths.PROJECT_SETTINGS}`],
     });
   }
 
@@ -365,7 +368,7 @@ async function checkMCPServers(): Promise<CheckResult[]> {
         name: "MCP Servers",
         status: "pass",
         message: "No MCP servers configured",
-        details: ["Optional feature - run 'ax-cli mcp add' to add servers"],
+        details: [`Optional feature - run '${getActiveProvider().branding.cliName} mcp add' to add servers`],
       });
       return results;
     }
@@ -396,7 +399,7 @@ async function checkMCPServers(): Promise<CheckResult[]> {
           name: `MCP Server: ${serverName}`,
           status: "warning",
           message: "Configuration incomplete",
-          suggestion: "Check server configuration in .ax-cli/settings.json",
+          suggestion: `Check server configuration in ${getActiveConfigPaths().DIR_NAME}/settings.json`,
         });
       }
     }
@@ -454,7 +457,7 @@ async function checkZAIMCPStatus(): Promise<CheckResult[]> {
           "Available: Web Search, Web Reader, Vision",
           "These provide web access and image analysis capabilities",
         ],
-        suggestion: "Enable with 'ax-cli mcp add-zai'",
+        suggestion: `Enable with '${getActiveProvider().branding.cliName} mcp add-zai'`,
       });
       return results;
     }
@@ -480,7 +483,7 @@ async function checkZAIMCPStatus(): Promise<CheckResult[]> {
           status: "pass",
           message: "Available (not enabled)",
           details: ["Node.js version is compatible"],
-          suggestion: "Enable with 'ax-cli mcp add-zai --server zai-vision'",
+          suggestion: `Enable with '${getActiveProvider().branding.cliName} mcp add-zai --server zai-vision'`,
         });
       } else {
         results.push({
@@ -620,9 +623,11 @@ async function checkAutomatosXNativeModules(): Promise<CheckResult> {
 function checkFileSystemPermissions(): CheckResult[] {
   const results: CheckResult[] = [];
 
-  // Directories to check (deduplicated)
+  // Directories to check (deduplicated) - use provider-specific paths
+  const configPaths = getActiveConfigPaths();
+  const cliName = getActiveProvider().branding.cliName;
   const dirsToCheck = [
-    { path: CONFIG_PATHS.USER_DIR, name: 'AX CLI config directory' },
+    { path: configPaths.USER_DIR, name: `${cliName} config directory` },
     { path: join(homedir(), '.automatosx'), name: 'AutomatosX data directory' },
   ];
 
@@ -802,8 +807,12 @@ async function checkCommand(
 
 /**
  * Format a single check result for spinner stop message
+ * BUG FIX: Handle undefined/null result to prevent crashes
  */
-function formatCheckResult(result: CheckResult): string {
+function formatCheckResult(result: CheckResult | undefined): string {
+  if (!result) {
+    return chalk.yellow("⚠ Check did not produce a result");
+  }
   const icon = result.status === "pass" ? "✓" : result.status === "warning" ? "⚠" : "✗";
   const color = result.status === "pass" ? chalk.green : result.status === "warning" ? chalk.yellow : chalk.red;
   return color(`${icon} ${result.name}: ${result.message}`);

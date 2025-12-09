@@ -467,7 +467,7 @@ export class ToolExecutor {
           if (toolCall.function.name.startsWith("mcp__")) {
             const mcpResult = await this.executeMCPTool(toolCall);
             // Execute PostToolUse hooks (fire-and-forget)
-            hooksManager.executePostToolHooks(
+            void hooksManager.executePostToolHooks(
               toolCall.function.name,
               args as Record<string, unknown>,
               toolCall.id,

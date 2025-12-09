@@ -683,7 +683,7 @@ async function runGrokSetup(existingConfig: Partial<ProviderConfig>): Promise<Pr
   }
   summaryLines.push(`Live Search: ${enableLiveSearch ? 'enabled' : 'disabled'}`);
 
-  await prompts.note(summaryLines.join('\n'), 'Configuration Preview');
+  prompts.note(summaryLines.join('\n'), 'Configuration Preview');
 
   const confirmSave = await prompts.confirm({ message: 'Save this configuration?', initialValue: true });
   exitIfCancelled(confirmSave);
@@ -716,7 +716,7 @@ async function runGrokSetup(existingConfig: Partial<ProviderConfig>): Promise<Pr
  * Setup Z.AI MCP servers
  */
 async function setupZAIMCPServers(apiKey: string): Promise<void> {
-  await prompts.note(
+  prompts.note(
     'Enabling Z.AI MCP servers for enhanced capabilities:\n' +
     '- Web Search - Real-time web search\n' +
     '- Web Reader - Extract content from web pages\n' +
@@ -764,7 +764,7 @@ export function createSetupCommand(): Command {
       try {
         prompts.intro(chalk.cyan('AX CLI Setup Wizard'));
 
-        await prompts.note(
+        prompts.note(
           'This wizard will configure your AI coding assistant\n' +
           'with your preferred LLM provider.',
           'Welcome'
@@ -820,7 +820,7 @@ export function createSetupCommand(): Command {
         const providerInfo = PROVIDERS[provider];
         const configPath = getConfigPath(provider);
 
-        await prompts.note(
+        prompts.note(
           `Provider: ${newConfig._provider}\n` +
           `Server:   ${newConfig._isLocalServer ? newConfig.baseURL : 'Cloud API'}\n` +
           `Model:    ${newConfig.defaultModel}\n` +
@@ -849,7 +849,7 @@ export function createSetupCommand(): Command {
         }
 
         // Next steps
-        await prompts.note(
+        prompts.note(
           `1. Run "${providerInfo.cliName}" to start\n` +
           `2. Or run "ax-cli" (auto-launches ${providerInfo.cliName})\n` +
           `3. Run "${providerInfo.cliName} --help" for all options`,

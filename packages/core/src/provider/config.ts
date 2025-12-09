@@ -414,7 +414,6 @@ export function getConfigPathsByProviderName(providerName: string): ProviderConf
 
 // Current active provider (set by cli-factory)
 let activeProvider: ProviderDefinition | null = null;
-let activeConfigPaths: ProviderConfigPaths | null = null;
 
 // Cache the priority registry update function to avoid repeated dynamic imports
 let _updatePriorityRegistryProvider: ((provider: ProviderDefinition) => void) | null = null;
@@ -422,10 +421,12 @@ let _updatePriorityRegistryProvider: ((provider: ProviderDefinition) => void) | 
 /**
  * Set the active provider (called by cli-factory on startup)
  * Also updates the priority registry to use the correct provider
+ *
+ * NOTE: We only cache activeProvider, not config paths.
+ * getActiveConfigPaths() computes paths dynamically to handle cwd changes.
  */
 export function setActiveProviderConfigPaths(provider: ProviderDefinition): void {
   activeProvider = provider;
-  activeConfigPaths = getProviderConfigPaths(provider);
 
   // Update priority registry with the new provider synchronously if available
   // This avoids the race condition where getPriorityRegistry() is called before the update
@@ -472,11 +473,14 @@ export function getActiveProvider(): ProviderDefinition {
 /**
  * Get the active provider config paths
  * Falls back to GLM provider if not set
+ *
+ * IMPORTANT: Always computes paths dynamically to handle cwd changes.
+ * PROJECT_* paths depend on process.cwd(), so caching would cause stale paths
+ * if the working directory changes during the session.
  */
 export function getActiveConfigPaths(): ProviderConfigPaths {
-  if (!activeConfigPaths) {
-    // Default to GLM if not initialized
-    activeConfigPaths = getProviderConfigPaths(GLM_PROVIDER);
-  }
-  return activeConfigPaths;
+  // Always compute dynamically - PROJECT_* paths use process.cwd()
+  // which can change during the session (e.g., if a tool changes directory)
+  const provider = activeProvider || GLM_PROVIDER;
+  return getProviderConfigPaths(provider);
 }

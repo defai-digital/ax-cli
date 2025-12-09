@@ -86,6 +86,9 @@ export async function* executeAgent(
   const timeoutId = setTimeout(() => {
     abortController.abort();
   }, timeout);
+  // BUG FIX: Unref the timeout so it doesn't keep the process alive
+  // if the generator is abandoned without being consumed
+  timeoutId.unref();
 
   let process_: ChildProcess | null = null;
   let abortHandler: (() => void) | null = null;

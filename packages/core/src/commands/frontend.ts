@@ -7,6 +7,14 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { getMCPManager } from '../llm/tools.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
+import { getActiveProvider } from '../provider/config.js';
+
+/**
+ * Get the CLI name from the active provider
+ */
+function getCliName(): string {
+  return getActiveProvider().branding.cliName;
+}
 
 /**
  * Parse Figma URL to extract file ID and node ID
@@ -64,7 +72,7 @@ async function ensureFigmaConnected(): Promise<void> {
     console.log(chalk.cyan('   export FIGMA_ACCESS_TOKEN="your_token"'));
     console.log();
     console.log('3. Add Figma MCP server:');
-    console.log(chalk.cyan('   ax-cli mcp add figma --template'));
+    console.log(chalk.cyan(`   ${getCliName()} mcp add figma --template`));
     console.log();
 
     throw new Error('Figma MCP server not connected. Please set up Figma integration first.');
@@ -73,7 +81,7 @@ async function ensureFigmaConnected(): Promise<void> {
   // Verify Figma tools are available
   const tools = manager.getTools().filter(t => t.serverName === 'figma');
   if (tools.length === 0) {
-    throw new Error('Figma MCP server is connected but no tools are available. Try reconnecting: ax-cli mcp remove figma && ax-cli mcp add figma --template');
+    throw new Error(`Figma MCP server is connected but no tools are available. Try reconnecting: ${getCliName()} mcp remove figma && ${getCliName()} mcp add figma --template`);
   }
 }
 
@@ -525,7 +533,7 @@ export function createFrontendCommand(): Command {
         console.log();
 
         console.log(chalk.green('✅ To execute this workflow, run:'));
-        console.log(chalk.cyan(`   ax-cli -p "${prompt.substring(0, 100)}..."`));
+        console.log(chalk.cyan(`   ${getCliName()} -p "${prompt.substring(0, 100)}..."`));
         console.log();
 
       } catch (error: unknown) {
@@ -577,7 +585,7 @@ export function createFrontendCommand(): Command {
         console.log();
 
         console.log(chalk.green('✅ To execute this workflow, run:'));
-        console.log(chalk.cyan(`   ax-cli -p "${prompt.substring(0, 100)}..."`));
+        console.log(chalk.cyan(`   ${getCliName()} -p "${prompt.substring(0, 100)}..."`));
         console.log();
 
       } catch (error: unknown) {
@@ -610,7 +618,7 @@ export function createFrontendCommand(): Command {
             console.error(chalk.red('❌ --file-id is required when source is "figma"'));
             console.log();
             console.log(chalk.blue('Usage:'));
-            console.log(chalk.cyan(`  ax-cli frontend gen-component ${name} --source figma --file-id abc123xyz`));
+            console.log(chalk.cyan(`  ${getCliName()} frontend gen-component ${name} --source figma --file-id abc123xyz`));
             console.log();
             process.exit(1);
           }
@@ -654,7 +662,7 @@ export function createFrontendCommand(): Command {
         console.log();
 
         console.log(chalk.green('✅ To execute this workflow, run:'));
-        console.log(chalk.cyan(`   ax-cli -p "${prompt.substring(0, 100)}..."`));
+        console.log(chalk.cyan(`   ${getCliName()} -p "${prompt.substring(0, 100)}..."`));
         console.log();
 
       } catch (error: unknown) {
@@ -716,7 +724,7 @@ export function createFrontendCommand(): Command {
         console.log();
 
         console.log(chalk.green('✅ To execute this visual comparison, run:'));
-        console.log(chalk.cyan(`   ax-cli -p "${prompt.substring(0, 100)}..." --model ${options.model}`));
+        console.log(chalk.cyan(`   ${getCliName()} -p "${prompt.substring(0, 100)}..." --model ${options.model}`));
         console.log();
 
         console.log(chalk.blue('📋 What this will do:'));

@@ -275,6 +275,13 @@ export class SubagentOrchestrator extends EventEmitter {
 
     // Execute batches sequentially, but tasks within each batch in parallel
     for (const batch of batches) {
+      // BUG FIX: Validate that all task IDs from batches exist in the tasks array
+      // Previously, missing tasks were silently dropped which could mask data issues
+      const missingTaskIds = batch.filter(taskId => !tasks.some(t => t.id === taskId));
+      if (missingTaskIds.length > 0) {
+        console.warn(`Subagent orchestrator: batch contains unknown task IDs: ${missingTaskIds.join(', ')}`);
+      }
+
       const batchTasks = batch
         .map(taskId => tasks.find(t => t.id === taskId))
         .filter((task): task is SubagentTask => task !== undefined);

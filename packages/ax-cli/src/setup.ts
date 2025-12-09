@@ -516,7 +516,7 @@ async function runZAICloudSetup(existingConfig: AxCliConfig, providerInfo: Provi
 /**
  * Run Local GLM Server setup
  */
-async function runLocalGLMSetup(existingConfig: AxCliConfig, providerInfo: ProviderInfo): Promise<AxCliConfig | null> {
+async function runLocalGLMSetup(existingConfig: AxCliConfig, _providerInfo: ProviderInfo): Promise<AxCliConfig | null> {
   // ═══════════════════════════════════════════════════════════════════
   // STEP 2: Local Server Detection
   // ═══════════════════════════════════════════════════════════════════
@@ -546,7 +546,7 @@ async function runLocalGLMSetup(existingConfig: AxCliConfig, providerInfo: Provi
     const serverSelection = await select({
       message: 'Select your local server:',
       choices: serverChoices,
-      default: existingConfig.baseURL || availableServers[0].url,
+      default: existingConfig.baseURL || availableServers[0]?.url,
     });
 
     if (serverSelection === '__custom__') {

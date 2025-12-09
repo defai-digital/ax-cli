@@ -4,10 +4,10 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { GLM_MODELS } from "../constants.js";
 import { getSettingsManager } from "../utils/settings-manager.js";
 import { formatTokenCount } from "../utils/token-counter.js";
 import { extractErrorMessage } from "../utils/error-handler.js";
+import { getActiveProvider } from "../provider/config.js";
 
 export function createModelsCommand(): Command {
   const modelsCmd = new Command("models")
@@ -24,12 +24,13 @@ export function createModelsCommand(): Command {
         const manager = getSettingsManager();
         const currentModel = manager.getCurrentModel();
         const baseURL = manager.getBaseURL();
+        const activeProvider = getActiveProvider();
 
-        // Predefined models from configuration
-        const predefinedModels = Object.entries(GLM_MODELS).map(([id, config]) => ({
+        // Predefined models from the active provider's configuration
+        const predefinedModels = Object.entries(activeProvider.models).map(([id, config]) => ({
           id,
           name: config.name,
-          provider: "Z.AI (GLM)",
+          provider: activeProvider.displayName,
           contextWindow: config.contextWindow,
           maxOutputTokens: config.maxOutputTokens,
           supportsThinking: config.supportsThinking,
@@ -147,8 +148,9 @@ export function createModelsCommand(): Command {
         console.log(chalk.dim("\nTips:"));
         console.log(chalk.dim("  • Use --provider to filter by provider (e.g., --provider glm)"));
         console.log(chalk.dim("  • For Ollama models, run 'ollama list' to see installed models"));
-        console.log(chalk.dim("  • Switch models with: ax-cli -m <model-name>"));
-        console.log(chalk.dim("  • Configure default with: ax-cli setup"));
+        const cliName = getActiveProvider().branding.cliName;
+        console.log(chalk.dim(`  • Switch models with: ${cliName} -m <model-name>`));
+        console.log(chalk.dim(`  • Configure default with: ${cliName} setup`));
         console.log();
 
       } catch (error: unknown) {
@@ -162,24 +164,30 @@ export function createModelsCommand(): Command {
     .description("Show detailed information about a specific model")
     .action(async (modelId: string) => {
       try {
-        const model = GLM_MODELS[modelId as keyof typeof GLM_MODELS];
+        const activeProvider = getActiveProvider();
+        const model = activeProvider.models[modelId];
 
         if (!model) {
-          console.log(chalk.yellow(`\nModel "${modelId}" is not a predefined model.`));
+          console.log(chalk.yellow(`\nModel "${modelId}" is not a predefined model for ${activeProvider.displayName}.`));
           console.log(chalk.dim("This may be a custom model (e.g., from Ollama or another provider)."));
           console.log(chalk.dim("\nFor custom models, refer to your provider's documentation."));
+          console.log(chalk.dim(`\nAvailable models for ${activeProvider.displayName}:`));
+          for (const [id, m] of Object.entries(activeProvider.models)) {
+            console.log(chalk.dim(`  - ${id}: ${m.name}`));
+          }
           process.exit(0);
         }
 
         console.log(chalk.bold(`\n📄 Model Information: ${modelId}\n`));
+        console.log(chalk.cyan("Provider:"), activeProvider.displayName);
         console.log(chalk.cyan("Name:"), model.name);
+        console.log(chalk.cyan("Description:"), model.description);
         console.log(chalk.cyan("Context Window:"), formatTokenCount(model.contextWindow, { suffix: true, uppercase: true }));
         console.log(chalk.cyan("Max Output Tokens:"), formatTokenCount(model.maxOutputTokens, { suffix: true, uppercase: true }));
-        console.log(chalk.cyan("Default Max Tokens:"), formatTokenCount(model.defaultMaxTokens, { suffix: true, uppercase: true }));
         console.log(chalk.cyan("Default Temperature:"), model.defaultTemperature);
-        console.log(chalk.cyan("Temperature Range:"), `${model.temperatureRange.min} - ${model.temperatureRange.max}`);
         console.log(chalk.cyan("Thinking Mode:"), model.supportsThinking ? chalk.green("✓ Supported") : chalk.dim("Not supported"));
-        console.log(chalk.cyan("Token Efficiency:"), `${model.tokenEfficiency}x`);
+        console.log(chalk.cyan("Vision Support:"), model.supportsVision ? chalk.green("✓ Supported") : chalk.dim("Not supported"));
+        console.log(chalk.cyan("Search Support:"), model.supportsSearch ? chalk.green("✓ Supported") : chalk.dim("Not supported"));
         console.log();
 
       } catch (error: unknown) {

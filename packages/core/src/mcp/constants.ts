@@ -13,8 +13,8 @@ export const MCP_TIMEOUTS = {
   /** Default timeout for tool calls (60 seconds) */
   DEFAULT_TOOL_CALL: 60_000,
 
-  /** Startup timeout for stdio processes (30 seconds) */
-  STARTUP: 30_000,
+  /** Startup timeout for stdio processes (60 seconds) - increased from 30s for npx/slow processes */
+  STARTUP: 60_000,
 
   /** Health check interval (60 seconds) */
   HEALTH_CHECK_INTERVAL: 60_000,

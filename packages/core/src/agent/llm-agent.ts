@@ -108,6 +108,8 @@ export class LLMAgent extends EventEmitter {
   private toolApprovalResolved: Map<string, boolean> = new Map();
   /** MCP client identification (sent to MCP servers during protocol handshake) */
   private mcpClientConfig?: { name?: string; version?: string };
+  /** BUG FIX: Store subagent event listeners for proper cleanup in dispose() */
+  private subagentEventListeners: Array<{ event: string; listener: (...args: unknown[]) => void }> = [];
 
   constructor(
     apiKey: string,
@@ -168,6 +170,7 @@ export class LLMAgent extends EventEmitter {
     this.subagentOrchestrator = new SubagentOrchestrator({ maxConcurrentAgents: 5 });
 
     // Forward subagent events for UI tracking (orchestrator event -> agent event)
+    // BUG FIX: Store listener references for proper cleanup in dispose()
     const subagentEventMap: Array<[string, string]> = [
       ['subagent-start', 'subagent:start'],
       ['subagent-complete', 'subagent:complete'],
@@ -175,7 +178,9 @@ export class LLMAgent extends EventEmitter {
       ['terminate', 'subagent:terminate'],
     ];
     for (const [from, to] of subagentEventMap) {
-      this.subagentOrchestrator.on(from, (data) => this.emit(to, data));
+      const listener = (data: unknown) => this.emit(to, data);
+      this.subagentOrchestrator.on(from, listener);
+      this.subagentEventListeners.push({ event: from, listener });
     }
 
     this.taskPlanner = getTaskPlanner();
@@ -2309,6 +2314,13 @@ export class LLMAgent extends EventEmitter {
       this.abortController.abort();
       this.abortController = null;
     }
+
+    // BUG FIX: Remove subagent event listeners to prevent memory leaks
+    // These listeners were registered in constructor and forward events from orchestrator
+    for (const { event, listener } of this.subagentEventListeners) {
+      this.subagentOrchestrator.removeListener(event, listener);
+    }
+    this.subagentEventListeners = [];
 
     // Terminate all subagents
     this.subagentOrchestrator.terminateAll().catch((error) => {

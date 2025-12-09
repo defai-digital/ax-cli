@@ -48,6 +48,75 @@ const ENCRYPTION_CONFIG = {
 };
 
 /**
+ * Validate and decode a base64 string to Buffer.
+ * Fails closed: returns null for invalid/malformed input.
+ *
+ * SECURITY FIX: Validates both format and expected length to prevent
+ * crashes from tampered config files supplying malformed buffers.
+ *
+ * @param value - Base64-encoded string to validate
+ * @param expectedLength - Expected decoded byte length
+ * @param fieldName - Field name for error messages
+ * @returns Decoded buffer or null if invalid
+ */
+function validateBase64Field(
+  value: unknown,
+  expectedLength: number,
+  fieldName: string
+): Buffer | null {
+  // Check if value is a string
+  if (typeof value !== 'string') {
+    if (process.env.DEBUG || process.env.AX_DEBUG) {
+      console.error(`[DEBUG] ${fieldName}: expected string, got ${typeof value}`);
+    }
+    return null;
+  }
+
+  // Check for valid base64 format (only base64 chars and valid padding)
+  // Base64 alphabet: A-Z, a-z, 0-9, +, /
+  // Valid padding: ends with 0-2 '=' characters
+  const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+  if (!base64Regex.test(value)) {
+    if (process.env.DEBUG || process.env.AX_DEBUG) {
+      console.error(`[DEBUG] ${fieldName}: invalid base64 format`);
+    }
+    return null;
+  }
+
+  // Check expected base64 length (base64 encodes 3 bytes as 4 chars)
+  // expectedLength bytes = ceil(expectedLength * 4 / 3) chars (with padding)
+  const expectedBase64Length = Math.ceil(expectedLength * 4 / 3);
+  // Account for padding making it a multiple of 4
+  const paddedLength = Math.ceil(expectedBase64Length / 4) * 4;
+
+  if (value.length !== paddedLength) {
+    if (process.env.DEBUG || process.env.AX_DEBUG) {
+      console.error(`[DEBUG] ${fieldName}: expected ${paddedLength} chars, got ${value.length}`);
+    }
+    return null;
+  }
+
+  try {
+    const buffer = Buffer.from(value, 'base64');
+
+    // Verify decoded length matches expectation
+    if (buffer.length !== expectedLength) {
+      if (process.env.DEBUG || process.env.AX_DEBUG) {
+        console.error(`[DEBUG] ${fieldName}: decoded to ${buffer.length} bytes, expected ${expectedLength}`);
+      }
+      return null;
+    }
+
+    return buffer;
+  } catch {
+    if (process.env.DEBUG || process.env.AX_DEBUG) {
+      console.error(`[DEBUG] ${fieldName}: failed to decode base64`);
+    }
+    return null;
+  }
+}
+
+/**
  * Get a machine-specific identifier for key derivation.
  * Uses hostname + platform + arch to create a unique-per-machine string.
  *
@@ -137,6 +206,19 @@ export function decrypt(encryptedValue: EncryptedValue): string {
       );
     }
 
+    // SECURITY FIX: Validate all base64 fields before processing
+    // Prevents crashes from tampered config files with malformed buffers
+
+    // Validate authentication tag first (fastest check)
+    const tag = validateBase64Field(
+      encryptedValue.tag,
+      ENCRYPTION_CONFIG.tagLength,
+      'tag'
+    );
+    if (!tag) {
+      throw new Error('Invalid encrypted data: malformed tag');
+    }
+
     // SECURITY FIX: Support both old format (salt+IV concatenated) and new format (separate fields)
     // This maintains backward compatibility while improving security
     let salt: Buffer;
@@ -144,14 +226,35 @@ export function decrypt(encryptedValue: EncryptedValue): string {
 
     if ('salt' in encryptedValue && encryptedValue.salt) {
       // New format: salt stored separately (more secure)
-      salt = Buffer.from(encryptedValue.salt, 'base64');
-      iv = Buffer.from(encryptedValue.iv, 'base64');
+      const validatedSalt = validateBase64Field(
+        encryptedValue.salt,
+        ENCRYPTION_CONFIG.saltLength,
+        'salt'
+      );
+      const validatedIv = validateBase64Field(
+        encryptedValue.iv,
+        ENCRYPTION_CONFIG.ivLength,
+        'iv'
+      );
+
+      if (!validatedSalt || !validatedIv) {
+        throw new Error('Invalid encrypted data: malformed salt or iv');
+      }
+
+      salt = validatedSalt;
+      iv = validatedIv;
     } else {
       // Old format: salt and IV concatenated (legacy support)
-      const saltAndIv = Buffer.from(encryptedValue.iv, 'base64');
-      if (saltAndIv.length !== ENCRYPTION_CONFIG.saltLength + ENCRYPTION_CONFIG.ivLength) {
-        throw new Error('Invalid encrypted data: incorrect salt/IV length');
+      const saltAndIv = validateBase64Field(
+        encryptedValue.iv,
+        ENCRYPTION_CONFIG.saltLength + ENCRYPTION_CONFIG.ivLength,
+        'salt+iv'
+      );
+
+      if (!saltAndIv) {
+        throw new Error('Invalid encrypted data: malformed salt/iv');
       }
+
       salt = saltAndIv.subarray(0, ENCRYPTION_CONFIG.saltLength);
       iv = saltAndIv.subarray(ENCRYPTION_CONFIG.saltLength);
     }
@@ -167,7 +270,6 @@ export function decrypt(encryptedValue: EncryptedValue): string {
     );
 
     // Set authentication tag
-    const tag = Buffer.from(encryptedValue.tag, 'base64');
     decipher.setAuthTag(tag);
 
     // Decrypt
@@ -287,6 +389,9 @@ export function testEncryption(): boolean {
 
 /**
  * Get encryption info for diagnostics.
+ *
+ * SECURITY FIX: machineId is no longer exposed to prevent key derivation attacks.
+ * The machineId hash is provided instead for debugging purposes only.
  */
 export function getEncryptionInfo(): {
   algorithm: string;
@@ -294,14 +399,19 @@ export function getEncryptionInfo(): {
   ivLength: number;
   pbkdf2Iterations: number;
   version: number;
-  machineId: string;
+  machineIdHash: string;
 } {
+  // SECURITY FIX: Hash the machine ID instead of exposing it directly
+  // This prevents attackers from using exposed diagnostics to derive encryption keys
+  const machineId = getMachineIdentifier();
+  const hash = crypto.createHash('sha256').update(machineId).digest('hex').substring(0, 16);
+
   return {
     algorithm: ENCRYPTION_CONFIG.algorithm,
     keyLength: ENCRYPTION_CONFIG.keyLength,
     ivLength: ENCRYPTION_CONFIG.ivLength,
     pbkdf2Iterations: ENCRYPTION_CONFIG.pbkdf2Iterations,
     version: ENCRYPTION_CONFIG.version,
-    machineId: getMachineIdentifier(),
+    machineIdHash: hash, // Only expose a truncated hash for debugging
   };
 }

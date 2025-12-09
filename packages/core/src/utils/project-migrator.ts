@@ -325,7 +325,7 @@ export class ProjectMigrator {
    * @returns User's choice
    */
   static async promptForMigration(
-    provider: ProviderDefinition,
+    _provider: ProviderDefinition,
     summary: ProjectMigrationSummary
   ): Promise<ProjectMigrationChoice> {
     console.log(''); // Blank line

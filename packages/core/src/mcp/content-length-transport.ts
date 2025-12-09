@@ -245,12 +245,14 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
         skipTo = nextJsonStart;
       }
 
-      if (skipTo > 0) {
+      // BUG FIX: Changed from > 0 to >= 0 to handle case where valid message
+      // is at position 0. When indexOf returns 0, we should NOT clear the buffer.
+      if (skipTo >= 0) {
         // Skip to the next potentially valid message
         this.buffer = this.buffer.subarray(skipTo);
         return null; // Caller will retry
       } else {
-        // No valid message found - clear buffer (corrupted data)
+        // No valid message found (skipTo is -1) - clear buffer (corrupted data)
         this.buffer = Buffer.alloc(0);
         return null;
       }

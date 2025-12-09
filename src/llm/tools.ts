@@ -57,7 +57,7 @@ export function getMCPManager(clientConfig?: { name?: string; version?: string }
  */
 export function resetMCPManager(): void {
   if (mcpManager) {
-    mcpManager.dispose();
+    void mcpManager.dispose();
     mcpManager = null;
     _mcpClientConfig = undefined;
   }

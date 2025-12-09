@@ -183,7 +183,9 @@ export function createCacheCommand(): Command {
           return;
         }
 
-        const caches = await Promise.all(
+        // BUG FIX: Use Promise.allSettled to handle race conditions where files
+        // may be deleted between readdir() and stat() calls
+        const cacheResults = await Promise.allSettled(
           cacheFiles.map(async (file) => {
             const namespace = file.replace('.json', '');
             const filePath = join(cacheDir, file);
@@ -197,6 +199,19 @@ export function createCacheCommand(): Command {
             };
           })
         );
+
+        // Filter to only successful results
+        const caches = cacheResults
+          .filter((r): r is PromiseFulfilledResult<{ namespace: string; file: string; size: number; modified: Date }> =>
+            r.status === 'fulfilled'
+          )
+          .map(r => r.value);
+
+        // Warn about any failed stat operations
+        const failedCount = cacheResults.filter(r => r.status === 'rejected').length;
+        if (failedCount > 0 && !options.json) {
+          console.log(chalk.yellow(`⚠ ${failedCount} cache file(s) could not be read`));
+        }
 
         if (options.json) {
           console.log(JSON.stringify({ caches }, null, 2));

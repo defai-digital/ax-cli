@@ -366,13 +366,15 @@ export class HooksManager {
 
   /**
    * Execute PostToolUse hooks (fire-and-forget)
+   * BUG FIX: Removed misleading async keyword since this is intentionally fire-and-forget
+   * The function dispatches hooks but doesn't wait for completion
    */
-  async executePostToolHooks(
+  executePostToolHooks(
     toolName: string,
     toolArgs: Record<string, unknown>,
     toolId: string,
     toolResult: import("../types/index.js").ToolResult
-  ): Promise<void> {
+  ): void {
     const input: HookInput = {
       event: "PostToolUse",
       projectDir: this.projectDir,
@@ -385,7 +387,8 @@ export class HooksManager {
       toolResult,
     };
 
-    // Execute hooks but don't wait for them
+    // Execute hooks but don't wait for them (intentional fire-and-forget)
+    // Error handling is done via .catch() to prevent unhandled rejection
     this.executeHooks("PostToolUse", input).catch((error) => {
       console.warn("PostToolUse hook error:", extractErrorMessage(error));
     });

@@ -122,7 +122,7 @@ export class ProcessPool extends EventEmitter {
       const task = this.taskQueue.shift();
       if (!task) break;
 
-      this.executeTask(task);
+      void this.executeTask(task);
     }
   }
 

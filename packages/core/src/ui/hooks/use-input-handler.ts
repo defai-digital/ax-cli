@@ -752,9 +752,13 @@ export function useInputHandler({
         // Track timeout for cleanup on unmount
         retryTimeoutRef.current = setTimeout(() => {
           retryTimeoutRef.current = null;
-          // Call async function and handle promise rejection
-          handleInputSubmit(messageToRetry).catch(() => {
-            // Restore history if retry fails
+          // BUG FIX: Properly handle async errors with explicit Promise chain
+          // The catch must be attached immediately to prevent unhandled rejection
+          void handleInputSubmit(messageToRetry).catch((error) => {
+            // Log error for debugging, then restore history
+            if (process.env.DEBUG || process.env.AX_DEBUG) {
+              console.error('Retry failed:', error);
+            }
             setChatHistory(historyBackup);
           });
         }, 50);

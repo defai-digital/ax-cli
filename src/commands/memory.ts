@@ -401,7 +401,7 @@ export function createMemoryCommand(): Command {
         const content = fs.readFileSync(customMdPath, 'utf-8');
 
         prompts.intro('Custom Instructions');
-        await prompts.note(content, customMdPath);
+        prompts.note(content, customMdPath);
 
         console.log(`\n📝 ${content.length} characters\n`);
       } catch (error) {
@@ -629,7 +629,7 @@ export function createMemoryCommand(): Command {
 
         prompts.intro('Custom Instructions Statistics');
 
-        await prompts.note(
+        prompts.note(
           `Characters: ${chars}\n` +
           `Words: ${words}\n` +
           `Lines: ${lines}\n` +
@@ -652,7 +652,7 @@ export function createMemoryCommand(): Command {
 
           if (result.success) {
             const indexData = result.data;
-            await prompts.note(
+            prompts.note(
               `Name: ${indexData.projectName || 'Unknown'}\n` +
               `Type: ${indexData.projectType || 'Unknown'}\n` +
               `Language: ${indexData.primaryLanguage || 'Unknown'}\n` +

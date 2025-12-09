@@ -144,8 +144,15 @@ export class RateLimiter {
    *
    * @param cost - Number of tokens to consume (default: 1)
    * @returns Rate limit result indicating if request is allowed
+   * @throws Error if cost is not a positive number
    */
   tryAcquire(cost: number = 1): RateLimitResult {
+    // BUG FIX: Validate cost parameter to prevent negative token counts
+    // Without this, cost <= 0 would always return allowed=true and corrupt token state
+    if (!Number.isFinite(cost) || cost <= 0) {
+      throw new Error(`Rate limiter cost must be a positive number, got: ${cost}`);
+    }
+
     this.refill();
 
     const allowed = this.tokens >= cost;

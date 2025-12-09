@@ -312,8 +312,8 @@ function convertClaudeCodeFormat(config: ClaudeCodeMCPConfig): MCPServerConfig[]
       name,
       enabled: true,
       transport,
-      // Default timeout for provider MCP servers
-      initTimeout: 30000,
+      // Default timeout for provider MCP servers (60s to handle slow startups)
+      initTimeout: 60000,
       // Suppress verbose output by default
       quiet: true,
     });
@@ -378,7 +378,8 @@ function convertLegacyFormat(config: LegacyProviderMCPConfig): MCPServerConfig[]
     name: serverName,
     enabled: true,
     transport,
-    initTimeout: mcp.timeout || 30000,
+    // Use configured timeout or default to 60s for reliable initialization
+    initTimeout: mcp.timeout || 60000,
     // Suppress verbose output by default
     quiet: true,
   }];

@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-cli",
-  "version": "4.3.5",
+  "version": "4.3.6",
   "sdkVersion": "1.4.0",
   "description": "Enterprise-Class AI Command Line Interface - Primary support for GLM (General Language Model) with multi-provider AI orchestration powered by AutomatosX.",
   "type": "module",
@@ -49,7 +49,8 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run build:legacy"
+    "prepublishOnly": "npm run build:legacy",
+    "prepare": "husky"
   },
   "keywords": [
     "cli",
@@ -113,6 +114,8 @@
     "@vitest/coverage-v8": "^4.0.15",
     "@vitest/ui": "^4.0.15",
     "eslint": "^9.31.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.15"
@@ -136,5 +139,10 @@
     "url": "https://github.com/defai-digital/ax-cli/issues"
   },
   "homepage": "https://github.com/defai-digital/ax-cli#readme",
-  "preferGlobal": true
+  "preferGlobal": true,
+  "lint-staged": {
+    "packages/**/*.{ts,tsx}": [
+      "eslint --fix"
+    ]
+  }
 }

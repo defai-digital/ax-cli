@@ -99,10 +99,17 @@ export type ApiKeyId = Brand<string, 'ApiKeyId'>;
 /**
  * MCP Server ID - Unique identifier for Model Context Protocol servers
  *
+ * IMPORTANT: Server names cannot contain "__" (double underscore) as this is used
+ * as the separator in MCP tool names (e.g., mcp__serverName__toolName).
+ * If allowed, it would break extractServerNameFromTool() parsing.
+ *
  * @security MUST validate at MCP configuration boundaries
  */
 export const MCPServerId = createBrandFactory(
-  z.string().min(1),
+  z.string().min(1).refine(
+    (s) => !s.includes('__'),
+    { message: 'MCP server name cannot contain "__" (double underscore) - it is used as a separator in tool names' }
+  ),
   'MCPServerId'
 );
 
@@ -111,8 +118,13 @@ export type MCPServerId = Brand<string, 'MCPServerId'>;
 /**
  * MCPServerIdSchema - Zod schema for MCPServerId that can be used in z.object()
  * In Zod 4, we use a plain string schema for object properties
+ *
+ * IMPORTANT: Server names cannot contain "__" (double underscore) - see MCPServerId above.
  */
-export const MCPServerIdSchema = z.string().min(1);
+export const MCPServerIdSchema = z.string().min(1).refine(
+  (s) => !s.includes('__'),
+  { message: 'MCP server name cannot contain "__" (double underscore) - it is used as a separator in tool names' }
+);
 
 /**
  * Usage Record ID - Unique identifier for usage tracking records

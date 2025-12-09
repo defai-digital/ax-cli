@@ -179,11 +179,17 @@ export async function openExternalEditor(
  * @returns True if editor is available
  */
 export async function isEditorAvailable(editor?: string): Promise<boolean> {
-  const editorToCheck = editor || getPreferredEditor();
+  // BUG FIX: Guard against empty strings passed as editor parameter
+  // Empty strings are falsy but would bypass the || fallback
+  const editorToCheck = editor?.trim() || getPreferredEditor();
 
   try {
     // Try to get editor version/help (most editors support --version or --help)
     const command = editorToCheck.split(' ')[0]; // Get just the command name
+    // BUG FIX: Validate command is not empty before shell execution
+    if (!command) {
+      return false;
+    }
     await execAsync(`command -v ${command}`, { timeout: 1000 });
     return true;
   } catch {
@@ -195,7 +201,8 @@ export async function isEditorAvailable(editor?: string): Promise<boolean> {
  * Get user-friendly editor name for display
  */
 export function getEditorDisplayName(editor?: string): string {
-  const editorToCheck = editor || getPreferredEditor();
+  // BUG FIX: Guard against empty strings passed as editor parameter
+  const editorToCheck = editor?.trim() || getPreferredEditor();
   const command = editorToCheck.split(' ')[0]; // Get just the command name
 
   // Map common editors to friendly names

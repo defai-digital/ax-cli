@@ -1,0 +1,26 @@
+# CODEOWNERS file for ax-cli
+# These owners will be requested for review when changes are made to the paths specified.
+
+# Global owner for all files
+* @defai-digital/core
+
+# Core packages require review from core team
+/packages/core/ @defai-digital/core
+/packages/schemas/ @defai-digital/core
+
+# Provider-specific packages
+/packages/ax-glm/ @defai-digital/core
+/packages/ax-grok/ @defai-digital/core
+/packages/ax-cli/ @defai-digital/core
+
+# Configuration files require senior review
+/tsconfig*.json @defai-digital/core
+/eslint.config.js @defai-digital/core
+/package.json @defai-digital/core
+/pnpm-workspace.yaml @defai-digital/core
+
+# CI/CD workflows require senior review
+/.github/workflows/ @defai-digital/core
+
+# Security-sensitive files
+/.husky/ @defai-digital/core

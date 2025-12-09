@@ -9,7 +9,8 @@ import * as prompts from '@clack/prompts';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { parseJsonFile } from '../utils/json-utils.js';
-import { TOKEN_CONFIG, CONFIG_DIR_NAME, FILE_NAMES, CONFIG_PATHS } from '../constants.js';
+import { TOKEN_CONFIG, CONFIG_DIR_NAME, FILE_NAMES } from '../constants.js';
+import { getActiveConfigPaths } from '../provider/config.js';
 import {
   ContextGenerator,
   ContextStore,
@@ -19,6 +20,7 @@ import {
   type RefreshOptions,
   type StatusOptions,
 } from '../memory/index.js';
+import { getActiveProvider } from '../provider/config.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -385,11 +387,11 @@ export function createMemoryCommand(): Command {
     .option('-p, --path', 'Show file path only', false)
     .action(async (options: { path?: boolean }) => {
       try {
-        const customMdPath = CONFIG_PATHS.CUSTOM_MD;
+        const customMdPath = getActiveConfigPaths().CUSTOM_MD;
 
         if (!fs.existsSync(customMdPath)) {
           console.error('❌ Custom instructions not found');
-          console.error('   Run: ax-cli init');
+          console.error(`   Run: ${getActiveProvider().branding.cliName} init`);
           process.exit(1);
         }
 
@@ -417,11 +419,11 @@ export function createMemoryCommand(): Command {
     .option('-e, --editor <editor>', 'Specify editor (code, vim, nano)')
     .action(async (options: { editor?: string }) => {
       try {
-        const customMdPath = CONFIG_PATHS.CUSTOM_MD;
+        const customMdPath = getActiveConfigPaths().CUSTOM_MD;
 
         if (!fs.existsSync(customMdPath)) {
           console.error('❌ Custom instructions not found');
-          console.error('   Run: ax-cli init');
+          console.error(`   Run: ${getActiveProvider().branding.cliName} init`);
           process.exit(1);
         }
 
@@ -471,7 +473,7 @@ export function createMemoryCommand(): Command {
         } catch (error) {
           console.error(`❌ Failed to open editor '${editor}'`);
           console.error(`   Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          console.error(`   Try: EDITOR=vim ax-cli memory edit`);
+          console.error(`   Try: EDITOR=vim ${getActiveProvider().branding.cliName} memory edit`);
           process.exit(1);
         }
       } catch (error) {
@@ -487,11 +489,11 @@ export function createMemoryCommand(): Command {
     .option('-s, --section <section>', 'Add to specific section (rules, patterns, workflow, troubleshooting)')
     .action(async (content: string, options: { section?: string }) => {
       try {
-        const customMdPath = CONFIG_PATHS.CUSTOM_MD;
+        const customMdPath = getActiveConfigPaths().CUSTOM_MD;
 
         if (!fs.existsSync(customMdPath)) {
           console.error('❌ Custom instructions not found');
-          console.error('   Run: ax-cli init');
+          console.error(`   Run: ${getActiveProvider().branding.cliName} init`);
           process.exit(1);
         }
 
@@ -548,11 +550,11 @@ export function createMemoryCommand(): Command {
     .option('-y, --yes', 'Skip confirmation', false)
     .action(async (options: { yes?: boolean }) => {
       try {
-        const customMdPath = CONFIG_PATHS.CUSTOM_MD;
+        const customMdPath = getActiveConfigPaths().CUSTOM_MD;
 
         if (!fs.existsSync(customMdPath)) {
           console.error('❌ Custom instructions not found');
-          console.error('   Run: ax-cli init');
+          console.error(`   Run: ${getActiveProvider().branding.cliName} init`);
           process.exit(1);
         }
 
@@ -607,12 +609,12 @@ export function createMemoryCommand(): Command {
     .description('Show statistics about custom instructions')
     .action(async () => {
       try {
-        const customMdPath = CONFIG_PATHS.CUSTOM_MD;
-        const indexPath = CONFIG_PATHS.INDEX_JSON;
+        const customMdPath = getActiveConfigPaths().CUSTOM_MD;
+        const indexPath = getActiveConfigPaths().INDEX_JSON;
 
         if (!fs.existsSync(customMdPath)) {
           console.error('❌ Custom instructions not found');
-          console.error('   Run: ax-cli init');
+          console.error(`   Run: ${getActiveProvider().branding.cliName} init`);
           process.exit(1);
         }
 

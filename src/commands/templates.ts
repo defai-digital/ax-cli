@@ -33,7 +33,7 @@ export function createTemplatesCommand(): Command {
           const tags = template.tags.join(', ');
 
           if (options.verbose) {
-            await prompts.note(
+            prompts.note(
               `${template.description}\n\n` +
               `Type: ${template.projectType}\n` +
               `Tags: ${tags}\n` +
@@ -69,7 +69,7 @@ export function createTemplatesCommand(): Command {
 
         prompts.intro(`Template: ${template.name}`);
 
-        await prompts.note(
+        prompts.note(
           `${template.description}\n\n` +
           `ID: ${template.id}\n` +
           `Version: ${template.version}\n` +
@@ -83,7 +83,7 @@ export function createTemplatesCommand(): Command {
 
         // Show preview of instructions
         const preview = template.instructions.split('\n').slice(0, 10).join('\n');
-        await prompts.note(
+        prompts.note(
           `${preview}\n\n... (${template.instructions.length} characters total)`,
           'Instructions Preview'
         );

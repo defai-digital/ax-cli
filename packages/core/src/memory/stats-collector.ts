@@ -50,10 +50,16 @@ export class StatsCollector {
    *
    * @param promptTokens - Total prompt tokens from response
    * @param cachedTokens - Cached tokens from response (from usage.prompt_tokens_details.cached_tokens)
+   * @returns true if recording succeeded, false otherwise
    */
-  recordResponse(promptTokens: number, cachedTokens: number): void {
-    // Use the store's recordUsage method
-    this.store.recordUsage(promptTokens, cachedTokens);
+  recordResponse(promptTokens: number, cachedTokens: number): boolean {
+    // BUG FIX: Handle the result of recordUsage instead of ignoring it
+    // This prevents silent failures when stats can't be recorded
+    const result = this.store.recordUsage(promptTokens, cachedTokens);
+    if (!result.success && (process.env.DEBUG || process.env.AX_DEBUG)) {
+      console.warn('Failed to record usage stats:', result.error);
+    }
+    return result.success;
   }
 
   /**
