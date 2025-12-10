@@ -191,6 +191,8 @@ export function createCLI(options: CLIFactoryOptions): Command {
       }
 
       if (!apiKey) {
+        // SECURITY: This logs the ENV VAR NAME (e.g., "ZAI_API_KEY"), not the actual key value
+        // lgtm[js/clear-text-logging]
         console.error(`❌ Error: API key required. Set ${provider.apiKeyEnvVar} environment variable or use --api-key flag`);
         process.exit(1);
       }
