@@ -429,6 +429,8 @@ export function isComplexRequest(request: string): boolean {
   );
 
   // Check for multiple file indicators
+  // Limit input length for regex patterns to prevent any potential ReDoS
+  const truncatedRequest = lowerRequest.slice(0, 500);
   const hasMultipleFiles =
     lowerRequest.includes("all files") ||
     lowerRequest.includes("entire") ||
@@ -436,7 +438,7 @@ export function isComplexRequest(request: string): boolean {
     lowerRequest.includes("across") ||
     lowerRequest.includes("every file") ||
     lowerRequest.includes("codebase") ||
-    /\d+ files/.test(lowerRequest);
+    /\d{1,6} files/.test(truncatedRequest);
 
   // Check for multi-step indicators
   const hasMultipleSteps =

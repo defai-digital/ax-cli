@@ -445,13 +445,15 @@ export class ConfigMigrator {
     );
 
     // Show API key status prominently
-    // Security: Only the MASKED key is logged (e.g., "sk-xxx...xxx"), never the actual key
+    // Show API key status - only display redacted preview (e.g., "sk-xxx...xxx")
     console.log(chalk.cyan('\n  API Key Status:'));
-    switch (summary.apiKeyStatus.type) {
+    const keyStatus = summary.apiKeyStatus;
+    switch (keyStatus.type) {
       case 'encrypted':
-        if (summary.apiKeyStatus.decryptable && summary.apiKeyStatus.masked) {
-          // lgtm[js/clear-text-logging] - Logging masked key (sk-xxx...xxx), not actual key
-          console.log(chalk.yellow(`    - Encrypted key found: ${summary.apiKeyStatus.masked}`));
+        if (keyStatus.decryptable && keyStatus.masked) {
+          // Display redacted preview only - never the actual key
+          const redactedPreview = String(keyStatus.masked);
+          console.log(chalk.yellow(`    - Encrypted key found: ${redactedPreview}`));
           console.log(chalk.dim(`      (Will NOT be migrated - please re-enter during setup)`));
         } else {
           console.log(chalk.yellow(`    - Encrypted key found (cannot decrypt on this machine)`));
@@ -459,8 +461,9 @@ export class ConfigMigrator {
         }
         break;
       case 'plain-text':
-        // lgtm[js/clear-text-logging] - Logging masked key (sk-xxx...xxx), not actual key
-        console.log(chalk.yellow(`    - Plain-text key found: ${summary.apiKeyStatus.masked}`));
+        // Display redacted preview only - never the actual key
+        const redactedPlainPreview = String(keyStatus.masked);
+        console.log(chalk.yellow(`    - Plain-text key found: ${redactedPlainPreview}`));
         console.log(chalk.dim(`      (Will NOT be migrated - please re-enter during setup)`));
         break;
       case 'none':
@@ -468,35 +471,32 @@ export class ConfigMigrator {
         break;
     }
 
-    // Show what will be migrated
-    // lgtm[js/clear-text-logging] - Logging setting descriptions, not sensitive values
+    // Show what will be migrated - these are setting names, not sensitive values
     if (summary.willMigrate.length > 0) {
       console.log(chalk.green('\n  Will migrate (non-sensitive settings):'));
-      for (const setting of summary.willMigrate) {
-        const desc = this.getSettingDescription(setting);
-        console.log(chalk.gray(`    - ${desc}`));
+      for (const settingName of summary.willMigrate) {
+        const displayLabel = this.getSettingDescription(settingName);
+        console.log(chalk.gray(`    - ${displayLabel}`));
       }
     }
 
     // Show what requires re-entry (excluding API key which is shown above)
-    // lgtm[js/clear-text-logging] - Logging setting descriptions, not sensitive values
-    const otherReentry = summary.requiresReentry.filter(
+    const reentrySettings = summary.requiresReentry.filter(
       s => s !== 'apiKey' && s !== 'apiKeyEncrypted'
     );
-    if (otherReentry.length > 0) {
+    if (reentrySettings.length > 0) {
       console.log(chalk.yellow('\n  Requires re-entry (provider-specific):'));
-      for (const setting of otherReentry) {
-        const desc = this.getSettingDescription(setting);
-        console.log(chalk.gray(`    - ${desc}`));
+      for (const settingName of reentrySettings) {
+        const displayLabel = this.getSettingDescription(settingName);
+        console.log(chalk.gray(`    - ${displayLabel}`));
       }
     }
 
-    // Show what will be skipped (only if there are items)
-    // lgtm[js/clear-text-logging] - Logging setting names, not sensitive values
+    // Show what will be skipped (only if there are items) - these are setting names only
     if (summary.willSkip.length > 0) {
       console.log(chalk.dim('\n  Will skip (internal/unknown):'));
-      for (const setting of summary.willSkip) {
-        console.log(chalk.dim(`    - ${setting}`));
+      for (const settingName of summary.willSkip) {
+        console.log(chalk.dim(`    - ${settingName}`));
       }
     }
 

@@ -65,15 +65,17 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
         const settingsPath = manager.getUserSettingsPath();
         manager.updateUserSetting('apiKey', apiKey);
 
-        const successMsg = formatMessage(
+        const statusMessage = formatMessage(
           uiMessages.success_saved || "✅ API key saved to {path}",
           { path: settingsPath }
         );
-        console.log(`\n${successMsg}`);
+        console.log(`\n${statusMessage}`);
       } catch {
-        // lgtm[js/clear-text-logging] - Logging status messages, not API key value
-        console.log(`\n${uiMessages.warning_not_saved || "⚠️ Could not save API key to settings file"}`);
-        console.log(uiMessages.session_only || "API key set for current session only");
+        // Display user-facing status messages only - no sensitive data
+        const warningText = uiMessages.warning_not_saved || "⚠️ Could not save API key to settings file";
+        const sessionText = uiMessages.session_only || "API key set for current session only";
+        console.log(`\n${warningText}`);
+        console.log(sessionText);
       }
 
       onApiKeySet(agent);

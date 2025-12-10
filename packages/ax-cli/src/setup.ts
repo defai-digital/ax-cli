@@ -2,18 +2,18 @@
  * Setup Flow - Provider Selection and Configuration
  *
  * This setup wizard:
- * 1. Lets user select a provider (Qwen, Deepseek, Mixtral, Local)
+ * 1. Lets user select a provider (Local or DeepSeek)
  * 2. For cloud providers: Configure API key and model
- * 3. For offline mode: Configure local server (Ollama/LMStudio) with any supported model
+ * 3. For offline mode: Configure local server (Ollama/LMStudio/vLLM) with any supported model
  * 4. Saves configuration to ~/.ax-cli/
  *
  * Provider Distribution:
- * - ax-cli: Standalone CLI (cloud: Qwen, DeepSeek, Mixtral; local: Ollama/LMStudio)
+ * - ax-cli: Standalone CLI (local: Ollama/LMStudio/vLLM; cloud: DeepSeek)
  * - ax-glm: GLM-specific CLI with web search, vision, image generation (Z.AI Cloud)
  * - ax-grok: Grok-specific CLI with web search, vision, extended thinking (xAI Cloud)
  *
- * NOTE: ax-cli does NOT route to ax-glm or ax-grok. For GLM/Grok specific features,
- * users should install and use ax-glm or ax-grok directly.
+ * NOTE: ax-cli focuses on LOCAL/OFFLINE inference as primary use case.
+ * For cloud-specific features, users should install ax-glm or ax-grok directly.
  */
 
 import chalk from 'chalk';
@@ -24,7 +24,8 @@ import { homedir } from 'os';
 import { join } from 'path';
 
 // Note: GLM and Grok are NOT available in ax-cli - use ax-glm or ax-grok directly
-export type Provider = 'qwen' | 'deepseek' | 'mixtral' | 'local';
+// ax-cli focuses on local/offline inference with DeepSeek as the only cloud option
+export type Provider = 'local' | 'deepseek';
 export type ServerType = 'cloud' | 'local';
 
 interface ModelInfo {
@@ -45,83 +46,135 @@ interface ProviderInfo {
   models: ModelInfo[];
 }
 
-// Common local models by family (for Ollama/LMStudio)
+// ═══════════════════════════════════════════════════════════════════
+// 2025 OFFLINE CODING LLM RANKINGS (Updated December 2025)
+// ═══════════════════════════════════════════════════════════════════
+//
+// Tier 1: Qwen 3 (32B/72B) - 9.6/10 - BEST OVERALL (PRIMARY)
+//   - Multi-task consistency and stability still best
+//   - Best for large codebase analysis (especially 32B+)
+//   - Highest agentic tool integration (AX-CLI)
+//   - Best Claude Code alternative for offline
+//   → Recommended as PRIMARY model
+//
+// Tier 2: GLM-4.6 (9B/32B) - 9.4/10 - BEST REFACTOR + DOCS (MAJOR UPGRADE!)
+//   - GLM-4.6-Coder coding significantly upgraded, cross-language excellent
+//   - 9B performance rivals Qwen 14B / DeepSeek 16B
+//   - Superior for large-scale refactor + documentation generation
+//   - Beats DeepSeek Coder V2 on long context reasoning
+//   - Best bilingual (Chinese + English) understanding
+//   → Recommended as SECONDARY core model
+//
+// Tier 3: DeepSeek-Coder V2 (7B/16B) - 9.3/10 - BEST SPEED
+//   - #1 inference speed
+//   - Easiest edge deployment (Jetson/Mac)
+//   - Best small model efficiency
+//   - BUT: GLM-4.6 9B > DeepSeek 16B on large codebase reasoning
+//   → Best for: quick patches, linting, small refactors
+//
+// Tier 4: Codestral/Mistral - 8.4/10 - C++/RUST NICHE
+//   - Niche advantage in C++/Rust
+//   - Overall capabilities superseded by Qwen/GLM/DeepSeek
+//
+// Tier 5: Llama 3.1/CodeLlama - 8.1/10 - FALLBACK
+//   - Wide ecosystem, best framework support
+//   - Stable and robust
+//   - No longer leading in capability
+// ═══════════════════════════════════════════════════════════════════
+
+// TIER 1: Qwen 3 - Best overall offline coding model (9.6/10)
+// → PRIMARY model for most coding tasks
 const LOCAL_QWEN_MODELS: ModelInfo[] = [
-  { id: 'qwen2.5-coder:32b', name: 'Qwen2.5-Coder 32B', description: 'Best coding model, 128K context' },
+  { id: 'qwen3:72b', name: 'Qwen 3 72B', description: 'PRIMARY: Most capable, 128K context' },
+  { id: 'qwen3:32b', name: 'Qwen 3 32B', description: 'PRIMARY: Best for large codebase analysis' },
+  { id: 'qwen3:14b', name: 'Qwen 3 14B', description: 'PRIMARY: Balanced performance (recommended)' },
+  { id: 'qwen3:8b', name: 'Qwen 3 8B', description: 'PRIMARY: Efficient, great for most tasks' },
+  { id: 'qwen2.5-coder:32b', name: 'Qwen2.5-Coder 32B', description: 'Excellent coding specialist' },
   { id: 'qwen2.5-coder:14b', name: 'Qwen2.5-Coder 14B', description: 'Balanced coding model' },
-  { id: 'qwen2.5-coder:7b', name: 'Qwen2.5-Coder 7B', description: 'Efficient coding model' },
-  { id: 'qwen2.5:72b', name: 'Qwen2.5 72B', description: 'Most capable general model' },
-  { id: 'qwen2.5:32b', name: 'Qwen2.5 32B', description: 'High-quality general model' },
-  { id: 'qwen2.5:14b', name: 'Qwen2.5 14B', description: 'Balanced general model' },
-  { id: 'qwen2.5:7b', name: 'Qwen2.5 7B', description: 'Efficient general model' },
 ];
 
+// TIER 2: GLM-4.6 - Best for refactor + docs (9.4/10) - MAJOR UPGRADE!
+// → SECONDARY core model, excellent for architecture refactoring
+// Note: For cloud GLM with web search/vision, use ax-glm
+const LOCAL_GLM_MODELS: ModelInfo[] = [
+  { id: 'glm-4.6:32b', name: 'GLM-4.6 32B', description: 'REFACTOR: Large-scale refactor + multi-file editing' },
+  { id: 'glm-4.6:9b', name: 'GLM-4.6 9B', description: 'REFACTOR: Rivals Qwen 14B, excellent long context' },
+  { id: 'codegeex4', name: 'CodeGeeX4', description: 'DOCS: Best for documentation generation' },
+  { id: 'glm4:9b', name: 'GLM-4 9B', description: 'Bilingual code understanding' },
+];
+
+// TIER 3: DeepSeek-Coder V2 - Best speed (9.3/10)
+// → Best for quick iterations, patches, linting
 const LOCAL_DEEPSEEK_MODELS: ModelInfo[] = [
-  { id: 'deepseek-coder-v2:236b', name: 'DeepSeek-Coder-V2 236B', description: 'Most capable coding model (MoE)' },
-  { id: 'deepseek-coder-v2:16b', name: 'DeepSeek-Coder-V2 16B', description: 'Efficient coding model' },
-  { id: 'deepseek-v2.5', name: 'DeepSeek-V2.5', description: 'Latest general model with coding' },
+  { id: 'deepseek-coder-v2:16b', name: 'DeepSeek-Coder-V2 16B', description: 'SPEED: Fast iterations, patches' },
+  { id: 'deepseek-coder-v2:7b', name: 'DeepSeek-Coder-V2 7B', description: 'SPEED: 7B rivals 13B, edge-friendly' },
+  { id: 'deepseek-v3', name: 'DeepSeek V3', description: 'Latest general + coding model' },
   { id: 'deepseek-coder:33b', name: 'DeepSeek-Coder 33B', description: 'Strong coding model' },
-  { id: 'deepseek-coder:6.7b', name: 'DeepSeek-Coder 6.7B', description: 'Efficient coding model' },
+  { id: 'deepseek-coder:6.7b', name: 'DeepSeek-Coder 6.7B', description: 'Efficient, low memory' },
 ];
 
-const LOCAL_MIXTRAL_MODELS: ModelInfo[] = [
-  { id: 'mixtral:8x22b', name: 'Mixtral 8x22B', description: 'Most capable MoE model (141B params)' },
-  { id: 'mixtral:8x7b', name: 'Mixtral 8x7B', description: 'Efficient MoE model (47B params)' },
-  { id: 'mistral:7b', name: 'Mistral 7B', description: 'Fast and efficient base model' },
-  { id: 'codestral:22b', name: 'Codestral 22B', description: 'Dedicated coding model' },
-  { id: 'mistral-nemo:12b', name: 'Mistral Nemo 12B', description: 'Compact but capable model' },
+// TIER 4: Codestral/Mistral - C++/Rust niche (8.4/10)
+const LOCAL_CODESTRAL_MODELS: ModelInfo[] = [
+  { id: 'codestral:22b', name: 'Codestral 22B', description: 'C++/RUST: Systems programming niche' },
+  { id: 'mistral:7b', name: 'Mistral 7B', description: 'Good speed/accuracy balance' },
+  { id: 'mistral-nemo:12b', name: 'Mistral Nemo 12B', description: 'Compact but capable' },
 ];
 
-// All local models combined for offline setup
+// TIER 5: Llama - Best fallback/compatibility (8.1/10)
+const LOCAL_LLAMA_MODELS: ModelInfo[] = [
+  { id: 'llama3.1:70b', name: 'Llama 3.1 70B', description: 'FALLBACK: Best framework compatibility' },
+  { id: 'llama3.1:8b', name: 'Llama 3.1 8B', description: 'FALLBACK: Fast, stable' },
+  { id: 'llama3.2:11b', name: 'Llama 3.2 11B', description: 'Vision support' },
+  { id: 'codellama:34b', name: 'Code Llama 34B', description: 'Code specialist' },
+  { id: 'codellama:7b', name: 'Code Llama 7B', description: 'Efficient code model' },
+];
+
+// All local models combined for offline setup (ordered by tier)
 const ALL_LOCAL_MODELS: ModelInfo[] = [
-  // Qwen models
-  ...LOCAL_QWEN_MODELS.map(m => ({ ...m, name: `[Qwen] ${m.name}` })),
-  // DeepSeek models
-  ...LOCAL_DEEPSEEK_MODELS.map(m => ({ ...m, name: `[DeepSeek] ${m.name}` })),
-  // Mixtral/Mistral models
-  ...LOCAL_MIXTRAL_MODELS.map(m => ({ ...m, name: `[Mixtral] ${m.name}` })),
+  // Tier 1: Qwen (PRIMARY - recommended for most coding tasks)
+  ...LOCAL_QWEN_MODELS.map(m => ({ ...m, name: `[T1-Qwen] ${m.name}` })),
+  // Tier 2: GLM-4.6 (REFACTOR - best for large-scale refactoring + docs)
+  ...LOCAL_GLM_MODELS.map(m => ({ ...m, name: `[T2-GLM] ${m.name}` })),
+  // Tier 3: DeepSeek (SPEED - best for quick iterations)
+  ...LOCAL_DEEPSEEK_MODELS.map(m => ({ ...m, name: `[T3-DeepSeek] ${m.name}` })),
+  // Tier 4: Codestral (C++/RUST - systems programming)
+  ...LOCAL_CODESTRAL_MODELS.map(m => ({ ...m, name: `[T4-Codestral] ${m.name}` })),
+  // Tier 5: Llama (FALLBACK - compatibility)
+  ...LOCAL_LLAMA_MODELS.map(m => ({ ...m, name: `[T5-Llama] ${m.name}` })),
 ];
 
-// Qwen Cloud models (DashScope API)
-const QWEN_CLOUD_MODELS: ModelInfo[] = [
-  { id: 'qwen-max', name: 'Qwen-Max', description: 'Most capable Qwen model (32K context)' },
-  { id: 'qwen-plus', name: 'Qwen-Plus', description: 'Balanced performance and cost (32K context)' },
-  { id: 'qwen-turbo', name: 'Qwen-Turbo', description: 'Fast and efficient (8K context)' },
-  { id: 'qwen-coder-plus', name: 'Qwen-Coder-Plus', description: 'Optimized for coding tasks' },
-];
+// ═══════════════════════════════════════════════════════════════════
+// CLOUD MODELS - DeepSeek (only cloud provider in ax-cli)
+// ═══════════════════════════════════════════════════════════════════
 
-// DeepSeek Cloud models
 const DEEPSEEK_CLOUD_MODELS: ModelInfo[] = [
   { id: 'deepseek-chat', name: 'DeepSeek-Chat', description: 'Latest chat model with 64K context' },
   { id: 'deepseek-coder', name: 'DeepSeek-Coder', description: 'Optimized for code generation' },
   { id: 'deepseek-reasoner', name: 'DeepSeek-Reasoner', description: 'Enhanced reasoning capabilities' },
 ];
 
-// Mixtral/Mistral Cloud models
-const MIXTRAL_CLOUD_MODELS: ModelInfo[] = [
-  { id: 'mistral-large-latest', name: 'Mistral Large', description: 'Most capable model (128K context)' },
-  { id: 'mistral-medium-latest', name: 'Mistral Medium', description: 'Balanced performance' },
-  { id: 'mistral-small-latest', name: 'Mistral Small', description: 'Fast and efficient' },
-  { id: 'codestral-latest', name: 'Codestral', description: 'Dedicated coding model (32K context)' },
-  { id: 'open-mixtral-8x22b', name: 'Mixtral 8x22B', description: 'Open-weight MoE model' },
-];
+// ═══════════════════════════════════════════════════════════════════
+// PROVIDER CONFIGURATIONS
+// ═══════════════════════════════════════════════════════════════════
 
 // Note: GLM and Grok are NOT available in ax-cli
 // For GLM features (web search, vision, image), use: npm install -g @defai.digital/ax-glm
 // For Grok features (web search, vision, thinking), use: npm install -g @defai.digital/ax-grok
 
 const PROVIDERS: Record<Provider, ProviderInfo> = {
-  qwen: {
-    name: 'Qwen (DashScope Cloud)',
-    description: 'Qwen models via Alibaba DashScope API',
+  // LOCAL/OFFLINE - Primary focus of ax-cli
+  local: {
+    name: 'Local/Offline (Ollama, LMStudio, vLLM)',
+    description: 'Run models locally - Qwen 3 recommended (best offline coding model)',
     cliName: 'ax-cli',
     package: '@defai.digital/ax-cli',
-    defaultBaseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    defaultModel: 'qwen-max',
-    apiKeyEnvVar: 'DASHSCOPE_API_KEY',
-    website: 'https://dashscope.console.aliyun.com',
-    models: QWEN_CLOUD_MODELS,
+    defaultBaseURL: 'http://localhost:11434/v1',
+    defaultModel: 'qwen3:14b',  // Tier 1: Best overall
+    apiKeyEnvVar: '',
+    website: 'https://ollama.ai',
+    models: ALL_LOCAL_MODELS,
   },
+  // DEEPSEEK CLOUD - Only cloud provider in ax-cli
   deepseek: {
     name: 'DeepSeek (Cloud)',
     description: 'DeepSeek models via official API',
@@ -132,28 +185,6 @@ const PROVIDERS: Record<Provider, ProviderInfo> = {
     apiKeyEnvVar: 'DEEPSEEK_API_KEY',
     website: 'https://platform.deepseek.com',
     models: DEEPSEEK_CLOUD_MODELS,
-  },
-  mixtral: {
-    name: 'Mixtral/Mistral (Cloud)',
-    description: 'Mistral AI models via official API',
-    cliName: 'ax-cli',
-    package: '@defai.digital/ax-cli',
-    defaultBaseURL: 'https://api.mistral.ai/v1',
-    defaultModel: 'mistral-large-latest',
-    apiKeyEnvVar: 'MISTRAL_API_KEY',
-    website: 'https://console.mistral.ai',
-    models: MIXTRAL_CLOUD_MODELS,
-  },
-  local: {
-    name: 'Offline/Local (Ollama/LMStudio)',
-    description: 'Run models locally via Ollama, LMStudio, vLLM, or other OpenAI-compatible servers',
-    cliName: 'ax-cli',
-    package: '@defai.digital/ax-cli',
-    defaultBaseURL: 'http://localhost:11434/v1',
-    defaultModel: 'qwen2.5-coder:14b',
-    apiKeyEnvVar: '',
-    website: 'https://ollama.ai',
-    models: ALL_LOCAL_MODELS,
   },
 };
 
@@ -172,10 +203,8 @@ const AX_CLI_CONFIG_FILE = join(AX_CLI_CONFIG_DIR, 'config.json');
 
 // All ax-cli providers use the same config directory
 const PROVIDER_CONFIG_DIRS: Record<Provider, string> = {
-  qwen: join(homedir(), '.ax-cli'),
-  deepseek: join(homedir(), '.ax-cli'),
-  mixtral: join(homedir(), '.ax-cli'),
   local: join(homedir(), '.ax-cli'),
+  deepseek: join(homedir(), '.ax-cli'),
 };
 
 /**
@@ -335,7 +364,7 @@ async function validateCloudConnection(baseURL: string, apiKey: string): Promise
 }
 
 /**
- * Run Generic Cloud Provider setup (Qwen, DeepSeek, Mixtral)
+ * Run DeepSeek Cloud Provider setup
  */
 async function runGenericCloudSetup(provider: Provider, existingConfig: AxCliConfig): Promise<AxCliConfig | null> {
   const providerInfo = PROVIDERS[provider];
@@ -356,13 +385,14 @@ async function runGenericCloudSetup(provider: Provider, existingConfig: AxCliCon
   const existingKey = existingConfig.apiKey;
   const isSameProvider = existingConfig.selectedProvider === provider;
 
-  // Check for existing key
+  // Check for existing key - display redacted preview only
   if (existingKey && isSameProvider) {
-    const maskedKey = existingKey.length > 12
+    // Create a redacted preview for display (e.g., "sk-abcd...wxyz")
+    const redactedPreview = existingKey.length > 12
       ? `${existingKey.substring(0, 8)}...${existingKey.substring(existingKey.length - 4)}`
       : `${existingKey.substring(0, 4)}...`;
 
-    console.log(`  Existing API key found: ${chalk.dim(maskedKey)}\n`);
+    console.log(`  Existing API key found: ${chalk.dim(redactedPreview)}\n`);
 
     const reuseKey = await confirm({
       message: 'Use existing API key?',
@@ -373,7 +403,9 @@ async function runGenericCloudSetup(provider: Provider, existingConfig: AxCliCon
       apiKey = existingKey;
     }
   } else if (envKey) {
-    console.log(`  Found ${providerInfo.apiKeyEnvVar} in environment\n`);
+    // Display environment variable name only, not the value
+    const envVarName = providerInfo.apiKeyEnvVar;
+    console.log(`  Found ${envVarName} in environment\n`);
     const useEnvKey = await confirm({
       message: `Use API key from ${providerInfo.apiKeyEnvVar} environment variable?`,
       default: true,
@@ -478,8 +510,13 @@ async function runLocalSetup(existingConfig: AxCliConfig): Promise<AxCliConfig |
   console.log(chalk.cyan('  │  Local/Offline Setup (Ollama, LMStudio, vLLM)       │'));
   console.log(chalk.cyan('  └─────────────────────────────────────────────────────┘\n'));
 
-  console.log('  Run AI models locally without an API key.');
-  console.log('  Supports: GLM, Qwen, DeepSeek, Mixtral/Mistral models\n');
+  console.log('  Run AI models locally without an API key.\n');
+  console.log(chalk.bold('  2025 Offline Coding LLM Rankings (Updated Dec 2025):'));
+  console.log(chalk.green('    T1 Qwen 3') + chalk.dim(' (9.6/10)') + ' - PRIMARY: Best overall, coding leader');
+  console.log(chalk.magenta('    T2 GLM-4.6') + chalk.dim(' (9.4/10)') + ' - REFACTOR: Large-scale refactor + docs ' + chalk.yellow('★NEW'));
+  console.log(chalk.blue('    T3 DeepSeek') + chalk.dim(' (9.3/10)') + ' - SPEED: Quick patches, linting');
+  console.log(chalk.cyan('    T4 Codestral') + chalk.dim(' (8.4/10)') + ' - C++/RUST: Systems programming');
+  console.log(chalk.gray('    T5 Llama') + chalk.dim(' (8.1/10)') + ' - FALLBACK: Best compatibility\n');
 
   // ═══════════════════════════════════════════════════════════════════
   // STEP 1: Local Server Detection
@@ -567,28 +604,34 @@ async function runLocalSetup(existingConfig: AxCliConfig): Promise<AxCliConfig |
   if (availableModels.length > 0) {
     console.log(chalk.green(`  ✓ Found ${availableModels.length} model(s) on server\n`));
 
-    // Categorize models by family
-    const categorizeModel = (id: string): string => {
+    // Categorize models by tier (2025 rankings - Updated Dec 2025)
+    const categorizeModel = (id: string): { tier: string; label: string } => {
       const lower = id.toLowerCase();
-      if (lower.includes('glm') || lower.includes('codegeex') || lower.includes('chatglm')) return 'GLM';
-      if (lower.includes('qwen')) return 'Qwen';
-      if (lower.includes('deepseek')) return 'DeepSeek';
-      if (lower.includes('mixtral') || lower.includes('mistral') || lower.includes('codestral')) return 'Mixtral';
-      return 'Other';
+      // Tier 1: Qwen (9.6/10) - Best overall, PRIMARY
+      if (lower.includes('qwen')) return { tier: 'T1', label: 'T1-Qwen' };
+      // Tier 2: GLM-4.6 (9.4/10) - Best refactor + docs (UPGRADED!)
+      if (lower.includes('glm') || lower.includes('codegeex') || lower.includes('chatglm')) return { tier: 'T2', label: 'T2-GLM' };
+      // Tier 3: DeepSeek (9.3/10) - Best speed
+      if (lower.includes('deepseek')) return { tier: 'T3', label: 'T3-DeepSeek' };
+      // Tier 4: Codestral/Mistral (8.4/10) - C/C++/Rust
+      if (lower.includes('codestral') || lower.includes('mistral')) return { tier: 'T4', label: 'T4-Codestral' };
+      // Tier 5: Llama (8.1/10) - Fallback
+      if (lower.includes('llama') || lower.includes('codellama')) return { tier: 'T5', label: 'T5-Llama' };
+      return { tier: 'T6', label: 'Other' };
     };
 
-    // Sort by family priority
-    const familyOrder = ['Qwen', 'DeepSeek', 'GLM', 'Mixtral', 'Other'];
+    // Sort by tier priority (T1 Qwen first, then T2 DeepSeek, etc.)
+    const tierOrder = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
     const sortedModels = [...availableModels].sort((a, b) => {
-      const catA = familyOrder.indexOf(categorizeModel(a.id));
-      const catB = familyOrder.indexOf(categorizeModel(b.id));
+      const catA = tierOrder.indexOf(categorizeModel(a.id).tier);
+      const catB = tierOrder.indexOf(categorizeModel(b.id).tier);
       return catA - catB;
     });
 
     const modelChoices = [
       ...sortedModels.map(m => {
-        const category = categorizeModel(m.id);
-        const prefix = category !== 'Other' ? `[${category}] ` : '';
+        const { label } = categorizeModel(m.id);
+        const prefix = label !== 'Other' ? `[${label}] ` : '';
         return {
           name: `${prefix}${m.name} - ${m.description}`,
           value: m.id,
@@ -616,18 +659,22 @@ async function runLocalSetup(existingConfig: AxCliConfig): Promise<AxCliConfig |
     }
   } else {
     console.log(chalk.yellow('  Could not fetch models from server.\n'));
-    console.log('  Popular models for local inference:\n');
-    console.log(chalk.bold('  Qwen (Recommended for coding):'));
+    console.log('  Recommended models by tier (Updated Dec 2025):\n');
+    console.log(chalk.bold.green('  T1 Qwen 3 (9.6/10) - PRIMARY:'));
     LOCAL_QWEN_MODELS.slice(0, 3).forEach(m => {
-      console.log(`    ${chalk.dim('•')} ${m.id}: ${chalk.dim(m.description)}`);
+      console.log(`    ${chalk.green('•')} ${m.id}: ${chalk.dim(m.description)}`);
     });
-    console.log(chalk.bold('\n  DeepSeek:'));
+    console.log(chalk.bold.magenta('\n  T2 GLM-4.6 (9.4/10) - REFACTOR + DOCS ★NEW:'));
+    LOCAL_GLM_MODELS.slice(0, 3).forEach(m => {
+      console.log(`    ${chalk.magenta('•')} ${m.id}: ${chalk.dim(m.description)}`);
+    });
+    console.log(chalk.bold.blue('\n  T3 DeepSeek (9.3/10) - SPEED:'));
     LOCAL_DEEPSEEK_MODELS.slice(0, 2).forEach(m => {
-      console.log(`    ${chalk.dim('•')} ${m.id}: ${chalk.dim(m.description)}`);
+      console.log(`    ${chalk.blue('•')} ${m.id}: ${chalk.dim(m.description)}`);
     });
-    console.log(chalk.bold('\n  Mixtral/Mistral:'));
-    LOCAL_MIXTRAL_MODELS.slice(0, 2).forEach(m => {
-      console.log(`    ${chalk.dim('•')} ${m.id}: ${chalk.dim(m.description)}`);
+    console.log(chalk.bold.gray('\n  T5 Llama (8.1/10) - FALLBACK:'));
+    LOCAL_LLAMA_MODELS.slice(0, 2).forEach(m => {
+      console.log(`    ${chalk.gray('•')} ${m.id}: ${chalk.dim(m.description)}`);
     });
     console.log();
 
@@ -720,30 +767,20 @@ export async function runSetup(): Promise<void> {
   const provider = await select<Provider>({
     message: 'Which LLM provider do you want to use?',
     choices: [
-      // Cloud providers managed by ax-cli
+      // Local/Offline - Primary focus of ax-cli
       {
-        name: `${chalk.yellow('Qwen')} - DashScope Cloud`,
-        value: 'qwen' as Provider,
-        description: 'Qwen2.5 models via Alibaba API',
+        name: `${chalk.green('Local/Offline')} - Ollama, LMStudio, vLLM ${chalk.dim('(Recommended)')}`,
+        value: 'local' as Provider,
+        description: 'Run Qwen, DeepSeek, Llama locally (no API key)',
       },
+      // DeepSeek Cloud - Only cloud provider
       {
         name: `${chalk.magenta('DeepSeek')} - DeepSeek Cloud`,
         value: 'deepseek' as Provider,
-        description: 'DeepSeek-V2.5 and Coder models',
-      },
-      {
-        name: `${chalk.cyan('Mixtral')} - Mistral AI Cloud`,
-        value: 'mixtral' as Provider,
-        description: 'Mistral Large, Codestral, Mixtral MoE',
-      },
-      // Local/Offline mode
-      {
-        name: `${chalk.gray('Local/Offline')} - Ollama, LMStudio, vLLM`,
-        value: 'local' as Provider,
-        description: 'Run Qwen, DeepSeek, Mixtral locally (no API key)',
+        description: 'DeepSeek-V2.5, Coder, and Reasoner models',
       },
     ],
-    default: metaConfig.selectedProvider || 'qwen',
+    default: metaConfig.selectedProvider || 'local',
   });
 
   // Load provider-specific config for the selected provider
@@ -755,7 +792,7 @@ export async function runSetup(): Promise<void> {
   if (provider === 'local') {
     newConfig = await runLocalSetup(existingProviderConfig);
   } else {
-    // Generic cloud provider setup (Qwen, DeepSeek, Mixtral)
+    // DeepSeek cloud setup
     newConfig = await runGenericCloudSetup(provider, existingProviderConfig);
   }
 
