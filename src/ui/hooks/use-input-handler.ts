@@ -4,14 +4,14 @@ import { LLMAgent, ChatEntry } from "../../agent/llm-agent.js";
 import { ConfirmationService } from "../../utils/confirmation-service.js";
 import { useEnhancedInput, Key } from "./use-enhanced-input.js";
 import { escapeShellArg } from "../../tools/bash.js";
-import { VerbosityLevel, TIMEOUT_CONFIG } from "../../constants.js";
+import { VerbosityLevel, TIMEOUT_CONFIG, FILE_NAMES } from "../../constants.js";
 
 import { filterCommandSuggestions } from "../components/command-suggestions.js";
 import { getSettingsManager } from "../../utils/settings-manager.js";
 import { ProjectAnalyzer } from "../../utils/project-analyzer.js";
-import { InstructionGenerator } from "../../utils/instruction-generator.js";
+// Dynamic import is used for LLMOptimizedInstructionGenerator to avoid circular imports
 import { getUsageTracker } from "../../utils/usage-tracker.js";
-import { getActiveProvider } from "../../provider/config.js";
+import { getActiveProvider, getActiveConfigPaths } from "../../provider/config.js";
 import { getHistoryManager } from "../../utils/history-manager.js";
 import { handleRewindCommand, handleCheckpointsCommand, handleCheckpointCleanCommand } from "../../commands/rewind.js";
 import {
@@ -815,20 +815,32 @@ export function useInputHandler({
         // Add analysis message
         const analyzingEntry: ChatEntry = {
           type: "assistant",
-          content: "🔍 Analyzing project...\n",
+          content: "🔍 Analyzing project with deep analysis (Tier 3)...\n",
           timestamp: new Date(),
         };
         setChatHistory((prev) => [...prev, analyzingEntry]);
 
-        // Check if already initialized
-        const axCliDir = path.join(projectRoot, ".ax-cli");
+        // Get provider-specific config paths
+        const activeConfigPaths = getActiveConfigPaths();
+        const configDirName = activeConfigPaths.DIR_NAME; // e.g., '.ax-glm' or '.ax-grok'
+        const axCliDir = path.join(projectRoot, configDirName);
         const customMdPath = path.join(axCliDir, "CUSTOM.md");
-        const indexPath = path.join(axCliDir, "index.json");
+        // Shared project index at root (used by all CLIs)
+        const sharedIndexPath = path.join(projectRoot, FILE_NAMES.AX_INDEX_JSON);
 
-        if (fs.existsSync(customMdPath)) {
+        // Check if already initialized
+        if (fs.existsSync(sharedIndexPath) || fs.existsSync(customMdPath)) {
+          const provider = getActiveProvider();
+          const cliName = provider.branding.cliName;
+          let content = `✅ Project already initialized!\n`;
+          if (fs.existsSync(sharedIndexPath)) {
+            content += `📊 Shared project index: ${sharedIndexPath}\n`;
+          }
+          content += `📝 Custom instructions: ${customMdPath}\n\n`;
+          content += `💡 Run '${cliName} init --force' from terminal to regenerate`;
           const alreadyInitEntry: ChatEntry = {
             type: "assistant",
-            content: `✅ Project already initialized!\n📝 Custom instructions: ${customMdPath}\n📊 Project index: ${indexPath}\n\n💡 Run 'ax-cli init --force' from terminal to regenerate`,
+            content,
             timestamp: new Date(),
           };
           setChatHistory((prev) => [...prev, alreadyInitEntry]);
@@ -837,7 +849,7 @@ export function useInputHandler({
           return true;
         }
 
-        // Analyze project
+        // Analyze project with deep analysis (Tier 3 - default)
         const analyzer = new ProjectAnalyzer(projectRoot);
         const result = await analyzer.analyze();
 
@@ -855,23 +867,32 @@ export function useInputHandler({
 
         const projectInfo = result.projectInfo;
 
-        // Generate instructions
-        const generator = new InstructionGenerator();
+        // Generate LLM-optimized instructions
+        const { LLMOptimizedInstructionGenerator } = await import("../../utils/llm-optimized-instruction-generator.js");
+        const generator = new LLMOptimizedInstructionGenerator({
+          compressionLevel: "moderate",
+          hierarchyEnabled: true,
+          criticalRulesCount: 5,
+          includeDODONT: true,
+          includeTroubleshooting: true,
+        });
         const instructions = generator.generateInstructions(projectInfo);
         const index = generator.generateIndex(projectInfo);
 
-        // Create .ax-cli directory
+        // Create provider-specific directory
         if (!fs.existsSync(axCliDir)) {
           fs.mkdirSync(axCliDir, { recursive: true });
         }
 
-        // Write custom instructions
+        // Write custom instructions (provider-specific)
         fs.writeFileSync(customMdPath, instructions, "utf-8");
 
-        // Write project index
-        fs.writeFileSync(indexPath, index, "utf-8");
+        // Write shared project index at root
+        fs.writeFileSync(sharedIndexPath, index, "utf-8");
 
         // Display success
+        const provider = getActiveProvider();
+        const cliName = provider.branding.cliName;
         let successMessage = `🎉 Project initialized successfully!\n\n`;
         successMessage += `📋 Analysis Results:\n`;
         successMessage += `   Name: ${projectInfo.name}\n`;
@@ -880,12 +901,15 @@ export function useInputHandler({
         if (projectInfo.techStack.length > 0) {
           successMessage += `   Stack: ${projectInfo.techStack.join(", ")}\n`;
         }
-        successMessage += `\n✅ Generated custom instructions: ${customMdPath}\n`;
-        successMessage += `✅ Generated project index: ${indexPath}\n\n`;
+        if (result.duration) {
+          successMessage += `   Analysis time: ${result.duration}ms\n`;
+        }
+        successMessage += `\n✅ Generated shared project index: ${sharedIndexPath}\n`;
+        successMessage += `✅ Generated custom instructions: ${customMdPath}\n\n`;
         successMessage += `💡 Next steps:\n`;
-        successMessage += `   1. Review and customize the instructions if needed\n`;
-        successMessage += `   2. Run AX CLI - it will automatically use these instructions\n`;
-        successMessage += `   3. Use 'ax-cli init --force' to regenerate after project changes`;
+        successMessage += `   1. Review and customize ${configDirName}/CUSTOM.md if needed\n`;
+        successMessage += `   2. The ax.index.json is shared by ax-cli, ax-glm, and ax-grok\n`;
+        successMessage += `   3. Use '${cliName} init --force' to regenerate after project changes`;
 
         const successEntry: ChatEntry = {
           type: "assistant",

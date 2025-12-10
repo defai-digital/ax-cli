@@ -25,8 +25,10 @@ export const FILE_NAMES = {
   CUSTOM_MD: 'CUSTOM.md',
   /** Root project context file (like CLAUDE.md) */
   AX_MD: 'AX.md',
-  /** Project index file name */
+  /** Project index file name (in provider-specific dir) */
   INDEX_JSON: 'index.json',
+  /** Shared project index at root (used by all CLIs) */
+  AX_INDEX_JSON: 'ax.index.json',
   /** Project memory file name */
   MEMORY_JSON: 'memory.json',
   /** History file name */
@@ -59,8 +61,10 @@ export const CONFIG_PATHS = {
   CUSTOM_MD: join(process.cwd(), CONFIG_DIR_NAME, FILE_NAMES.CUSTOM_MD),
   /** Root project context file path (like CLAUDE.md) */
   AX_MD: join(process.cwd(), FILE_NAMES.AX_MD),
-  /** Project index file path (project-level) */
+  /** Project index file path (provider-specific dir, legacy) */
   INDEX_JSON: join(process.cwd(), CONFIG_DIR_NAME, FILE_NAMES.INDEX_JSON),
+  /** Shared project index at root (used by all CLIs) */
+  AX_INDEX_JSON: join(process.cwd(), FILE_NAMES.AX_INDEX_JSON),
   /** Project memory file path (project-level) */
   MEMORY_JSON: join(process.cwd(), CONFIG_DIR_NAME, FILE_NAMES.MEMORY_JSON),
   /** User templates directory */

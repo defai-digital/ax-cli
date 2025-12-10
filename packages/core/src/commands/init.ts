@@ -17,7 +17,6 @@ import { InitWizard } from './init/wizard.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
 import { FILE_NAMES } from '../constants.js';
 import { getActiveConfigPaths } from '../provider/config.js';
-import { ProjectMigrator } from '../utils/project-migrator.js';
 
 export function createInitCommand(): Command {
   const initCommand = new Command('init')
@@ -87,60 +86,17 @@ export function createInitCommand(): Command {
         const configDirName = activeConfigPaths.DIR_NAME; // e.g., '.ax-glm' or '.ax-grok'
         const axCliDir = join(projectRoot, configDirName);
         const customMdPath = join(axCliDir, FILE_NAMES.CUSTOM_MD);
-        const indexPath = join(axCliDir, FILE_NAMES.INDEX_JSON);
+        // Shared project index at root (used by all CLIs: ax-cli, ax-glm, ax-grok)
+        // Note: Legacy provider-specific index.json is no longer generated
+        const sharedIndexPath = join(projectRoot, FILE_NAMES.AX_INDEX_JSON);
 
-        // ═══════════════════════════════════════════════════════════════════
-        // Legacy Project Migration Check
-        // ═══════════════════════════════════════════════════════════════════
-        // Check for legacy .ax-cli/ directory and offer migration
-        if (ProjectMigrator.hasLegacyProjectConfig(projectRoot)) {
-          const filesToMigrate = ProjectMigrator.getFilesToMigrate(projectRoot);
-
-          if (filesToMigrate.length > 0) {
-            // Get provider info for display
-            const { getProviderDefinition } = await import('../provider/config.js');
-            const providerName = configDirName.replace(/^\.ax-/, ''); // '.ax-glm' -> 'glm'
-            const provider = getProviderDefinition(providerName);
-
-            if (provider) {
-              const summary = ProjectMigrator.getMigrationSummary(provider, projectRoot);
-              const choice = await ProjectMigrator.promptForMigration(provider, summary);
-
-              if (choice === 'migrate') {
-                const result = ProjectMigrator.migrate(provider, {
-                  projectRoot,
-                  keepLegacy: false,
-                });
-                if (result.success) {
-                  if (result.filesMigrated.length > 0) {
-                    prompts.log.success(`Migrated ${result.filesMigrated.length} files from legacy .ax-cli/`);
-                  }
-                  if (result.legacyBackedUp) {
-                    prompts.log.info('Legacy directory backed up to .ax-cli.backup/');
-                  }
-                }
-              } else if (choice === 'keep-both') {
-                const result = ProjectMigrator.migrate(provider, {
-                  projectRoot,
-                  keepLegacy: true,
-                });
-                if (result.success && result.filesMigrated.length > 0) {
-                  prompts.log.success(`Copied ${result.filesMigrated.length} files to ${configDirName}/`);
-                  prompts.log.info('Legacy .ax-cli/ directory kept');
-                }
-              }
-              // 'fresh' - continue to create new config
-
-              console.log(''); // Blank line before continuing
-            }
-          }
-        }
-
-        // Check if already initialized
-        if (!options.force && existsSync(customMdPath)) {
+        // Check if already initialized (check both shared index and custom.md)
+        if (!options.force && (existsSync(sharedIndexPath) || existsSync(customMdPath))) {
           prompts.log.success('Project already initialized!');
+          if (existsSync(sharedIndexPath)) {
+            prompts.log.info(`Shared project index: ${sharedIndexPath}`);
+          }
           prompts.log.info(`Custom instructions: ${customMdPath}`);
-          prompts.log.info(`Project index: ${indexPath}`);
           prompts.log.info('Use --force to regenerate');
           prompts.outro(chalk.green('Already configured'));
           return;
@@ -222,31 +178,34 @@ export function createInitCommand(): Command {
         // Preview or dry-run mode
         if (options.dryRun) {
           prompts.log.info('Dry-run mode - no changes made');
+          prompts.log.info(`Would create: ${sharedIndexPath} (shared project index)`);
           prompts.log.info(`Would create: ${customMdPath}`);
-          prompts.log.info(`Would create: ${indexPath}`);
           prompts.outro(chalk.green('Dry-run complete'));
           return;
         }
 
         // Write files using atomic operations
         const tmpCustomPath = `${customMdPath}.tmp`;
-        const tmpIndexPath = `${indexPath}.tmp`;
+        const tmpSharedIndexPath = `${sharedIndexPath}.tmp`;
 
         try {
           writeFileSync(tmpCustomPath, instructions, 'utf-8');
-          writeFileSync(tmpIndexPath, index, 'utf-8');
+          writeFileSync(tmpSharedIndexPath, index, 'utf-8');
 
           // Atomic rename
           renameSync(tmpCustomPath, customMdPath);
-          renameSync(tmpIndexPath, indexPath);
+          renameSync(tmpSharedIndexPath, sharedIndexPath);
 
+          prompts.log.success(`Generated shared project index: ${sharedIndexPath}`);
           prompts.log.success(`Generated custom instructions: ${customMdPath}`);
-          prompts.log.success(`Generated project index: ${indexPath}`);
+
+          // Note: We no longer generate the legacy provider-specific index.json
+          // The ax.index.json at root is shared by all CLIs
         } catch (writeError) {
           // Cleanup temp files on error
           try {
             if (existsSync(tmpCustomPath)) unlinkSync(tmpCustomPath);
-            if (existsSync(tmpIndexPath)) unlinkSync(tmpIndexPath);
+            if (existsSync(tmpSharedIndexPath)) unlinkSync(tmpSharedIndexPath);
           } catch {
             // Ignore cleanup errors
           }
@@ -258,16 +217,18 @@ export function createInitCommand(): Command {
           `Project: ${projectInfo.name} (${projectInfo.projectType})\n` +
           `Language: ${projectInfo.primaryLanguage}\n` +
           (projectInfo.techStack.length > 0 ? `Stack: ${projectInfo.techStack.join(', ')}\n` : '') +
+          (result.duration ? `Analysis time: ${result.duration}ms\n` : '') +
           `\nFiles created:\n` +
-          `  ${customMdPath}\n` +
-          `  ${indexPath}`,
+          `  ${sharedIndexPath} (shared by all AX CLIs)\n` +
+          `  ${customMdPath}`,
           'Project Summary'
         );
 
         await prompts.note(
           `1. Review ${configDirName}/CUSTOM.md and customize if needed\n` +
-          '2. Start chatting with your AI assistant\n' +
-          '3. Use --force to regenerate after project changes',
+          '2. The ax.index.json is shared by ax-cli, ax-glm, and ax-grok\n' +
+          '3. Start chatting with your AI assistant\n' +
+          '4. Use --force to regenerate after project changes',
           'Next Steps'
         );
 

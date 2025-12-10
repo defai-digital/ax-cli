@@ -324,28 +324,56 @@ export class LLMOptimizedInstructionGenerator {
   }
 
   /**
-   * Generate project index JSON
+   * Generate project index JSON (v2.0 schema with deep analysis)
    */
   generateIndex(projectInfo: ProjectInfo): string {
-    const index = {
-      projectName: projectInfo.name,
+    // Build the index with all available tiers of analysis
+    const index: Record<string, unknown> = {
+      // Schema version for compatibility
+      schemaVersion: '2.0',
+
+      // Tier 1: Basic project info
+      name: projectInfo.name,
       version: projectInfo.version,
+      description: projectInfo.description,
       primaryLanguage: projectInfo.primaryLanguage,
       techStack: projectInfo.techStack,
       projectType: projectInfo.projectType,
       entryPoint: projectInfo.entryPoint,
       directories: projectInfo.directories,
-      keyFiles: Object.keys(projectInfo.keyFiles),
-      conventions: {
-        moduleSystem: projectInfo.conventions.moduleSystem,
-        importExtension: projectInfo.conventions.importExtension,
-        testFramework: projectInfo.conventions.testFramework,
-        validation: projectInfo.conventions.validation,
-      },
+      keyFiles: projectInfo.keyFiles, // Now includes descriptions
+      conventions: projectInfo.conventions,
       scripts: projectInfo.scripts,
       packageManager: projectInfo.packageManager,
+      cicdPlatform: projectInfo.cicdPlatform,
+      gotchas: projectInfo.gotchas,
+      runtimeTargets: projectInfo.runtimeTargets,
       lastAnalyzed: projectInfo.lastAnalyzed,
     };
+
+    // Tier 2: Quality metrics (if available)
+    if (projectInfo.codeStats) {
+      index.codeStats = projectInfo.codeStats;
+    }
+    if (projectInfo.testing) {
+      index.testing = projectInfo.testing;
+    }
+    if (projectInfo.documentation) {
+      index.documentation = projectInfo.documentation;
+    }
+    if (projectInfo.technicalDebt) {
+      index.technicalDebt = projectInfo.technicalDebt;
+    }
+
+    // Tier 3: Architecture analysis (if available)
+    if (projectInfo.architecture) {
+      index.architecture = projectInfo.architecture;
+    }
+
+    // Tier 4: Security analysis (if available)
+    if (projectInfo.security) {
+      index.security = projectInfo.security;
+    }
 
     return JSON.stringify(index, null, 2);
   }

@@ -1,12 +1,24 @@
 /**
  * Project analysis utility for intelligent project setup
+ *
+ * Supports tiered analysis:
+ * - Tier 1: Basic project info (fast)
+ * - Tier 2: Quality metrics (medium)
+ * - Tier 3: Architecture analysis (default - comprehensive)
+ * - Tier 4: Security analysis (optional via settings)
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ProjectInfo, CodeConventions, AnalysisResult } from '../types/project-analysis.js';
+import type {
+  ProjectInfo,
+  CodeConventions,
+  AnalysisResult,
+  ProjectScripts,
+} from '../types/project-analysis.js';
 import { parseJsonFile } from './json-utils.js';
 import { normalizePath } from './path-utils.js';
+import { DeepAnalyzer } from './deep-analyzer.js';
 
 interface PackageJson {
   name?: string;
@@ -19,6 +31,8 @@ interface PackageJson {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   exports?: string | Record<string, string | { import?: string; require?: string; [key: string]: unknown }>;
+  engines?: { node?: string; npm?: string; [key: string]: string | undefined };
+  browserslist?: string | string[];
   [key: string]: unknown;
 }
 
@@ -27,9 +41,19 @@ interface TsConfig {
     module?: string;
     moduleResolution?: string;
     target?: string;
+    strict?: boolean;
     [key: string]: unknown;
   };
   [key: string]: unknown;
+}
+
+export interface AnalyzerOptions {
+  /** Analysis tier (1-4), default is 3 */
+  tier?: 1 | 2 | 3 | 4;
+  /** Include security analysis (Tier 4) */
+  includeSecurity?: boolean;
+  /** Maximum files to analyze */
+  maxFiles?: number;
 }
 
 export class ProjectAnalyzer {
@@ -37,9 +61,15 @@ export class ProjectAnalyzer {
   private warnings: string[] = [];
   private packageJsonCache: PackageJson | null | undefined = undefined;
   private tsConfigCache: TsConfig | null | undefined = undefined;
+  private options: AnalyzerOptions;
 
-  constructor(projectRoot: string = process.cwd()) {
+  constructor(projectRoot: string = process.cwd(), options: AnalyzerOptions = {}) {
     this.projectRoot = projectRoot;
+    this.options = {
+      tier: options.tier ?? 3, // Default to Tier 3 (architecture analysis)
+      includeSecurity: options.includeSecurity ?? false,
+      maxFiles: options.maxFiles ?? 1000,
+    };
   }
 
   /** Helper to check if path exists relative to project root */
@@ -112,12 +142,17 @@ export class ProjectAnalyzer {
 
   /**
    * Analyze the project and extract comprehensive information
+   * Default tier is 3 (architecture analysis)
    */
   async analyze(): Promise<AnalysisResult> {
+    const startTime = Date.now();
+
     try {
       this.warnings = [];
 
+      // Tier 1: Basic project info (always included)
       const projectInfo: ProjectInfo = {
+        schemaVersion: '2.0',
         name: this.detectProjectName(),
         version: this.detectVersion(),
         description: this.detectDescription(),
@@ -133,18 +168,60 @@ export class ProjectAnalyzer {
         lastAnalyzed: new Date().toISOString(),
         cicdPlatform: this.detectCICDPlatform(),
         gotchas: this.detectGotchas(),
+        runtimeTargets: this.detectRuntimeTargets(),
       };
+
+      // Deep analysis for Tier 2+
+      if (this.options.tier && this.options.tier >= 2) {
+        const deepAnalyzer = new DeepAnalyzer({
+          projectRoot: this.projectRoot,
+          sourceDir: projectInfo.directories.source,
+          testsDir: projectInfo.directories.tests,
+          tier: this.options.tier,
+          maxFilesToAnalyze: this.options.maxFiles,
+        });
+
+        // Tier 2: Quality metrics
+        try {
+          projectInfo.codeStats = await deepAnalyzer.analyzeCodeStats();
+          projectInfo.testing = await deepAnalyzer.analyzeTests();
+          projectInfo.documentation = await deepAnalyzer.analyzeDocumentation();
+          projectInfo.technicalDebt = await deepAnalyzer.analyzeTechnicalDebt();
+        } catch (error) {
+          this.warnings.push(`Tier 2 analysis partial failure: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+
+        // Tier 3: Architecture analysis (default)
+        if (this.options.tier >= 3) {
+          try {
+            projectInfo.architecture = await deepAnalyzer.analyzeArchitecture();
+          } catch (error) {
+            this.warnings.push(`Tier 3 analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
+        }
+
+        // Tier 4: Security analysis (optional)
+        if (this.options.tier >= 4 || this.options.includeSecurity) {
+          try {
+            projectInfo.security = await deepAnalyzer.analyzeSecurity();
+          } catch (error) {
+            this.warnings.push(`Security analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
+        }
+      }
 
       return {
         success: true,
         projectInfo,
         warnings: this.warnings.length > 0 ? this.warnings : undefined,
+        duration: Date.now() - startTime,
       };
     } catch (error) {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown analysis error',
         warnings: this.warnings.length > 0 ? this.warnings : undefined,
+        duration: Date.now() - startTime,
       };
     }
   }
@@ -267,6 +344,8 @@ export class ProjectAnalyzer {
     dirs.source = this.findFirstDir(['src', 'lib', 'source']);
     dirs.tests = this.findFirstDir(['tests', 'test', '__tests__', 'spec']);
     dirs.config = this.findFirstDir(['config', 'configs', '.config']);
+    dirs.docs = this.findFirstDir(['docs', 'documentation', 'doc']);
+    dirs.dist = this.findFirstDir(['dist', 'build', 'out', 'output']);
 
     // Tools directory
     if (dirs.source && this.isDirectory(dirs.source, 'tools')) {
@@ -281,14 +360,25 @@ export class ProjectAnalyzer {
       'package.json': 'Node.js package configuration',
       'tsconfig.json': 'TypeScript configuration',
       'vitest.config.ts': 'Vitest test configuration',
+      'vitest.config.js': 'Vitest test configuration',
       'jest.config.js': 'Jest test configuration',
+      'jest.config.ts': 'Jest test configuration',
       '.eslintrc.js': 'ESLint configuration',
+      '.eslintrc.json': 'ESLint configuration',
+      'eslint.config.js': 'ESLint flat configuration',
       '.prettierrc': 'Prettier configuration',
+      '.prettierrc.json': 'Prettier configuration',
+      'prettier.config.js': 'Prettier configuration',
       'README.md': 'Project documentation',
       'CLAUDE.md': 'Claude-specific instructions',
-      '.ax-cli/CUSTOM.md': 'AX CLI custom instructions',
+      'ax.index.json': 'AX CLI project index',
       'vite.config.ts': 'Vite build configuration',
+      'vite.config.js': 'Vite build configuration',
       'webpack.config.js': 'Webpack build configuration',
+      'rollup.config.js': 'Rollup build configuration',
+      'Dockerfile': 'Docker container definition',
+      'docker-compose.yml': 'Docker Compose configuration',
+      '.env.example': 'Environment variables template',
     };
 
     const keyFiles: Record<string, string> = {};
@@ -342,16 +432,35 @@ export class ProjectAnalyzer {
     return conventions;
   }
 
-  private detectScripts(): ProjectInfo['scripts'] {
+  private detectScripts(): ProjectScripts {
     const packageJson = this.getPackageJson();
     if (!packageJson?.scripts) return {};
 
-    return {
-      build: packageJson.scripts.build,
-      test: packageJson.scripts.test,
-      lint: packageJson.scripts.lint,
-      dev: packageJson.scripts.dev || packageJson.scripts.start,
+    const { build, test, lint, dev, start, typecheck, ...rest } = packageJson.scripts;
+
+    const result: ProjectScripts = {
+      build,
+      test,
+      lint,
+      dev: dev || start,
+      typecheck,
     };
+
+    // Include custom scripts (non-standard ones)
+    const standardScripts = ['build', 'test', 'lint', 'dev', 'start', 'typecheck', 'prepare', 'prepublishOnly', 'preversion', 'postversion'];
+    const customScripts: Record<string, string> = {};
+
+    for (const [name, command] of Object.entries(rest)) {
+      if (!standardScripts.includes(name) && typeof command === 'string') {
+        customScripts[name] = command;
+      }
+    }
+
+    if (Object.keys(customScripts).length > 0) {
+      result.custom = customScripts;
+    }
+
+    return result;
   }
 
   private detectPackageManager(): string | undefined {
@@ -414,6 +523,39 @@ export class ProjectAnalyzer {
     if (this.pathExists('Jenkinsfile')) return 'Jenkins';
     if (this.pathExists('bitbucket-pipelines.yml')) return 'Bitbucket Pipelines';
     return undefined;
+  }
+
+  /** Detect runtime targets */
+  private detectRuntimeTargets(): string[] | undefined {
+    const targets: string[] = [];
+    const packageJson = this.getPackageJson();
+
+    // Check engines field
+    if (packageJson?.engines) {
+      if (packageJson.engines.node) {
+        targets.push(`Node.js ${packageJson.engines.node}`);
+      }
+      if (packageJson.engines.npm) {
+        targets.push(`npm ${packageJson.engines.npm}`);
+      }
+    }
+
+    // Check for browser targets
+    if (packageJson?.browserslist) {
+      targets.push('Browser');
+    }
+
+    // Check for Deno
+    if (this.pathExists('deno.json') || this.pathExists('deno.jsonc')) {
+      targets.push('Deno');
+    }
+
+    // Check for Bun
+    if (this.pathExists('bun.lockb') || this.pathExists('bunfig.toml')) {
+      targets.push('Bun');
+    }
+
+    return targets.length > 0 ? targets : undefined;
   }
 
   /** Detect common gotchas and development tips */

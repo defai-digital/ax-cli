@@ -211,8 +211,9 @@ ax-glm -p "fix TypeScript errors" -d /path/to/project
 | `~/.ax-glm/config.json` | User settings (encrypted API key) |
 | `.ax-glm/settings.json` | Project overrides |
 | `.ax-glm/CUSTOM.md` | Custom AI instructions |
+| `ax.index.json` | Shared project index (at root, used by all CLIs) |
 
-> Grok uses `~/.ax-grok/` and `.ax-grok/` directories.
+> Grok uses `~/.ax-grok/` and `.ax-grok/` directories. The `ax.index.json` is shared.
 
 ### Environment Variables
 
@@ -318,6 +319,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.3.17**: Deep Project Analysis - New tiered analysis system for `/init` command. Default Tier 3 provides comprehensive architecture analysis including dependency graphs, circular dependency detection, module fan-in/fan-out metrics, hotspot detection, and code quality metrics. Shared `ax.index.json` at project root used by all CLIs (ax-cli, ax-glm, ax-grok). Optional Tier 4 security analysis available via settings.
 *   **v4.3.16**: Grok 4 exclusive - ax-grok now exclusively supports Grok 4 models (grok-4-0709, grok-4.1-fast) which have all capabilities built-in: vision, extended thinking (reasoning_effort), and live web search. Legacy Grok 3/2 models removed. Updated default model from grok-3 to grok-4-0709.
 *   **v4.3.15**: Streamlined setup flow - New quick setup option reduces setup questions from 5-7 to just 4 (server → API key → model → "use defaults?"). Quick setup automatically installs AutomatosX and runs `ax setup -f`. Added separate vision model selection step for providers with vision support. Users can still access detailed configuration by declining quick setup.
 *   **v4.3.14**: CLI architecture refinement - Separated ax-cli as standalone base CLI without GLM/Grok-specific features. ax-glm and ax-grok remain as dedicated CLIs with full provider-specific features (web search, vision, image generation). Users should install ax-glm or ax-grok directly for advanced features.
