@@ -1062,23 +1062,15 @@ Examples:
         usageContent += `  • Usage is tracked in real-time on the xAI console\n`;
         usageContent += `  • Cached input tokens: 75% discount\n`;
 
-        // Grok pricing based on model
+        // Grok pricing based on model (Grok-4 only)
         const modelLower = currentModel.toLowerCase();
         if (modelLower.includes('grok-4.1-fast')) {
           usageContent += `\n**💰 Grok 4.1 Fast Pricing:**\n`;
           usageContent += `  • Input: $0.20 per 1M tokens\n`;
           usageContent += `  • Output: $0.50 per 1M tokens\n`;
-        } else if (modelLower.includes('grok-4')) {
-          usageContent += `\n**💰 Grok 4 Pricing:**\n`;
-          usageContent += `  • Input: $3.00 per 1M tokens\n`;
-          usageContent += `  • Output: $15.00 per 1M tokens\n`;
-          usageContent += `  • Cached: $0.75 per 1M tokens\n`;
-        } else if (modelLower.includes('grok-3-mini')) {
-          usageContent += `\n**💰 Grok 3 Mini Pricing:**\n`;
-          usageContent += `  • Input: $0.30 per 1M tokens\n`;
-          usageContent += `  • Output: $0.50 per 1M tokens\n`;
         } else {
-          usageContent += `\n**💰 Grok 3 Pricing:**\n`;
+          // Grok 4 default pricing
+          usageContent += `\n**💰 Grok 4 Pricing:**\n`;
           usageContent += `  • Input: $3.00 per 1M tokens\n`;
           usageContent += `  • Output: $15.00 per 1M tokens\n`;
           usageContent += `  • Cached: $0.75 per 1M tokens\n`;
@@ -1089,8 +1081,6 @@ Examples:
           let inputRate = 3.0, outputRate = 15.0;
           if (modelLower.includes('grok-4.1-fast')) {
             inputRate = 0.20; outputRate = 0.50;
-          } else if (modelLower.includes('grok-3-mini')) {
-            inputRate = 0.30; outputRate = 0.50;
           }
           const inputCost = (stats.totalPromptTokens / 1000000) * inputRate;
           const outputCost = (stats.totalCompletionTokens / 1000000) * outputRate;

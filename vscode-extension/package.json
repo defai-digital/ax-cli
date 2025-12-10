@@ -216,13 +216,10 @@
         },
         "ax-cli.model": {
           "type": "string",
-          "default": "grok-3-fast",
+          "default": "grok-4-0709",
           "enum": [
-            "grok-3-fast",
-            "grok-3",
-            "grok-3-mini",
-            "grok-3-mini-fast",
-            "grok-2-vision",
+            "grok-4-0709",
+            "grok-4.1-fast",
             "glm-4.6",
             "glm-4.5-flash",
             "glm-z1-air",
@@ -238,11 +235,8 @@
             "deepseek-reasoner"
           ],
           "enumDescriptions": [
-            "Grok 3 Fast - Optimized for speed (xAI)",
-            "Grok 3 - Full reasoning model (xAI)",
-            "Grok 3 Mini - Lightweight model (xAI)",
-            "Grok 3 Mini Fast - Fastest Grok model (xAI)",
-            "Grok 2 Vision - Multimodal vision model (xAI)",
+            "Grok 4 - Most capable with vision, reasoning, search (xAI)",
+            "Grok 4.1 Fast - Fast variant with agent tools (xAI)",
             "GLM-4.6 - Primary coding model (Z.AI)",
             "GLM-4.5 Flash - Fast inference (Z.AI)",
             "GLM-Z1 Air - Lightweight thinking (Z.AI)",

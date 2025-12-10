@@ -162,7 +162,7 @@ export class CLIBridgeSDK {
    */
   private getProviderInfo(): { provider: Provider; info: ProviderInfo } {
     const config = vscode.workspace.getConfiguration('ax-cli');
-    const model = config.get<string>('model', 'grok-3-fast');
+    const model = config.get<string>('model', 'grok-4-0709');
     const provider = getProviderFromModel(model);
     return { provider, info: PROVIDER_INFO[provider] };
   }

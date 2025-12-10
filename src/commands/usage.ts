@@ -269,24 +269,6 @@ const GROK_PRICING = {
     output: 0.50 / 1_000_000,    // $0.50 per 1M tokens
     cached: 0.05 / 1_000_000,    // estimated
   },
-  // Grok 3 pricing
-  'grok-3': {
-    input: 3.0 / 1_000_000,      // $3.00 per 1M tokens
-    output: 15.0 / 1_000_000,    // $15.00 per 1M tokens
-    cached: 0.75 / 1_000_000,    // $0.75 per 1M tokens
-  },
-  // Grok 3 Mini pricing
-  'grok-3-mini': {
-    input: 0.30 / 1_000_000,     // $0.30 per 1M tokens
-    output: 0.50 / 1_000_000,    // $0.50 per 1M tokens
-    cached: 0.075 / 1_000_000,   // estimated
-  },
-  // Grok 2 pricing (legacy)
-  'grok-2': {
-    input: 2.0 / 1_000_000,      // $2.00 per 1M tokens
-    output: 10.0 / 1_000_000,    // $10.00 per 1M tokens
-    cached: 0.50 / 1_000_000,    // estimated
-  },
 } as const;
 
 /**
@@ -298,21 +280,9 @@ function getGrokPricing(model: string): { input: number; output: number; cached:
   if (modelLower.includes('grok-4.1-fast') || modelLower.includes('grok-4.1')) {
     return GROK_PRICING['grok-4.1-fast'];
   }
-  if (modelLower.includes('grok-4')) {
-    return GROK_PRICING['grok-4'];
-  }
-  if (modelLower.includes('grok-3-mini')) {
-    return GROK_PRICING['grok-3-mini'];
-  }
-  if (modelLower.includes('grok-3')) {
-    return GROK_PRICING['grok-3'];
-  }
-  if (modelLower.includes('grok-2')) {
-    return GROK_PRICING['grok-2'];
-  }
 
-  // Default to Grok 3 pricing
-  return GROK_PRICING['grok-3'];
+  // Default to Grok 4 pricing
+  return GROK_PRICING['grok-4'];
 }
 
 /**

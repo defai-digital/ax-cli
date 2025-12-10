@@ -1,32 +1,31 @@
 /**
- * Setup Flow - Provider Selection and Configuration
+ * Setup Flow - Local/Offline Configuration
  *
  * This setup wizard:
- * 1. Lets user select a provider (Local or DeepSeek)
- * 2. For cloud providers: Configure API key and model
- * 3. For offline mode: Configure local server (Ollama/LMStudio/vLLM) with any supported model
- * 4. Saves configuration to ~/.ax-cli/
+ * 1. Detects local servers (Ollama/LMStudio/vLLM)
+ * 2. Configures local server URL and model
+ * 3. Saves configuration to ~/.ax-cli/
  *
  * Provider Distribution:
- * - ax-cli: Standalone CLI (local: Ollama/LMStudio/vLLM; cloud: DeepSeek)
+ * - ax-cli: LOCAL/OFFLINE FIRST - Ollama, LMStudio, vLLM (NO cloud providers)
  * - ax-glm: GLM-specific CLI with web search, vision, image generation (Z.AI Cloud)
  * - ax-grok: Grok-specific CLI with web search, vision, extended thinking (xAI Cloud)
+ * - ax-deepseek: (future) DeepSeek-specific CLI for cloud features
  *
- * NOTE: ax-cli focuses on LOCAL/OFFLINE inference as primary use case.
- * For cloud-specific features, users should install ax-glm or ax-grok directly.
+ * NOTE: ax-cli is LOCAL/OFFLINE FIRST. For cloud providers, use the dedicated CLIs.
  */
 
 import chalk from 'chalk';
-import { select, confirm, password, input } from '@inquirer/prompts';
+import { select, confirm, input } from '@inquirer/prompts';
 import ora from 'ora';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
+import { execSync, spawnSync } from 'child_process';
 
-// Note: GLM and Grok are NOT available in ax-cli - use ax-glm or ax-grok directly
-// ax-cli focuses on local/offline inference with DeepSeek as the only cloud option
-export type Provider = 'local' | 'deepseek';
-export type ServerType = 'cloud' | 'local';
+// ax-cli is LOCAL/OFFLINE ONLY - no cloud providers
+export type Provider = 'local';
+export type ServerType = 'local';
 
 interface ModelInfo {
   id: string;
@@ -105,6 +104,7 @@ const LOCAL_GLM_MODELS: ModelInfo[] = [
 
 // TIER 3: DeepSeek-Coder V2 - Best speed (9.3/10)
 // → Best for quick iterations, patches, linting
+// Note: For cloud DeepSeek, a future ax-deepseek package will be available
 const LOCAL_DEEPSEEK_MODELS: ModelInfo[] = [
   { id: 'deepseek-coder-v2:16b', name: 'DeepSeek-Coder-V2 16B', description: 'SPEED: Fast iterations, patches' },
   { id: 'deepseek-coder-v2:7b', name: 'DeepSeek-Coder-V2 7B', description: 'SPEED: 7B rivals 13B, edge-friendly' },
@@ -144,48 +144,19 @@ const ALL_LOCAL_MODELS: ModelInfo[] = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════
-// CLOUD MODELS - DeepSeek (only cloud provider in ax-cli)
+// PROVIDER CONFIGURATION - LOCAL/OFFLINE ONLY
 // ═══════════════════════════════════════════════════════════════════
 
-const DEEPSEEK_CLOUD_MODELS: ModelInfo[] = [
-  { id: 'deepseek-chat', name: 'DeepSeek-Chat', description: 'Latest chat model with 64K context' },
-  { id: 'deepseek-coder', name: 'DeepSeek-Coder', description: 'Optimized for code generation' },
-  { id: 'deepseek-reasoner', name: 'DeepSeek-Reasoner', description: 'Enhanced reasoning capabilities' },
-];
-
-// ═══════════════════════════════════════════════════════════════════
-// PROVIDER CONFIGURATIONS
-// ═══════════════════════════════════════════════════════════════════
-
-// Note: GLM and Grok are NOT available in ax-cli
-// For GLM features (web search, vision, image), use: npm install -g @defai.digital/ax-glm
-// For Grok features (web search, vision, thinking), use: npm install -g @defai.digital/ax-grok
-
-const PROVIDERS: Record<Provider, ProviderInfo> = {
-  // LOCAL/OFFLINE - Primary focus of ax-cli
-  local: {
-    name: 'Local/Offline (Ollama, LMStudio, vLLM)',
-    description: 'Run models locally - Qwen 3 recommended (best offline coding model)',
-    cliName: 'ax-cli',
-    package: '@defai.digital/ax-cli',
-    defaultBaseURL: 'http://localhost:11434/v1',
-    defaultModel: 'qwen3:14b',  // Tier 1: Best overall
-    apiKeyEnvVar: '',
-    website: 'https://ollama.ai',
-    models: ALL_LOCAL_MODELS,
-  },
-  // DEEPSEEK CLOUD - Only cloud provider in ax-cli
-  deepseek: {
-    name: 'DeepSeek (Cloud)',
-    description: 'DeepSeek models via official API',
-    cliName: 'ax-cli',
-    package: '@defai.digital/ax-cli',
-    defaultBaseURL: 'https://api.deepseek.com/v1',
-    defaultModel: 'deepseek-chat',
-    apiKeyEnvVar: 'DEEPSEEK_API_KEY',
-    website: 'https://platform.deepseek.com',
-    models: DEEPSEEK_CLOUD_MODELS,
-  },
+const PROVIDER_INFO: ProviderInfo = {
+  name: 'Local/Offline (Ollama, LMStudio, vLLM)',
+  description: 'Run models locally - Qwen 3 recommended (best offline coding model)',
+  cliName: 'ax-cli',
+  package: '@ax-cli/cli',
+  defaultBaseURL: 'http://localhost:11434/v1',
+  defaultModel: 'qwen3:14b',  // Tier 1: Best overall
+  apiKeyEnvVar: '',  // No API key for local
+  website: 'https://ollama.ai',
+  models: ALL_LOCAL_MODELS,
 };
 
 // Well-known local server ports
@@ -197,22 +168,8 @@ const LOCAL_SERVERS = [
 ];
 
 // Config paths
-// ax-cli meta config (stores which provider was selected)
 const AX_CLI_CONFIG_DIR = join(homedir(), '.ax-cli');
 const AX_CLI_CONFIG_FILE = join(AX_CLI_CONFIG_DIR, 'config.json');
-
-// All ax-cli providers use the same config directory
-const PROVIDER_CONFIG_DIRS: Record<Provider, string> = {
-  local: join(homedir(), '.ax-cli'),
-  deepseek: join(homedir(), '.ax-cli'),
-};
-
-/**
- * Get provider-specific config path
- */
-function getProviderConfigPath(provider: Provider): string {
-  return join(PROVIDER_CONFIG_DIRS[provider], 'config.json');
-}
 
 interface AxCliConfig {
   selectedProvider?: Provider;
@@ -230,9 +187,9 @@ interface AxCliConfig {
 }
 
 /**
- * Load ax-cli meta config (provider selection only)
+ * Load ax-cli config
  */
-function loadMetaConfig(): { selectedProvider?: Provider } {
+function loadConfig(): AxCliConfig {
   try {
     if (existsSync(AX_CLI_CONFIG_FILE)) {
       return JSON.parse(readFileSync(AX_CLI_CONFIG_FILE, 'utf-8'));
@@ -244,41 +201,63 @@ function loadMetaConfig(): { selectedProvider?: Provider } {
 }
 
 /**
- * Load provider-specific config
+ * Save ax-cli config
  */
-function loadProviderConfig(provider: Provider): AxCliConfig {
-  try {
-    const configPath = getProviderConfigPath(provider);
-    if (existsSync(configPath)) {
-      return JSON.parse(readFileSync(configPath, 'utf-8'));
-    }
-  } catch {
-    // Ignore errors
-  }
-  return {};
-}
-
-/**
- * Save ax-cli meta config (provider selection)
- */
-function saveMetaConfig(provider: Provider): void {
+function saveConfig(config: AxCliConfig): void {
   if (!existsSync(AX_CLI_CONFIG_DIR)) {
     mkdirSync(AX_CLI_CONFIG_DIR, { recursive: true });
   }
-  writeFileSync(AX_CLI_CONFIG_FILE, JSON.stringify({ selectedProvider: provider }, null, 2), { mode: 0o600 });
+  writeFileSync(AX_CLI_CONFIG_FILE, JSON.stringify(config, null, 2), { mode: 0o600 });
 }
 
 /**
- * Save provider-specific config
+ * Check AutomatosX status - returns version if installed, null otherwise
  */
-function saveProviderConfig(provider: Provider, config: AxCliConfig): void {
-  const configDir = PROVIDER_CONFIG_DIRS[provider];
-  const configPath = getProviderConfigPath(provider);
-
-  if (!existsSync(configDir)) {
-    mkdirSync(configDir, { recursive: true });
+function getAutomatosXStatus(): { installed: boolean; version: string | null } {
+  try {
+    const result = spawnSync('ax', ['--version'], {
+      encoding: 'utf-8',
+      timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    if (result.status === 0 && result.stdout) {
+      const match = result.stdout.match(/(\d+\.\d+\.\d+)/);
+      return { installed: true, version: match ? match[1] : result.stdout.trim() };
+    }
+    return { installed: false, version: null };
+  } catch {
+    return { installed: false, version: null };
   }
-  writeFileSync(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
+}
+
+/**
+ * Install AutomatosX globally
+ */
+async function installAutomatosX(): Promise<boolean> {
+  try {
+    execSync('npm install -g @defai.digital/automatosx', {
+      stdio: 'inherit',
+      timeout: 180000 // 3 minutes timeout
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Run AutomatosX setup with force flag
+ */
+async function runAutomatosXSetup(): Promise<boolean> {
+  try {
+    execSync('ax setup -f', {
+      stdio: 'inherit',
+      timeout: 120000 // 2 minutes timeout
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -347,164 +326,24 @@ async function detectLocalServers(): Promise<Array<{ name: string; url: string; 
 }
 
 /**
- * Validate API connection (for cloud providers)
+ * Run the setup wizard
  */
-async function validateCloudConnection(baseURL: string, apiKey: string): Promise<boolean> {
-  try {
-    const response = await fetch(`${baseURL}/models`, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
+export async function runSetup(): Promise<void> {
+  console.log(chalk.cyan('\n  ╔════════════════════════════════════════════════╗'));
+  console.log(chalk.cyan('  ║       Welcome to ax-cli Setup Wizard           ║'));
+  console.log(chalk.cyan('  ║         LOCAL/OFFLINE AI Assistant             ║'));
+  console.log(chalk.cyan('  ╚════════════════════════════════════════════════╝\n'));
 
-/**
- * Run DeepSeek Cloud Provider setup
- */
-async function runGenericCloudSetup(provider: Provider, existingConfig: AxCliConfig): Promise<AxCliConfig | null> {
-  const providerInfo = PROVIDERS[provider];
+  console.log('  ax-cli is designed for LOCAL/OFFLINE AI inference.');
+  console.log('  Run AI models locally without sending data to the cloud.\n');
 
-  console.log(chalk.cyan('\n  ┌─────────────────────────────────────────────────────┐'));
-  console.log(chalk.cyan(`  │  ${providerInfo.name} Setup`.padEnd(53) + '│'));
-  console.log(chalk.cyan('  └─────────────────────────────────────────────────────┘\n'));
+  console.log(chalk.dim('  For cloud providers, use dedicated CLIs:'));
+  console.log(chalk.dim('  • GLM (Z.AI):     npm install -g @defai.digital/ax-glm'));
+  console.log(chalk.dim('  • Grok (xAI):     npm install -g @defai.digital/ax-grok'));
+  console.log(chalk.dim('  • DeepSeek:       (coming soon) @defai.digital/ax-deepseek\n'));
 
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 1: API Key with Connection Test Loop
-  // ═══════════════════════════════════════════════════════════════════
-  console.log(chalk.bold.cyan('\n  Step 1/3 — API Key & Connection Test\n'));
-  console.log(`  Get your API key from: ${chalk.underline(providerInfo.website)}\n`);
-
-  let apiKey = '';
-  let connectionValidated = false;
-  const envKey = process.env[providerInfo.apiKeyEnvVar];
-  const existingKey = existingConfig.apiKey;
-  const isSameProvider = existingConfig.selectedProvider === provider;
-
-  // Check for existing key - display redacted preview only
-  if (existingKey && isSameProvider) {
-    // Create a redacted preview for display (e.g., "sk-abcd...wxyz")
-    const redactedPreview = existingKey.length > 12
-      ? `${existingKey.substring(0, 8)}...${existingKey.substring(existingKey.length - 4)}`
-      : `${existingKey.substring(0, 4)}...`;
-
-    console.log(`  Existing API key found: ${chalk.dim(redactedPreview)}\n`);
-
-    const reuseKey = await confirm({
-      message: 'Use existing API key?',
-      default: true,
-    });
-
-    if (reuseKey) {
-      apiKey = existingKey;
-    }
-  } else if (envKey) {
-    // Display environment variable name only, not the value
-    const envVarName = providerInfo.apiKeyEnvVar;
-    console.log(`  Found ${envVarName} in environment\n`);
-    const useEnvKey = await confirm({
-      message: `Use API key from ${providerInfo.apiKeyEnvVar} environment variable?`,
-      default: true,
-    });
-
-    if (useEnvKey) {
-      apiKey = envKey;
-    }
-  }
-
-  // API Key entry and validation loop
-  while (!connectionValidated) {
-    // If no API key yet, prompt for one
-    if (!apiKey) {
-      apiKey = await password({
-        message: `Enter your ${providerInfo.name} API key:`,
-        validate: (value) => value.trim().length > 0 || 'API key is required',
-      });
-    }
-
-    // Test connection
-    const spinner = ora(`Testing ${providerInfo.name} connection...`).start();
-    const isValid = await validateCloudConnection(providerInfo.defaultBaseURL, apiKey);
-
-    if (isValid) {
-      spinner.succeed(`${providerInfo.name} connection validated!`);
-      connectionValidated = true;
-    } else {
-      spinner.fail('Connection failed');
-      console.log();
-
-      // Ask user what to do
-      const retryChoice = await select({
-        message: 'Connection failed. What would you like to do?',
-        choices: [
-          { name: 'Enter a different API key', value: 'retry' },
-          { name: 'Continue anyway (save without validation)', value: 'skip' },
-          { name: 'Cancel setup (Esc)', value: 'quit' },
-        ],
-      });
-
-      if (retryChoice === 'retry') {
-        apiKey = ''; // Clear to prompt for new key
-        continue;
-      } else if (retryChoice === 'skip') {
-        console.log(chalk.yellow('  ⚠ Proceeding with unvalidated configuration\n'));
-        connectionValidated = true;
-      } else {
-        console.log(chalk.yellow('\n  Setup cancelled.\n'));
-        return null;
-      }
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 2: Model Selection
-  // ═══════════════════════════════════════════════════════════════════
-  console.log(chalk.bold.cyan('\n  Step 2/3 — Choose Model\n'));
-
-  const modelChoices = providerInfo.models.map((m) => ({
-    name: m.id === providerInfo.defaultModel
-      ? `${m.name} (recommended) - ${m.description}`
-      : `${m.name} - ${m.description}`,
-    value: m.id,
-  }));
-
-  const selectedModel = await select({
-    message: 'Select default model:',
-    choices: modelChoices,
-    default: existingConfig.defaultModel || providerInfo.defaultModel,
-  });
-
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 3: Save Configuration
-  // ═══════════════════════════════════════════════════════════════════
-  console.log(chalk.bold.cyan('\n  Step 3/3 — Save Configuration\n'));
-
-  return {
-    ...existingConfig,
-    selectedProvider: provider,
-    serverType: 'cloud',
-    apiKey: apiKey,
-    baseURL: providerInfo.defaultBaseURL,
-    defaultModel: selectedModel,
-    currentModel: selectedModel,
-    maxTokens: existingConfig.maxTokens ?? 32768,
-    temperature: existingConfig.temperature ?? 0.7,
-    models: providerInfo.models.map(m => m.id),
-    _provider: providerInfo.name,
-    _website: providerInfo.website,
-    _isLocalServer: false,
-  };
-}
-
-/**
- * Run Generic Local Setup (Ollama, LMStudio, vLLM)
- */
-async function runLocalSetup(existingConfig: AxCliConfig): Promise<AxCliConfig | null> {
-  const providerInfo = PROVIDERS.local;
+  // Load existing config
+  const existingConfig = loadConfig();
 
   console.log(chalk.cyan('\n  ┌─────────────────────────────────────────────────────┐'));
   console.log(chalk.cyan('  │  Local/Offline Setup (Ollama, LMStudio, vLLM)       │'));
@@ -620,7 +459,7 @@ async function runLocalSetup(existingConfig: AxCliConfig): Promise<AxCliConfig |
       return { tier: 'T6', label: 'Other' };
     };
 
-    // Sort by tier priority (T1 Qwen first, then T2 DeepSeek, etc.)
+    // Sort by tier priority (T1 Qwen first, then T2 GLM, etc.)
     const tierOrder = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
     const sortedModels = [...availableModels].sort((a, b) => {
       const catA = tierOrder.indexOf(categorizeModel(a.id).tier);
@@ -652,7 +491,7 @@ async function runLocalSetup(existingConfig: AxCliConfig): Promise<AxCliConfig |
     if (modelSelection === '__custom__') {
       selectedModel = await input({
         message: 'Enter model name:',
-        default: providerInfo.defaultModel,
+        default: PROVIDER_INFO.defaultModel,
       });
     } else {
       selectedModel = modelSelection;
@@ -692,37 +531,48 @@ async function runLocalSetup(existingConfig: AxCliConfig): Promise<AxCliConfig |
     const modelSelection = await select({
       message: 'Select model:',
       choices: modelChoices,
-      default: existingConfig.defaultModel || providerInfo.defaultModel,
+      default: existingConfig.defaultModel || PROVIDER_INFO.defaultModel,
     });
 
     if (modelSelection === '__custom__') {
       selectedModel = await input({
         message: 'Enter model name:',
-        default: providerInfo.defaultModel,
+        default: PROVIDER_INFO.defaultModel,
       });
     } else {
       selectedModel = modelSelection;
     }
 
-    availableModels = providerInfo.models; // Fallback to predefined local models
+    availableModels = PROVIDER_INFO.models; // Fallback to predefined local models
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // STEP 3: Validate & Save
+  // STEP 3: Quick Setup Option
   // ═══════════════════════════════════════════════════════════════════
-  console.log(chalk.bold.cyan('\n  Step 3/3 — Validate & Save\n'));
+  console.log(chalk.bold.cyan('\n  Step 3/3 — Quick Setup\n'));
 
-  const validateSpinner = ora('Validating local server connection...').start();
-  const isValid = await checkLocalServer(selectedBaseURL);
+  const useDefaults = await confirm({
+    message: 'Use default settings for everything else? (Recommended)',
+    default: true,
+  });
 
-  if (isValid) {
-    validateSpinner.succeed('Local server connection validated!');
+  if (useDefaults) {
+    console.log(chalk.green('\n  ✓ Using default settings\n'));
   } else {
-    validateSpinner.warn('Server not responding (will save anyway)');
-    console.log(chalk.dim('\n  Tip: Make sure your local server is running before using ax-cli'));
+    // Only validate if user wants detailed setup
+    const validateSpinner = ora('Validating local server connection...').start();
+    const isValid = await checkLocalServer(selectedBaseURL);
+
+    if (isValid) {
+      validateSpinner.succeed('Local server connection validated!');
+    } else {
+      validateSpinner.warn('Server not responding (will save anyway)');
+      console.log(chalk.dim('\n  Tip: Make sure your local server is running before using ax-cli'));
+    }
   }
 
-  return {
+  // Save configuration
+  const newConfig: AxCliConfig = {
     ...existingConfig,
     selectedProvider: 'local',
     serverType: 'local',
@@ -733,89 +583,68 @@ async function runLocalSetup(existingConfig: AxCliConfig): Promise<AxCliConfig |
     maxTokens: existingConfig.maxTokens ?? 8192,
     temperature: existingConfig.temperature ?? 0.7,
     models: availableModels.map(m => m.id),
-    _provider: providerInfo.name,
-    _website: providerInfo.website,
+    _provider: PROVIDER_INFO.name,
+    _website: PROVIDER_INFO.website,
     _isLocalServer: true,
   };
-}
 
-/**
- * Run the setup wizard
- */
-export async function runSetup(): Promise<void> {
-  console.log(chalk.cyan('\n  ╔════════════════════════════════════════════════╗'));
-  console.log(chalk.cyan('  ║       Welcome to ax-cli Setup Wizard           ║'));
-  console.log(chalk.cyan('  ╚════════════════════════════════════════════════╝\n'));
-
-  console.log('  This wizard will configure your AI coding assistant');
-  console.log('  with your preferred LLM provider.\n');
-  console.log(chalk.dim('  • Cloud providers: API key required'));
-  console.log(chalk.dim('  • Local/Offline: No API key, uses Ollama/LMStudio'));
-  console.log();
-  console.log(chalk.dim('  Note: For GLM/Grok-specific features (web search, vision, image):'));
-  console.log(chalk.dim('  • GLM: npm install -g @defai.digital/ax-glm'));
-  console.log(chalk.dim('  • Grok: npm install -g @defai.digital/ax-grok\n'));
-
-  // Load existing meta config (to get previously selected provider)
-  const metaConfig = loadMetaConfig();
-
-  // ═══════════════════════════════════════════════════════════════════
-  // Provider Selection
-  // ═══════════════════════════════════════════════════════════════════
-  console.log(chalk.bold.cyan('\n  Choose Provider\n'));
-
-  const provider = await select<Provider>({
-    message: 'Which LLM provider do you want to use?',
-    choices: [
-      // Local/Offline - Primary focus of ax-cli
-      {
-        name: `${chalk.green('Local/Offline')} - Ollama, LMStudio, vLLM ${chalk.dim('(Recommended)')}`,
-        value: 'local' as Provider,
-        description: 'Run Qwen, DeepSeek, Llama locally (no API key)',
-      },
-      // DeepSeek Cloud - Only cloud provider
-      {
-        name: `${chalk.magenta('DeepSeek')} - DeepSeek Cloud`,
-        value: 'deepseek' as Provider,
-        description: 'DeepSeek-V2.5, Coder, and Reasoner models',
-      },
-    ],
-    default: metaConfig.selectedProvider || 'local',
-  });
-
-  // Load provider-specific config for the selected provider
-  const existingProviderConfig = loadProviderConfig(provider);
-
-  // Run provider-specific setup
-  let newConfig: AxCliConfig | null = null;
-
-  if (provider === 'local') {
-    newConfig = await runLocalSetup(existingProviderConfig);
-  } else {
-    // DeepSeek cloud setup
-    newConfig = await runGenericCloudSetup(provider, existingProviderConfig);
-  }
-
-  if (!newConfig) {
-    console.log(chalk.yellow('\n  Setup cancelled.\n'));
-    return;
-  }
-
-  // Save config to ~/.ax-cli/config.json
-  saveMetaConfig(provider);
-  saveProviderConfig(provider, newConfig);
+  saveConfig(newConfig);
   console.log(chalk.green('\n  ✓ Configuration saved!\n'));
 
-  // Show summary
-  const isLocal = newConfig._isLocalServer;
+  // ═══════════════════════════════════════════════════════════════════
+  // AutomatosX Integration (quick setup installs and configures by default)
+  // ═══════════════════════════════════════════════════════════════════
+  if (useDefaults) {
+    // Quick setup - install AutomatosX and run ax setup -f by default
+    let axStatus = getAutomatosXStatus();
 
+    if (!axStatus.installed) {
+      const installSpinner = ora('Installing AutomatosX for multi-agent AI orchestration...').start();
+
+      const installed = await installAutomatosX();
+      if (installed) {
+        installSpinner.succeed('AutomatosX installed successfully!');
+        axStatus = getAutomatosXStatus(); // Refresh status after install
+      } else {
+        installSpinner.stop();
+        console.log(chalk.yellow('  Could not install AutomatosX'));
+        console.log(chalk.dim('  Install manually later: npm install -g @defai.digital/automatosx'));
+      }
+    } else {
+      console.log(chalk.green(`  ✓ AutomatosX detected${axStatus.version ? ` (v${axStatus.version})` : ''}`));
+    }
+
+    // Run ax setup -f to configure AutomatosX with defaults
+    if (axStatus.installed) {
+      const setupSpinner = ora('Configuring AutomatosX...').start();
+
+      const setupSuccess = await runAutomatosXSetup();
+      if (setupSuccess) {
+        setupSpinner.succeed('AutomatosX configured successfully!');
+      } else {
+        setupSpinner.stop();
+        console.log(chalk.yellow('  Could not configure AutomatosX'));
+        console.log(chalk.dim('  Configure manually later: ax setup -f'));
+      }
+    }
+  } else {
+    // Detailed setup - just show info
+    const axStatus = getAutomatosXStatus();
+    if (axStatus.installed) {
+      console.log(chalk.green(`  ✓ AutomatosX detected${axStatus.version ? ` (v${axStatus.version})` : ''}`));
+    } else {
+      console.log(chalk.dim('  AutomatosX not installed. Install later: npm install -g @defai.digital/automatosx'));
+    }
+  }
+
+  // Show summary
   console.log(chalk.cyan('  ┌─────────────────────────────────────────┐'));
   console.log(chalk.cyan('  │          Configuration Summary          │'));
   console.log(chalk.cyan('  └─────────────────────────────────────────┘\n'));
   console.log(`  Provider:    ${newConfig._provider}`);
-  console.log(`  Server:      ${isLocal ? newConfig.baseURL : 'Cloud API'}`);
+  console.log(`  Server:      ${newConfig.baseURL}`);
   console.log(`  Model:       ${newConfig.defaultModel}`);
-  console.log(`  Config:      ${getProviderConfigPath(provider)}`);
+  console.log(`  Config:      ${AX_CLI_CONFIG_FILE}`);
   console.log();
 
   // Show next steps
@@ -824,20 +653,20 @@ export async function runSetup(): Promise<void> {
   console.log(chalk.cyan('  └─────────────────────────────────────────┘\n'));
   console.log(`  1. Run ${chalk.bold('ax-cli')} to start`);
   console.log(`  2. Run ${chalk.bold('ax-cli --help')} for all options`);
-
-  if (isLocal) {
-    console.log();
-    console.log(chalk.dim('  Note: Make sure your local server is running before using ax-cli'));
-  }
-
+  console.log();
+  console.log(chalk.dim('  Note: Make sure your local server is running before using ax-cli'));
+  console.log();
+  console.log(chalk.dim('  For cloud providers:'));
+  console.log(chalk.dim('  • GLM (Z.AI):     ax-glm setup'));
+  console.log(chalk.dim('  • Grok (xAI):     ax-grok setup'));
   console.log();
   console.log(chalk.green('  ✓ Setup complete! Happy coding!\n'));
 }
 
 /**
- * Get the selected provider from meta config
+ * Get the selected provider from config
  */
 export function getSelectedProvider(): Provider | null {
-  const config = loadMetaConfig();
+  const config = loadConfig();
   return config.selectedProvider || null;
 }

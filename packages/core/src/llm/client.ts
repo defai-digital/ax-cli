@@ -497,10 +497,9 @@ export class LLMClient {
     if (thinking && thinking.type === 'enabled') {
       if (isGrokModel) {
         // Grok uses reasoning_effort parameter for models that support thinking
-        // Grok 3 and Grok 4 models support reasoning_effort (low/high)
-        // Grok 2 models don't support thinking - skip
+        // Grok 4 models support reasoning_effort (low/high) - Grok 4 is now the default
         const modelLower = model.toLowerCase();
-        const supportsReasoning = modelLower.includes('grok-3') || modelLower.includes('grok-4');
+        const supportsReasoning = modelLower.includes('grok-4');
         if (supportsReasoning) {
           payload.reasoning_effort = thinking.reasoningEffort || 'high';
         }

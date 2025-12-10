@@ -253,6 +253,8 @@ export const UserSettingsSchema: z.ZodType<any> = z.object({
   ),
   defaultModel: ModelIdSchema.optional(),
   currentModel: ModelIdSchema.optional(),
+  /** Vision model for image analysis (e.g., glm-4.6v, grok-2-vision) */
+  visionModel: ModelIdSchema.optional(),
   maxTokens: z.number().int().positive().optional(),
   temperature: z.number().min(0).max(2).optional(),
   models: z.array(ModelIdSchema).optional(),
@@ -296,6 +298,8 @@ export const ProjectSettingsSchema: z.ZodType<any> = z.object({
   name: z.string().optional(),
   model: ModelIdSchema.optional(), // Legacy field
   currentModel: ModelIdSchema.optional(),
+  /** Vision model for image analysis (project-level override) */
+  visionModel: ModelIdSchema.optional(),
   customInstructions: z.string().optional(),
   excludePatterns: z.array(z.string()).optional(),
   includePatterns: z.array(z.string()).optional(),

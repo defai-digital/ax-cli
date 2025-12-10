@@ -191,10 +191,12 @@ export const GROK_PROVIDER: ProviderDefinition = {
   apiKeyEnvVar: 'XAI_API_KEY',
   apiKeyEnvVarAliases: ['GROK_API_KEY'],
   defaultBaseURL: 'https://api.x.ai/v1',
-  defaultModel: 'grok-3',
+  defaultModel: 'grok-4-0709',
+  // NOTE: Grok-4 has built-in vision, thinking, and search - no separate vision model needed
   configDirName: '.ax-grok',
   models: {
-    // Grok 4 models - latest generation with superior reasoning
+    // Grok 4 - Latest generation with ALL capabilities built-in
+    // Vision, thinking (reasoning_effort), web search, seed support
     'grok-4-0709': {
       name: 'Grok-4',
       contextWindow: 131072,
@@ -204,7 +206,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
       supportsSearch: true,
       supportsSeed: true,
       defaultTemperature: 0.7,
-      description: 'Most capable Grok model with advanced reasoning, coding, and visual processing',
+      description: 'Most capable: reasoning, coding, vision, search (default)',
     },
     'grok-4.1-fast': {
       name: 'Grok-4.1 Fast',
@@ -215,54 +217,9 @@ export const GROK_PROVIDER: ProviderDefinition = {
       supportsSearch: true,
       supportsSeed: true,
       defaultTemperature: 0.7,
-      description: 'Fast Grok 4.1 model with agent tools support',
+      description: 'Fast variant with agent tools support',
     },
-    // Grok 3 models with thinking mode (reasoning_effort)
-    'grok-3': {
-      name: 'Grok-3',
-      contextWindow: 131072,
-      maxOutputTokens: 131072,
-      supportsThinking: true,
-      supportsVision: false,
-      supportsSearch: true,
-      supportsSeed: true,
-      defaultTemperature: 0.7,
-      description: 'Capable Grok model with extended thinking via reasoning_effort',
-    },
-    'grok-3-mini': {
-      name: 'Grok-3 Mini',
-      contextWindow: 131072,
-      maxOutputTokens: 131072,
-      supportsThinking: true,
-      supportsVision: false,
-      supportsSearch: true,
-      supportsSeed: true,
-      defaultTemperature: 0.7,
-      description: 'Efficient Grok 3 model with thinking support',
-    },
-    // Grok 2 models (no thinking mode) - use dated versions for API compatibility
-    'grok-2-1212': {
-      name: 'Grok-2',
-      contextWindow: 131072,
-      maxOutputTokens: 32768,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: true,
-      supportsSeed: true,
-      defaultTemperature: 0.7,
-      description: 'Capable Grok 2 model with advanced reasoning and web search',
-    },
-    'grok-2-vision-1212': {
-      name: 'Grok-2 Vision',
-      contextWindow: 32768,
-      maxOutputTokens: 8192,
-      supportsThinking: false,
-      supportsVision: true,
-      supportsSearch: true,
-      supportsSeed: true,
-      defaultTemperature: 0.7,
-      description: 'Vision-capable Grok model for image understanding',
-    },
+    // Image generation model
     'grok-2-image-1212': {
       name: 'Grok-2 Image',
       contextWindow: 32768,
@@ -274,34 +231,13 @@ export const GROK_PROVIDER: ProviderDefinition = {
       defaultTemperature: 0.7,
       description: 'Text-to-image generation model',
     },
-    // Legacy beta models
-    'grok-beta': {
-      name: 'Grok Beta',
-      contextWindow: 131072,
-      maxOutputTokens: 32768,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: true,
-      defaultTemperature: 0.7,
-      description: 'Legacy Grok beta model',
-    },
-    'grok-vision-beta': {
-      name: 'Grok Vision Beta',
-      contextWindow: 8192,
-      maxOutputTokens: 4096,
-      supportsThinking: false,
-      supportsVision: true,
-      supportsSearch: false,
-      supportsSeed: true,
-      defaultTemperature: 0.7,
-      description: 'Legacy vision-capable beta model',
-    },
+    // NOTE: Legacy models (grok-3, grok-2, grok-beta) removed
+    // Grok-4 supersedes all previous models with better capabilities
   },
   features: {
-    supportsThinking: true, // via grok-3 models with reasoning_effort
-    supportsVision: true, // via grok-2-vision
-    supportsSearch: true,
+    supportsThinking: true, // Grok-4 reasoning_effort (low/high)
+    supportsVision: true,   // Grok-4 has built-in vision
+    supportsSearch: true,   // Grok-4 has built-in web search
     supportsSeed: true,
     supportsDoSample: false,
     thinkingModeStyle: 'reasoning_effort',
@@ -309,17 +245,17 @@ export const GROK_PROVIDER: ProviderDefinition = {
   branding: {
     cliName: 'ax-grok',
     description: 'Grok-optimized AI coding assistant powered by xAI',
-    welcomeMessage: '🤖 Starting AX-Grok AI Assistant (powered by xAI)...',
-    primaryColor: 'red',
-    secondaryColor: 'white',
+    welcomeMessage: '⚡ Starting AX-Grok AI Assistant (powered by xAI)...',
+    primaryColor: '#C0C0C0',
+    secondaryColor: 'gray',
     tagline: 'Powered by xAI',
     asciiLogo: `
-  ▄▄▄       ▒██   ██▒      ▄████  ██▀███   ▒█████   ██ ▄█▀
- ▒████▄     ▒▒ █ █ ▒░     ██▒ ▀█▒▓██ ▒ ██▒▒██▒  ██▒ ██▄█▒ 
- ▒██  ▀█▄   ░░  █   ░    ▒██░▄▄▄░▓██ ░▄█ ▒▒██░  ██▒▓███▄░ 
- ░██▄▄▄▄██   ░ █ █ ▒     ░▓█  ██▓▒██▀▀█▄  ▒██   ██░▓██ █▄ 
-  ▓█   ▓██▒ ▒██▒ ▒██▒    ░▒▓███▀▒░██▓ ▒██▒░ ████▓▒░▒██▒ █▄
-  ▒▒   ▓▒█░ ▒▒ ░ ░▓ ░     ░▒   ▒ ░ ▒▓ ░▒▓░░ ▒░▒░▒░ ▒ ▒▒ ▓▒`,
+   █████╗ ██╗  ██╗     ██████╗ ██████╗  ██████╗ ██╗  ██╗
+  ██╔══██╗╚██╗██╔╝    ██╔════╝ ██╔══██╗██╔═══██╗██║ ██╔╝
+  ███████║ ╚███╔╝     ██║  ███╗██████╔╝██║   ██║█████╔╝
+  ██╔══██║ ██╔██╗     ██║   ██║██╔══██╗██║   ██║██╔═██╗
+  ██║  ██║██╔╝ ██╗    ╚██████╔╝██║  ██║╚██████╔╝██║  ██╗
+  ╚═╝  ╚═╝╚═╝  ╚═╝     ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝`,
   },
 };
 
@@ -538,12 +474,10 @@ export const MODEL_ALIASES: Record<string, string> = {
   'glm-fast': 'glm-4-flash',
   'glm-vision': 'glm-4.6v',
   'glm-image': 'cogview-4',
-  // Grok aliases
+  // Grok aliases (Grok-4 only - supersedes all previous models)
   'grok-latest': 'grok-4-0709',
   'grok-fast': 'grok-4.1-fast',
-  'grok-vision': 'grok-2-vision-1212',
   'grok-image': 'grok-2-image-1212',
-  'grok-mini': 'grok-3-mini',
 };
 
 /**

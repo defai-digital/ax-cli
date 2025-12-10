@@ -70,26 +70,50 @@ While optimized for GLM, AX CLI supports a wide ecosystem of AI providers and mo
 - `glm-4.6`: Flagship model with 200K context window and reasoning mode (32K max output)
 - `glm-4.6v`: Latest vision model with 128K context and native multimodal function calling
 
-### Local Models via Ollama
+### Local Models via Ollama/LMStudio/vLLM
 
-Deploy any Ollama-supported model locally:
+Deploy any model locally with ax-cli (primary use case).
 
-- **Llama 3.1**: Meta's state-of-the-art language model
-- **Qwen 2.5**: Alibaba's powerful multilingual model
-- **DeepSeek**: Advanced reasoning capabilities
-- **And more**: Any model available in Ollama registry
+#### 2025 Offline Coding LLM Rankings
+
+| Tier | Model Family | Score | Strengths | Use Case |
+|------|--------------|-------|-----------|----------|
+| **T1** | **Qwen 3** | 9.6/10 | Coding, refactor, debug all-round leader | Primary model (Claude Code alternative) |
+| **T2** | **GLM-4.6** | 9.4/10 | 9B rivals Qwen 14B, excellent long context | Large-scale refactor + documentation |
+| **T3** | **DeepSeek-Coder V2** | 9.3/10 | Fastest inference, 7B≈13B performance | Quick iterations, edge devices |
+| **T4** | **Codestral / Mistral** | 8.4/10 | Strong in C/C++/Rust | Systems programming |
+| **T5** | **Llama 3.1 / CodeLlama** | 8.1/10 | Best framework support | Fallback, compatibility |
+
+#### Recommended Models by Task
+
+- **Primary coding model**: `qwen3:14b` or `qwen3:32b`
+- **Large refactor/multi-file**: `glm-4.6:9b` or `glm-4.6:32b` (excellent long context reasoning)
+- **Documentation/tests**: `codegeex4` or `glm4:9b`
+- **Fast iterations/lint/fix**: `deepseek-coder-v2:7b` (performs like 13B)
+- **C/C++/Rust projects**: `codestral:22b`
+- **Fallback/compatibility**: `llama3.1:8b`
 
 **Quick Start - Local Models**
 ```bash
 # Install Ollama from ollama.ai
 
-# Pull and run a model
-ollama pull llama3.1
+# Pull recommended Tier 1 model (best overall)
+ollama pull qwen3:14b
 ollama serve
 
-# Use with AX CLI (default port 11434)
-ax-cli --model llama3.1
+# Setup ax-cli for local inference
+ax-cli setup  # Select "Local/Offline"
+ax-cli
 ```
+
+#### Hardware Requirements
+
+| Model Size | RAM Required | GPU VRAM | Notes |
+|------------|--------------|----------|-------|
+| 7B-8B | 8GB+ | 6GB+ | Runs on most systems |
+| 14B | 16GB+ | 12GB+ | Good balance |
+| 32B | 32GB+ | 24GB+ | High quality |
+| 70B+ | 64GB+ | 48GB+ | Maximum capability |
 
 ### Cloud Providers
 

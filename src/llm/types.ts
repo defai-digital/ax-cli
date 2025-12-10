@@ -426,9 +426,9 @@ export function validateThinking(
   if (thinking && thinking.type === "enabled") {
     const modelLower = model.toLowerCase();
 
-    // Grok 3 models support thinking via reasoning_effort
-    if (modelLower.includes("grok-3")) {
-      return; // Valid for Grok 3
+    // Grok 4 models support thinking via reasoning_effort
+    if (modelLower.includes("grok-4")) {
+      return; // Valid for Grok 4
     }
 
     // Check GLM model configuration
@@ -436,7 +436,7 @@ export function validateThinking(
     if (!config.supportsThinking) {
       throw new Error(
         `Thinking mode is not supported by model ${model}. ` +
-        `Use glm-4.6 for thinking capabilities, or grok-3 for Grok models.`
+        `Use glm-4.6 for thinking capabilities, or grok-4 for Grok models.`
       );
     }
   }

@@ -70,10 +70,10 @@ const PROVIDERS: Record<Provider, ProviderInfo> = {
     cliName: 'ax-grok',
     package: '@defai.digital/ax-grok',
     defaultBaseURL: 'https://api.x.ai/v1',
-    defaultModel: 'grok-3',
+    defaultModel: 'grok-4-0709',
     apiKeyEnvVar: 'XAI_API_KEY',
     website: 'https://console.x.ai',
-    description: 'Grok 3 with extended thinking, vision, and live search',
+    description: 'Grok 4 with extended thinking, vision, and live search',
     configDir: '.ax-grok',
   },
 };
@@ -86,13 +86,11 @@ const GLM_MODELS: ModelInfo[] = [
   { id: 'glm-4-flash', name: 'GLM-4 Flash', description: 'Fast, efficient GLM model', contextWindow: 128000 },
 ];
 
-// Grok models
+// Grok models (Grok-4 only - all capabilities built-in)
 const GROK_MODELS: ModelInfo[] = [
-  { id: 'grok-3', name: 'Grok-3', description: 'Most capable with extended thinking', contextWindow: 131072, supportsThinking: true, supportsSearch: true },
-  { id: 'grok-3-mini', name: 'Grok-3 Mini', description: 'Efficient with thinking support', contextWindow: 131072, supportsThinking: true, supportsSearch: true },
-  { id: 'grok-2', name: 'Grok-2', description: 'Capable with advanced reasoning', contextWindow: 131072, supportsSearch: true },
-  { id: 'grok-2-vision', name: 'Grok-2 Vision', description: 'Vision-capable for image understanding', contextWindow: 32768, supportsVision: true, supportsSearch: true },
-  { id: 'grok-2-mini', name: 'Grok-2 Mini', description: 'Fast and efficient', contextWindow: 131072, supportsSearch: true },
+  { id: 'grok-4-0709', name: 'Grok-4', description: 'Most capable: reasoning, coding, vision, search (default)', contextWindow: 131072, supportsThinking: true, supportsVision: true, supportsSearch: true },
+  { id: 'grok-4.1-fast', name: 'Grok-4.1 Fast', description: 'Fast variant with agent tools support', contextWindow: 131072, supportsThinking: true, supportsVision: true, supportsSearch: true },
+  { id: 'grok-2-image-1212', name: 'Grok-2 Image', description: 'Text-to-image generation model', contextWindow: 32768 },
 ];
 
 // Local server options

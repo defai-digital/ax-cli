@@ -631,13 +631,10 @@ function registerCommands(context: vscode.ExtensionContext) {
       }
 
       const models: ModelOption[] = [
-        // Grok models (xAI)
+        // Grok models (xAI) - Grok 4 has all capabilities built-in
         { label: '$(rocket) xAI Grok', description: '', model: '', kind: vscode.QuickPickItemKind.Separator },
-        { label: 'Grok 3 Fast', description: 'Optimized for speed', model: 'grok-3-fast' },
-        { label: 'Grok 3', description: 'Full reasoning model', model: 'grok-3' },
-        { label: 'Grok 3 Mini', description: 'Lightweight model', model: 'grok-3-mini' },
-        { label: 'Grok 3 Mini Fast', description: 'Fastest Grok model', model: 'grok-3-mini-fast' },
-        { label: 'Grok 2 Vision', description: 'Multimodal vision', model: 'grok-2-vision' },
+        { label: 'Grok 4', description: 'Most capable: reasoning, vision, search', model: 'grok-4-0709' },
+        { label: 'Grok 4.1 Fast', description: 'Fast with agent tools support', model: 'grok-4.1-fast' },
         // GLM models (Z.AI)
         { label: '$(beaker) Z.AI GLM', description: '', model: '', kind: vscode.QuickPickItemKind.Separator },
         { label: 'GLM-4.6', description: 'Primary coding model', model: 'glm-4.6' },
@@ -686,7 +683,7 @@ function registerCommands(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('ax-cli.setApiKey', async () => {
       const config = vscode.workspace.getConfiguration('ax-cli');
-      const model = config.get<string>('model', 'grok-3-fast');
+      const model = config.get<string>('model', 'grok-4-0709');
 
       // Determine which env var to use based on model
       let envVar = 'XAI_API_KEY';

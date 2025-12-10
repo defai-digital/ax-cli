@@ -34,7 +34,7 @@ export class StatusBarManager {
     }
 
     const config = vscode.workspace.getConfiguration('ax-cli');
-    const model = config.get<string>('model', 'grok-3-fast');
+    const model = config.get<string>('model', 'grok-4-0709');
 
     this.statusBarItem.text = `$(robot) AX: ${this.formatModelName(model)}`;
     this.statusBarItem.tooltip = `AX CLI - Click to change model\nCurrent: ${model}`;
@@ -43,14 +43,10 @@ export class StatusBarManager {
   private formatModelName(model: string): string {
     // Shorten model names for display
     const shortNames: Record<string, string> = {
-      // Grok models (xAI)
-      'grok-3-fast': 'Grok 3 Fast',
-      'grok-3': 'Grok 3',
-      'grok-3-mini': 'Grok Mini',
-      'grok-3-mini-fast': 'Grok Mini Fast',
-      'grok-2-vision': 'Grok Vision',
-      'grok-code-fast-1': 'Grok Code',
-      'grok-4-latest': 'Grok 4',
+      // Grok models (xAI) - Grok 4 only
+      'grok-4-0709': 'Grok 4',
+      'grok-4.1-fast': 'Grok 4.1 Fast',
+      'grok-2-image-1212': 'Grok Image',
       // GLM models (Z.AI)
       'glm-4.6': 'GLM 4.6',
       'glm-4.5-flash': 'GLM Flash',

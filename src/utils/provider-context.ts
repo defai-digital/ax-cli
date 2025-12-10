@@ -77,7 +77,7 @@ export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
     cliName: 'ax-grok',
     package: '@defai.digital/ax-grok',
     defaultBaseURL: 'https://api.x.ai/v1',
-    defaultModel: 'grok-3',
+    defaultModel: 'grok-4-0709',
     apiKeyEnvVar: 'XAI_API_KEY',
     website: 'https://console.x.ai',
     configDirName: '.ax-grok',

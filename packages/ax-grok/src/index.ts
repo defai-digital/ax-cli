@@ -7,11 +7,12 @@
  *
  * Features:
  * - Full ax-cli functionality (17 tools, MCP, memory, checkpoints, etc.)
- * - Grok 3 with extended thinking mode (reasoning_effort: low/high)
- * - Vision support (grok-2-vision)
- * - Live search capability
- * - Seed for reproducible outputs
- * - 128K context window
+ * - Grok 4 with ALL capabilities built-in:
+ *   - Extended thinking mode (reasoning_effort: low/high)
+ *   - Vision support (built-in, no separate model needed)
+ *   - Live web search capability
+ *   - Seed for reproducible outputs
+ *   - 128K context window
  */
 
 import { runCLI, GROK_PROVIDER } from '@defai.digital/ax-core';

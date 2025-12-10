@@ -182,7 +182,7 @@ const HELP_TEXT = `Image Input Methods:
 Supported formats: ${SUPPORTED_IMAGE_FORMATS.join(', ')}
 Maximum size: ${formatBytes(MAX_IMAGE_SIZE_BYTES)}
 
-Note: Images require a vision model (auto-switched to glm-4.6v or grok-2-vision)`;
+Note: Images require a vision model (GLM uses glm-4.6v, Grok 4 has built-in vision)`;
 
 /** Get help text for image input */
 export function getImageHelpText(): string {

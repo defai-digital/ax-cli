@@ -87,13 +87,17 @@ Download and run the installer from [nodejs.org](https://nodejs.org/)
 
 ### Optional
 
-#### For Offline/Local Operation
+#### For Offline/Local Operation (ax-cli)
 
 If you want to run AX CLI completely offline without cloud API keys:
 
-- **Ollama 0.1.0+** - Local LLM inference engine
+- **Ollama 0.1.0+** - Local LLM inference engine (recommended)
   - Download: https://ollama.ai
-  - Supported models: GLM 4.6, Llama 3, Qwen 2.5, DeepSeek, and more
+  - Supported models: Qwen 2.5-Coder, DeepSeek-Coder, Llama 3.1/3.2, Code Llama, Phi-3, Gemma 2, and more
+- **LM Studio** - Alternative local inference with GUI
+  - Download: https://lmstudio.ai
+- **vLLM** - High-performance inference server
+  - Documentation: https://docs.vllm.ai
 
 - **System Resources:**
   - **RAM**: 16GB minimum (32GB recommended for larger models)

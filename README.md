@@ -113,6 +113,27 @@ Run `/init` inside the CLI to initialize your project context.
 
 > **Model Aliases**: Use convenient aliases like `ax-grok -m grok-latest` instead of full model names.
 
+### Local/Offline Models (ax-cli)
+
+For local inference via Ollama, LMStudio, or vLLM, use `ax-cli`:
+
+```bash
+npm install -g @defai.digital/ax-cli
+ax-cli setup   # Select "Local/Offline"
+```
+
+**2025 Offline Coding LLM Rankings:**
+
+| Tier | Model | Score | Best For |
+|------|-------|-------|----------|
+| **T1** | Qwen 3 (8B/14B/32B/72B) | 9.6/10 | **Best overall** - coding, refactor, debug leader. Best Claude Code alternative |
+| **T2** | GLM-4.6 (9B/32B) | 9.4/10 | **Best for refactor + docs** - 9B rivals Qwen 14B, excellent long context reasoning |
+| **T3** | DeepSeek-Coder V2 (7B/16B) | 9.3/10 | **Best speed/value** - 7B performs like 13B, great for edge devices |
+| **T4** | Codestral / Mistral | 8.4/10 | **C/C++/Rust** - strong in systems languages, good supplement |
+| **T5** | Llama 3.1 / CodeLlama | 8.1/10 | **Best fallback** - most compatible, works with all frameworks |
+
+> **Recommendation**: Use **Qwen 3** as your primary model, **GLM-4.6** for large refactors and documentation, **DeepSeek** for fast iterations, and **Llama** as fallback.
+
 ---
 
 ## Installation
@@ -286,7 +307,7 @@ AX CLI uses a modular architecture with provider-specific CLIs built on a shared
 |---------|:--------:|-------------|
 | [@defai.digital/ax-glm](https://www.npmjs.com/package/@defai.digital/ax-glm) | **Yes** | GLM-optimized CLI with web search, vision, image generation |
 | [@defai.digital/ax-grok](https://www.npmjs.com/package/@defai.digital/ax-grok) | **Yes** | Grok-optimized CLI with web search, vision, extended thinking |
-| [@defai.digital/ax-cli](https://www.npmjs.com/package/@defai.digital/ax-cli) | Optional | Base CLI for Qwen, DeepSeek, Mixtral, Local (no provider-specific features) |
+| [@defai.digital/ax-cli](https://www.npmjs.com/package/@defai.digital/ax-cli) | Optional | Local-first CLI for Ollama/LMStudio/vLLM + DeepSeek Cloud |
 | [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | No | Shared core library (auto-installed as dependency) |
 | [@defai.digital/ax-schemas](https://www.npmjs.com/package/@defai.digital/ax-schemas) | No | Shared Zod schemas (auto-installed as dependency) |
 
@@ -298,7 +319,8 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
-*   **v4.3.14**: CLI architecture refinement - Separated ax-cli as standalone base CLI (Qwen, DeepSeek, Mixtral, Local) without GLM/Grok-specific features. ax-glm and ax-grok remain as dedicated CLIs with full provider-specific features (web search, vision, image generation). Users should install ax-glm or ax-grok directly for advanced features.
+*   **v4.3.15**: Streamlined setup flow - New quick setup option reduces setup questions from 5-7 to just 4 (server → API key → model → "use defaults?"). Quick setup automatically installs AutomatosX and runs `ax setup -f`. Added separate vision model selection step for providers with vision support. Users can still access detailed configuration by declining quick setup.
+*   **v4.3.14**: CLI architecture refinement - Separated ax-cli as standalone base CLI without GLM/Grok-specific features. ax-glm and ax-grok remain as dedicated CLIs with full provider-specific features (web search, vision, image generation). Users should install ax-glm or ax-grok directly for advanced features.
 *   **v4.3.13**: UI refresh and bug fixes - Updated ASCII branding for AX-GLM and AX-GROK, fixed parseInt validation in design commands to prevent NaN errors, improved retry-helper documentation, refined welcome panel avatar animations.
 *   **v4.3.12**: Transport cleanup improvements - Added `destroy()` methods to SSETransport and StreamableHttpTransport classes for complete EventEmitter cleanup coverage.
 *   **v4.3.11**: Code quality improvements - Added `destroy()` methods to all EventEmitter classes to prevent memory leaks, fixed duplicate function implementations, improved resource cleanup across MCP, agent, and SDK modules.

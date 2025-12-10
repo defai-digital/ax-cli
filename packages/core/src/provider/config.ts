@@ -52,8 +52,10 @@ export interface ProviderDefinition {
   apiKeyEnvVarAliases?: string[];
   /** Default API base URL */
   defaultBaseURL: string;
-  /** Default model */
+  /** Default model (primary LLM for coding tasks) */
   defaultModel: string;
+  /** Default vision model (for image analysis, if supported) */
+  defaultVisionModel?: string;
   /** Supported models */
   models: Record<string, ProviderModelConfig>;
   /** Provider feature flags */
@@ -86,6 +88,7 @@ export const GLM_PROVIDER: ProviderDefinition = {
   apiKeyEnvVarAliases: ['GLM_API_KEY', 'YOUR_API_KEY'],
   defaultBaseURL: 'https://api.z.ai/api/coding/paas/v4',
   defaultModel: 'glm-4.6',
+  defaultVisionModel: 'glm-4.6v',
   configDirName: '.ax-glm',
   models: {
     'glm-4.6': {
@@ -99,6 +102,7 @@ export const GLM_PROVIDER: ProviderDefinition = {
       defaultTemperature: 0.7,
       description: 'Most capable GLM model with thinking mode support',
     },
+    // Vision models - selected separately in setup (Step 2)
     'glm-4.6v': {
       name: 'GLM-4.6V',
       contextWindow: 128000,
@@ -110,9 +114,8 @@ export const GLM_PROVIDER: ProviderDefinition = {
       defaultTemperature: 0.7,
       description: 'Latest vision model with 128K context and thinking mode',
     },
-    // Note: glm-4.5v is deprecated, use glm-4.6v instead
     'glm-4.5v': {
-      name: 'GLM-4.5V (Deprecated)',
+      name: 'GLM-4.5V',
       contextWindow: 64000,
       maxOutputTokens: 16000,
       supportsThinking: true,
@@ -120,7 +123,7 @@ export const GLM_PROVIDER: ProviderDefinition = {
       supportsSearch: false,
       supportsSeed: false,
       defaultTemperature: 0.7,
-      description: 'Deprecated: Use glm-4.6v for vision tasks',
+      description: 'Vision model with 64K context (legacy)',
     },
     'glm-4': {
       name: 'GLM-4',
@@ -159,7 +162,7 @@ export const GLM_PROVIDER: ProviderDefinition = {
   },
   features: {
     supportsThinking: true,
-    supportsVision: true, // via glm-4.6v
+    supportsVision: true, // Via separate visionModel config (glm-4.6v default)
     supportsSearch: false,
     supportsSeed: false,
     supportsDoSample: true,
@@ -191,10 +194,12 @@ export const GROK_PROVIDER: ProviderDefinition = {
   apiKeyEnvVar: 'XAI_API_KEY',
   apiKeyEnvVarAliases: ['GROK_API_KEY'],
   defaultBaseURL: 'https://api.x.ai/v1',
-  defaultModel: 'grok-3',
+  defaultModel: 'grok-4-0709',
+  // NOTE: Grok-4 has built-in vision, thinking, and search - no separate vision model needed
   configDirName: '.ax-grok',
   models: {
-    // Grok 4 models - latest generation with superior reasoning
+    // Grok 4 - Latest generation with ALL capabilities built-in
+    // Vision, thinking (reasoning_effort), web search, seed support
     'grok-4-0709': {
       name: 'Grok-4',
       contextWindow: 131072,
@@ -204,7 +209,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
       supportsSearch: true,
       supportsSeed: true,
       defaultTemperature: 0.7,
-      description: 'Most capable Grok model with advanced reasoning, coding, and visual processing',
+      description: 'Most capable: reasoning, coding, vision, search (default)',
     },
     'grok-4.1-fast': {
       name: 'Grok-4.1 Fast',
@@ -215,54 +220,9 @@ export const GROK_PROVIDER: ProviderDefinition = {
       supportsSearch: true,
       supportsSeed: true,
       defaultTemperature: 0.7,
-      description: 'Fast Grok 4.1 model with agent tools support',
+      description: 'Fast variant with agent tools support',
     },
-    // Grok 3 models with thinking mode (reasoning_effort)
-    'grok-3': {
-      name: 'Grok-3',
-      contextWindow: 131072,
-      maxOutputTokens: 131072,
-      supportsThinking: true,
-      supportsVision: false,
-      supportsSearch: true,
-      supportsSeed: true,
-      defaultTemperature: 0.7,
-      description: 'Capable Grok model with extended thinking via reasoning_effort',
-    },
-    'grok-3-mini': {
-      name: 'Grok-3 Mini',
-      contextWindow: 131072,
-      maxOutputTokens: 131072,
-      supportsThinking: true,
-      supportsVision: false,
-      supportsSearch: true,
-      supportsSeed: true,
-      defaultTemperature: 0.7,
-      description: 'Efficient Grok 3 model with thinking support',
-    },
-    // Grok 2 models (no thinking mode) - use dated versions for API compatibility
-    'grok-2-1212': {
-      name: 'Grok-2',
-      contextWindow: 131072,
-      maxOutputTokens: 32768,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: true,
-      supportsSeed: true,
-      defaultTemperature: 0.7,
-      description: 'Capable Grok 2 model with advanced reasoning and web search',
-    },
-    'grok-2-vision-1212': {
-      name: 'Grok-2 Vision',
-      contextWindow: 32768,
-      maxOutputTokens: 8192,
-      supportsThinking: false,
-      supportsVision: true,
-      supportsSearch: true,
-      supportsSeed: true,
-      defaultTemperature: 0.7,
-      description: 'Vision-capable Grok model for image understanding',
-    },
+    // Image generation model
     'grok-2-image-1212': {
       name: 'Grok-2 Image',
       contextWindow: 32768,
@@ -274,34 +234,13 @@ export const GROK_PROVIDER: ProviderDefinition = {
       defaultTemperature: 0.7,
       description: 'Text-to-image generation model',
     },
-    // Legacy beta models
-    'grok-beta': {
-      name: 'Grok Beta',
-      contextWindow: 131072,
-      maxOutputTokens: 32768,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: true,
-      defaultTemperature: 0.7,
-      description: 'Legacy Grok beta model',
-    },
-    'grok-vision-beta': {
-      name: 'Grok Vision Beta',
-      contextWindow: 8192,
-      maxOutputTokens: 4096,
-      supportsThinking: false,
-      supportsVision: true,
-      supportsSearch: false,
-      supportsSeed: true,
-      defaultTemperature: 0.7,
-      description: 'Legacy vision-capable beta model',
-    },
+    // NOTE: Legacy models (grok-3, grok-2, grok-beta) removed
+    // Grok-4 supersedes all previous models with better capabilities
   },
   features: {
-    supportsThinking: true, // via grok-3 models with reasoning_effort
-    supportsVision: true, // via grok-2-vision
-    supportsSearch: true,
+    supportsThinking: true, // Grok-4 reasoning_effort (low/high)
+    supportsVision: true,   // Grok-4 has built-in vision
+    supportsSearch: true,   // Grok-4 has built-in web search
     supportsSeed: true,
     supportsDoSample: false,
     thinkingModeStyle: 'reasoning_effort',
@@ -326,12 +265,18 @@ export const GROK_PROVIDER: ProviderDefinition = {
 /**
  * AX CLI Provider Definition
  *
- * AX-CLI is a standalone base CLI without provider-specific features.
- * It connects to various cloud/local providers (Qwen, DeepSeek, Mixtral, Ollama)
- * but does NOT include GLM/Grok-specific features like:
- * - Web search (native API)
- * - Image generation
- * - Vision capabilities
+ * AX-CLI focuses on LOCAL/OFFLINE inference as primary use case:
+ * - Ollama (primary)
+ * - LMStudio
+ * - vLLM
+ * - DeepSeek Cloud (only cloud provider)
+ *
+ * 2025 Offline Coding LLM Rankings:
+ * - T1: Qwen 3 (9.6/10) - Best overall, coding leader
+ * - T2: GLM-4.6 (9.4/10) - Best for refactor + docs (9B rivals Qwen 14B!)
+ * - T3: DeepSeek-Coder V2 (9.3/10) - Best speed/value
+ * - T4: Codestral/Mistral (8.4/10) - Good for C/C++/Rust
+ * - T5: Llama (8.1/10) - Best fallback/compatibility
  *
  * For GLM-specific features, use ax-glm.
  * For Grok-specific features, use ax-grok.
@@ -340,71 +285,16 @@ export const AX_CLI_PROVIDER: ProviderDefinition = {
   name: 'ax-cli',
   displayName: 'AX CLI',
   apiKeyEnvVar: 'AX_API_KEY',
-  apiKeyEnvVarAliases: ['DASHSCOPE_API_KEY', 'DEEPSEEK_API_KEY', 'MISTRAL_API_KEY'],
-  defaultBaseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', // Default to Qwen
-  defaultModel: 'qwen-max',
+  apiKeyEnvVarAliases: ['AXCLI_API_KEY'],  // Keep provider-agnostic (no DEEPSEEK binding for future ax-deepseek)
+  defaultBaseURL: 'http://localhost:11434/v1', // Default to Ollama (local)
+  defaultModel: 'qwen3:14b',  // Tier 1: Best overall
   configDirName: '.ax-cli',
   models: {
-    // Qwen models (DashScope)
-    'qwen-max': {
-      name: 'Qwen-Max',
-      contextWindow: 32000,
-      maxOutputTokens: 8192,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'Most capable Qwen model (32K context)',
-    },
-    'qwen-plus': {
-      name: 'Qwen-Plus',
-      contextWindow: 32000,
-      maxOutputTokens: 8192,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'Balanced performance and cost (32K context)',
-    },
-    'qwen-turbo': {
-      name: 'Qwen-Turbo',
-      contextWindow: 8000,
-      maxOutputTokens: 4096,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'Fast and efficient (8K context)',
-    },
-    // DeepSeek models
-    'deepseek-chat': {
-      name: 'DeepSeek-Chat',
-      contextWindow: 64000,
-      maxOutputTokens: 8192,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'Latest chat model with 64K context',
-    },
-    'deepseek-coder': {
-      name: 'DeepSeek-Coder',
-      contextWindow: 64000,
-      maxOutputTokens: 8192,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'Optimized for code generation',
-    },
-    // Mistral models
-    'mistral-large-latest': {
-      name: 'Mistral Large',
+    // ═══════════════════════════════════════════════════════════════════
+    // TIER 1: QWEN 3 (9.6/10) - Best Overall Offline Coding Model
+    // ═══════════════════════════════════════════════════════════════════
+    'qwen3:72b': {
+      name: 'Qwen 3 72B',
       contextWindow: 128000,
       maxOutputTokens: 8192,
       supportsThinking: false,
@@ -412,10 +302,131 @@ export const AX_CLI_PROVIDER: ProviderDefinition = {
       supportsSearch: false,
       supportsSeed: false,
       defaultTemperature: 0.7,
-      description: 'Most capable Mistral model (128K context)',
+      description: 'T1 BEST: Most capable, 128K context',
     },
-    'codestral-latest': {
-      name: 'Codestral',
+    'qwen3:32b': {
+      name: 'Qwen 3 32B',
+      contextWindow: 128000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'T1 BEST: High-quality coding, 128K context',
+    },
+    'qwen3:14b': {
+      name: 'Qwen 3 14B',
+      contextWindow: 128000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'T1 BEST: Balanced performance (recommended)',
+    },
+    'qwen3:8b': {
+      name: 'Qwen 3 8B',
+      contextWindow: 128000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'T1 BEST: Efficient, great for most tasks',
+    },
+    'qwen2.5-coder:32b': {
+      name: 'Qwen2.5-Coder 32B',
+      contextWindow: 128000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'Excellent coding specialist, 128K context',
+    },
+    // ═══════════════════════════════════════════════════════════════════
+    // TIER 2: GLM-4.6 (9.4/10) - Best for Refactor + Docs ★NEW
+    // GLM-4.6 9B rivals Qwen 14B / DeepSeek 16B in quality
+    // Better than DeepSeek on long context reasoning
+    // ═══════════════════════════════════════════════════════════════════
+    'glm-4.6:32b': {
+      name: 'GLM-4.6 32B',
+      contextWindow: 200000,
+      maxOutputTokens: 32000,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'T2 REFACTOR: Large-scale refactor + multi-file editing',
+    },
+    'glm-4.6:9b': {
+      name: 'GLM-4.6 9B',
+      contextWindow: 200000,
+      maxOutputTokens: 32000,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'T2 REFACTOR: Rivals Qwen 14B, excellent long context',
+    },
+    'codegeex4': {
+      name: 'CodeGeeX4',
+      contextWindow: 128000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'T2 DOCS: Best for documentation generation',
+    },
+    'glm4:9b': {
+      name: 'GLM-4 9B',
+      contextWindow: 128000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'T2: Bilingual code understanding',
+    },
+    // ═══════════════════════════════════════════════════════════════════
+    // TIER 3: DEEPSEEK-CODER V2 (9.3/10) - Best Speed/Value
+    // ═══════════════════════════════════════════════════════════════════
+    'deepseek-coder-v2:16b': {
+      name: 'DeepSeek-Coder-V2 16B',
+      contextWindow: 64000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'T3 FAST: Best speed/quality ratio',
+    },
+    'deepseek-coder-v2:7b': {
+      name: 'DeepSeek-Coder-V2 7B',
+      contextWindow: 64000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'T3 FAST: 7B performs like 13B, edge-friendly',
+    },
+    // ═══════════════════════════════════════════════════════════════════
+    // TIER 4: CODESTRAL/MISTRAL (8.4/10) - C/C++/Rust
+    // ═══════════════════════════════════════════════════════════════════
+    'codestral:22b': {
+      name: 'Codestral 22B',
       contextWindow: 32000,
       maxOutputTokens: 8192,
       supportsThinking: false,
@@ -423,8 +434,51 @@ export const AX_CLI_PROVIDER: ProviderDefinition = {
       supportsSearch: false,
       supportsSeed: false,
       defaultTemperature: 0.7,
-      description: 'Dedicated coding model (32K context)',
+      description: 'T4: Strong in C/C++/Rust',
     },
+    // ═══════════════════════════════════════════════════════════════════
+    // TIER 5: LLAMA (8.1/10) - Best Fallback/Compatibility
+    // ═══════════════════════════════════════════════════════════════════
+    'llama3.1:70b': {
+      name: 'Llama 3.1 70B',
+      contextWindow: 128000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'T5 FALLBACK: Best compatibility',
+    },
+    'llama3.1:8b': {
+      name: 'Llama 3.1 8B',
+      contextWindow: 128000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'T5 FALLBACK: Fast, stable',
+    },
+    'codellama:34b': {
+      name: 'Code Llama 34B',
+      contextWindow: 16000,
+      maxOutputTokens: 4096,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'Optimized for code generation',
+    },
+    // ═══════════════════════════════════════════════════════════════════
+    // NOTE: DeepSeek Cloud models removed from ax-cli
+    // ax-cli is LOCAL/OFFLINE FIRST - cloud providers should use dedicated CLIs:
+    // - ax-glm for Z.AI GLM models
+    // - ax-grok for xAI Grok models
+    // - ax-deepseek (future) for DeepSeek cloud models
+    // ═══════════════════════════════════════════════════════════════════
   },
   features: {
     supportsThinking: false,  // No extended thinking in base CLI
@@ -436,11 +490,11 @@ export const AX_CLI_PROVIDER: ProviderDefinition = {
   },
   branding: {
     cliName: 'ax-cli',
-    description: 'Enterprise-Class AI Command Line Interface',
-    welcomeMessage: '💎 Starting AX-CLI AI Assistant...',
-    primaryColor: 'blue',
-    secondaryColor: 'magenta',
-    tagline: 'AI Coding Assistant',
+    description: 'Local-First AI Command Line Interface',
+    welcomeMessage: '💎 Starting AX-CLI AI Assistant (Local/Offline)...',
+    primaryColor: 'green',
+    secondaryColor: 'blue',
+    tagline: 'Local AI Coding Assistant',
     asciiLogo: `
    █████╗ ██╗  ██╗      ██████╗██╗     ██╗
   ██╔══██╗╚██╗██╔╝     ██╔════╝██║     ██║
@@ -671,12 +725,11 @@ export const MODEL_ALIASES: Record<string, string> = {
   'glm-fast': 'glm-4-flash',
   'glm-vision': 'glm-4.6v',
   'glm-image': 'cogview-4',
-  // Grok aliases
+  // Grok aliases (simplified - Grok-4 has all capabilities built-in)
   'grok-latest': 'grok-4-0709',
   'grok-fast': 'grok-4.1-fast',
-  'grok-vision': 'grok-2-vision-1212',
   'grok-image': 'grok-2-image-1212',
-  'grok-mini': 'grok-3-mini',
+  // NOTE: 'grok-vision' and 'grok-mini' removed - Grok-4 has built-in vision
 };
 
 /**

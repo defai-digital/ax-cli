@@ -84,6 +84,21 @@ async function installAutomatosX(): Promise<boolean> {
 }
 
 /**
+ * Run AutomatosX setup with force flag
+ */
+async function runAutomatosXSetup(): Promise<boolean> {
+  try {
+    execSync('ax setup -f', {
+      stdio: 'inherit',
+      timeout: 120000 // 2 minutes timeout
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Provider configurations
  */
 interface ProviderConfig {
@@ -287,14 +302,21 @@ export function createSetupCommand(): Command {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 3: Model Selection
+        // STEP 3: Model Selection (Primary LLM)
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 3/5 — Choose Model'));
+        prompts.log.step(chalk.bold('Step 3/6 — Choose Primary Model (for coding)'));
+
+        // Get models that DON'T support vision (primary coding models)
+        const activeProvider = getActiveProvider();
+        const primaryModels = Object.entries(activeProvider.models)
+          .filter(([_, config]) => !config.supportsVision)
+          .map(([id]) => id);
 
         const existingModel = existingConfig?.defaultModel || existingConfig?.currentModel;
         const baseModelOptions = Array.from(
           new Set([
             selectedProvider.defaultModel,
+            ...primaryModels,
             ...(existingConfig?.models || []),
             existingModel,
           ].filter(Boolean))
@@ -307,7 +329,7 @@ export function createSetupCommand(): Command {
         modelChoices.push({ value: '__custom__', label: 'Other (enter manually)' });
 
         const modelSelection = await prompts.select({
-          message: 'Select default model:',
+          message: 'Select default model for coding tasks:',
           options: modelChoices,
           initialValue: existingModel || selectedProvider.defaultModel,
         });
@@ -325,13 +347,84 @@ export function createSetupCommand(): Command {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 4: Validate Connection
+        // STEP 4: Vision Model Selection (if provider supports vision)
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 4/5 — Validate Connection'));
+        let chosenVisionModel: string | undefined;
 
-        if (!options.validate) {
-          prompts.log.info('Skipping validation (--no-validate)');
+        if (activeProvider.features.supportsVision && activeProvider.defaultVisionModel) {
+          prompts.log.step(chalk.bold('Step 4/6 — Choose Vision Model (for image analysis)'));
+
+          // Get models that DO support vision
+          const visionModels = Object.entries(activeProvider.models)
+            .filter(([_, config]) => config.supportsVision)
+            .map(([id]) => id);
+
+          const existingVisionModel = existingConfig?.visionModel;
+
+          const visionModelChoices = visionModels.map(model => ({
+            value: model,
+            label: model === activeProvider.defaultVisionModel ? `${model} (default)` : model,
+          }));
+          visionModelChoices.push({ value: '__none__', label: 'None (disable vision)' });
+          visionModelChoices.push({ value: '__custom__', label: 'Other (enter manually)' });
+
+          const visionModelSelection = await prompts.select({
+            message: 'Select model for image/vision tasks:',
+            options: visionModelChoices,
+            initialValue: existingVisionModel || activeProvider.defaultVisionModel,
+          });
+          exitIfCancelled(visionModelSelection);
+
+          if (visionModelSelection === '__none__') {
+            chosenVisionModel = undefined;
+            prompts.log.info('Vision model disabled');
+          } else if (visionModelSelection === '__custom__') {
+            const manualVisionModel = await prompts.text({
+              message: 'Enter vision model ID:',
+              initialValue: activeProvider.defaultVisionModel,
+              validate: (value) => value?.trim().length > 0 ? undefined : 'Model is required',
+            });
+            exitIfCancelled(manualVisionModel);
+            chosenVisionModel = manualVisionModel.trim();
+          } else {
+            chosenVisionModel = visionModelSelection;
+          }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // STEP 5: Quick Setup Option
+        // ═══════════════════════════════════════════════════════════════════
+        prompts.log.step(chalk.bold(`Step ${activeProvider.features.supportsVision ? '5/6' : '4/5'} — Quick Setup`));
+
+        const maxTokens = (selectedProvider.name === 'z.ai' || selectedProvider.name === 'z.ai-free') ? 32768 : 8192;
+
+        // Ask if user wants to use defaults for remaining settings
+        const useDefaults = await prompts.confirm({
+          message: 'Use default settings for everything else? (Recommended for quick setup)',
+          initialValue: true,
+        });
+        exitIfCancelled(useDefaults);
+
+        // Track whether we should validate and configure extras
+        let shouldValidate = options.validate !== false;
+        let shouldConfigureExtras = true;
+
+        if (useDefaults) {
+          // Skip validation and extra configuration - use smart defaults
+          shouldValidate = false;
+          shouldConfigureExtras = false;
+          prompts.log.success('Using default settings for quick setup');
         } else {
+          // User wants to customize - proceed with validation
+          prompts.log.info('Proceeding with detailed configuration...');
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // Validate Connection (only if not using defaults)
+        // ═══════════════════════════════════════════════════════════════════
+        if (shouldValidate) {
+          prompts.log.step(chalk.bold('Validating Connection...'));
+
           const spinner = prompts.spinner();
           spinner.start('Testing endpoint connectivity...');
 
@@ -427,32 +520,31 @@ export function createSetupCommand(): Command {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 5: Review & Save
+        // Review & Save (simplified if using defaults)
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 5/5 — Review & Save'));
+        if (!useDefaults) {
+          const visionSummary = chosenVisionModel ? `\nVision:      ${chosenVisionModel}` : '';
+          await prompts.note(
+            `Provider:    ${selectedProvider.displayName}\n` +
+            `Base URL:    ${selectedProvider.baseURL}\n` +
+            `Model:       ${chosenModel}${visionSummary}\n` +
+            `Max Tokens:  ${existingConfig?.maxTokens ?? maxTokens}\n` +
+            `Config path: ${configPath}`,
+            'Configuration Summary'
+          );
 
-        const maxTokens = (selectedProvider.name === 'z.ai' || selectedProvider.name === 'z.ai-free') ? 32768 : 8192;
+          const confirmSave = await prompts.confirm({
+            message: 'Save these settings?',
+            initialValue: true,
+          });
+          exitIfCancelled(confirmSave);
 
-        await prompts.note(
-          `Provider:    ${selectedProvider.displayName}\n` +
-          `Base URL:    ${selectedProvider.baseURL}\n` +
-          `Model:       ${chosenModel}\n` +
-          `Max Tokens:  ${existingConfig?.maxTokens ?? maxTokens}\n` +
-          `Config path: ${configPath}`,
-          'Configuration Summary'
-        );
-
-        const confirmSave = await prompts.confirm({
-          message: 'Save these settings?',
-          initialValue: true,
-        });
-        exitIfCancelled(confirmSave);
-
-        if (!confirmSave) {
-          const terminalManager = getTerminalStateManager();
-          terminalManager.forceCleanup();
-          prompts.cancel('Setup cancelled. No changes saved.');
-          exitCancelled('Setup cancelled - user declined to save');
+          if (!confirmSave) {
+            const terminalManager = getTerminalStateManager();
+            terminalManager.forceCleanup();
+            prompts.cancel('Setup cancelled. No changes saved.');
+            exitCancelled('Setup cancelled - user declined to save');
+          }
         }
 
         // Create configuration object
@@ -462,6 +554,7 @@ export function createSetupCommand(): Command {
           baseURL: selectedProvider.baseURL,
           defaultModel: chosenModel,
           currentModel: chosenModel,
+          visionModel: chosenVisionModel, // Vision model for image analysis tasks
           maxTokens: existingConfig?.maxTokens ?? maxTokens,
           temperature: existingConfig?.temperature ?? 0.7,
           models: Array.from(new Set([chosenModel, ...(existingConfig?.models || []), selectedProvider.defaultModel].filter(Boolean))),
@@ -486,16 +579,21 @@ export function createSetupCommand(): Command {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // Z.AI MCP Integration
+        // Z.AI MCP Integration (auto-configure with defaults, or ask if customizing)
         // ═══════════════════════════════════════════════════════════════════
         if (selectedProvider.name === 'z.ai' || selectedProvider.name === 'z.ai-free') {
-          await prompts.note(
-            'Enabling Z.AI MCP servers for enhanced capabilities:\n' +
-            '• Web Search - Real-time web search\n' +
-            '• Web Reader - Extract content from web pages\n' +
-            '• Vision - Image/video analysis (Node.js 22+)',
-            'Z.AI MCP Integration'
-          );
+          if (!shouldConfigureExtras) {
+            // Quick setup - silently configure MCP servers
+            prompts.log.info('Configuring Z.AI MCP servers...');
+          } else {
+            await prompts.note(
+              'Enabling Z.AI MCP servers for enhanced capabilities:\n' +
+              '• Web Search - Real-time web search\n' +
+              '• Web Reader - Extract content from web pages\n' +
+              '• Vision - Image/video analysis (Node.js 22+)',
+              'Z.AI MCP Integration'
+            );
+          }
 
           const mcpSpinner = prompts.spinner();
           mcpSpinner.start('Configuring Z.AI MCP servers...');
@@ -535,107 +633,155 @@ export function createSetupCommand(): Command {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // AutomatosX Integration
+        // AutomatosX Integration (auto-configure with defaults, or ask if customizing)
         // ═══════════════════════════════════════════════════════════════════
-        await prompts.note(
-          'Multi-agent AI orchestration with persistent memory and collaboration.',
-          'AutomatosX Agent Orchestration'
-        );
-
         let axStatus = getAutomatosXStatus();
 
-        if (axStatus.installed) {
-          prompts.log.success(`AutomatosX detected${axStatus.version ? ` (v${axStatus.version})` : ''}`);
-
-          const axSpinner = prompts.spinner();
-          axSpinner.start('Checking for updates...');
-
-          const updated = await updateAutomatosX();
-          if (updated) {
-            axStatus = getAutomatosXStatus(); // Refresh version after update
-            axSpinner.stop(`AutomatosX updated${axStatus.version ? ` to v${axStatus.version}` : ''}`);
-          } else {
-            axSpinner.stop('Could not update AutomatosX');
-            prompts.log.info('Run manually: ax update -y');
-          }
-        } else {
-          try {
-            const installResponse = await prompts.confirm({
-              message: 'Install AutomatosX for multi-agent AI orchestration?',
-              initialValue: true,
-            });
-
-            if (!prompts.isCancel(installResponse) && installResponse) {
-              const installSpinner = prompts.spinner();
-              installSpinner.start('Installing AutomatosX...');
-
-              const installed = await installAutomatosX();
-              if (installed) {
-                installSpinner.stop('AutomatosX installed successfully!');
-                prompts.log.info('Run `ax list agents` to see available AI agents.');
-                axStatus = getAutomatosXStatus(); // Refresh status after install
-              } else {
-                installSpinner.stop('Could not install AutomatosX');
-                prompts.log.info('Install manually: npm install -g @defai.digital/automatosx');
-              }
-            } else if (!prompts.isCancel(installResponse)) {
-              prompts.log.info('You can install AutomatosX later: npm install -g @defai.digital/automatosx');
-            }
-          } catch {
-            prompts.log.info('Skipping AutomatosX setup (non-interactive mode).');
-            prompts.log.info('Install manually: npm install -g @defai.digital/automatosx');
-          }
-        }
-
-        // Agent-First Mode Configuration (only ask if AutomatosX is available)
-        if (axStatus.installed) {
+        if (shouldConfigureExtras) {
+          // Detailed setup - show notes and ask questions
           await prompts.note(
-            `When enabled, ${provider.branding.cliName} automatically routes tasks to specialized agents\n` +
-            'based on keywords (e.g., "test" → testing agent, "refactor" → refactoring agent).\n' +
-            'When disabled (default), you use the direct LLM and can invoke agents explicitly.',
-            'Agent-First Mode'
+            'Multi-agent AI orchestration with persistent memory and collaboration.',
+            'AutomatosX Agent Orchestration'
           );
 
-          try {
-            const enableAgentFirst = await prompts.confirm({
-              message: 'Enable agent-first mode (auto-route to specialized agents)?',
-              initialValue: false,
-            });
+          if (axStatus.installed) {
+            prompts.log.success(`AutomatosX detected${axStatus.version ? ` (v${axStatus.version})` : ''}`);
 
-            if (!prompts.isCancel(enableAgentFirst)) {
-              const currentSettings = settingsManager.loadUserSettings();
-              settingsManager.saveUserSettings({
-                ...currentSettings,
-                agentFirst: {
-                  enabled: enableAgentFirst,
-                  confidenceThreshold: 0.6,
-                  showAgentIndicator: true,
-                  defaultAgent: 'standard',
-                  excludedAgents: [],
-                },
+            const axSpinner = prompts.spinner();
+            axSpinner.start('Checking for updates...');
+
+            const updated = await updateAutomatosX();
+            if (updated) {
+              axStatus = getAutomatosXStatus(); // Refresh version after update
+              axSpinner.stop(`AutomatosX updated${axStatus.version ? ` to v${axStatus.version}` : ''}`);
+            } else {
+              axSpinner.stop('Could not update AutomatosX');
+              prompts.log.info('Run manually: ax update -y');
+            }
+          } else {
+            try {
+              const installResponse = await prompts.confirm({
+                message: 'Install AutomatosX for multi-agent AI orchestration?',
+                initialValue: true,
               });
 
-              if (enableAgentFirst) {
-                prompts.log.success('Agent-first mode enabled');
-                prompts.log.info('Tasks will be automatically routed to specialized agents.');
-              } else {
-                prompts.log.success('Agent-first mode disabled (default)');
-                prompts.log.info('Use direct LLM. Invoke agents with --agent flag when needed.');
+              if (!prompts.isCancel(installResponse) && installResponse) {
+                const installSpinner = prompts.spinner();
+                installSpinner.start('Installing AutomatosX...');
+
+                const installed = await installAutomatosX();
+                if (installed) {
+                  installSpinner.stop('AutomatosX installed successfully!');
+                  prompts.log.info('Run `ax list agents` to see available AI agents.');
+                  axStatus = getAutomatosXStatus(); // Refresh status after install
+                } else {
+                  installSpinner.stop('Could not install AutomatosX');
+                  prompts.log.info('Install manually: npm install -g @defai.digital/automatosx');
+                }
+              } else if (!prompts.isCancel(installResponse)) {
+                prompts.log.info('You can install AutomatosX later: npm install -g @defai.digital/automatosx');
               }
+            } catch {
+              prompts.log.info('Skipping AutomatosX setup (non-interactive mode).');
+              prompts.log.info('Install manually: npm install -g @defai.digital/automatosx');
             }
-          } catch {
-            prompts.log.info('Skipping agent-first configuration (non-interactive mode).');
+          }
+
+          // Agent-First Mode Configuration (only ask if AutomatosX is available and user wants to customize)
+          if (axStatus.installed) {
+            await prompts.note(
+              `When enabled, ${provider.branding.cliName} automatically routes tasks to specialized agents\n` +
+              'based on keywords (e.g., "test" → testing agent, "refactor" → refactoring agent).\n' +
+              'When disabled (default), you use the direct LLM and can invoke agents explicitly.',
+              'Agent-First Mode'
+            );
+
+            try {
+              const enableAgentFirst = await prompts.confirm({
+                message: 'Enable agent-first mode (auto-route to specialized agents)?',
+                initialValue: false,
+              });
+
+              if (!prompts.isCancel(enableAgentFirst)) {
+                const currentSettings = settingsManager.loadUserSettings();
+                settingsManager.saveUserSettings({
+                  ...currentSettings,
+                  agentFirst: {
+                    enabled: enableAgentFirst,
+                    confidenceThreshold: 0.6,
+                    showAgentIndicator: true,
+                    defaultAgent: 'standard',
+                    excludedAgents: [],
+                  },
+                });
+
+                if (enableAgentFirst) {
+                  prompts.log.success('Agent-first mode enabled');
+                  prompts.log.info('Tasks will be automatically routed to specialized agents.');
+                } else {
+                  prompts.log.success('Agent-first mode disabled (default)');
+                  prompts.log.info('Use direct LLM. Invoke agents with --agent flag when needed.');
+                }
+              }
+            } catch {
+              prompts.log.info('Skipping agent-first configuration (non-interactive mode).');
+            }
+          }
+        } else {
+          // Quick setup - install AutomatosX and run ax setup -f by default
+          if (!axStatus.installed) {
+            const installSpinner = prompts.spinner();
+            installSpinner.start('Installing AutomatosX for multi-agent AI orchestration...');
+
+            const installed = await installAutomatosX();
+            if (installed) {
+              installSpinner.stop('AutomatosX installed successfully!');
+              axStatus = getAutomatosXStatus(); // Refresh status after install
+            } else {
+              installSpinner.stop('Could not install AutomatosX');
+              prompts.log.info('Install manually later: npm install -g @defai.digital/automatosx');
+            }
+          } else {
+            prompts.log.success(`AutomatosX detected${axStatus.version ? ` (v${axStatus.version})` : ''}`);
+          }
+
+          // Run ax setup -f to configure AutomatosX with defaults
+          if (axStatus.installed) {
+            const setupSpinner = prompts.spinner();
+            setupSpinner.start('Configuring AutomatosX...');
+
+            const setupSuccess = await runAutomatosXSetup();
+            if (setupSuccess) {
+              setupSpinner.stop('AutomatosX configured successfully!');
+            } else {
+              setupSpinner.stop('Could not configure AutomatosX');
+              prompts.log.info('Configure manually later: ax setup -f');
+            }
+
+            // Default: agent-first mode disabled
+            const currentSettings = settingsManager.loadUserSettings();
+            settingsManager.saveUserSettings({
+              ...currentSettings,
+              agentFirst: {
+                enabled: false,
+                confidenceThreshold: 0.6,
+                showAgentIndicator: true,
+                defaultAgent: 'standard',
+                excludedAgents: [],
+              },
+            });
           }
         }
 
         // ═══════════════════════════════════════════════════════════════════
         // Completion Summary
         // ═══════════════════════════════════════════════════════════════════
+        const visionModelInfo = chosenVisionModel ? `\nVision:      ${chosenVisionModel}` : '';
         await prompts.note(
           `Location:    ${configPath}\n` +
           `Provider:    ${selectedProvider.displayName}\n` +
           `Base URL:    ${selectedProvider.baseURL}\n` +
-          `Model:       ${chosenModel}\n` +
+          `Model:       ${chosenModel}${visionModelInfo}\n` +
           `Max Tokens:  ${mergedConfig.maxTokens || maxTokens}\n` +
           `Temperature: ${mergedConfig.temperature ?? 0.7}`,
           'Configuration Details'

@@ -509,6 +509,39 @@ export class SettingsManager {
   }
 
   /**
+   * Get current vision model for image analysis tasks
+   * Priority: project setting > user setting > provider default
+   */
+  public getVisionModel(): string | undefined {
+    // Check project-level override first
+    const projectVisionModel = this.getProjectSetting("visionModel");
+    if (projectVisionModel) {
+      return projectVisionModel;
+    }
+
+    // Then check user setting
+    const userVisionModel = this.getUserSetting("visionModel");
+    if (userVisionModel) {
+      return userVisionModel;
+    }
+
+    // Fall back to provider default
+    const provider = getActiveProvider();
+    return provider?.defaultVisionModel;
+  }
+
+  /**
+   * Set the vision model for the user
+   */
+  public setVisionModel(model: string): void {
+    const result = ModelIdSchema.safeParse(model);
+    if (!result.success) {
+      throw new Error(`Invalid model ID: ${model}. ${result.error.message}`);
+    }
+    this.updateUserSetting("visionModel", result.data);
+  }
+
+  /**
    * Set the current model for the project
    */
   public setCurrentModel(model: string): void {

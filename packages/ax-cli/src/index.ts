@@ -2,13 +2,15 @@
 /**
  * ax-cli - Enterprise-Class AI Command Line Interface
  *
- * This is a standalone CLI that connects to cloud/local providers:
- * - Qwen (DashScope Cloud)
- * - DeepSeek Cloud
- * - Mixtral/Mistral Cloud
- * - Local (Ollama, LMStudio, vLLM)
+ * This CLI focuses on LOCAL/OFFLINE inference as primary use case:
+ * - Ollama (primary)
+ * - LMStudio
+ * - vLLM
+ * - DeepSeek Cloud (only cloud provider)
  *
- * NOTE: ax-cli does NOT have GLM/Grok specific features like:
+ * Supports any model available in Ollama: Qwen, DeepSeek, Llama, Phi, Gemma, etc.
+ *
+ * NOTE: ax-cli does NOT have provider-specific features like:
  * - Web search (native API)
  * - Image generation
  * - Vision capabilities
@@ -31,7 +33,7 @@ const NAME = 'ax-cli';
 const CONFIG_FILE = join(homedir(), '.ax-cli', 'config.json');
 
 interface AxCliConfig {
-  selectedProvider?: 'local' | 'qwen' | 'deepseek' | 'mixtral';
+  selectedProvider?: 'local' | 'deepseek';
   _provider?: string;
   defaultModel?: string;
   apiKey?: string;
@@ -164,13 +166,11 @@ program
       showBanner();
       console.log(chalk.yellow('  No provider configured yet.\n'));
       console.log('  Available providers:');
-      console.log('    • ' + chalk.yellow('Qwen') + ' - Qwen2.5 models via DashScope Cloud');
-      console.log('    • ' + chalk.magenta('DeepSeek') + ' - DeepSeek-V2.5 and Coder models');
-      console.log('    • ' + chalk.cyan('Mixtral') + ' - Mistral Large, Codestral');
-      console.log('    • ' + chalk.gray('Local') + ' - Ollama, LMStudio, vLLM (no API key)');
+      console.log('    • ' + chalk.green('Local/Offline') + ' - Ollama, LMStudio, vLLM (recommended)');
+      console.log('    • ' + chalk.magenta('DeepSeek') + ' - DeepSeek Cloud API');
       console.log();
       console.log('  Run ' + chalk.bold.blue('ax-cli setup') + ' to get started.\n');
-      console.log(chalk.dim('  Note: For GLM/Grok features (web search, vision, image):'));
+      console.log(chalk.dim('  Note: For cloud provider features (web search, vision, image):'));
       console.log(chalk.dim('  • GLM: npm install -g @defai.digital/ax-glm'));
       console.log(chalk.dim('  • Grok: npm install -g @defai.digital/ax-grok\n'));
       process.exit(1);

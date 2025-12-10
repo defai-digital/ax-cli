@@ -301,6 +301,7 @@ function getGrokPricing(model: string): { input: number; output: number; cached:
   if (modelLower.includes('grok-4')) {
     return GROK_PRICING['grok-4'];
   }
+  // Legacy model pricing (kept for backwards compatibility with old usage data)
   if (modelLower.includes('grok-3-mini')) {
     return GROK_PRICING['grok-3-mini'];
   }
@@ -311,8 +312,8 @@ function getGrokPricing(model: string): { input: number; output: number; cached:
     return GROK_PRICING['grok-2'];
   }
 
-  // Default to Grok 3 pricing
-  return GROK_PRICING['grok-3'];
+  // Default to Grok 4 pricing (current default model)
+  return GROK_PRICING['grok-4'];
 }
 
 /**

@@ -16,7 +16,7 @@ import { DEFAULT_MODEL } from "../constants.js";
  *
  * Supports two styles of thinking mode:
  * - GLM (Z.AI): Uses `thinking_mode` parameter with type "enabled"/"disabled"
- * - Grok 3 (xAI): Uses `reasoning_effort` parameter with "low"/"high" values
+ * - Grok 4 (xAI): Uses `reasoning_effort` parameter with "low"/"high" values
  *
  * When enabled, the model will include reasoning_content in responses,
  * showing the step-by-step thought process before generating the final answer.
@@ -26,7 +26,7 @@ import { DEFAULT_MODEL } from "../constants.js";
  * // GLM style (default)
  * const thinking: ThinkingConfig = { type: "enabled" };
  *
- * // Grok 3 style with reasoning effort
+ * // Grok 4 style with reasoning effort
  * const thinking: ThinkingConfig = { type: "enabled", reasoningEffort: "high" };
  * const response = await client.chat(messages, [], { thinking });
  * ```
@@ -40,7 +40,7 @@ export interface ThinkingConfig {
   type: "enabled" | "disabled";
 
   /**
-   * Reasoning effort level for Grok 3 models (xAI)
+   * Reasoning effort level for Grok 4 models (xAI)
    * Only used when the provider uses 'reasoning_effort' style
    * - "low": Light reasoning for simpler tasks
    * - "high": Deep reasoning for complex tasks (default when enabled)
@@ -415,7 +415,7 @@ export function validateMaxTokens(maxTokens: number, model: string): void {
 
 /**
  * Validate thinking configuration for a given model
- * Supports both GLM models (glm-4.6) and Grok 3 models
+ * Supports both GLM models (glm-4.6) and Grok 4 models
  *
  * @throws Error if thinking is not supported by the model
  */
@@ -426,9 +426,9 @@ export function validateThinking(
   if (thinking && thinking.type === "enabled") {
     const modelLower = model.toLowerCase();
 
-    // Grok 3 models support thinking via reasoning_effort
-    if (modelLower.includes("grok-3")) {
-      return; // Valid for Grok 3
+    // Grok 4 models support thinking via reasoning_effort
+    if (modelLower.includes("grok-4")) {
+      return; // Valid for Grok 4
     }
 
     // Check GLM model configuration
@@ -436,7 +436,7 @@ export function validateThinking(
     if (!config.supportsThinking) {
       throw new Error(
         `Thinking mode is not supported by model ${model}. ` +
-        `Use glm-4.6 for thinking capabilities, or grok-3 for Grok models.`
+        `Use glm-4.6 for thinking capabilities, or grok-4 for Grok models.`
       );
     }
   }

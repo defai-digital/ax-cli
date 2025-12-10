@@ -417,10 +417,10 @@ export class LLMAgent extends EventEmitter {
       // Detect provider from current model
       const currentModel = this.llmClient.getCurrentModel().toLowerCase();
       if (currentModel.includes('grok')) {
-        // For Grok, use grok-2-vision
-        result.model = 'grok-2-vision-latest';
+        // Grok 4 has built-in vision support - no model switch needed
+        // Keep using current model (grok-4-0709 or grok-4.1-fast)
       } else {
-        // For GLM, use glm-4.6v (latest vision model with 128K context)
+        // For GLM, switch to glm-4.6v (vision model with 128K context)
         result.model = 'glm-4.6v';
       }
     }

@@ -152,3 +152,6 @@ test-file-*.*
 checkpoints/
 .checkpoints/
 .test-tmp/
+
+# Package-level checkpoint artifacts (should never exist in source)
+packages/*/checkpoints/
