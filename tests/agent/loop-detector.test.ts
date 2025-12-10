@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LoopDetector, getLoopDetector, resetLoopDetector } from '../../packages/core/src/agent/loop-detector.js';
 
 // Mock AGENT_CONFIG
-vi.mock('../../src/constants.js', () => ({
+vi.mock('../../packages/core/src/constants.js', () => ({
   AGENT_CONFIG: {
     ENABLE_LOOP_DETECTION: true,
     LOOP_DETECTION_THRESHOLD: 3, // Legacy config, should be overridden by tool-specific

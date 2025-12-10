@@ -11,7 +11,7 @@ import { SubagentRole, SubagentState } from '../../packages/core/src/agent/subag
 import type { SubagentTask } from '../../packages/core/src/agent/subagent-types.js';
 
 // Mock settings manager for CI environments
-vi.mock('../../src/utils/settings-manager.js', () => ({
+vi.mock('../../packages/core/src/utils/settings-manager.js', () => ({
   getSettingsManager: vi.fn(() => ({
     getApiKey: vi.fn(() => 'test-api-key'),
     getCurrentModel: vi.fn(() => 'glm-4.6'),

@@ -16,9 +16,8 @@ vi.mock("../../../packages/core/src/llm/tools.js", () => ({
   }),
 }));
 
-// Use relative path for mocking hooks module
-const hooksModulePath = "../../../packages/core/src/hooks/index.js";
-vi.mock(hooksModulePath, () => ({
+// Mock hooks module
+vi.mock("../../../packages/core/src/hooks/index.js", () => ({
   getHooksManager: vi.fn().mockReturnValue({
     shouldBlockTool: vi.fn().mockResolvedValue({ blocked: false }),
     executePostToolHooks: vi.fn(),
