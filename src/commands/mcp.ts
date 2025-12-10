@@ -40,6 +40,10 @@ function isValidTemplateCategory(category: unknown): category is TemplateCategor
   return typeof category === 'string' && (VALID_TEMPLATE_CATEGORIES as readonly string[]).includes(category);
 }
 
+function getCliName(): string {
+  return 'ax-cli';
+}
+
 function filterValidHealth(health: Array<ServerHealth | null>): ServerHealth[] {
   return health.filter((item): item is ServerHealth => Boolean(item));
 }

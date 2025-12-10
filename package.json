@@ -76,6 +76,7 @@
   "license": "MIT",
   "dependencies": {
     "@clack/prompts": "^0.11.0",
+    "@defai.digital/ax-core": "workspace:*",
     "@defai.digital/ax-schemas": "^1.1.0",
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@types/ws": "^8.18.1",

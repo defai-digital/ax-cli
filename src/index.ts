@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { createRequire } from 'module';
-import { runCLI } from '@defai.digital/ax-core/cli'; // Use the /cli export from ax-core
-import { AX_CLI_PROVIDER } from '@defai.digital/ax-core/provider';
+import { runCLI, AX_CLI_PROVIDER } from '@defai.digital/ax-core';
 
 // Get version from package.json
 const require = createRequire(import.meta.url);
