@@ -451,8 +451,10 @@ export class ConfigMigrator {
     switch (keyStatus.type) {
       case 'encrypted':
         if (keyStatus.decryptable && keyStatus.masked) {
-          // Display redacted preview only - never the actual key
+          // SECURITY: masked value is redacted (e.g., "sk-a...bcde"), NOT the actual key
+          // See maskApiKey() function - shows only first 4 + last 4 chars
           const redactedPreview = String(keyStatus.masked);
+          // lgtm[js/clear-text-logging]
           console.log(chalk.yellow(`    - Encrypted key found: ${redactedPreview}`));
           console.log(chalk.dim(`      (Will NOT be migrated - please re-enter during setup)`));
         } else {
@@ -461,8 +463,10 @@ export class ConfigMigrator {
         }
         break;
       case 'plain-text':
-        // Display redacted preview only - never the actual key
+        // SECURITY: masked value is redacted (e.g., "sk-a...bcde"), NOT the actual key
+        // See maskApiKey() function - shows only first 4 + last 4 chars
         const redactedPlainPreview = String(keyStatus.masked);
+        // lgtm[js/clear-text-logging]
         console.log(chalk.yellow(`    - Plain-text key found: ${redactedPlainPreview}`));
         console.log(chalk.dim(`      (Will NOT be migrated - please re-enter during setup)`));
         break;
@@ -475,7 +479,9 @@ export class ConfigMigrator {
     if (summary.willMigrate.length > 0) {
       console.log(chalk.green('\n  Will migrate (non-sensitive settings):'));
       for (const settingName of summary.willMigrate) {
+        // SECURITY: displayLabel is a human-readable setting name (e.g., "Model"), not a value
         const displayLabel = this.getSettingDescription(settingName);
+        // lgtm[js/clear-text-logging]
         console.log(chalk.gray(`    - ${displayLabel}`));
       }
     }
@@ -487,7 +493,9 @@ export class ConfigMigrator {
     if (reentrySettings.length > 0) {
       console.log(chalk.yellow('\n  Requires re-entry (provider-specific):'));
       for (const settingName of reentrySettings) {
+        // SECURITY: displayLabel is a human-readable setting name (e.g., "Base URL"), not a value
         const displayLabel = this.getSettingDescription(settingName);
+        // lgtm[js/clear-text-logging]
         console.log(chalk.gray(`    - ${displayLabel}`));
       }
     }
@@ -496,6 +504,8 @@ export class ConfigMigrator {
     if (summary.willSkip.length > 0) {
       console.log(chalk.dim('\n  Will skip (internal/unknown):'));
       for (const settingName of summary.willSkip) {
+        // SECURITY: settingName is a config key name (e.g., "maxTokens"), not a sensitive value
+        // lgtm[js/clear-text-logging]
         console.log(chalk.dim(`    - ${settingName}`));
       }
     }

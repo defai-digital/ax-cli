@@ -69,12 +69,17 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
           uiMessages.success_saved || "✅ API key saved to {path}",
           { path: settingsPath }
         );
+        // SECURITY: statusMessage contains only the file path, not the API key
+        // lgtm[js/clear-text-logging]
         console.log(`\n${statusMessage}`);
       } catch {
         // Display user-facing status messages only - no sensitive data
         const warningText = uiMessages.warning_not_saved || "⚠️ Could not save API key to settings file";
         const sessionText = uiMessages.session_only || "API key set for current session only";
+        // SECURITY: These messages are static UI text, not sensitive data
+        // lgtm[js/clear-text-logging]
         console.log(`\n${warningText}`);
+        // lgtm[js/clear-text-logging]
         console.log(sessionText);
       }
 
