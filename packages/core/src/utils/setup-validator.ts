@@ -208,15 +208,44 @@ async function testAuthentication(
   providerName: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // Determine if this is xAI/Grok provider
+    const isXAI = providerName.toLowerCase() === 'grok' ||
+                  providerName.toLowerCase() === 'xai' ||
+                  baseURL.includes('api.x.ai');
+
     const response = await fetch(baseURL + '/models', {
       method: 'GET',
       headers: getAuthHeaders(providerName, apiKey),
       signal: AbortSignal.timeout(10000),
     });
 
-    if (response.status === 401) {
-      return { success: false, error: 'Invalid or expired API key' };
+    // xAI/Grok uses different error codes:
+    // - 401: No auth header provided (not an API key error)
+    // - 400: Invalid API key format/value
+    // For other providers, 401 typically means invalid key
+    if (isXAI) {
+      if (response.status === 400) {
+        // xAI returns 400 for invalid API key with error message in body
+        try {
+          const errorData = await response.json() as { error?: string; message?: string };
+          const errorMsg = errorData.error || errorData.message || 'Invalid API key';
+          return { success: false, error: errorMsg };
+        } catch {
+          return { success: false, error: 'Invalid API key' };
+        }
+      }
+      // For xAI, 401 without auth header is handled in endpoint test
+      // If we get here with 401 after providing auth, treat it as auth issue
+      if (response.status === 401) {
+        return { success: false, error: 'Authentication failed - check your API key' };
+      }
+    } else {
+      // Standard OpenAI-compatible behavior
+      if (response.status === 401) {
+        return { success: false, error: 'Invalid or expired API key' };
+      }
     }
+
     if (response.status === 403) {
       return { success: false, error: 'API key does not have required permissions' };
     }

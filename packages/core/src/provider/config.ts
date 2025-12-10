@@ -187,6 +187,15 @@ export const GLM_PROVIDER: ProviderDefinition = {
 
 /**
  * Grok Provider Definition (xAI)
+ *
+ * All Grok 4.x models available via xAI API:
+ * - grok-4-0709: Original Grok-4 release (July 2025)
+ * - grok-4.1: Latest stable with improved accuracy
+ * - grok-4.1-fast-reasoning: Optimized for tool use with reasoning
+ * - grok-4.1-fast-non-reasoning: Fast tool use without extended reasoning
+ * - grok-4.1-mini: Smaller, faster variant
+ *
+ * Aliases: grok-4 -> latest stable, grok-4-latest -> bleeding edge
  */
 export const GROK_PROVIDER: ProviderDefinition = {
   name: 'grok',
@@ -194,14 +203,73 @@ export const GROK_PROVIDER: ProviderDefinition = {
   apiKeyEnvVar: 'XAI_API_KEY',
   apiKeyEnvVarAliases: ['GROK_API_KEY'],
   defaultBaseURL: 'https://api.x.ai/v1',
-  defaultModel: 'grok-4-0709',
+  defaultModel: 'grok-4',
   // NOTE: Grok-4 has built-in vision, thinking, and search - no separate vision model needed
   configDirName: '.ax-grok',
   models: {
-    // Grok 4 - Latest generation with ALL capabilities built-in
-    // Vision, thinking (reasoning_effort), web search, seed support
+    // ═══════════════════════════════════════════════════════════════════════
+    // Grok 4.1 Series - Latest generation (November 2025)
+    // ═══════════════════════════════════════════════════════════════════════
+    'grok-4.1': {
+      name: 'Grok-4.1',
+      contextWindow: 131072,
+      maxOutputTokens: 131072,
+      supportsThinking: true,
+      supportsVision: true,
+      supportsSearch: true,
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Latest stable: improved accuracy, lower hallucination',
+    },
+    'grok-4.1-fast-reasoning': {
+      name: 'Grok-4.1 Fast (Reasoning)',
+      contextWindow: 2097152, // 2M context window
+      maxOutputTokens: 131072,
+      supportsThinking: true,
+      supportsVision: true,
+      supportsSearch: true,
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Best tool-calling with 2M context, includes reasoning',
+    },
+    'grok-4.1-fast-non-reasoning': {
+      name: 'Grok-4.1 Fast (Non-Reasoning)',
+      contextWindow: 2097152, // 2M context window
+      maxOutputTokens: 131072,
+      supportsThinking: false,
+      supportsVision: true,
+      supportsSearch: true,
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Fastest tool-calling with 2M context, no reasoning',
+    },
+    'grok-4.1-mini': {
+      name: 'Grok-4.1 Mini',
+      contextWindow: 131072,
+      maxOutputTokens: 32768,
+      supportsThinking: true,
+      supportsVision: true,
+      supportsSearch: true,
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Smaller, faster, cost-effective variant',
+    },
+    // ═══════════════════════════════════════════════════════════════════════
+    // Grok 4.0 Series - Original release (July 2025)
+    // ═══════════════════════════════════════════════════════════════════════
+    'grok-4': {
+      name: 'Grok-4 (Alias)',
+      contextWindow: 131072,
+      maxOutputTokens: 131072,
+      supportsThinking: true,
+      supportsVision: true,
+      supportsSearch: true,
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Alias to latest stable Grok-4 version (recommended)',
+    },
     'grok-4-0709': {
-      name: 'Grok-4',
+      name: 'Grok-4 (July 2025)',
       contextWindow: 131072,
       maxOutputTokens: 131072,
       supportsThinking: true,
@@ -209,20 +277,11 @@ export const GROK_PROVIDER: ProviderDefinition = {
       supportsSearch: true,
       supportsSeed: true,
       defaultTemperature: 0.7,
-      description: 'Most capable: reasoning, coding, vision, search (default)',
+      description: 'Original Grok-4 release: reasoning, coding, vision, search',
     },
-    'grok-4.1-fast': {
-      name: 'Grok-4.1 Fast',
-      contextWindow: 131072,
-      maxOutputTokens: 131072,
-      supportsThinking: true,
-      supportsVision: true,
-      supportsSearch: true,
-      supportsSeed: true,
-      defaultTemperature: 0.7,
-      description: 'Fast variant with agent tools support',
-    },
-    // Image generation model
+    // ═══════════════════════════════════════════════════════════════════════
+    // Specialized Models
+    // ═══════════════════════════════════════════════════════════════════════
     'grok-2-image-1212': {
       name: 'Grok-2 Image',
       contextWindow: 32768,
@@ -234,8 +293,76 @@ export const GROK_PROVIDER: ProviderDefinition = {
       defaultTemperature: 0.7,
       description: 'Text-to-image generation model',
     },
-    // NOTE: Legacy models (grok-3, grok-2, grok-beta) removed
-    // Grok-4 supersedes all previous models with better capabilities
+    // ═══════════════════════════════════════════════════════════════════════
+    // Legacy Models (Grok 3.x and 2.x) - Backward Compatibility
+    // These models are still available on xAI API for existing users
+    // ═══════════════════════════════════════════════════════════════════════
+    'grok-3': {
+      name: 'Grok-3',
+      contextWindow: 131072,
+      maxOutputTokens: 32768,
+      supportsThinking: true,
+      supportsVision: false,
+      supportsSearch: true,
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Legacy Grok-3 with extended thinking',
+    },
+    'grok-3-mini': {
+      name: 'Grok-3 Mini',
+      contextWindow: 131072,
+      maxOutputTokens: 32768,
+      supportsThinking: true,
+      supportsVision: false,
+      supportsSearch: true,
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Legacy Grok-3 smaller variant',
+    },
+    'grok-2-1212': {
+      name: 'Grok-2 (Dec 2024)',
+      contextWindow: 131072,
+      maxOutputTokens: 32768,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: true,
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Legacy Grok-2 December 2024 release',
+    },
+    'grok-2-vision-1212': {
+      name: 'Grok-2 Vision',
+      contextWindow: 32768,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: true,
+      supportsSearch: false,
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Legacy Grok-2 with vision capabilities',
+    },
+    'grok-beta': {
+      name: 'Grok Beta',
+      contextWindow: 131072,
+      maxOutputTokens: 32768,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Legacy Grok beta model',
+    },
+    'grok-vision-beta': {
+      name: 'Grok Vision Beta',
+      contextWindow: 32768,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: true,
+      supportsSearch: false,
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Legacy Grok vision beta model',
+    },
   },
   features: {
     supportsThinking: true, // Grok-4 reasoning_effort (low/high)
@@ -725,11 +852,12 @@ export const MODEL_ALIASES: Record<string, string> = {
   'glm-fast': 'glm-4-flash',
   'glm-vision': 'glm-4.6v',
   'glm-image': 'cogview-4',
-  // Grok aliases (simplified - Grok-4 has all capabilities built-in)
-  'grok-latest': 'grok-4-0709',
-  'grok-fast': 'grok-4.1-fast',
+  // Grok aliases - all Grok 4.x models have vision built-in
+  'grok-latest': 'grok-4.1',
+  'grok-fast': 'grok-4.1-fast-reasoning',
+  'grok-fast-nr': 'grok-4.1-fast-non-reasoning',
+  'grok-mini': 'grok-4.1-mini',
   'grok-image': 'grok-2-image-1212',
-  // NOTE: 'grok-vision' and 'grok-mini' removed - Grok-4 has built-in vision
 };
 
 /**
@@ -740,7 +868,7 @@ export const MODEL_ALIASES: Record<string, string> = {
  * @returns Resolved model name
  *
  * @example
- * resolveModelAlias('grok-latest')  // Returns 'grok-4-0709'
+ * resolveModelAlias('grok-latest')  // Returns 'grok-4.1'
  * resolveModelAlias('glm-4.6')      // Returns 'glm-4.6' (unchanged)
  */
 export function resolveModelAlias(modelName: string): string {

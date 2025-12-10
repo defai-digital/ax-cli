@@ -319,6 +319,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.4.0**: ax-grok connection fix - Fixed xAI API authentication validation to properly handle xAI's unique error responses (400 for invalid keys vs 401 for missing auth). Restored legacy Grok models (grok-3, grok-3-mini, grok-2-1212, grok-2-vision-1212, grok-beta, grok-vision-beta) for backward compatibility with existing user configurations.
 *   **v4.3.19**: /init always rebuilds ax.index.json - Running `/init` (without --force) now always rebuilds the `ax.index.json` project index. Only CUSTOM.md requires `--force` to overwrite. This ensures the project index stays up-to-date with project changes.
 *   **v4.3.18**: Enhanced Project Context - `/init` now generates high-value contextual information for AI assistants: module map (directory purposes, patterns, examples), key abstractions (interfaces, classes, design patterns), import conventions with examples, how-to guides for common tasks (build, test, add commands/tools), and configuration patterns. This provides actionable context rather than just metrics.
 *   **v4.3.17**: Deep Project Analysis - New tiered analysis system for `/init` command. Default Tier 3 provides comprehensive architecture analysis including dependency graphs, circular dependency detection, module fan-in/fan-out metrics, hotspot detection, and code quality metrics. Shared `ax.index.json` at project root used by all CLIs (ax-cli, ax-glm, ax-grok). Optional Tier 4 security analysis available via settings.
