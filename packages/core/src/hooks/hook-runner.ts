@@ -14,6 +14,7 @@
 
 import { EventEmitter } from 'events';
 import { spawn, ChildProcess } from 'child_process';
+import { randomUUID } from 'crypto';
 import { readFile, stat } from 'fs/promises';
 import { homedir } from 'os';
 import { join, dirname, resolve } from 'path';
@@ -496,8 +497,8 @@ export class HookRunner extends EventEmitter {
   }
 
   private generateSessionId(): string {
-    // BUG FIX: Replace deprecated substr() with substring()
-    return `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    // Use cryptographically secure random UUID instead of Math.random()
+    return `session-${Date.now()}-${randomUUID().slice(0, 8)}`;
   }
 
   private async loadConfig(): Promise<void> {

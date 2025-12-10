@@ -376,7 +376,7 @@
 
     container.innerHTML = attachedImages.map((image, index) => `
       <div class="attached-image" data-path="${escapeHtml(image.path)}" data-index="${index}">
-        ${image.dataUri ? `<img src="${image.dataUri}" alt="${escapeHtml(image.name)}" class="image-thumbnail" />` : ''}
+        ${image.dataUri ? `<img src="${sanitizeDataUri(image.dataUri)}" alt="${escapeHtml(image.name)}" class="image-thumbnail" />` : ''}
         <span class="codicon codicon-file-media"></span>
         <span class="image-name">${escapeHtml(image.name)}</span>
         <button class="remove-image" data-index="${index}">
@@ -613,7 +613,7 @@ ${SLASH_COMMANDS.map(c => `- \`${c.command}\` - ${c.description}`).join('\n')}
       imagesIndicator.className = 'message-images';
       imagesIndicator.innerHTML = message.images.map(img =>
         `<div class="image-preview">
-          ${img.dataUri ? `<img src="${img.dataUri}" alt="${escapeHtml(img.name)}" class="message-image-thumbnail" />` : ''}
+          ${img.dataUri ? `<img src="${sanitizeDataUri(img.dataUri)}" alt="${escapeHtml(img.name)}" class="message-image-thumbnail" />` : ''}
           <span class="image-badge"><span class="codicon codicon-file-media"></span>${escapeHtml(img.name)}</span>
         </div>`
       ).join('');
@@ -726,6 +726,23 @@ ${SLASH_COMMANDS.map(c => `- \`${c.command}\` - ${c.description}`).join('\n')}
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * Validate and sanitize data URI for use in img src attribute
+   * Only allows safe image data URIs (data:image/*)
+   */
+  function sanitizeDataUri(dataUri) {
+    if (!dataUri || typeof dataUri !== 'string') {
+      return '';
+    }
+    // Only allow data URIs that are images
+    const dataUriPattern = /^data:image\/(png|jpeg|jpg|gif|webp|svg\+xml|bmp|ico);base64,[A-Za-z0-9+/=]+$/;
+    if (dataUriPattern.test(dataUri)) {
+      return dataUri;
+    }
+    // Return empty string for invalid/unsafe URIs
+    return '';
   }
 
   function formatTime(timestamp) {

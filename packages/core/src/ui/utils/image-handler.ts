@@ -39,9 +39,9 @@ const AT_REF_PATTERN = new RegExp(
   `@((?!https?://|ftp://|file://|data:)[^\\s]+\\.${IMG_EXT}|"[^"]+\\.${IMG_EXT}"|'[^']+\\.${IMG_EXT}')`,
   'gi'
 );
-// Direct paths: /path.png, ./path.png, C:\path.png, \\server\path.png, "quoted.png"
+// Direct paths: /path.png, ./path.png, ../path.png, C:\path.png, \\server\path.png, "quoted.png"
 const DIRECT_PATH_PATTERN = new RegExp(
-  `^(/[^\\s]+\\.${IMG_EXT}|\\.\\.\?/[^\\s]+\\.${IMG_EXT}|[a-zA-Z]:[\\\\/][^\\s]+\\.${IMG_EXT}|\\\\\\\\[^\\s]+\\.${IMG_EXT}|"[^"]+\\.${IMG_EXT}"|'[^']+\\.${IMG_EXT}')$`,
+  `^(/[^\\s]+\\.${IMG_EXT}|\\.{1,2}/[^\\s]+\\.${IMG_EXT}|[a-zA-Z]:[\\\\/][^\\s]+\\.${IMG_EXT}|\\\\\\\\[^\\s]+\\.${IMG_EXT}|"[^"]+\\.${IMG_EXT}"|'[^']+\\.${IMG_EXT}')$`,
   'i'
 );
 // Inline quoted: "path.png" or 'path.png' anywhere in text (at start, after space, or standalone)

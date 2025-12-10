@@ -14,6 +14,7 @@
 
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { randomUUID } from 'crypto';
 import type { DestructiveOperation } from './safety-rules.js';
 import { getAuditLogger, AuditCategory, AuditSeverity } from './audit-logger.js';
 import { getAxBaseDir } from './path-helpers.js';
@@ -106,7 +107,7 @@ export class AutoAcceptLogger {
    * Generate unique session ID
    */
   private generateSessionId(): string {
-    return `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    return `session-${Date.now()}-${randomUUID().slice(0, 8)}`;
   }
 
   /**

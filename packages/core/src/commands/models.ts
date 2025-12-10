@@ -48,7 +48,17 @@ export function createModelsCommand(): Command {
 
         // Add Ollama models if configured
         const customModels: any[] = [];
-        if (baseURL?.includes("localhost:11434") || baseURL?.includes("ollama")) {
+        // Parse URL hostname for proper domain matching to prevent URL spoofing
+        let hostname = '';
+        try {
+          if (baseURL) {
+            hostname = new URL(baseURL).hostname.toLowerCase();
+          }
+        } catch {
+          // Invalid URL, hostname remains empty
+        }
+        const isOllama = hostname === 'localhost' && baseURL?.includes(':11434') || hostname.includes('ollama');
+        if (isOllama) {
           customModels.push({
             id: "llama3.1:8b",
             name: "Llama 3.1 8B",
@@ -71,8 +81,9 @@ export function createModelsCommand(): Command {
           });
         }
 
-        // Add OpenAI models if configured
-        if (baseURL?.includes("api.openai.com")) {
+        // Add OpenAI models if configured (use proper hostname matching)
+        const isOpenAI = hostname === 'api.openai.com' || hostname.endsWith('.openai.com');
+        if (isOpenAI) {
           customModels.push({
             id: "gpt-4-turbo",
             name: "GPT-4 Turbo",

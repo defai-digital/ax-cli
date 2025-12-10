@@ -445,10 +445,12 @@ export class ConfigMigrator {
     );
 
     // Show API key status prominently
+    // Security: Only the MASKED key is logged (e.g., "sk-xxx...xxx"), never the actual key
     console.log(chalk.cyan('\n  API Key Status:'));
     switch (summary.apiKeyStatus.type) {
       case 'encrypted':
         if (summary.apiKeyStatus.decryptable && summary.apiKeyStatus.masked) {
+          // lgtm[js/clear-text-logging] - Logging masked key (sk-xxx...xxx), not actual key
           console.log(chalk.yellow(`    - Encrypted key found: ${summary.apiKeyStatus.masked}`));
           console.log(chalk.dim(`      (Will NOT be migrated - please re-enter during setup)`));
         } else {
@@ -457,6 +459,7 @@ export class ConfigMigrator {
         }
         break;
       case 'plain-text':
+        // lgtm[js/clear-text-logging] - Logging masked key (sk-xxx...xxx), not actual key
         console.log(chalk.yellow(`    - Plain-text key found: ${summary.apiKeyStatus.masked}`));
         console.log(chalk.dim(`      (Will NOT be migrated - please re-enter during setup)`));
         break;
@@ -466,6 +469,7 @@ export class ConfigMigrator {
     }
 
     // Show what will be migrated
+    // lgtm[js/clear-text-logging] - Logging setting descriptions, not sensitive values
     if (summary.willMigrate.length > 0) {
       console.log(chalk.green('\n  Will migrate (non-sensitive settings):'));
       for (const setting of summary.willMigrate) {
@@ -475,6 +479,7 @@ export class ConfigMigrator {
     }
 
     // Show what requires re-entry (excluding API key which is shown above)
+    // lgtm[js/clear-text-logging] - Logging setting descriptions, not sensitive values
     const otherReentry = summary.requiresReentry.filter(
       s => s !== 'apiKey' && s !== 'apiKeyEncrypted'
     );
@@ -487,6 +492,7 @@ export class ConfigMigrator {
     }
 
     // Show what will be skipped (only if there are items)
+    // lgtm[js/clear-text-logging] - Logging setting names, not sensitive values
     if (summary.willSkip.length > 0) {
       console.log(chalk.dim('\n  Will skip (internal/unknown):'));
       for (const setting of summary.willSkip) {

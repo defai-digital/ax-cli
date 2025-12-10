@@ -21,7 +21,9 @@ function parseDiffWithLineNumbers(diffContent: string): DiffLine[] {
   let currentOldLine = 0;
   let currentNewLine = 0;
   let inHunk = false;
-  const hunkHeaderRegex = /^@@ -(\d+),?\d* \+(\d+),?\d* @@/;
+  // Simplified regex pattern to avoid potential ReDoS - uses possessive-like matching
+  // by being more specific about the expected format
+  const hunkHeaderRegex = /^@@ -(\d{1,10}),?\d{0,10} \+(\d{1,10}),?\d{0,10} @@/;
 
   for (const line of lines) {
     const hunkMatch = line.match(hunkHeaderRegex);

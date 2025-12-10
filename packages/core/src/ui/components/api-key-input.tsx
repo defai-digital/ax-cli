@@ -71,6 +71,7 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
         );
         console.log(`\n${successMsg}`);
       } catch {
+        // lgtm[js/clear-text-logging] - Logging status messages, not API key value
         console.log(`\n${uiMessages.warning_not_saved || "⚠️ Could not save API key to settings file"}`);
         console.log(uiMessages.session_only || "API key set for current session only");
       }

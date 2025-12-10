@@ -374,7 +374,7 @@ export class VSCodeIPCClient extends EventEmitter {
    * Create a streaming session and return a helper for sending chunks
    */
   createStreamSession(): StreamSession {
-    const sessionId = `stream-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const sessionId = `stream-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
     return new StreamSession(this, sessionId);
   }
 

@@ -447,8 +447,8 @@ export function isComplexRequest(request: string): boolean {
     lowerRequest.includes("and also") ||
     lowerRequest.includes("step") ||
     lowerRequest.includes("next") ||
-    // Multiple action verbs with "and"
-    /\b(create|add|implement|build|write)\b.+\band\b.+\b(create|add|implement|build|write|test|document)\b/i.test(lowerRequest);
+    // Multiple action verbs with "and" - use non-greedy match with length limit to prevent ReDoS
+    /\b(create|add|implement|build|write)\b[^]*?\band\b[^]*?\b(create|add|implement|build|write|test|document)\b/i.test(lowerRequest.slice(0, 1000));
 
   // Check for request length - very long requests often need decomposition
   const isLongRequest = request.length > 300;

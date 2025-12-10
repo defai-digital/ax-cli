@@ -116,11 +116,16 @@ export class BackgroundTaskManager extends EventEmitter {
   /**
    * Spawn a command in the background
    * @returns Task ID
+   *
+   * Security Note: This intentionally executes user-provided commands.
+   * This is a core feature of the CLI tool - users explicitly request command execution.
+   * Input validation and sandboxing are handled at higher layers (permission system, hooks).
    */
   spawn(command: string, cwd: string = process.cwd()): string {
     const taskId = this.generateTaskId();
 
     // Use shell to execute command (supports pipes, redirects, etc.)
+    // lgtm[js/shell-command-injection-from-environment] - Intentional: CLI tool executes user commands
     const childProcess = spawn('bash', ['-c', command], {
       cwd,
       detached: false,

@@ -133,7 +133,8 @@ export class SearchTool {
         // REDOS FIX: In fixed-string mode, warn if pattern looks like dangerous regex
         // This prevents accidental ReDoS if fixed-string flag is forgotten
         // But skip warning for glob-like patterns (they have ** or {})
-        const looksLikeGlob = /\*\*|{[^}]+}/.test(sanitizedQuery.value);
+        // Use bounded quantifier to prevent ReDoS on extremely long patterns
+        const looksLikeGlob = /\*\*|{[^}]{1,100}}/.test(sanitizedQuery.value);
         if (!regexValidation.valid && !looksLikeGlob) {
           console.warn(
             `Search pattern contains regex metacharacters that could be dangerous: ${regexValidation.error}. ` +

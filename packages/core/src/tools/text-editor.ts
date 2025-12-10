@@ -1372,9 +1372,13 @@ export class TextEditorTool {
 
   /**
    * Aggressively normalize a line for matching - removes all indentation and collapses whitespace
+   * Limits line length to prevent ReDoS on extremely long inputs
    */
   private normalizeLineAggressively(line: string): string {
-    return line
+    // Limit line length to prevent ReDoS attacks on extremely long lines
+    const MAX_LINE_LENGTH = 10000;
+    const safeLine = line.length > MAX_LINE_LENGTH ? line.slice(0, MAX_LINE_LENGTH) : line;
+    return safeLine
       .trim()  // Remove leading/trailing whitespace completely
       .replace(/\s+/g, ' ')  // Collapse multiple spaces to single space
       .replace(/\s*([{}()[\];,:])\s*/g, '$1')  // Remove spaces around punctuation

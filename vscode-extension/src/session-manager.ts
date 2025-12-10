@@ -112,7 +112,7 @@ export class SessionManager implements vscode.Disposable {
    * Create a new session
    */
   createSession(name?: string, workspaceFolder?: string): ChatSession {
-    const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const sessionId = `session-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
     const now = new Date().toISOString();
 
     // Default name based on workspace or timestamp

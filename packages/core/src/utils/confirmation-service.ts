@@ -233,12 +233,21 @@ export class ConfirmationService extends EventEmitter {
       try {
         await execAsync(`${whichCmd} ${cmd}`);
         // Properly escape filename to prevent command injection
-        // Replace single quotes with '\'' and wrap in single quotes (Unix)
-        // On Windows, use double quotes
-        const escapedFilename = isWindows
-          ? `"${filename.replace(/"/g, '\\"')}"`
-          : `'${filename.replace(/'/g, "'\\''")}'`;
-        await execAsync(`${cmd} ${escapedFilename}`);
+        // Use spawn with array args to avoid shell interpretation entirely
+        const { spawn } = await import("child_process");
+        await new Promise<void>((resolve, reject) => {
+          const child = spawn(cmd, [filename], {
+            stdio: "ignore",
+            detached: false,
+            // On Windows, need shell for .cmd files
+            shell: isWindows,
+          });
+          child.on("error", reject);
+          child.on("close", (code) => {
+            if (code === 0) resolve();
+            else reject(new Error(`VS Code exited with code ${code}`));
+          });
+        });
         return;
       } catch {
         // Continue to next command

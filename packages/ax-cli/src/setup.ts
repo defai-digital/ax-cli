@@ -356,10 +356,12 @@ async function runGenericCloudSetup(provider: Provider, existingConfig: AxCliCon
   const isSameProvider = existingConfig.selectedProvider === provider;
 
   if (existingKey && isSameProvider) {
+    // Create masked version of key for display (never log full key)
     const maskedKey = existingKey.length > 12
       ? `${existingKey.substring(0, 8)}...${existingKey.substring(existingKey.length - 4)}`
       : `${existingKey.substring(0, 4)}...`;
 
+    // lgtm[js/clear-text-logging] - Logging masked key only (sk-xxx...xxx), not full key
     console.log(`  Existing API key found: ${chalk.dim(maskedKey)}\n`);
 
     const reuseKey = await confirm({
@@ -372,6 +374,7 @@ async function runGenericCloudSetup(provider: Provider, existingConfig: AxCliCon
       console.log(chalk.green('  ✓ Using existing API key\n'));
     }
   } else if (envKey) {
+    // lgtm[js/clear-text-logging] - Logging env var NAME, not value
     console.log(`  Found ${providerInfo.apiKeyEnvVar} in environment\n`);
     const useEnvKey = await confirm({
       message: `Use API key from ${providerInfo.apiKeyEnvVar} environment variable?`,

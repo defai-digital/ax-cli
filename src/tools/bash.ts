@@ -415,6 +415,9 @@ export class BashTool extends EventEmitter {
       };
 
       // Spawn the process
+      // Security Note: This intentionally executes user-provided commands.
+      // This is the core Bash tool for the CLI - users explicitly request command execution.
+      // lgtm[js/shell-command-injection-from-environment] - Intentional: CLI tool executes user commands
       const childProcess = spawn('bash', ['-c', command], {
         cwd: this.currentDirectory,
         env: { ...process.env },

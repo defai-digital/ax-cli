@@ -195,37 +195,37 @@ export function createUsageCommand(): Command {
 }
 
 /**
- * Detect provider from base URL
+ * Detect provider from base URL using proper URL parsing
+ * to prevent incomplete URL substring sanitization attacks
  */
 function detectProvider(baseURL: string): string {
-  const url = baseURL.toLowerCase();
-
-  // xAI/Grok detection (api.x.ai)
-  if (url.includes('api.x.ai') || url.includes('xai.')) {
-    return 'xai';
-  }
-
-  // Z.AI/GLM detection
-  if (url.includes('z.ai')) {
-    return 'z.ai';
-  }
-
-  if (url.includes('openai.com')) {
-    return 'openai';
-  }
-
-  if (url.includes('anthropic.com')) {
-    return 'anthropic';
-  }
-
-  if (url.includes('localhost') || url.includes('127.0.0.1')) {
-    return 'local';
-  }
-
-  // Try to extract domain name
   try {
     const urlObj = new URL(baseURL);
-    const hostname = urlObj.hostname;
+    const hostname = urlObj.hostname.toLowerCase();
+
+    // xAI/Grok detection (api.x.ai)
+    if (hostname === 'api.x.ai' || hostname.endsWith('.x.ai') || hostname.includes('xai.')) {
+      return 'xai';
+    }
+
+    // Z.AI/GLM detection
+    if (hostname === 'z.ai' || hostname.endsWith('.z.ai')) {
+      return 'z.ai';
+    }
+
+    if (hostname === 'api.openai.com' || hostname.endsWith('.openai.com')) {
+      return 'openai';
+    }
+
+    if (hostname === 'api.anthropic.com' || hostname.endsWith('.anthropic.com')) {
+      return 'anthropic';
+    }
+
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'local';
+    }
+
+    // Extract second-level domain as provider name
     const parts = hostname.split('.');
     if (parts.length >= 2) {
       return parts[parts.length - 2]; // Return second-level domain
