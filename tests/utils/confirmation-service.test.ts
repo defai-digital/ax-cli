@@ -7,7 +7,7 @@ import { ConfirmationService, type ConfirmationOptions } from "../../packages/co
 import { TIMEOUT_CONFIG } from "../../packages/core/src/constants.js";
 
 // Mock the IPC module
-vi.mock("../../src/ipc/index.js", () => ({
+vi.mock("../../packages/core/src/ipc/index.js", () => ({
   getVSCodeIPCClient: vi.fn().mockReturnValue({
     isConnected: vi.fn().mockReturnValue(false),
     requestDiffApproval: vi.fn(),
@@ -479,7 +479,7 @@ describe("ConfirmationService", () => {
 
   describe("VS Code IPC integration", () => {
     it("should use IPC for diff approval when connected", async () => {
-      const { getVSCodeIPCClient } = await import("../../src/ipc/index.js");
+      const { getVSCodeIPCClient } = await import("../../packages/core/src/ipc/index.js");
 
       const mockClient = {
         isConnected: vi.fn().mockReturnValue(true),
@@ -506,7 +506,7 @@ describe("ConfirmationService", () => {
     });
 
     it("should fall through to terminal on IPC failure", async () => {
-      const { getVSCodeIPCClient } = await import("../../src/ipc/index.js");
+      const { getVSCodeIPCClient } = await import("../../packages/core/src/ipc/index.js");
 
       const mockClient = {
         isConnected: vi.fn().mockReturnValue(true),
@@ -534,7 +534,7 @@ describe("ConfirmationService", () => {
     });
 
     it("should not use IPC when not connected", async () => {
-      const { getVSCodeIPCClient } = await import("../../src/ipc/index.js");
+      const { getVSCodeIPCClient } = await import("../../packages/core/src/ipc/index.js");
 
       const mockClient = {
         isConnected: vi.fn().mockReturnValue(false),

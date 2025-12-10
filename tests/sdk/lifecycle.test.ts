@@ -9,7 +9,7 @@ import { createAgent, removeCleanupHandlers, type AgentOptions } from '../../pac
 import { LLMAgent } from '../../packages/core/src/agent/llm-agent.js';
 
 // Mock provider settings manager to avoid needing actual credentials
-vi.mock('../../src/utils/provider-settings.js', () => {
+vi.mock('../../packages/core/src/utils/provider-settings.js', () => {
   const mockSettingsManager = {
     loadUserSettings: vi.fn(),
     getApiKey: vi.fn(() => 'test-api-key'),
@@ -26,7 +26,7 @@ vi.mock('../../src/utils/provider-settings.js', () => {
 });
 
 // Mock provider context detection
-vi.mock('../../src/utils/provider-context.js', () => ({
+vi.mock('../../packages/core/src/utils/provider-context.js', () => ({
   ProviderContext: class {
     static detect = vi.fn(() => ({
       provider: 'generic',
@@ -48,7 +48,7 @@ vi.mock('../../src/utils/provider-context.js', () => ({
 }));
 
 // Mock LLMAgent to avoid actual API calls
-vi.mock('../../src/agent/llm-agent.js', () => {
+vi.mock('../../packages/core/src/agent/llm-agent.js', () => {
   class MockLLMAgent {
     processUserMessage = vi.fn().mockResolvedValue([]);
     dispose = vi.fn().mockResolvedValue(undefined);

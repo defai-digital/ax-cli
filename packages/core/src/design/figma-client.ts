@@ -149,6 +149,18 @@ class ResponseCache {
     this.cache.clear();
   }
 
+  /** Delete all entries with keys starting with a given prefix */
+  deleteByPrefix(prefix: string): number {
+    let deleted = 0;
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(prefix)) {
+        this.cache.delete(key);
+        deleted++;
+      }
+    }
+    return deleted;
+  }
+
   /** Get cache key for a request */
   static makeKey(endpoint: string, params?: Record<string, unknown>): string {
     const paramStr = params ? JSON.stringify(params) : '';

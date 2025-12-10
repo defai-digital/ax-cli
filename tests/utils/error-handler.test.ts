@@ -14,7 +14,7 @@ import {
 } from "../../packages/core/src/utils/error-handler.js";
 
 // Mock enhanced-error-messages
-vi.mock("../../src/utils/enhanced-error-messages.js", () => ({
+vi.mock("../../packages/core/src/utils/enhanced-error-messages.js", () => ({
   createFriendlyError: vi.fn().mockImplementation(
     (category: string, operation: string, error: unknown, options?: { filePath?: string; details?: string }) => {
       const errorMsg = error instanceof Error ? error.message : String(error);

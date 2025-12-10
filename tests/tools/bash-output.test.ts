@@ -8,7 +8,7 @@ import { BashOutputTool } from "../../packages/core/src/tools/bash-output.js";
 // Mock the background task manager
 const mockTasks: Map<string, any> = new Map();
 
-vi.mock("../../src/utils/background-task-manager.js", () => ({
+vi.mock("../../packages/core/src/utils/background-task-manager.js", () => ({
   getBackgroundTaskManager: () => ({
     getOutput: (taskId: string) => mockTasks.get(taskId) || null,
     waitForTask: async (taskId: string, _timeout: number) => {

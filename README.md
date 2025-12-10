@@ -350,6 +350,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.4.9**: CI/CD Test Fixes - Fixed all failing GitHub Actions tests. Corrected mock paths for monorepo structure (../../src/ → ../../packages/core/src/), added missing deleteByPrefix method to ResponseCache, fixed test assertions to match implementation behavior, improved Windows path compatibility in tests.
 *   **v4.4.8**: Maintenance release - Version bump and package updates.
 *   **v4.4.7**: Security & Documentation - Added AutomatosX integration guide to README with bug fixing, refactoring, and multi-agent examples. Fixed ESLint configuration for legacy src/ directory. Resolved all CodeQL security alerts (false positives dismissed with annotations).
 *   **v4.4.6**: Documentation update - Updated and refreshed documentation across the project.

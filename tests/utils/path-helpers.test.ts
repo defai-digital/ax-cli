@@ -15,12 +15,20 @@ vi.mock("fs", () => ({
   },
 }));
 
-// Mock constants module
-vi.mock("../../src/constants.js", () => ({
-  CONFIG_DIR_NAME: ".ax-cli",
-  CONFIG_PATHS: {
-    PROJECT_DIR: "/mock/cwd/.ax-cli",
-  },
+// Mock provider config module - uses .ax-glm as the default provider directory
+vi.mock("../../packages/core/src/provider/config.js", () => ({
+  getActiveConfigPaths: vi.fn(() => ({
+    USER_DIR: path.join(os.homedir(), ".ax-glm"),
+    PROJECT_DIR: path.join(process.cwd(), ".ax-glm"),
+    CONFIG_FILE: path.join(os.homedir(), ".ax-glm", "config.json"),
+    PROJECT_CONFIG_FILE: path.join(process.cwd(), ".ax-glm", "config.json"),
+    CUSTOM_INSTRUCTIONS: path.join(os.homedir(), ".ax-glm", "CUSTOM.md"),
+    PROJECT_CUSTOM_INSTRUCTIONS: path.join(process.cwd(), ".ax-glm", "CUSTOM.md"),
+    MCP_CONFIG: path.join(os.homedir(), ".ax-glm", "mcp.json"),
+    PROJECT_MCP_CONFIG: path.join(process.cwd(), ".ax-glm", "mcp.json"),
+    CHECKPOINT_DIR: path.join(os.homedir(), ".ax-glm", "checkpoints"),
+    PROJECT_CHECKPOINT_DIR: path.join(process.cwd(), ".ax-glm", "checkpoints"),
+  })),
 }));
 
 // Import after mocks
@@ -67,14 +75,14 @@ describe("Path Helpers", () => {
         process.env.AX_CLI_HOME = "";
         vi.mocked(fs.accessSync).mockImplementation(() => undefined);
         const result = getAxBaseDir();
-        expect(result).toBe(path.join(os.homedir(), ".ax-cli"));
+        expect(result).toBe(path.join(os.homedir(), ".ax-glm"));
       });
 
       it("should ignore whitespace-only AX_CLI_HOME", () => {
         process.env.AX_CLI_HOME = "   ";
         vi.mocked(fs.accessSync).mockImplementation(() => undefined);
         const result = getAxBaseDir();
-        expect(result).toBe(path.join(os.homedir(), ".ax-cli"));
+        expect(result).toBe(path.join(os.homedir(), ".ax-glm"));
       });
 
       it("should trim whitespace from AX_CLI_HOME", () => {
@@ -90,14 +98,14 @@ describe("Path Helpers", () => {
         it("should return default directory", () => {
           vi.mocked(fs.accessSync).mockImplementation(() => undefined);
           const result = getAxBaseDir();
-          expect(result).toBe(path.join(os.homedir(), ".ax-cli"));
+          expect(result).toBe(path.join(os.homedir(), ".ax-glm"));
         });
 
         it("should check write permission on default directory", () => {
           vi.mocked(fs.accessSync).mockImplementation(() => undefined);
           getAxBaseDir();
           expect(fs.accessSync).toHaveBeenCalledWith(
-            path.join(os.homedir(), ".ax-cli"),
+            path.join(os.homedir(), ".ax-glm"),
             fs.constants.W_OK
           );
         });
@@ -112,12 +120,12 @@ describe("Path Helpers", () => {
 
         it("should fall back to project directory", () => {
           const result = getAxBaseDir();
-          expect(result).toBe("/mock/cwd/.ax-cli");
+          expect(result).toBe(path.join(process.cwd(), ".ax-glm"));
         });
 
         it("should attempt to create fallback directory", () => {
           getAxBaseDir();
-          expect(fs.mkdirSync).toHaveBeenCalledWith("/mock/cwd/.ax-cli", {
+          expect(fs.mkdirSync).toHaveBeenCalledWith(path.join(process.cwd(), ".ax-glm"), {
             recursive: true,
           });
         });
@@ -128,7 +136,7 @@ describe("Path Helpers", () => {
           });
           // Should not throw, should still return fallback path
           const result = getAxBaseDir();
-          expect(result).toBe("/mock/cwd/.ax-cli");
+          expect(result).toBe(path.join(process.cwd(), ".ax-glm"));
         });
 
         it("should return fallback even when mkdir throws EEXIST", () => {
@@ -138,7 +146,7 @@ describe("Path Helpers", () => {
             throw error;
           });
           const result = getAxBaseDir();
-          expect(result).toBe("/mock/cwd/.ax-cli");
+          expect(result).toBe(path.join(process.cwd(), ".ax-glm"));
         });
       });
     });
@@ -148,7 +156,7 @@ describe("Path Helpers", () => {
         process.env.AX_CLI_HOME = undefined;
         vi.mocked(fs.accessSync).mockImplementation(() => undefined);
         const result = getAxBaseDir();
-        expect(result).toBe(path.join(os.homedir(), ".ax-cli"));
+        expect(result).toBe(path.join(os.homedir(), ".ax-glm"));
       });
 
       it("should handle ENOENT when checking default directory", () => {
@@ -158,7 +166,7 @@ describe("Path Helpers", () => {
           throw error;
         });
         const result = getAxBaseDir();
-        expect(result).toBe("/mock/cwd/.ax-cli");
+        expect(result).toBe(path.join(process.cwd(), ".ax-glm"));
       });
 
       it("should handle EPERM when checking default directory", () => {
@@ -168,7 +176,7 @@ describe("Path Helpers", () => {
           throw error;
         });
         const result = getAxBaseDir();
-        expect(result).toBe("/mock/cwd/.ax-cli");
+        expect(result).toBe(path.join(process.cwd(), ".ax-glm"));
       });
     });
   });

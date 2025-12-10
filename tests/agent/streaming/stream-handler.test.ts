@@ -7,7 +7,7 @@ import { StreamHandler, type StreamHandlerConfig, type TokenRefs } from "../../.
 import type { GLM46StreamChunk } from "../../../packages/core/src/llm/types.js";
 
 // Mock usage tracker
-vi.mock("../../../src/utils/usage-tracker.js", () => ({
+vi.mock("../../../packages/core/src/utils/usage-tracker.js", () => ({
   getUsageTracker: vi.fn().mockReturnValue({
     trackUsage: vi.fn(),
   }),
@@ -258,7 +258,9 @@ describe("StreamHandler", () => {
 
   describe("processChunks - usage tracking", () => {
     it("should track usage data", async () => {
-      const { getUsageTracker } = await import("../../../src/utils/usage-tracker.js");
+      // Import using the same relative path as the mock
+      const usageTrackerModule = await import("../../../packages/core/src/utils/usage-tracker.js");
+      const { getUsageTracker } = usageTrackerModule;
 
       const chunks: GLM46StreamChunk[] = [
         {

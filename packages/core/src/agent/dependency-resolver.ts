@@ -375,9 +375,17 @@ export class DependencyResolver {
 
   /**
    * Check if a task can be executed given completed tasks
+   * Supports both array and Map for task lookup (Map provides O(1) lookup)
    */
-  canExecuteTask(taskId: string, completedTaskIds: Set<string>, tasks: SubagentTask[]): boolean {
-    const task = tasks.find(t => t.id === taskId);
+  canExecuteTask(
+    taskId: string,
+    completedTaskIds: Set<string>,
+    tasks: SubagentTask[] | Map<string, SubagentTask>
+  ): boolean {
+    // Support both array and Map for O(1) lookup when using Map
+    const task = tasks instanceof Map
+      ? tasks.get(taskId)
+      : tasks.find(t => t.id === taskId);
 
     if (!task) {
       return false;

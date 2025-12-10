@@ -27,14 +27,14 @@ vi.mock('@clack/prompts', () => ({
   cancel: vi.fn(),
 }));
 
-vi.mock('../../src/utils/settings-manager.js', () => ({
+vi.mock('../../packages/core/src/utils/settings-manager.js', () => ({
   getSettingsManager: () => ({
     saveUserSettings: vi.fn(),
     loadUserSettings: vi.fn(() => ({})),
   }),
 }));
 
-vi.mock('../../src/utils/setup-validator.js', () => ({
+vi.mock('../../packages/core/src/utils/setup-validator.js', () => ({
   validateProviderSetup: vi.fn(() => Promise.resolve({ success: true })),
 }));
 
@@ -59,7 +59,7 @@ describe('setup command', () => {
 
     it('should have description for GLM/Grok setup', () => {
       const command = createSetupCommand();
-      expect(command.description()).toContain('LLM provider');
+      expect(command.description()).toContain('AI provider');
     });
 
     it('should have --force option', () => {

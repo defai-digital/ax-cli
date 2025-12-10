@@ -126,16 +126,19 @@ export async function executeToolsInParallel<T>(
   toolCalls: LLMToolCall[],
   executor: (toolCall: LLMToolCall) => Promise<T>,
   config: ParallelExecutionConfig = {}
-): Promise<Array<{ toolCall: LLMToolCall; result: T; error?: Error }>> {
-  const { maxConcurrency = DEFAULT_PARALLEL_CONFIG.maxConcurrency } = config;
+): Promise<Array<{ toolCall: LLMToolCall; result?: T; error?: Error }>> {
+  const {
+    maxConcurrency = DEFAULT_PARALLEL_CONFIG.maxConcurrency,
+    enabled = DEFAULT_PARALLEL_CONFIG.enabled,
+  } = config;
 
   if (toolCalls.length === 0) {
     return [];
   }
 
-  // If only one tool or concurrency is 1, execute sequentially
-  if (toolCalls.length === 1 || maxConcurrency === 1) {
-    const results: Array<{ toolCall: LLMToolCall; result: T; error?: Error }> = [];
+  // If parallel execution is disabled, or only one tool, or concurrency is 1, execute sequentially
+  if (!enabled || toolCalls.length === 1 || maxConcurrency === 1) {
+    const results: Array<{ toolCall: LLMToolCall; result?: T; error?: Error }> = [];
     for (const toolCall of toolCalls) {
       try {
         const result = await executor(toolCall);
@@ -143,7 +146,7 @@ export async function executeToolsInParallel<T>(
       } catch (error) {
         results.push({
           toolCall,
-          result: undefined as unknown as T,
+          result: undefined,
           error: error instanceof Error ? error : new Error(String(error)),
         });
       }
@@ -152,7 +155,7 @@ export async function executeToolsInParallel<T>(
   }
 
   // Use Promise.allSettled with concurrency limiting
-  const results: Array<{ toolCall: LLMToolCall; result: T; error?: Error }> = [];
+  const results: Array<{ toolCall: LLMToolCall; result?: T; error?: Error }> = [];
   const pending: Array<Promise<void>> = [];
   let index = 0;
 
@@ -167,7 +170,7 @@ export async function executeToolsInParallel<T>(
     } catch (error) {
       results[currentIndex] = {
         toolCall,
-        result: undefined as unknown as T,
+        result: undefined,
         error: error instanceof Error ? error : new Error(String(error)),
       };
     }

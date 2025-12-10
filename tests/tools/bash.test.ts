@@ -8,7 +8,7 @@ import { EventEmitter } from "events";
 import * as os from "os";
 
 // Mock dependencies
-vi.mock("../../src/utils/confirmation-service.js", () => ({
+vi.mock("../../packages/core/src/utils/confirmation-service.js", () => ({
   ConfirmationService: {
     getInstance: () => ({
       shouldProceed: vi.fn().mockResolvedValue(true),
@@ -17,31 +17,31 @@ vi.mock("../../src/utils/confirmation-service.js", () => ({
   },
 }));
 
-vi.mock("../../src/utils/background-task-manager.js", () => ({
+vi.mock("../../packages/core/src/utils/background-task-manager.js", () => ({
   getBackgroundTaskManager: () => ({
     spawn: vi.fn().mockReturnValue("task_123"),
     adoptProcess: vi.fn().mockReturnValue("task_456"),
   }),
 }));
 
-vi.mock("../../src/utils/settings-manager.js", () => ({
+vi.mock("../../packages/core/src/utils/settings-manager.js", () => ({
   getSettingsManager: () => ({
     getAutoAcceptConfig: vi.fn().mockReturnValue(null),
     loadUserSettings: vi.fn().mockReturnValue({ security: {} }),
   }),
 }));
 
-vi.mock("../../src/utils/message-optimizer.js", () => ({
+vi.mock("../../packages/core/src/utils/message-optimizer.js", () => ({
   getMessageOptimizer: () => ({
     optimizeToolOutput: vi.fn().mockImplementation((content: string) => ({ content })),
   }),
 }));
 
-vi.mock("../../src/utils/safety-rules.js", () => ({
+vi.mock("../../packages/core/src/utils/safety-rules.js", () => ({
   isDestructiveCommand: vi.fn().mockReturnValue({ isDestructive: false, matchedOperations: [] }),
 }));
 
-vi.mock("../../src/utils/auto-accept-logger.js", () => ({
+vi.mock("../../packages/core/src/utils/auto-accept-logger.js", () => ({
   getAutoAcceptLogger: () => ({
     logBashCommand: vi.fn(),
   }),

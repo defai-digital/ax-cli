@@ -526,7 +526,7 @@ export class Subagent extends EventEmitter {
     this.isActive = false;
     this.status.state = SubagentState.CANCELLED;
     this.status.endTime = new Date();
-    this.emit('cancel', { role: this.role });
+    this.emit('cancel', { role: this.role, taskId: this.currentTaskId });
   }
 
   /**
