@@ -20,9 +20,5 @@ coverage/
 # AutomatosX temporary files and backups
 automatosx/tmp/
 
-# Legacy source directory (migrated to packages/core/src/)
-# This directory contains outdated code and is not used by any package
-src/
-
 # BUG FIX: Ignore markdown content files that ESLint incorrectly parses as code
 vscode-extension/docs/**/*.content.md

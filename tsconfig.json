@@ -1,32 +1,17 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2023",
-    "module": "ESNext",
-    "lib": ["ES2023"],
     "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
     "declaration": true,
-    "sourceMap": true,
-    "resolveJsonModule": true,
-    "jsx": "react",
-    "moduleResolution": "Bundler",
-    "allowSyntheticDefaultImports": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
-    "noImplicitThis": true,
-    "alwaysStrict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
+    "sourceMap": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["packages/*/src/**/*"],
+  "exclude": ["node_modules", "dist", "**/node_modules/**"],
+  "references": [
+    { "path": "./packages/schemas" },
+    { "path": "./packages/core" },
+    { "path": "./packages/ax-cli" },
+    { "path": "./packages/ax-glm" },
+    { "path": "./packages/ax-grok" }
+  ]
 }
