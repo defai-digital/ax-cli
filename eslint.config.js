@@ -20,7 +20,8 @@ export default [
       'coverage/**',
       '*.config.js',
       '*.config.ts',
-      'packages/**',           // Ignore packages directory
+      'packages/**',           // Ignore packages directory (has own eslint)
+      'src/**',                // Legacy directory migrated to packages/core/src/
       '**/*.d.ts',            // Ignore TypeScript declaration files
       '**/__tests__/**',      // Ignore test directories
       'examples/**',          // Ignore examples (documentation only)
