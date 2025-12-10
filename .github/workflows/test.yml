@@ -80,8 +80,8 @@ jobs:
     - name: Build all packages
       run: pnpm run build
 
-    - name: Build root package
-      run: tsc && chmod +x dist/index.js
+    - name: Run smoke test (ax-glm)
+      run: node packages/ax-glm/dist/index.js --version
 
-    - name: Run smoke test
-      run: node dist/index.js --version
+    - name: Run smoke test (ax-grok)
+      run: node packages/ax-grok/dist/index.js --version
