@@ -1170,7 +1170,7 @@ export interface AgentInfo {
  *
  * const grokInfo = getAgentInfo(grokAgent);
  * console.log(grokInfo?.provider); // 'grok'
- * console.log(grokInfo?.model);    // 'grok-3'
+ * console.log(grokInfo?.model);    // 'grok-4-0709'
  * ```
  */
 export function getAgentInfo(agent: LLMAgent): AgentInfo | null {

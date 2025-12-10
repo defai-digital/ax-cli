@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-glm",
-  "version": "4.3.15",
+  "version": "4.3.16",
   "description": "GLM-optimized AI coding assistant CLI powered by Z.AI - full-featured coding assistant with thinking mode and vision",
   "repository": {
     "type": "git",

@@ -26,7 +26,7 @@ import { existsSync, readFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 
-const VERSION = '4.3.14';
+const VERSION = '4.3.16';
 const NAME = 'ax-cli';
 
 // Config paths

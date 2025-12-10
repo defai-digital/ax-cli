@@ -102,13 +102,12 @@ Run `/init` inside the CLI to initialize your project context.
 
 ### Grok (xAI)
 
+> **Grok 4 only**: ax-grok now exclusively supports Grok 4, which has **all capabilities built-in**: vision, extended thinking (reasoning_effort), and live web search.
+
 | Model | Context | Features | Alias |
 |-------|---------|----------|-------|
-| `grok-4-0709` | 131K | **Most capable**: advanced reasoning, coding, vision | `grok-latest` |
-| `grok-4.1-fast` | 131K | Fast Grok 4.1 with agent tools support | `grok-fast` |
-| `grok-3` | 131K | **Reasoning effort**: advanced thinking mode | |
-| `grok-3-mini` | 131K | Fast, cost-effective with thinking | `grok-mini` |
-| `grok-2-vision-1212` | 32K | **Image understanding**: analyze visual input | `grok-vision` |
+| `grok-4-0709` | 131K | **Most capable**: reasoning, coding, vision, search (default) | `grok-latest` |
+| `grok-4.1-fast` | 131K | Fast variant with agent tools support | `grok-fast` |
 | `grok-2-image-1212` | 32K | **Image generation**: text-to-image | `grok-image` |
 
 > **Model Aliases**: Use convenient aliases like `ax-grok -m grok-latest` instead of full model names.
@@ -319,6 +318,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.3.16**: Grok 4 exclusive - ax-grok now exclusively supports Grok 4 models (grok-4-0709, grok-4.1-fast) which have all capabilities built-in: vision, extended thinking (reasoning_effort), and live web search. Legacy Grok 3/2 models removed. Updated default model from grok-3 to grok-4-0709.
 *   **v4.3.15**: Streamlined setup flow - New quick setup option reduces setup questions from 5-7 to just 4 (server → API key → model → "use defaults?"). Quick setup automatically installs AutomatosX and runs `ax setup -f`. Added separate vision model selection step for providers with vision support. Users can still access detailed configuration by declining quick setup.
 *   **v4.3.14**: CLI architecture refinement - Separated ax-cli as standalone base CLI without GLM/Grok-specific features. ax-glm and ax-grok remain as dedicated CLIs with full provider-specific features (web search, vision, image generation). Users should install ax-glm or ax-grok directly for advanced features.
 *   **v4.3.13**: UI refresh and bug fixes - Updated ASCII branding for AX-GLM and AX-GROK, fixed parseInt validation in design commands to prevent NaN errors, improved retry-helper documentation, refined welcome panel avatar animations.
