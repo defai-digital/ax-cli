@@ -18,6 +18,19 @@ import type {
   ModuleInfo,
   DependencyEdge,
   SecurityAnalysis,
+  ModuleMap,
+  ModuleDescription,
+  KeyAbstractions,
+  InterfaceInfo,
+  ClassInfo,
+  PatternInfo,
+  ImportConventions,
+  PublicAPIInfo,
+  ExportInfo,
+  HowToGuides,
+  HowToTask,
+  ConfigPatterns,
+  EnvVarInfo,
 } from '../types/project-analysis.js';
 
 interface DeepAnalyzerOptions {
@@ -428,6 +441,692 @@ export class DeepAnalyzer {
       unvalidatedInputs,
       potentialSecrets: potentialSecrets.slice(0, 30),
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TIER 3+: CONTEXTUAL UNDERSTANDING METHODS (HIGH VALUE)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Analyze module map - what each directory is FOR
+   */
+  async analyzeModuleMap(): Promise<ModuleMap> {
+    const directories: Record<string, ModuleDescription> = {};
+    const sourceDir = path.join(this.projectRoot, this.sourceDir);
+
+    if (!fs.existsSync(sourceDir)) {
+      return { directories };
+    }
+
+    // Scan top-level directories in source
+    const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+
+      const dirPath = path.join(sourceDir, entry.name);
+      const relativePath = `${this.sourceDir}/${entry.name}/`;
+      const description = this.analyzeDirectory(dirPath, entry.name);
+
+      if (description) {
+        directories[relativePath] = description;
+      }
+    }
+
+    return { directories };
+  }
+
+  private analyzeDirectory(dirPath: string, dirName: string): ModuleDescription | null {
+    const files = this.walkDir(dirPath, ['.ts', '.tsx', '.js', '.jsx']).slice(0, 20);
+    if (files.length === 0) return null;
+
+    const keyFiles = files
+      .map(f => path.basename(f))
+      .filter(f => !f.includes('.test.') && !f.includes('.spec.'))
+      .slice(0, 5);
+
+    // Analyze patterns in this directory
+    let pattern: string | undefined;
+    let example: string | undefined;
+    const purpose = this.inferDirectoryPurpose(dirName, files);
+
+    // Look for common patterns
+    for (const file of files.slice(0, 5)) {
+      const content = this.readFileContent(file);
+      const detectedPattern = this.detectFilePattern(content, dirName);
+      if (detectedPattern) {
+        pattern = detectedPattern.pattern;
+        example = detectedPattern.example;
+        break;
+      }
+    }
+
+    return {
+      purpose,
+      pattern,
+      keyFiles,
+      example,
+    };
+  }
+
+  private inferDirectoryPurpose(dirName: string, files: string[]): string {
+    const purposeMap: Record<string, string> = {
+      commands: 'CLI commands - each file typically exports a command factory function',
+      tools: 'AI/LLM tools - classes implementing tool interfaces for agent execution',
+      agent: 'LLM agent logic - handles conversation, tool calls, and execution',
+      mcp: 'Model Context Protocol - client/server for external tool integration',
+      llm: 'LLM API client - handles API calls to AI providers',
+      ui: 'User interface components - React/Ink components for terminal UI',
+      utils: 'Utility functions - shared helpers and common functionality',
+      types: 'TypeScript type definitions - interfaces and type declarations',
+      schemas: 'Validation schemas - Zod or similar schema definitions',
+      config: 'Configuration management - settings, defaults, and config loading',
+      hooks: 'React hooks or lifecycle hooks',
+      components: 'UI components - reusable interface elements',
+      services: 'Business logic services - core application functionality',
+      adapters: 'External service adapters - integrations with third-party APIs',
+      middleware: 'Request/response middleware - processing pipelines',
+      routes: 'Route handlers - API or page routing',
+      api: 'API endpoints - REST or GraphQL handlers',
+      models: 'Data models - database schemas or domain models',
+      controllers: 'Request controllers - handle incoming requests',
+      views: 'View templates or components',
+      tests: 'Test files - unit, integration, or e2e tests',
+      __tests__: 'Test files - Jest-style test directory',
+      lib: 'Library code - core functionality',
+      core: 'Core functionality - essential business logic',
+      design: 'Design system or design-related functionality',
+      planner: 'Planning and task management logic',
+      checkpoint: 'State checkpointing and recovery',
+      sdk: 'SDK implementation - public API for external use',
+    };
+
+    // Check if directory name matches known patterns
+    const lowerName = dirName.toLowerCase();
+    for (const [key, purpose] of Object.entries(purposeMap)) {
+      if (lowerName === key || lowerName.includes(key)) {
+        return purpose;
+      }
+    }
+
+    // Infer from file contents
+    const fileNames = files.map(f => path.basename(f).toLowerCase());
+    if (fileNames.some(f => f.includes('command'))) {
+      return 'CLI commands';
+    }
+    if (fileNames.some(f => f.includes('tool'))) {
+      return 'Tool implementations';
+    }
+    if (fileNames.some(f => f.includes('service'))) {
+      return 'Service layer';
+    }
+    if (fileNames.some(f => f.includes('component') || f.endsWith('.tsx'))) {
+      return 'UI components';
+    }
+
+    return `${dirName} module - contains ${files.length} source files`;
+  }
+
+  private detectFilePattern(content: string, dirName: string): { pattern: string; example: string } | null {
+    // Detect command pattern
+    if (dirName === 'commands') {
+      const match = content.match(/export\s+(?:const|function)\s+create(\w+)Command/);
+      if (match) {
+        return {
+          pattern: `Export create${match[1]}Command() function returning Commander Command`,
+          example: `export const create${match[1]}Command = () => new Command('${match[1].toLowerCase()}')...`,
+        };
+      }
+    }
+
+    // Detect class with interface implementation
+    const classMatch = content.match(/export\s+class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+(\w+))?/);
+    if (classMatch) {
+      const [, className, extendsClass, implementsInterface] = classMatch;
+      if (implementsInterface) {
+        return {
+          pattern: `Classes implementing ${implementsInterface} interface`,
+          example: `export class ${className} implements ${implementsInterface} { ... }`,
+        };
+      }
+      if (extendsClass) {
+        return {
+          pattern: `Classes extending ${extendsClass}`,
+          example: `export class ${className} extends ${extendsClass} { ... }`,
+        };
+      }
+    }
+
+    // Detect factory function pattern
+    const factoryMatch = content.match(/export\s+(?:const|function)\s+(create\w+)\s*[=:]/);
+    if (factoryMatch) {
+      return {
+        pattern: `Factory functions (${factoryMatch[1]}...)`,
+        example: `export const ${factoryMatch[1]} = (...) => { ... }`,
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Analyze key abstractions - interfaces, classes, patterns
+   */
+  async analyzeKeyAbstractions(): Promise<KeyAbstractions> {
+    const interfaces: InterfaceInfo[] = [];
+    const classes: ClassInfo[] = [];
+    const patterns: PatternInfo[] = [];
+    const files = this.getAllSourceFiles();
+
+    const interfaceImplementations = new Map<string, string[]>();
+
+    for (const file of files.slice(0, 100)) { // Limit for performance
+      const content = this.readFileContent(file);
+      const relativePath = path.relative(this.projectRoot, file);
+
+      // Find interfaces
+      const interfaceMatches = content.matchAll(/export\s+interface\s+(\w+)(?:\s+extends\s+(\w+))?\s*\{([^}]+)\}/g);
+      for (const match of interfaceMatches) {
+        const [, name, _extendsInterface, body] = match;
+        const members = this.extractInterfaceMembers(body);
+
+        if (members.length > 0 && !name.endsWith('Options') && !name.endsWith('Config')) {
+          interfaces.push({
+            name,
+            file: relativePath,
+            members: members.slice(0, 8),
+            purpose: this.inferInterfacePurpose(name, members),
+          });
+        }
+      }
+
+      // Find classes and their implementations
+      const classMatches = content.matchAll(/export\s+class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?\s*\{/g);
+      for (const match of classMatches) {
+        const [, name, extendsClass, implementsList] = match;
+        const implementsInterfaces = implementsList?.split(',').map(s => s.trim()).filter(Boolean);
+
+        classes.push({
+          name,
+          file: relativePath,
+          extends: extendsClass,
+          implements: implementsInterfaces,
+          purpose: this.inferClassPurpose(name, extendsClass, implementsInterfaces),
+        });
+
+        // Track implementations
+        if (implementsInterfaces) {
+          for (const iface of implementsInterfaces) {
+            if (!interfaceImplementations.has(iface)) {
+              interfaceImplementations.set(iface, []);
+            }
+            interfaceImplementations.get(iface)!.push(name);
+          }
+        }
+      }
+    }
+
+    // Update interfaces with implementations
+    for (const iface of interfaces) {
+      const implementations = interfaceImplementations.get(iface.name);
+      if (implementations) {
+        iface.implementedBy = implementations;
+      }
+    }
+
+    // Detect common patterns
+    patterns.push(...this.detectCommonPatterns(files));
+
+    return {
+      interfaces: interfaces.slice(0, 15),
+      classes: classes.slice(0, 15),
+      patterns: patterns.slice(0, 10),
+    };
+  }
+
+  private extractInterfaceMembers(body: string): string[] {
+    const members: string[] = [];
+    const lines = body.split('\n');
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
+
+      // Extract member name
+      const match = trimmed.match(/^(\w+)\s*[?:]?/);
+      if (match) {
+        members.push(match[1]);
+      }
+    }
+
+    return members;
+  }
+
+  private inferInterfacePurpose(name: string, members: string[]): string {
+    if (name.includes('Tool')) return 'Tool interface for AI agent execution';
+    if (name.includes('Command')) return 'Command interface for CLI';
+    if (name.includes('Service')) return 'Service layer interface';
+    if (name.includes('Handler')) return 'Handler interface for event/request processing';
+    if (name.includes('Provider')) return 'Provider interface for dependency injection';
+    if (name.includes('Client')) return 'Client interface for external communication';
+    if (members.includes('execute')) return 'Executable action interface';
+    if (members.includes('render')) return 'Renderable component interface';
+    return `Interface with ${members.length} members`;
+  }
+
+  private inferClassPurpose(name: string, extendsClass?: string, implementsInterfaces?: string[]): string {
+    if (implementsInterfaces?.some(i => i.includes('Tool'))) {
+      return 'AI tool implementation';
+    }
+    if (name.includes('Command') || extendsClass?.includes('Command')) {
+      return 'CLI command implementation';
+    }
+    if (name.includes('Service')) return 'Business logic service';
+    if (name.includes('Client')) return 'API client';
+    if (name.includes('Manager')) return 'Resource/state manager';
+    if (name.includes('Handler')) return 'Event/request handler';
+    return `${name} class`;
+  }
+
+  private detectCommonPatterns(files: string[]): PatternInfo[] {
+    const patterns: PatternInfo[] = [];
+    const patternCounts = new Map<string, number>();
+
+    for (const file of files.slice(0, 50)) {
+      const content = this.readFileContent(file);
+
+      // Factory pattern
+      if (/export\s+(?:const|function)\s+create\w+/.test(content)) {
+        patternCounts.set('factory', (patternCounts.get('factory') || 0) + 1);
+      }
+
+      // Singleton pattern
+      if (/private\s+static\s+instance|getInstance\(\)/.test(content)) {
+        patternCounts.set('singleton', (patternCounts.get('singleton') || 0) + 1);
+      }
+
+      // Builder pattern
+      if (/\.build\(\)|Builder/.test(content)) {
+        patternCounts.set('builder', (patternCounts.get('builder') || 0) + 1);
+      }
+
+      // Observer/Event pattern
+      if (/EventEmitter|\.on\(|\.emit\(|addEventListener/.test(content)) {
+        patternCounts.set('observer', (patternCounts.get('observer') || 0) + 1);
+      }
+
+      // Async/await pattern
+      if (/async\s+\w+|await\s+/.test(content)) {
+        patternCounts.set('async', (patternCounts.get('async') || 0) + 1);
+      }
+    }
+
+    if (patternCounts.get('factory')! >= 3) {
+      patterns.push({
+        name: 'Factory Pattern',
+        usage: 'Used for creating instances (createXxx functions)',
+        example: 'export const createCommand = () => new Command()',
+      });
+    }
+    if (patternCounts.get('observer')! >= 3) {
+      patterns.push({
+        name: 'Observer/Event Pattern',
+        usage: 'Used for event-driven communication',
+        example: 'emitter.on("event", handler)',
+      });
+    }
+    if (patternCounts.get('async')! >= 5) {
+      patterns.push({
+        name: 'Async/Await Pattern',
+        usage: 'Pervasive async/await for I/O operations',
+        example: 'async function doWork() { await operation(); }',
+      });
+    }
+
+    return patterns;
+  }
+
+  /**
+   * Analyze import conventions
+   */
+  async analyzeImportConventions(): Promise<ImportConventions> {
+    const files = this.getAllSourceFiles();
+    const importExamples: string[] = [];
+    const aliases = new Map<string, string>();
+    let extensionRequired = false;
+    let style = 'esm';
+
+    for (const file of files.slice(0, 30)) {
+      const content = this.readFileContent(file);
+
+      // Check for CommonJS
+      if (/require\s*\(/.test(content) && !/import.*from/.test(content)) {
+        style = 'commonjs';
+      }
+
+      // Check for .js extension in imports
+      if (/from\s+['"][^'"]+\.js['"]/.test(content)) {
+        extensionRequired = true;
+      }
+
+      // Find path aliases
+      const aliasMatches = content.matchAll(/from\s+['"](@\/[^'"]+)['"]/g);
+      for (const _match of aliasMatches) {
+        if (!aliases.has('@/')) {
+          aliases.set('@/', `${this.sourceDir}/`);
+        }
+      }
+
+      // Collect unique import examples
+      const importMatches = content.matchAll(/^import\s+.*from\s+['"]([^'"]+)['"]/gm);
+      for (const match of importMatches) {
+        const fullImport = match[0];
+        if (importExamples.length < 10 && !importExamples.includes(fullImport)) {
+          // Prioritize interesting imports
+          if (fullImport.includes('from \'@') ||
+              fullImport.includes('from \'./') ||
+              fullImport.includes('from \'zod') ||
+              fullImport.includes('from \'commander')) {
+            importExamples.push(fullImport);
+          }
+        }
+      }
+    }
+
+    // Find internal import pattern
+    let internalPattern: string | undefined;
+    const internalMatch = importExamples.find(i => i.includes('./') || i.includes('../'));
+    if (internalMatch) {
+      internalPattern = internalMatch.replace(/import\s+\{[^}]+\}/, 'import { X }');
+    }
+
+    return {
+      style: style === 'esm' ? 'ESM (import/export)' : 'CommonJS (require)',
+      aliases: Object.fromEntries(aliases),
+      extensionRequired,
+      commonImports: importExamples.slice(0, 8),
+      internalPattern,
+    };
+  }
+
+  /**
+   * Analyze public API - what the package exports
+   */
+  async analyzePublicAPI(): Promise<PublicAPIInfo> {
+    const exports: ExportInfo[] = [];
+    const reExports: string[] = [];
+
+    // Find main entry point
+    let entryPoint = 'src/index.ts';
+    const packageJsonPath = path.join(this.projectRoot, 'package.json');
+
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+        if (pkg.main) {
+          entryPoint = pkg.main.replace(/^\.\//, '').replace(/\.js$/, '.ts');
+        }
+        if (pkg.exports?.['.']) {
+          const exp = pkg.exports['.'];
+          if (typeof exp === 'string') {
+            entryPoint = exp.replace(/^\.\//, '').replace(/\.js$/, '.ts');
+          } else if (exp.import) {
+            entryPoint = exp.import.replace(/^\.\//, '').replace(/\.js$/, '.ts');
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Read entry point and find exports
+    const entryPath = path.join(this.projectRoot, entryPoint);
+    if (fs.existsSync(entryPath)) {
+      const content = fs.readFileSync(entryPath, 'utf-8');
+
+      // Find direct exports
+      const namedExports = content.matchAll(/export\s+(?:const|let|var|function|class|type|interface|enum)\s+(\w+)/g);
+      for (const match of namedExports) {
+        const name = match[1];
+        const typeMatch = match[0].match(/export\s+(const|let|var|function|class|type|interface|enum)/);
+        const type = this.mapExportType(typeMatch?.[1] || 'const');
+        exports.push({ name, type });
+      }
+
+      // Find re-exports
+      const reExportMatches = content.matchAll(/export\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g);
+      for (const match of reExportMatches) {
+        const names = match[1].split(',').map(s => s.trim().split(/\s+as\s+/)[0]);
+        const from = match[2];
+        reExports.push(from);
+
+        for (const name of names) {
+          if (name && !exports.some(e => e.name === name)) {
+            exports.push({ name, type: 'const' });
+          }
+        }
+      }
+
+      // Find export * from
+      const starExports = content.matchAll(/export\s+\*\s+from\s+['"]([^'"]+)['"]/g);
+      for (const match of starExports) {
+        reExports.push(match[1]);
+      }
+    }
+
+    return {
+      entryPoint,
+      exports: exports.slice(0, 20),
+      reExports: reExports.length > 0 ? reExports : undefined,
+    };
+  }
+
+  private mapExportType(type: string): ExportInfo['type'] {
+    switch (type) {
+      case 'function': return 'function';
+      case 'class': return 'class';
+      case 'type': return 'type';
+      case 'interface': return 'interface';
+      case 'enum': return 'enum';
+      default: return 'const';
+    }
+  }
+
+  /**
+   * Generate how-to guides for common tasks
+   */
+  async generateHowTo(): Promise<HowToGuides> {
+    const tasks: Record<string, HowToTask> = {};
+
+    // Read package.json for scripts
+    const packageJsonPath = path.join(this.projectRoot, 'package.json');
+    let scripts: Record<string, string> = {};
+    let hasTypeScript = false;
+    let testFramework: string | undefined;
+
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+        scripts = pkg.scripts || {};
+        hasTypeScript = !!pkg.devDependencies?.typescript || !!pkg.dependencies?.typescript;
+        if (pkg.devDependencies?.vitest || pkg.dependencies?.vitest) testFramework = 'vitest';
+        else if (pkg.devDependencies?.jest || pkg.dependencies?.jest) testFramework = 'jest';
+        else if (pkg.devDependencies?.mocha || pkg.dependencies?.mocha) testFramework = 'mocha';
+      } catch { /* ignore */ }
+    }
+
+    // Build task
+    if (scripts.build) {
+      tasks.build = {
+        description: 'Build the project',
+        steps: [
+          `Run: ${scripts.build.startsWith('pnpm') || scripts.build.startsWith('npm') ? scripts.build : `npm run build`}`,
+          hasTypeScript ? 'TypeScript will compile to JavaScript' : 'Build output will be in dist/',
+        ],
+        verifyCommand: scripts.build,
+      };
+    }
+
+    // Test task
+    if (scripts.test) {
+      tasks.runTests = {
+        description: 'Run tests',
+        steps: [
+          `Run all tests: npm test`,
+          testFramework === 'vitest' ? 'Run single file: npm test -- path/to/test.ts' :
+          testFramework === 'jest' ? 'Run single file: npm test -- path/to/test.ts' :
+          'Run single file: npm test -- --grep "test name"',
+          scripts['test:watch'] ? 'Watch mode: npm run test:watch' : '',
+        ].filter(Boolean),
+        verifyCommand: scripts.test,
+      };
+    }
+
+    // Typecheck task
+    if (scripts.typecheck || hasTypeScript) {
+      tasks.typecheck = {
+        description: 'Check TypeScript types',
+        steps: [
+          scripts.typecheck ? `Run: npm run typecheck` : 'Run: npx tsc --noEmit',
+          'Fix any type errors before committing',
+        ],
+        verifyCommand: scripts.typecheck || 'npx tsc --noEmit',
+      };
+    }
+
+    // Lint task
+    if (scripts.lint) {
+      tasks.lint = {
+        description: 'Lint code',
+        steps: [
+          `Run: npm run lint`,
+          scripts['lint:fix'] ? 'Auto-fix: npm run lint:fix' : 'Some issues may be auto-fixable with --fix',
+        ],
+        verifyCommand: scripts.lint,
+      };
+    }
+
+    // Dev task
+    if (scripts.dev) {
+      tasks.dev = {
+        description: 'Start development mode',
+        steps: [
+          `Run: npm run dev`,
+          'Changes will be watched and recompiled',
+        ],
+        verifyCommand: scripts.dev,
+      };
+    }
+
+    // Detect if this is a CLI project
+    const sourceDir = path.join(this.projectRoot, this.sourceDir, 'commands');
+    if (fs.existsSync(sourceDir)) {
+      tasks.addCommand = {
+        description: 'Add a new CLI command',
+        steps: [
+          `Create new file: ${this.sourceDir}/commands/my-command.ts`,
+          'Export a createMyCommand() function that returns a Commander Command',
+          `Import and register in ${this.sourceDir}/index.ts or main CLI file`,
+          'Run build and test the new command',
+        ],
+        relatedFiles: [`${this.sourceDir}/commands/`],
+      };
+    }
+
+    // Detect if this has tools
+    const toolsDir = path.join(this.projectRoot, this.sourceDir, 'tools');
+    if (fs.existsSync(toolsDir)) {
+      tasks.addTool = {
+        description: 'Add a new AI tool',
+        steps: [
+          `Create new file: ${this.sourceDir}/tools/my-tool.ts`,
+          'Create a class that implements the Tool interface',
+          'Implement execute() method with tool logic',
+          'Register the tool in the tool registry',
+        ],
+        relatedFiles: [`${this.sourceDir}/tools/`],
+      };
+    }
+
+    return { tasks };
+  }
+
+  /**
+   * Analyze configuration patterns
+   */
+  async analyzeConfigPatterns(): Promise<ConfigPatterns> {
+    const envVars: EnvVarInfo[] = [];
+    const envVarSet = new Set<string>();
+
+    // Scan for env var usage
+    const files = this.getAllSourceFiles();
+    for (const file of files.slice(0, 50)) {
+      const content = this.readFileContent(file);
+
+      const matches = content.matchAll(/process\.env\.(\w+)|process\.env\[['"](\w+)['"]\]/g);
+      for (const match of matches) {
+        const name = match[1] || match[2];
+        if (!envVarSet.has(name)) {
+          envVarSet.add(name);
+          envVars.push({
+            name,
+            purpose: this.inferEnvVarPurpose(name),
+            required: this.isRequiredEnvVar(content, name),
+          });
+        }
+      }
+    }
+
+    // Detect config file patterns
+    let userConfig: string | undefined;
+    let projectConfig: string | undefined;
+
+    // Check for common config patterns
+    const configFiles = [
+      { path: '.env.example', type: 'env' },
+      { path: 'config/default.json', type: 'project' },
+      { path: '.rc', type: 'user' },
+    ];
+
+    for (const { path: configPath, type } of configFiles) {
+      if (fs.existsSync(path.join(this.projectRoot, configPath))) {
+        if (type === 'project') projectConfig = configPath;
+      }
+    }
+
+    // Check for provider-specific config
+    if (fs.existsSync(path.join(this.projectRoot, 'src', 'constants.ts'))) {
+      const content = fs.readFileSync(path.join(this.projectRoot, 'src', 'constants.ts'), 'utf-8');
+      if (content.includes('.ax-glm') || content.includes('.ax-grok')) {
+        userConfig = '~/.ax-*/config.json';
+        projectConfig = '.ax-*/settings.json';
+      }
+    }
+
+    return {
+      userConfig,
+      projectConfig,
+      envVars: envVars.slice(0, 15),
+      schema: fs.existsSync(path.join(this.projectRoot, 'src', 'schemas')) ? 'Zod schemas in src/schemas/' : undefined,
+    };
+  }
+
+  private inferEnvVarPurpose(name: string): string {
+    const upper = name.toUpperCase();
+    if (upper.includes('API_KEY') || upper.includes('SECRET')) return 'API authentication key';
+    if (upper.includes('URL') || upper.includes('ENDPOINT')) return 'Service URL/endpoint';
+    if (upper.includes('PORT')) return 'Server port';
+    if (upper.includes('HOST')) return 'Server host';
+    if (upper.includes('DEBUG')) return 'Debug mode flag';
+    if (upper.includes('LOG')) return 'Logging configuration';
+    if (upper.includes('DB') || upper.includes('DATABASE')) return 'Database configuration';
+    if (upper.includes('NODE_ENV')) return 'Node environment (development/production)';
+    return 'Environment configuration';
+  }
+
+  private isRequiredEnvVar(content: string, name: string): boolean {
+    // Check if there's an error thrown when env var is missing
+    const pattern = new RegExp(`process\\.env\\.${name}.*throw|throw.*process\\.env\\.${name}|!process\\.env\\.${name}`, 'i');
+    return pattern.test(content);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

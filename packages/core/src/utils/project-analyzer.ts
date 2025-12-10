@@ -198,6 +198,18 @@ export class ProjectAnalyzer {
           } catch (error) {
             this.warnings.push(`Tier 3 analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
+
+          // Tier 3+: Contextual understanding (HIGH VALUE for AI)
+          try {
+            projectInfo.moduleMap = await deepAnalyzer.analyzeModuleMap();
+            projectInfo.keyAbstractions = await deepAnalyzer.analyzeKeyAbstractions();
+            projectInfo.importConventions = await deepAnalyzer.analyzeImportConventions();
+            projectInfo.publicAPI = await deepAnalyzer.analyzePublicAPI();
+            projectInfo.howTo = await deepAnalyzer.generateHowTo();
+            projectInfo.configPatterns = await deepAnalyzer.analyzeConfigPatterns();
+          } catch (error) {
+            this.warnings.push(`Contextual analysis partial failure: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
         }
 
         // Tier 4: Security analysis (optional)

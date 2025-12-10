@@ -75,6 +75,23 @@ export interface ProjectInfo {
   architecture?: ArchitectureAnalysis;
 
   // ═══════════════════════════════════════════════════════════════════════
+  // TIER 3+: Contextual Understanding (HIGH VALUE for AI)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /** Module map - what each directory is FOR and how to use it */
+  moduleMap?: ModuleMap;
+  /** Key interfaces and patterns - abstractions to understand */
+  keyAbstractions?: KeyAbstractions;
+  /** Import conventions with actual examples */
+  importConventions?: ImportConventions;
+  /** Public API - what the package exports */
+  publicAPI?: PublicAPIInfo;
+  /** How-to guides for common tasks */
+  howTo?: HowToGuides;
+  /** Configuration patterns */
+  configPatterns?: ConfigPatterns;
+
+  // ═══════════════════════════════════════════════════════════════════════
   // TIER 4: Security Analysis (OPTIONAL - via settings)
   // ═══════════════════════════════════════════════════════════════════════
 
@@ -387,6 +404,147 @@ export interface LegacyProjectInfo {
   };
   packageManager?: string;
   lastAnalyzed: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TIER 3+: Contextual Understanding Types (HIGH VALUE)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Module map - what each directory is FOR */
+export interface ModuleMap {
+  /** Map of directory path to its description */
+  directories: Record<string, ModuleDescription>;
+}
+
+export interface ModuleDescription {
+  /** Human-readable purpose of this directory */
+  purpose: string;
+  /** Code pattern used in this directory */
+  pattern?: string;
+  /** Key files in this directory */
+  keyFiles?: string[];
+  /** Example code snippet showing the pattern */
+  example?: string;
+  /** Related directories */
+  relatedTo?: string[];
+}
+
+/** Key abstractions in the codebase */
+export interface KeyAbstractions {
+  /** Important interfaces */
+  interfaces: InterfaceInfo[];
+  /** Important classes/base classes */
+  classes: ClassInfo[];
+  /** Common patterns used */
+  patterns: PatternInfo[];
+}
+
+export interface InterfaceInfo {
+  /** Interface name */
+  name: string;
+  /** File where defined */
+  file: string;
+  /** Key properties/methods */
+  members: string[];
+  /** Classes that implement this interface */
+  implementedBy?: string[];
+  /** Purpose description */
+  purpose?: string;
+}
+
+export interface ClassInfo {
+  /** Class name */
+  name: string;
+  /** File where defined */
+  file: string;
+  /** Base class if extends */
+  extends?: string;
+  /** Interfaces implemented */
+  implements?: string[];
+  /** Purpose description */
+  purpose?: string;
+}
+
+export interface PatternInfo {
+  /** Pattern name */
+  name: string;
+  /** Where it's used */
+  usage: string;
+  /** Example */
+  example?: string;
+}
+
+/** Import conventions */
+export interface ImportConventions {
+  /** Import style (ESM/CommonJS) */
+  style: string;
+  /** Path aliases */
+  aliases?: Record<string, string>;
+  /** File extension requirement */
+  extensionRequired?: boolean;
+  /** Common imports with examples */
+  commonImports: string[];
+  /** Internal import pattern example */
+  internalPattern?: string;
+}
+
+/** Public API information */
+export interface PublicAPIInfo {
+  /** Main entry point */
+  entryPoint: string;
+  /** Exported items */
+  exports: ExportInfo[];
+  /** Re-exported modules */
+  reExports?: string[];
+}
+
+export interface ExportInfo {
+  /** Export name */
+  name: string;
+  /** Type (function, class, const, type) */
+  type: 'function' | 'class' | 'const' | 'type' | 'interface' | 'enum';
+  /** Brief description */
+  description?: string;
+}
+
+/** How-to guides for common tasks */
+export interface HowToGuides {
+  /** Tasks with step-by-step instructions */
+  tasks: Record<string, HowToTask>;
+}
+
+export interface HowToTask {
+  /** Task description */
+  description: string;
+  /** Step-by-step instructions */
+  steps: string[];
+  /** Related files */
+  relatedFiles?: string[];
+  /** Command to run after */
+  verifyCommand?: string;
+}
+
+/** Configuration patterns */
+export interface ConfigPatterns {
+  /** User-level config location */
+  userConfig?: string;
+  /** Project-level config location */
+  projectConfig?: string;
+  /** Environment variables used */
+  envVars?: EnvVarInfo[];
+  /** Config file schema info */
+  schema?: string;
+}
+
+export interface EnvVarInfo {
+  /** Variable name */
+  name: string;
+  /** Purpose */
+  purpose: string;
+  /** Required or optional */
+  required?: boolean;
+  /** Default value */
+  defaultValue?: string;
 }
 
 /** Check if index is legacy format */
