@@ -324,15 +324,67 @@ export const GROK_PROVIDER: ProviderDefinition = {
 };
 
 /**
- * Default provider (GLM)
+ * AX CLI Default Provider Definition
  */
-export const DEFAULT_PROVIDER = GLM_PROVIDER;
+export const AX_CLI_PROVIDER: ProviderDefinition = {
+  name: 'ax-cli',
+  displayName: 'AX CLI',
+  apiKeyEnvVar: 'YOUR_API_KEY',
+  apiKeyEnvVarAliases: ['GEMINI_API_KEY', 'OPENAI_API_KEY'], // Common fallbacks
+  defaultBaseURL: 'https://api.modelcontext.com/v1', // Generic ModelContext Protocol base URL
+  defaultModel: 'glm-4.6', // Assuming GLM is the default "agnostic" model
+  configDirName: '.ax-cli',
+  models: {
+    // These should ideally be dynamically loaded or a subset
+    // For now, mirroring glm-4.6 as a common default
+    'glm-4.6': {
+      name: 'GLM-4.6',
+      contextWindow: 200000,
+      maxOutputTokens: 128000,
+      supportsThinking: true,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'Most capable GLM model with thinking mode support',
+    },
+  },
+  features: {
+    supportsThinking: true,
+    supportsVision: true,
+    supportsSearch: true,
+    supportsSeed: true,
+    supportsDoSample: true,
+    thinkingModeStyle: 'thinking_mode', // Default to GLM style thinking
+  },
+  branding: {
+    cliName: 'ax-cli',
+    description: 'Enterprise-Class AI Command Line Interface',
+    welcomeMessage: '🤖 Starting AX CLI AI Assistant...',
+    primaryColor: 'cyan',
+    secondaryColor: 'green',
+    tagline: 'AI Coding Assistant',
+    asciiLogo: `
+   █████╗ ██╗  ██╗      ██████╗██╗     ██╗
+  ██╔══██╗╚██╗██╔╝     ██╔════╝██║     ██║
+  ███████║ ╚███╔╝█████╗██║     ██║     ██║
+  ██╔══██║ ██╔██╗╚════╝██║     ██║     ██║
+  ██║  ██║██╔╝ ██╗     ╚██████╗███████╗██║
+  ╚═╝  ╚═╝╚═╝  ╚═╝      ╚═════╝╚══════╝╚═╝`,
+  },
+};
+
+/**
+ * Default provider (AX CLI)
+ */
+export const DEFAULT_PROVIDER = AX_CLI_PROVIDER;
 
 /**
  * Get provider definition by name
  */
 export function getProviderDefinition(name: string): ProviderDefinition | undefined {
   const providers: Record<string, ProviderDefinition> = {
+    'ax-cli': AX_CLI_PROVIDER,
     glm: GLM_PROVIDER,
     grok: GROK_PROVIDER,
   };
@@ -343,7 +395,7 @@ export function getProviderDefinition(name: string): ProviderDefinition | undefi
  * Get all available providers
  */
 export function getAvailableProviders(): ProviderDefinition[] {
-  return [GLM_PROVIDER, GROK_PROVIDER];
+  return [AX_CLI_PROVIDER, GLM_PROVIDER, GROK_PROVIDER];
 }
 
 /**

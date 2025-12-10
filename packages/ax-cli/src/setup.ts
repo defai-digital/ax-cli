@@ -2,10 +2,15 @@
  * Setup Flow - Provider Selection and Configuration
  *
  * This setup wizard:
- * 1. Lets user select GLM or Grok provider
- * 2. For GLM: Choose between Z.AI Cloud or Local Server
- * 3. Runs the provider-specific setup (API key, model selection, etc.)
- * 4. Saves the provider preference so `ax-cli` launches the correct CLI
+ * 1. Lets user select a provider (GLM, Grok, Qwen, Deepseek, Mixtral)
+ * 2. For cloud providers: Configure API key and model
+ * 3. For offline mode: Configure local server (Ollama/LMStudio) with any supported model
+ * 4. Saves configuration to provider-specific directories
+ *
+ * Provider Distribution:
+ * - ax-cli: Multi-provider hub (cloud: Qwen, Deepseek, Mixtral; local: GLM, Qwen, Deepseek, Mixtral)
+ * - ax-glm: GLM via Z.AI Cloud only (for offline GLM, use ax-cli)
+ * - ax-grok: Grok via xAI Cloud only
  */
 
 import chalk from 'chalk';
@@ -19,7 +24,7 @@ import { join } from 'path';
 
 const execAsync = promisify(exec);
 
-export type Provider = 'glm' | 'grok';
+export type Provider = 'glm' | 'grok' | 'qwen' | 'deepseek' | 'mixtral' | 'local';
 export type ServerType = 'cloud' | 'local';
 
 interface ModelInfo {
@@ -48,7 +53,7 @@ const ZAI_MODELS: ModelInfo[] = [
   { id: 'glm-4-flash', name: 'GLM-4 Flash', description: 'Fast, efficient GLM model (128K context)' },
 ];
 
-// Common local GLM models
+// Common local models by family (for Ollama/LMStudio)
 const LOCAL_GLM_MODELS: ModelInfo[] = [
   { id: 'glm4', name: 'GLM-4 (9B)', description: 'GLM-4 9B base model for local inference' },
   { id: 'glm4:latest', name: 'GLM-4 Latest', description: 'Latest GLM-4 model tag' },
@@ -56,10 +61,72 @@ const LOCAL_GLM_MODELS: ModelInfo[] = [
   { id: 'chatglm3', name: 'ChatGLM3', description: 'ChatGLM3 6B model' },
 ];
 
+const LOCAL_QWEN_MODELS: ModelInfo[] = [
+  { id: 'qwen2.5-coder:32b', name: 'Qwen2.5-Coder 32B', description: 'Best coding model, 128K context' },
+  { id: 'qwen2.5-coder:14b', name: 'Qwen2.5-Coder 14B', description: 'Balanced coding model' },
+  { id: 'qwen2.5-coder:7b', name: 'Qwen2.5-Coder 7B', description: 'Efficient coding model' },
+  { id: 'qwen2.5:72b', name: 'Qwen2.5 72B', description: 'Most capable general model' },
+  { id: 'qwen2.5:32b', name: 'Qwen2.5 32B', description: 'High-quality general model' },
+  { id: 'qwen2.5:14b', name: 'Qwen2.5 14B', description: 'Balanced general model' },
+  { id: 'qwen2.5:7b', name: 'Qwen2.5 7B', description: 'Efficient general model' },
+];
+
+const LOCAL_DEEPSEEK_MODELS: ModelInfo[] = [
+  { id: 'deepseek-coder-v2:236b', name: 'DeepSeek-Coder-V2 236B', description: 'Most capable coding model (MoE)' },
+  { id: 'deepseek-coder-v2:16b', name: 'DeepSeek-Coder-V2 16B', description: 'Efficient coding model' },
+  { id: 'deepseek-v2.5', name: 'DeepSeek-V2.5', description: 'Latest general model with coding' },
+  { id: 'deepseek-coder:33b', name: 'DeepSeek-Coder 33B', description: 'Strong coding model' },
+  { id: 'deepseek-coder:6.7b', name: 'DeepSeek-Coder 6.7B', description: 'Efficient coding model' },
+];
+
+const LOCAL_MIXTRAL_MODELS: ModelInfo[] = [
+  { id: 'mixtral:8x22b', name: 'Mixtral 8x22B', description: 'Most capable MoE model (141B params)' },
+  { id: 'mixtral:8x7b', name: 'Mixtral 8x7B', description: 'Efficient MoE model (47B params)' },
+  { id: 'mistral:7b', name: 'Mistral 7B', description: 'Fast and efficient base model' },
+  { id: 'codestral:22b', name: 'Codestral 22B', description: 'Dedicated coding model' },
+  { id: 'mistral-nemo:12b', name: 'Mistral Nemo 12B', description: 'Compact but capable model' },
+];
+
+// All local models combined for offline setup
+const ALL_LOCAL_MODELS: ModelInfo[] = [
+  // GLM models
+  ...LOCAL_GLM_MODELS.map(m => ({ ...m, name: `[GLM] ${m.name}` })),
+  // Qwen models
+  ...LOCAL_QWEN_MODELS.map(m => ({ ...m, name: `[Qwen] ${m.name}` })),
+  // DeepSeek models
+  ...LOCAL_DEEPSEEK_MODELS.map(m => ({ ...m, name: `[DeepSeek] ${m.name}` })),
+  // Mixtral/Mistral models
+  ...LOCAL_MIXTRAL_MODELS.map(m => ({ ...m, name: `[Mixtral] ${m.name}` })),
+];
+
+// Qwen Cloud models (DashScope API)
+const QWEN_CLOUD_MODELS: ModelInfo[] = [
+  { id: 'qwen-max', name: 'Qwen-Max', description: 'Most capable Qwen model (32K context)' },
+  { id: 'qwen-plus', name: 'Qwen-Plus', description: 'Balanced performance and cost (32K context)' },
+  { id: 'qwen-turbo', name: 'Qwen-Turbo', description: 'Fast and efficient (8K context)' },
+  { id: 'qwen-coder-plus', name: 'Qwen-Coder-Plus', description: 'Optimized for coding tasks' },
+];
+
+// DeepSeek Cloud models
+const DEEPSEEK_CLOUD_MODELS: ModelInfo[] = [
+  { id: 'deepseek-chat', name: 'DeepSeek-Chat', description: 'Latest chat model with 64K context' },
+  { id: 'deepseek-coder', name: 'DeepSeek-Coder', description: 'Optimized for code generation' },
+  { id: 'deepseek-reasoner', name: 'DeepSeek-Reasoner', description: 'Enhanced reasoning capabilities' },
+];
+
+// Mixtral/Mistral Cloud models
+const MIXTRAL_CLOUD_MODELS: ModelInfo[] = [
+  { id: 'mistral-large-latest', name: 'Mistral Large', description: 'Most capable model (128K context)' },
+  { id: 'mistral-medium-latest', name: 'Mistral Medium', description: 'Balanced performance' },
+  { id: 'mistral-small-latest', name: 'Mistral Small', description: 'Fast and efficient' },
+  { id: 'codestral-latest', name: 'Codestral', description: 'Dedicated coding model (32K context)' },
+  { id: 'open-mixtral-8x22b', name: 'Mixtral 8x22B', description: 'Open-weight MoE model' },
+];
+
 const PROVIDERS: Record<Provider, ProviderInfo> = {
   glm: {
-    name: 'GLM (Z.AI)',
-    description: 'Optimized for GLM-4.6 with thinking mode and 200K context',
+    name: 'GLM (Z.AI Cloud)',
+    description: 'GLM-4.6 via Z.AI Cloud with thinking mode and 200K context',
     cliName: 'ax-glm',
     package: '@defai.digital/ax-glm',
     defaultBaseURL: 'https://api.z.ai/api/coding/paas/v4',
@@ -69,8 +136,8 @@ const PROVIDERS: Record<Provider, ProviderInfo> = {
     models: ZAI_MODELS,
   },
   grok: {
-    name: 'Grok (xAI)',
-    description: 'Optimized for Grok with extended thinking, vision, and live search',
+    name: 'Grok (xAI Cloud)',
+    description: 'Grok via xAI with extended thinking, vision, and live search',
     cliName: 'ax-grok',
     package: '@defai.digital/ax-grok',
     defaultBaseURL: 'https://api.x.ai/v1',
@@ -84,6 +151,50 @@ const PROVIDERS: Record<Provider, ProviderInfo> = {
       { id: 'grok-2-vision', name: 'Grok-2 Vision', description: 'Vision-capable Grok model' },
       { id: 'grok-2-mini', name: 'Grok-2 Mini', description: 'Faster, more efficient Grok 2' },
     ],
+  },
+  qwen: {
+    name: 'Qwen (DashScope Cloud)',
+    description: 'Qwen models via Alibaba DashScope API',
+    cliName: 'ax-cli',
+    package: '@defai.digital/ax-cli',
+    defaultBaseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    defaultModel: 'qwen-max',
+    apiKeyEnvVar: 'DASHSCOPE_API_KEY',
+    website: 'https://dashscope.console.aliyun.com',
+    models: QWEN_CLOUD_MODELS,
+  },
+  deepseek: {
+    name: 'DeepSeek (Cloud)',
+    description: 'DeepSeek models via official API',
+    cliName: 'ax-cli',
+    package: '@defai.digital/ax-cli',
+    defaultBaseURL: 'https://api.deepseek.com/v1',
+    defaultModel: 'deepseek-chat',
+    apiKeyEnvVar: 'DEEPSEEK_API_KEY',
+    website: 'https://platform.deepseek.com',
+    models: DEEPSEEK_CLOUD_MODELS,
+  },
+  mixtral: {
+    name: 'Mixtral/Mistral (Cloud)',
+    description: 'Mistral AI models via official API',
+    cliName: 'ax-cli',
+    package: '@defai.digital/ax-cli',
+    defaultBaseURL: 'https://api.mistral.ai/v1',
+    defaultModel: 'mistral-large-latest',
+    apiKeyEnvVar: 'MISTRAL_API_KEY',
+    website: 'https://console.mistral.ai',
+    models: MIXTRAL_CLOUD_MODELS,
+  },
+  local: {
+    name: 'Offline/Local (Ollama/LMStudio)',
+    description: 'Run models locally via Ollama, LMStudio, vLLM, or other OpenAI-compatible servers',
+    cliName: 'ax-cli',
+    package: '@defai.digital/ax-cli',
+    defaultBaseURL: 'http://localhost:11434/v1',
+    defaultModel: 'qwen2.5-coder:14b',
+    apiKeyEnvVar: '',
+    website: 'https://ollama.ai',
+    models: ALL_LOCAL_MODELS,
   },
 };
 
@@ -104,6 +215,10 @@ const AX_CLI_CONFIG_FILE = join(AX_CLI_CONFIG_DIR, 'config.json');
 const PROVIDER_CONFIG_DIRS: Record<Provider, string> = {
   glm: join(homedir(), '.ax-glm'),
   grok: join(homedir(), '.ax-grok'),
+  qwen: join(homedir(), '.ax-cli'),
+  deepseek: join(homedir(), '.ax-cli'),
+  mixtral: join(homedir(), '.ax-cli'),
+  local: join(homedir(), '.ax-cli'),
 };
 
 /**
@@ -379,38 +494,20 @@ async function installProvider(provider: Provider): Promise<boolean> {
 }
 
 /**
- * Run the GLM-specific setup (Z.AI Cloud or Local)
+ * Run the GLM Cloud setup (Z.AI Cloud only)
+ * For local GLM models, users should use ax-cli with Local/Offline option
  */
-async function runGLMSetup(existingConfig: AxCliConfig): Promise<AxCliConfig | null> {
+async function runGLMCloudSetup(existingConfig: AxCliConfig): Promise<AxCliConfig | null> {
   const providerInfo = PROVIDERS.glm;
 
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 1: Server Type Selection (Cloud vs Local)
-  // ═══════════════════════════════════════════════════════════════════
-  console.log(chalk.bold.cyan('\n  Step 1/4 — Choose Server Type\n'));
+  console.log(chalk.cyan('\n  ┌─────────────────────────────────────────────────────┐'));
+  console.log(chalk.cyan('  │  GLM Setup - Z.AI Cloud                             │'));
+  console.log(chalk.cyan('  └─────────────────────────────────────────────────────┘\n'));
 
-  const serverType = await select<ServerType>({
-    message: 'Where do you want to run GLM models?',
-    choices: [
-      {
-        name: `${chalk.green('Z.AI Cloud')} - Official Z.AI API with GLM-4.6 (Recommended)`,
-        value: 'cloud' as ServerType,
-        description: 'Requires API key from z.ai',
-      },
-      {
-        name: `${chalk.blue('Local Server')} - Run GLM models locally (Ollama, vLLM, etc.)`,
-        value: 'local' as ServerType,
-        description: 'No API key required, uses local inference',
-      },
-    ],
-    default: existingConfig.serverType || 'cloud',
-  });
+  console.log(chalk.dim('  Note: For offline/local GLM models, use the "Local/Offline"'));
+  console.log(chalk.dim('  option in the main ax-cli setup menu.\n'));
 
-  if (serverType === 'cloud') {
-    return await runZAICloudSetup(existingConfig, providerInfo);
-  } else {
-    return await runLocalGLMSetup(existingConfig, providerInfo);
-  }
+  return await runZAICloudSetup(existingConfig, providerInfo);
 }
 
 /**
@@ -1032,12 +1129,15 @@ async function runGrokSetup(existingConfig: AxCliConfig): Promise<AxCliConfig | 
  * Run the setup wizard
  */
 export async function runSetup(): Promise<void> {
-  console.log(chalk.cyan('\n  ╔════════════════════════════════════════╗'));
-  console.log(chalk.cyan('  ║     Welcome to ax-cli Setup Wizard     ║'));
-  console.log(chalk.cyan('  ╚════════════════════════════════════════╝\n'));
+  console.log(chalk.cyan('\n  ╔════════════════════════════════════════════════╗'));
+  console.log(chalk.cyan('  ║       Welcome to ax-cli Setup Wizard           ║'));
+  console.log(chalk.cyan('  ║   Multi-Provider AI Coding Assistant Hub       ║'));
+  console.log(chalk.cyan('  ╚════════════════════════════════════════════════╝\n'));
 
   console.log('  This wizard will configure your AI coding assistant');
   console.log('  with your preferred LLM provider.\n');
+  console.log(chalk.dim('  • Cloud providers: API key required'));
+  console.log(chalk.dim('  • Local/Offline: No API key, uses Ollama/LMStudio\n'));
 
   // Load existing meta config (to get previously selected provider)
   const metaConfig = loadMetaConfig();
@@ -1050,15 +1150,38 @@ export async function runSetup(): Promise<void> {
   const provider = await select<Provider>({
     message: 'Which LLM provider do you want to use?',
     choices: [
+      // Cloud providers with dedicated CLIs
       {
-        name: `${chalk.green('GLM')} - GLM-4.6 via Z.AI Cloud or local inference`,
+        name: `${chalk.green('GLM')} - Z.AI Cloud (uses ax-glm)`,
         value: 'glm' as Provider,
-        description: 'Thinking mode, 200K context, vision support',
+        description: 'GLM-4.6 with thinking mode, 200K context',
       },
       {
-        name: `${chalk.blue('Grok')} - Grok 3 via xAI API`,
+        name: `${chalk.blue('Grok')} - xAI Cloud (uses ax-grok)`,
         value: 'grok' as Provider,
-        description: 'Extended thinking, live search, vision support',
+        description: 'Extended thinking, live search, vision',
+      },
+      // Cloud providers managed by ax-cli
+      {
+        name: `${chalk.yellow('Qwen')} - DashScope Cloud`,
+        value: 'qwen' as Provider,
+        description: 'Qwen2.5 models via Alibaba API',
+      },
+      {
+        name: `${chalk.magenta('DeepSeek')} - DeepSeek Cloud`,
+        value: 'deepseek' as Provider,
+        description: 'DeepSeek-V2.5 and Coder models',
+      },
+      {
+        name: `${chalk.cyan('Mixtral')} - Mistral AI Cloud`,
+        value: 'mixtral' as Provider,
+        description: 'Mistral Large, Codestral, Mixtral MoE',
+      },
+      // Local/Offline mode
+      {
+        name: `${chalk.gray('Local/Offline')} - Ollama, LMStudio, vLLM`,
+        value: 'local' as Provider,
+        description: 'Run GLM, Qwen, DeepSeek, Mixtral locally (no API key)',
       },
     ],
     default: metaConfig.selectedProvider || 'glm',
@@ -1071,9 +1194,14 @@ export async function runSetup(): Promise<void> {
   let newConfig: AxCliConfig | null = null;
 
   if (provider === 'glm') {
-    newConfig = await runGLMSetup(existingProviderConfig);
-  } else {
+    newConfig = await runGLMCloudSetup(existingProviderConfig);
+  } else if (provider === 'grok') {
     newConfig = await runGrokSetup(existingProviderConfig);
+  } else if (provider === 'local') {
+    newConfig = await runLocalSetup(existingProviderConfig);
+  } else {
+    // Generic cloud provider setup (Qwen, DeepSeek, Mixtral)
+    newConfig = await runGenericCloudSetup(provider, existingProviderConfig);
   }
 
   if (!newConfig) {
