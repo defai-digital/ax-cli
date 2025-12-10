@@ -345,23 +345,23 @@ async function runGenericCloudSetup(provider: Provider, existingConfig: AxCliCon
   console.log(chalk.cyan('  └─────────────────────────────────────────────────────┘\n'));
 
   // ═══════════════════════════════════════════════════════════════════
-  // STEP 1: API Key
+  // STEP 1: API Key with Connection Test Loop
   // ═══════════════════════════════════════════════════════════════════
-  console.log(chalk.bold.cyan('\n  Step 1/3 — API Key\n'));
+  console.log(chalk.bold.cyan('\n  Step 1/3 — API Key & Connection Test\n'));
   console.log(`  Get your API key from: ${chalk.underline(providerInfo.website)}\n`);
 
   let apiKey = '';
+  let connectionValidated = false;
   const envKey = process.env[providerInfo.apiKeyEnvVar];
   const existingKey = existingConfig.apiKey;
   const isSameProvider = existingConfig.selectedProvider === provider;
 
+  // Check for existing key
   if (existingKey && isSameProvider) {
-    // Create masked version of key for display (never log full key)
     const maskedKey = existingKey.length > 12
       ? `${existingKey.substring(0, 8)}...${existingKey.substring(existingKey.length - 4)}`
       : `${existingKey.substring(0, 4)}...`;
 
-    // lgtm[js/clear-text-logging] - Logging masked key only (sk-xxx...xxx), not full key
     console.log(`  Existing API key found: ${chalk.dim(maskedKey)}\n`);
 
     const reuseKey = await confirm({
@@ -371,10 +371,8 @@ async function runGenericCloudSetup(provider: Provider, existingConfig: AxCliCon
 
     if (reuseKey) {
       apiKey = existingKey;
-      console.log(chalk.green('  ✓ Using existing API key\n'));
     }
   } else if (envKey) {
-    // lgtm[js/clear-text-logging] - Logging env var NAME, not value
     console.log(`  Found ${providerInfo.apiKeyEnvVar} in environment\n`);
     const useEnvKey = await confirm({
       message: `Use API key from ${providerInfo.apiKeyEnvVar} environment variable?`,
@@ -383,15 +381,51 @@ async function runGenericCloudSetup(provider: Provider, existingConfig: AxCliCon
 
     if (useEnvKey) {
       apiKey = envKey;
-      console.log(chalk.green('  ✓ Using environment API key\n'));
     }
   }
 
-  if (!apiKey) {
-    apiKey = await password({
-      message: `Enter your ${providerInfo.name} API key:`,
-      validate: (value) => value.trim().length > 0 || 'API key is required',
-    });
+  // API Key entry and validation loop
+  while (!connectionValidated) {
+    // If no API key yet, prompt for one
+    if (!apiKey) {
+      apiKey = await password({
+        message: `Enter your ${providerInfo.name} API key:`,
+        validate: (value) => value.trim().length > 0 || 'API key is required',
+      });
+    }
+
+    // Test connection
+    const spinner = ora(`Testing ${providerInfo.name} connection...`).start();
+    const isValid = await validateCloudConnection(providerInfo.defaultBaseURL, apiKey);
+
+    if (isValid) {
+      spinner.succeed(`${providerInfo.name} connection validated!`);
+      connectionValidated = true;
+    } else {
+      spinner.fail('Connection failed');
+      console.log();
+
+      // Ask user what to do
+      const retryChoice = await select({
+        message: 'Connection failed. What would you like to do?',
+        choices: [
+          { name: 'Enter a different API key', value: 'retry' },
+          { name: 'Continue anyway (save without validation)', value: 'skip' },
+          { name: 'Cancel setup (Esc)', value: 'quit' },
+        ],
+      });
+
+      if (retryChoice === 'retry') {
+        apiKey = ''; // Clear to prompt for new key
+        continue;
+      } else if (retryChoice === 'skip') {
+        console.log(chalk.yellow('  ⚠ Proceeding with unvalidated configuration\n'));
+        connectionValidated = true;
+      } else {
+        console.log(chalk.yellow('\n  Setup cancelled.\n'));
+        return null;
+      }
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -413,18 +447,9 @@ async function runGenericCloudSetup(provider: Provider, existingConfig: AxCliCon
   });
 
   // ═══════════════════════════════════════════════════════════════════
-  // STEP 3: Validate & Save
+  // STEP 3: Save Configuration
   // ═══════════════════════════════════════════════════════════════════
-  console.log(chalk.bold.cyan('\n  Step 3/3 — Validate & Save\n'));
-
-  const spinner = ora(`Validating ${providerInfo.name} connection...`).start();
-  const isValid = await validateCloudConnection(providerInfo.defaultBaseURL, apiKey);
-
-  if (isValid) {
-    spinner.succeed(`${providerInfo.name} connection validated successfully!`);
-  } else {
-    spinner.warn('Could not validate connection (will save anyway)');
-  }
+  console.log(chalk.bold.cyan('\n  Step 3/3 — Save Configuration\n'));
 
   return {
     ...existingConfig,

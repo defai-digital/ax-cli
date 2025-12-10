@@ -249,12 +249,16 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 2: API Key (step number adjusts for GLM)
+        // STEP 2: API Key with Connection Test Loop
         // ═══════════════════════════════════════════════════════════════════
-        const apiKeyStep = provider.name === 'glm' ? 'Step 2/5' : 'Step 1/4';
-        prompts.log.step(chalk.bold(`${apiKeyStep} — API Key`));
+        const apiKeyStep = provider.name === 'glm' ? 'Step 2/4' : 'Step 1/3';
+        prompts.log.step(chalk.bold(`${apiKeyStep} — API Key & Connection Test`));
 
         let apiKey = '';
+        let connectionValidated = false;
+        const shouldSkipValidation = options.validate === false || isLocalServer;
+
+        // Check for existing key
         const hasExistingKey = existingConfig?.apiKey && typeof existingConfig.apiKey === 'string' && existingConfig.apiKey.trim().length > 0;
 
         if (hasExistingKey && existingConfig?.apiKey) {
@@ -276,8 +280,13 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
 
           if (reuseKey) {
             apiKey = existingConfig.apiKey;
-            prompts.log.success('Using existing API key');
-          } else {
+          }
+        }
+
+        // API Key entry and validation loop
+        while (!connectionValidated) {
+          // If no API key yet, prompt for one
+          if (!apiKey) {
             prompts.log.info(`Get your API key from: ${website}`);
             const newKey = await prompts.password({
               message: `Enter your ${provider.displayName} API key:`,
@@ -286,20 +295,70 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
             exitIfCancelled(newKey);
             apiKey = newKey.trim();
           }
-        } else {
-          prompts.log.info(`Get your API key from: ${website}`);
-          const newKey = await prompts.password({
-            message: `Enter your ${provider.displayName} API key:`,
-            validate: (value) => value?.trim().length > 0 ? undefined : 'API key is required',
-          });
-          exitIfCancelled(newKey);
-          apiKey = newKey.trim();
+
+          // Test connection
+          if (shouldSkipValidation) {
+            prompts.log.info('Skipping validation' + (isLocalServer ? ' (local server)' : ''));
+            connectionValidated = true;
+          } else {
+            const spinner = prompts.spinner();
+            spinner.start('Testing API connection...');
+
+            const validationResult = await validateProviderSetup(
+              {
+                baseURL: selectedBaseURL,
+                apiKey: apiKey,
+                model: provider.defaultModel,
+                providerName: provider.name,
+              },
+              false
+            );
+
+            if (validationResult.success) {
+              spinner.stop('Connection successful!');
+              prompts.log.success('API key validated');
+              connectionValidated = true;
+            } else {
+              spinner.stop('Connection failed');
+
+              // Show error details
+              if (validationResult.authentication && !validationResult.authentication.success) {
+                prompts.log.error(`Authentication: ${validationResult.authentication.error || validationResult.authentication.message}`);
+              } else if (validationResult.endpoint && !validationResult.endpoint.success) {
+                prompts.log.error(`Endpoint: ${validationResult.endpoint.error || validationResult.endpoint.message}`);
+              }
+
+              console.log(''); // Blank line
+
+              // Ask user what to do
+              const retryChoice = await prompts.select({
+                message: 'Connection failed. What would you like to do?',
+                options: [
+                  { value: 'retry', label: 'Enter a different API key', hint: 'Try again with a new key' },
+                  { value: 'skip', label: 'Continue anyway', hint: 'Save config without validation' },
+                  { value: 'quit', label: 'Cancel setup', hint: 'Press Esc or select to quit' },
+                ],
+              });
+              exitIfCancelled(retryChoice);
+
+              if (retryChoice === 'retry') {
+                apiKey = ''; // Clear to prompt for new key
+                continue;
+              } else if (retryChoice === 'skip') {
+                prompts.log.warn('Proceeding with unvalidated configuration');
+                connectionValidated = true;
+              } else {
+                prompts.cancel('Setup cancelled.');
+                process.exit(0);
+              }
+            }
+          }
         }
 
         // ═══════════════════════════════════════════════════════════════════
         // STEP 3: Model Selection (step number adjusts for GLM)
         // ═══════════════════════════════════════════════════════════════════
-        const modelStep = provider.name === 'glm' ? 'Step 3/5' : 'Step 2/4';
+        const modelStep = provider.name === 'glm' ? 'Step 3/4' : 'Step 2/3';
         prompts.log.step(chalk.bold(`${modelStep} — Choose Model`));
 
         // Build model choices from provider definition
@@ -348,108 +407,9 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 4: Validate Connection (step number adjusts for GLM)
+        // STEP 4: Review & Save (step number adjusts for GLM)
         // ═══════════════════════════════════════════════════════════════════
-        const validateStep = provider.name === 'glm' ? 'Step 4/5' : 'Step 3/4';
-        prompts.log.step(chalk.bold(`${validateStep} — Validate Connection`));
-
-        // Determine if we should skip validation
-        const shouldSkipValidation = options.validate === false || isLocalServer;
-
-        if (shouldSkipValidation) {
-          prompts.log.info('Skipping validation' + (isLocalServer ? ' (local server)' : ''));
-        } else {
-          const spinner = prompts.spinner();
-          spinner.start('Testing endpoint connectivity...');
-
-          const validationResult = await validateProviderSetup(
-            {
-              baseURL: selectedBaseURL,
-              apiKey: apiKey,
-              model: chosenModel,
-              providerName: provider.name,
-            },
-            false // Don't skip - we already checked above
-          );
-
-          // IMPORTANT: Stop spinner BEFORE any prompts or additional output
-          // This prevents terminal state corruption that can cause hangs
-          if (validationResult.success) {
-            spinner.stop('All checks passed');
-          } else {
-            spinner.stop('Validation encountered issues');
-          }
-
-          // Now display detailed results (spinner is stopped, safe to output)
-          if (validationResult.endpoint) {
-            if (validationResult.endpoint.success) {
-              prompts.log.success(`Endpoint: ${validationResult.endpoint.message}`);
-            } else {
-              prompts.log.error(`Endpoint: ${validationResult.endpoint.error || validationResult.endpoint.message}`);
-            }
-          }
-
-          if (validationResult.authentication) {
-            if (validationResult.authentication.success) {
-              prompts.log.success(`Authentication: ${validationResult.authentication.message}`);
-            } else {
-              prompts.log.error(`Authentication: ${validationResult.authentication.error || validationResult.authentication.message}`);
-
-              // Show troubleshooting tips
-              if (validationResult.authentication.details) {
-                console.log(''); // Blank line for readability
-                prompts.log.info('Troubleshooting tips:');
-                for (const detail of validationResult.authentication.details) {
-                  prompts.log.message(`  • ${detail}`);
-                }
-                console.log(''); // Blank line
-              }
-            }
-          }
-
-          if (validationResult.model) {
-            if (validationResult.model.success) {
-              prompts.log.success(`Model: ${validationResult.model.message}`);
-            } else {
-              prompts.log.error(`Model: ${validationResult.model.error || validationResult.model.message}`);
-
-              // Show available models if provided
-              if (validationResult.availableModels && validationResult.availableModels.length > 0) {
-                console.log('');
-                prompts.log.info('Available models:');
-                for (const model of validationResult.availableModels.slice(0, 10)) {
-                  prompts.log.message(`  • ${model}`);
-                }
-                if (validationResult.availableModels.length > 10) {
-                  prompts.log.message(`  ... and ${validationResult.availableModels.length - 10} more`);
-                }
-                console.log('');
-              }
-            }
-          }
-
-          // Handle validation failure - ask user what to do
-          if (!validationResult.success) {
-            console.log(''); // Ensure clean line before prompt
-
-            const proceedAnyway = await prompts.confirm({
-              message: 'Validation failed. Save configuration anyway?',
-              initialValue: false,
-            });
-
-            if (prompts.isCancel(proceedAnyway) || !proceedAnyway) {
-              prompts.cancel('Setup cancelled. Please check your settings and try again.');
-              process.exit(0);
-            }
-
-            prompts.log.warn('Proceeding with unvalidated configuration');
-          }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════
-        // STEP 5: Review & Save (step number adjusts for GLM)
-        // ═══════════════════════════════════════════════════════════════════
-        const saveStep = provider.name === 'glm' ? 'Step 5/5' : 'Step 4/4';
+        const saveStep = provider.name === 'glm' ? 'Step 4/4' : 'Step 3/3';
         prompts.log.step(chalk.bold(`${saveStep} — Review & Save`));
 
         const maxTokens = modelConfig.maxOutputTokens > 32768 ? 32768 : modelConfig.maxOutputTokens;
