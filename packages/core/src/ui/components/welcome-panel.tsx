@@ -17,20 +17,18 @@ export interface ProviderBranding {
   tagline: string;
 }
 
-/** Default branding (fallback) */
+/** Default branding (fallback) - Cool tones for AX-CLI */
 const DEFAULT_BRANDING: ProviderBranding = {
   cliName: 'ax-cli',
-  primaryColor: 'cyan',
-  secondaryColor: 'green',
+  primaryColor: 'blue',
+  secondaryColor: 'magenta',
   asciiLogo: `
-   █████╗ ██╗  ██╗     ██████╗██╗     ██╗
-  ██╔══██╗╚██╗██╔╝    ██╔════╝██║     ██║
-  ███████║ ╚███╔╝     ██║     ██║     ██║
-  ██╔══██║ ██╔██╗     ██║     ██║     ██║
-  ██║  ██║██╔╝ ██╗    ╚██████╗███████╗██║
-  ╚═╝  ╚═╝╚═╝  ╚═╝     ╚═════╝╚══════╝╚═╝
-    ═══════════════════════════════
-           A X - C L I`,
+   █████╗ ██╗  ██╗      ██████╗██╗     ██╗
+  ██╔══██╗╚██╗██╔╝     ██╔════╝██║     ██║
+  ███████║ ╚███╔╝█████╗██║     ██║     ██║
+  ██╔══██║ ██╔██╗╚════╝██║     ██║     ██║
+  ██║  ██║██╔╝ ██╗     ╚██████╗███████╗██║
+  ╚═╝  ╚═╝╚═╝  ╚═╝      ╚═════╝╚══════╝╚═╝`,
   tagline: 'AI Coding Assistant',
 };
 

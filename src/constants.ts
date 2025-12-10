@@ -23,6 +23,8 @@ export const FILE_NAMES = {
   PROJECT_SETTINGS: 'settings.json',
   /** Custom instructions file name */
   CUSTOM_MD: 'CUSTOM.md',
+  /** Root project context file (like CLAUDE.md) */
+  AX_MD: 'AX.md',
   /** Project index file name */
   INDEX_JSON: 'index.json',
   /** Project memory file name */
@@ -55,6 +57,8 @@ export const CONFIG_PATHS = {
   PROJECT_SETTINGS: join(process.cwd(), CONFIG_DIR_NAME, FILE_NAMES.PROJECT_SETTINGS),
   /** Custom instructions file path (project-level) */
   CUSTOM_MD: join(process.cwd(), CONFIG_DIR_NAME, FILE_NAMES.CUSTOM_MD),
+  /** Root project context file path (like CLAUDE.md) */
+  AX_MD: join(process.cwd(), FILE_NAMES.AX_MD),
   /** Project index file path (project-level) */
   INDEX_JSON: join(process.cwd(), CONFIG_DIR_NAME, FILE_NAMES.INDEX_JSON),
   /** Project memory file path (project-level) */

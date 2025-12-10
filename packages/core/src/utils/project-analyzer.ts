@@ -53,6 +53,19 @@ export class ProjectAnalyzer {
     return fs.existsSync(fullPath) && fs.statSync(fullPath).isDirectory();
   }
 
+  /** Read file content safely */
+  private readFile(...segments: string[]): string | null {
+    try {
+      const fullPath = path.join(this.projectRoot, ...segments);
+      if (fs.existsSync(fullPath)) {
+        return fs.readFileSync(fullPath, 'utf-8');
+      }
+    } catch {
+      // Ignore read errors
+    }
+    return null;
+  }
+
   /**
    * Helper: Read and cache package.json
    * Reduces file I/O from 8 reads to 1 read
@@ -107,6 +120,7 @@ export class ProjectAnalyzer {
       const projectInfo: ProjectInfo = {
         name: this.detectProjectName(),
         version: this.detectVersion(),
+        description: this.detectDescription(),
         primaryLanguage: this.detectPrimaryLanguage(),
         techStack: this.detectTechStack(),
         projectType: this.detectProjectType(),
@@ -117,6 +131,8 @@ export class ProjectAnalyzer {
         scripts: this.detectScripts(),
         packageManager: this.detectPackageManager(),
         lastAnalyzed: new Date().toISOString(),
+        cicdPlatform: this.detectCICDPlatform(),
+        gotchas: this.detectGotchas(),
       };
 
       return {
@@ -349,5 +365,96 @@ export class ProjectAnalyzer {
       if (this.pathExists(file)) return pm;
     }
     return undefined;
+  }
+
+  /** Extract project description from README or package.json */
+  private detectDescription(): string | undefined {
+    // Try package.json first
+    const pkgDescription = this.getPackageJson()?.description;
+    if (pkgDescription && pkgDescription.length > 10) {
+      return pkgDescription;
+    }
+
+    // Try README.md
+    const readme = this.readFile('README.md');
+    if (readme) {
+      const lines = readme.split('\n');
+      let foundHeader = false;
+
+      for (const line of lines) {
+        // Skip badges and images
+        if (line.trim().startsWith('![') || line.trim().startsWith('[![')) continue;
+        if (line.trim().startsWith('<p') || line.trim().startsWith('<img')) continue;
+
+        // Found main header
+        if (line.startsWith('# ') && !foundHeader) {
+          foundHeader = true;
+          continue;
+        }
+
+        // Skip secondary headers
+        if (line.startsWith('#')) break;
+
+        // Found paragraph after header
+        if (foundHeader && line.trim().length > 20) {
+          return line.trim().slice(0, 200);
+        }
+      }
+    }
+
+    return pkgDescription;
+  }
+
+  /** Detect CI/CD platform */
+  private detectCICDPlatform(): string | undefined {
+    if (this.isDirectory('.github', 'workflows')) return 'GitHub Actions';
+    if (this.pathExists('.gitlab-ci.yml')) return 'GitLab CI';
+    if (this.pathExists('.circleci', 'config.yml')) return 'CircleCI';
+    if (this.pathExists('azure-pipelines.yml')) return 'Azure Pipelines';
+    if (this.pathExists('Jenkinsfile')) return 'Jenkins';
+    if (this.pathExists('bitbucket-pipelines.yml')) return 'Bitbucket Pipelines';
+    return undefined;
+  }
+
+  /** Detect common gotchas and development tips */
+  private detectGotchas(): string[] | undefined {
+    const gotchas: string[] = [];
+    const conventions = this.detectConventions();
+    const packageJson = this.getPackageJson();
+    const deps = { ...packageJson?.dependencies, ...packageJson?.devDependencies };
+
+    // ESM gotcha
+    if (conventions.importExtension === '.js') {
+      gotchas.push('ESM requires .js extension in imports even for TypeScript files');
+    }
+
+    // TypeScript strict mode
+    const tsconfig = this.getTsConfig();
+    if (tsconfig?.compilerOptions?.strict) {
+      gotchas.push('TypeScript strict mode is enabled - null checks required');
+    }
+
+    // Monorepo tips
+    if (this.pathExists('pnpm-workspace.yaml')) {
+      gotchas.push('Monorepo: use pnpm --filter <pkg> to target specific packages');
+    }
+
+    // Test location hints
+    if (this.isDirectory('tests') || this.isDirectory('test')) {
+      gotchas.push(`Tests are in ${this.isDirectory('tests') ? 'tests/' : 'test/'} directory`);
+    }
+
+    // Debug tips
+    if (deps?.['debug']) {
+      gotchas.push('Use DEBUG=* for verbose debug output');
+    }
+    if (deps?.['vitest']) {
+      gotchas.push('Run single test: pnpm test -- path/to/test.ts');
+    }
+    if (deps?.['prisma']) {
+      gotchas.push('Use npx prisma studio to browse database');
+    }
+
+    return gotchas.length > 0 ? gotchas : undefined;
   }
 }

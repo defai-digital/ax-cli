@@ -35,6 +35,7 @@ export {
   // Provider definitions
   GLM_PROVIDER,
   GROK_PROVIDER,
+  AX_CLI_PROVIDER,
   DEFAULT_PROVIDER,
   getProviderDefinition,
   getAvailableProviders,

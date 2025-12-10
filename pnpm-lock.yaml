@@ -138,6 +138,9 @@ importers:
 
   packages/ax-cli:
     dependencies:
+      '@defai.digital/ax-core':
+        specifier: workspace:*
+        version: link:../core
       '@inquirer/prompts':
         specifier: ^7.2.0
         version: 7.10.1(@types/node@22.19.1)

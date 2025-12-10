@@ -167,44 +167,65 @@ const monokaiTheme = createTheme({
 });
 
 /**
- * Business theme - Professional blue and gray tones (for GLM)
+ * Cool theme - Blue, purple, green tones (for AX-CLI)
  */
-const businessTheme = createTheme({
+const coolTheme = createTheme({
   name: 'business',
-  displayName: 'Business',
-  description: 'Professional business theme with blue and gray tones',
+  displayName: 'Cool',
+  description: 'Cool tones with blue, purple, and green accents (AX-CLI)',
   colors: {
     primary: 'blue',
-    secondary: 'gray',
+    secondary: 'magenta',
     success: 'green',
     warning: 'yellow',
     error: 'red',
     muted: 'gray',
     border: 'blue',
-    accent: 'blueBright',
+    accent: 'magentaBright',
     info: 'cyan',
     textOnHighlight: 'white',
   },
 });
 
 /**
- * Japanese theme - Traditional red and white styling (for Grok)
+ * Warm theme - Orange, red, yellow tones (for AX-GLM)
  */
-const japaneseTheme = createTheme({
+const warmTheme = createTheme({
   name: 'japanese',
-  displayName: 'Japanese',
-  description: 'Traditional Japanese styling with red and white',
+  displayName: 'Warm',
+  description: 'Warm tones with orange, red, and yellow accents (AX-GLM)',
   colors: {
-    primary: 'red',
-    secondary: 'white',
+    primary: '#FF6600',
+    secondary: '#FF3300',
     success: 'green',
-    warning: 'yellow',
+    warning: 'yellowBright',
     error: 'redBright',
     muted: 'gray',
-    border: 'red',
-    accent: 'white',
-    info: 'red',
-    textOnHighlight: 'white',
+    border: '#FF6600',
+    accent: '#FF9900',
+    info: '#FF6600',
+    textOnHighlight: 'black',
+  },
+});
+
+/**
+ * Monochrome theme - White, grey, black tones (for AX-Grok)
+ */
+const monochromeTheme = createTheme({
+  name: 'monochrome',
+  displayName: 'Monochrome',
+  description: 'Monochrome tones with white, grey, and black accents (AX-Grok)',
+  colors: {
+    primary: 'white',
+    secondary: 'gray',
+    success: 'greenBright',
+    warning: 'yellowBright',
+    error: 'redBright',
+    muted: 'blackBright',
+    border: 'white',
+    accent: 'whiteBright',
+    info: 'gray',
+    textOnHighlight: 'black',
   },
 });
 
@@ -218,8 +239,9 @@ export const themes: Readonly<Record<ThemeName, Theme>> = Object.freeze({
   light: lightTheme,
   dracula: draculaTheme,
   monokai: monokaiTheme,
-  business: businessTheme,
-  japanese: japaneseTheme,
+  business: coolTheme,
+  japanese: warmTheme,
+  monochrome: monochromeTheme,
 });
 
 /**

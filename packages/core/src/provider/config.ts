@@ -168,17 +168,17 @@ export const GLM_PROVIDER: ProviderDefinition = {
   branding: {
     cliName: 'ax-glm',
     description: 'GLM-optimized AI coding assistant powered by Z.AI',
-    welcomeMessage: '🤖 Starting AX-GLM AI Assistant (powered by Z.AI)...',
-    primaryColor: 'blue',
-    secondaryColor: 'gray',
+    welcomeMessage: '🔥 Starting AX-GLM AI Assistant (powered by Z.AI)...',
+    primaryColor: '#FF6600',
+    secondaryColor: '#FF3300',
     tagline: 'Powered by Z.AI',
     asciiLogo: `
-   ██████╗ ██╗     ███╗   ███╗
-  ██╔════╝ ██║     ████╗ ████║
-  ██║  ███╗██║     ██╔████╔██║
-  ██║   ██║██║     ██║╚██╔╝██║
-  ╚██████╔╝███████╗██║ ╚═╝ ██║
-   ╚═════╝ ╚══════╝╚═╝     ╚═╝`,
+   █████╗ ██╗  ██╗     ██████╗ ██╗     ███╗   ███╗
+  ██╔══██╗╚██╗██╔╝    ██╔════╝ ██║     ████╗ ████║
+  ███████║ ╚███╔╝     ██║  ███╗██║     ██╔████╔██║
+  ██╔══██║ ██╔██╗     ██║   ██║██║     ██║╚██╔╝██║
+  ██║  ██║██╔╝ ██╗    ╚██████╔╝███████╗██║ ╚═╝ ██║
+  ╚═╝  ╚═╝╚═╝  ╚═╝     ╚═════╝ ╚══════╝╚═╝     ╚═╝`,
   },
 };
 
@@ -309,60 +309,137 @@ export const GROK_PROVIDER: ProviderDefinition = {
   branding: {
     cliName: 'ax-grok',
     description: 'Grok-optimized AI coding assistant powered by xAI',
-    welcomeMessage: '🤖 Starting AX-Grok AI Assistant (powered by xAI)...',
-    primaryColor: 'red',
-    secondaryColor: 'white',
+    welcomeMessage: '⚡ Starting AX-Grok AI Assistant (powered by xAI)...',
+    primaryColor: '#C0C0C0',
+    secondaryColor: 'gray',
     tagline: 'Powered by xAI',
     asciiLogo: `
-   ██████╗ ██████╗  ██████╗ ██╗  ██╗
-  ██╔════╝ ██╔══██╗██╔═══██╗██║ ██╔╝
-  ██║  ███╗██████╔╝██║   ██║█████╔╝ 
-  ██║   ██║██╔══██╗██║   ██║██╔═██╗ 
-  ╚██████╔╝██║  ██║╚██████╔╝██║  ██╗
-   ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝`,
+   █████╗ ██╗  ██╗     ██████╗ ██████╗  ██████╗ ██╗  ██╗
+  ██╔══██╗╚██╗██╔╝    ██╔════╝ ██╔══██╗██╔═══██╗██║ ██╔╝
+  ███████║ ╚███╔╝     ██║  ███╗██████╔╝██║   ██║█████╔╝
+  ██╔══██║ ██╔██╗     ██║   ██║██╔══██╗██║   ██║██╔═██╗
+  ██║  ██║██╔╝ ██╗    ╚██████╔╝██║  ██║╚██████╔╝██║  ██╗
+  ╚═╝  ╚═╝╚═╝  ╚═╝     ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝`,
   },
 };
 
 /**
- * AX CLI Default Provider Definition
+ * AX CLI Provider Definition
+ *
+ * AX-CLI is a standalone base CLI without provider-specific features.
+ * It connects to various cloud/local providers (Qwen, DeepSeek, Mixtral, Ollama)
+ * but does NOT include GLM/Grok-specific features like:
+ * - Web search (native API)
+ * - Image generation
+ * - Vision capabilities
+ *
+ * For GLM-specific features, use ax-glm.
+ * For Grok-specific features, use ax-grok.
  */
 export const AX_CLI_PROVIDER: ProviderDefinition = {
   name: 'ax-cli',
   displayName: 'AX CLI',
-  apiKeyEnvVar: 'YOUR_API_KEY',
-  apiKeyEnvVarAliases: ['GEMINI_API_KEY', 'OPENAI_API_KEY'], // Common fallbacks
-  defaultBaseURL: 'https://api.modelcontext.com/v1', // Generic ModelContext Protocol base URL
-  defaultModel: 'glm-4.6', // Assuming GLM is the default "agnostic" model
+  apiKeyEnvVar: 'AX_API_KEY',
+  apiKeyEnvVarAliases: ['DASHSCOPE_API_KEY', 'DEEPSEEK_API_KEY', 'MISTRAL_API_KEY'],
+  defaultBaseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', // Default to Qwen
+  defaultModel: 'qwen-max',
   configDirName: '.ax-cli',
   models: {
-    // These should ideally be dynamically loaded or a subset
-    // For now, mirroring glm-4.6 as a common default
-    'glm-4.6': {
-      name: 'GLM-4.6',
-      contextWindow: 200000,
-      maxOutputTokens: 128000,
-      supportsThinking: true,
+    // Qwen models (DashScope)
+    'qwen-max': {
+      name: 'Qwen-Max',
+      contextWindow: 32000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
       supportsVision: false,
       supportsSearch: false,
       supportsSeed: false,
       defaultTemperature: 0.7,
-      description: 'Most capable GLM model with thinking mode support',
+      description: 'Most capable Qwen model (32K context)',
+    },
+    'qwen-plus': {
+      name: 'Qwen-Plus',
+      contextWindow: 32000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'Balanced performance and cost (32K context)',
+    },
+    'qwen-turbo': {
+      name: 'Qwen-Turbo',
+      contextWindow: 8000,
+      maxOutputTokens: 4096,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'Fast and efficient (8K context)',
+    },
+    // DeepSeek models
+    'deepseek-chat': {
+      name: 'DeepSeek-Chat',
+      contextWindow: 64000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'Latest chat model with 64K context',
+    },
+    'deepseek-coder': {
+      name: 'DeepSeek-Coder',
+      contextWindow: 64000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'Optimized for code generation',
+    },
+    // Mistral models
+    'mistral-large-latest': {
+      name: 'Mistral Large',
+      contextWindow: 128000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'Most capable Mistral model (128K context)',
+    },
+    'codestral-latest': {
+      name: 'Codestral',
+      contextWindow: 32000,
+      maxOutputTokens: 8192,
+      supportsThinking: false,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'Dedicated coding model (32K context)',
     },
   },
   features: {
-    supportsThinking: true,
-    supportsVision: true,
-    supportsSearch: true,
-    supportsSeed: true,
-    supportsDoSample: true,
-    thinkingModeStyle: 'thinking_mode', // Default to GLM style thinking
+    supportsThinking: false,  // No extended thinking in base CLI
+    supportsVision: false,    // No vision - use ax-glm or ax-grok
+    supportsSearch: false,    // No web search - use ax-glm or ax-grok
+    supportsSeed: false,      // No seed support
+    supportsDoSample: false,  // No doSample
+    thinkingModeStyle: undefined,
   },
   branding: {
     cliName: 'ax-cli',
     description: 'Enterprise-Class AI Command Line Interface',
-    welcomeMessage: '🤖 Starting AX CLI AI Assistant...',
-    primaryColor: 'cyan',
-    secondaryColor: 'green',
+    welcomeMessage: '💎 Starting AX-CLI AI Assistant...',
+    primaryColor: 'blue',
+    secondaryColor: 'magenta',
     tagline: 'AI Coding Assistant',
     asciiLogo: `
    █████╗ ██╗  ██╗      ██████╗██╗     ██╗
@@ -436,6 +513,7 @@ export const CONFIG_FILE_NAMES = {
   USER_CONFIG: 'config.json',
   PROJECT_SETTINGS: 'settings.json',
   CUSTOM_MD: 'CUSTOM.md',
+  AX_MD: 'AX.md',
   INDEX_JSON: 'index.json',
   MEMORY_JSON: 'memory.json',
   HISTORY_JSON: 'history.json',
@@ -462,6 +540,8 @@ export interface ProviderConfigPaths {
   PROJECT_SETTINGS: string;
   /** Custom instructions file path (project-level) */
   CUSTOM_MD: string;
+  /** Root project context file path (like CLAUDE.md) */
+  AX_MD: string;
   /** Project index file path (project-level) */
   INDEX_JSON: string;
   /** Project memory file path (project-level) */
@@ -489,6 +569,7 @@ export function getProviderConfigPaths(provider: ProviderDefinition): ProviderCo
     PROJECT_DIR: join(process.cwd(), configDirName),
     PROJECT_SETTINGS: join(process.cwd(), configDirName, CONFIG_FILE_NAMES.PROJECT_SETTINGS),
     CUSTOM_MD: join(process.cwd(), configDirName, CONFIG_FILE_NAMES.CUSTOM_MD),
+    AX_MD: join(process.cwd(), CONFIG_FILE_NAMES.AX_MD),
     INDEX_JSON: join(process.cwd(), configDirName, CONFIG_FILE_NAMES.INDEX_JSON),
     MEMORY_JSON: join(process.cwd(), configDirName, CONFIG_FILE_NAMES.MEMORY_JSON),
     USER_TEMPLATES_DIR: join(homedir(), configDirName, CONFIG_FILE_NAMES.TEMPLATES_DIR),
