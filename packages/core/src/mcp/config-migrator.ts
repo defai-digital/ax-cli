@@ -10,13 +10,21 @@ import { MCPServerConfigSchema } from '../schemas/settings-schemas.js';
 import { isLegacyStdioFormat, detectConfigFormat } from './config-detector.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
 
+/** Legacy stdio config format (pre-transport wrapper) */
+export interface LegacyStdioConfig {
+  name?: string;
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+}
+
 export interface MigrationResult {
   /** Whether migration was successful */
   success: boolean;
   /** Migrated configuration (if successful) */
   migratedConfig?: MCPServerConfig;
   /** Original configuration */
-  originalConfig: any;
+  originalConfig: LegacyStdioConfig | Record<string, unknown>;
   /** Changes made during migration */
   changes: string[];
   /** Errors encountered */
@@ -43,7 +51,7 @@ export interface BatchMigrationResult {
 /**
  * Migrate a legacy stdio-only config to modern format
  */
-export function migrateLegacyStdioConfig(config: any): MigrationResult {
+export function migrateLegacyStdioConfig(config: LegacyStdioConfig): MigrationResult {
   const changes: string[] = [];
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -147,7 +155,7 @@ export function migrateLegacyStdioConfig(config: any): MigrationResult {
  * we returned the raw config with just a type cast, which could leave
  * potentially invalid data structures in the returned config.
  */
-export function migrateConfig(config: any): MigrationResult {
+export function migrateConfig(config: LegacyStdioConfig | Record<string, unknown>): MigrationResult {
   const detection = detectConfigFormat(config);
 
   // Already in modern format
@@ -189,7 +197,8 @@ export function migrateConfig(config: any): MigrationResult {
 
   // Legacy stdio format - migrate it
   if (detection.formatVersion === 'legacy-stdio') {
-    return migrateLegacyStdioConfig(config);
+    // Type assertion is safe here since detectConfigFormat verified it's a legacy stdio config
+    return migrateLegacyStdioConfig(config as LegacyStdioConfig);
   }
 
   // Unknown format
@@ -254,12 +263,20 @@ export function batchMigrateConfigs(
   };
 }
 
+/** Backup result with metadata */
+interface ConfigBackup {
+  _backup: boolean;
+  _timestamp: number;
+  _version: string;
+  config: unknown;
+}
+
 /**
  * Create backup of config before migration
  */
-export function createConfigBackup(config: any): {
+export function createConfigBackup(config: LegacyStdioConfig | Record<string, unknown>): {
   success: boolean;
-  backup?: any;
+  backup?: ConfigBackup;
   error?: string;
 } {
   try {

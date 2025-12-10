@@ -324,6 +324,103 @@ export class LLMOptimizedInstructionGenerator {
   }
 
   /**
+   * Generate pre-computed summary JSON for prompt injection (~500 tokens)
+   * This summary is loaded directly into prompts without runtime computation.
+   * References ax.index.json for full details.
+   */
+  generateSummary(projectInfo: ProjectInfo): string {
+    // Extract only essential fields for prompt injection
+    const summary: Record<string, unknown> = {
+      schemaVersion: '1.0',
+      generatedAt: new Date().toISOString(),
+
+      // Core project identity
+      project: {
+        name: projectInfo.name,
+        type: projectInfo.projectType,
+        language: projectInfo.primaryLanguage,
+        version: projectInfo.version,
+        techStack: projectInfo.techStack.slice(0, 8), // Limit to 8 items
+      },
+
+      // Key directories (top 5)
+      directories: this.extractTopDirectories(projectInfo.directories, 5),
+
+      // Essential commands only
+      commands: this.extractEssentialCommands(projectInfo.scripts),
+
+      // Top 3 gotchas (most important warnings)
+      gotchas: (projectInfo.gotchas || []).slice(0, 3),
+
+      // Reference to full index
+      indexFile: 'ax.index.json',
+    };
+
+    // Add entry point if available
+    if (projectInfo.entryPoint) {
+      (summary.project as Record<string, unknown>).entryPoint = projectInfo.entryPoint;
+    }
+
+    // Add package manager if available
+    if (projectInfo.packageManager) {
+      (summary.project as Record<string, unknown>).packageManager = projectInfo.packageManager;
+    }
+
+    return JSON.stringify(summary, null, 2);
+  }
+
+  /**
+   * Extract top N directories for summary
+   */
+  private extractTopDirectories(
+    directories: ProjectInfo['directories'],
+    limit: number
+  ): Record<string, string> {
+    const priorityKeys = ['source', 'tests', 'config', 'docs', 'tools'];
+    const result: Record<string, string> = {};
+    let count = 0;
+
+    // First, add priority directories
+    for (const key of priorityKeys) {
+      if (count >= limit) break;
+      const value = directories[key as keyof typeof directories];
+      if (value) {
+        result[key] = value;
+        count++;
+      }
+    }
+
+    // Then add any remaining directories up to limit
+    for (const [key, value] of Object.entries(directories)) {
+      if (count >= limit) break;
+      if (!result[key] && value) {
+        result[key] = value;
+        count++;
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Extract essential commands (build, test, lint, dev)
+   */
+  private extractEssentialCommands(
+    scripts: ProjectInfo['scripts']
+  ): Record<string, string> {
+    const result: Record<string, string> = {};
+
+    // Only extract string-valued script fields
+    if (scripts.build) result.build = scripts.build;
+    if (scripts.test) result.test = scripts.test;
+    if (scripts.lint) result.lint = scripts.lint;
+    if (scripts.dev) result.dev = scripts.dev;
+    if (scripts.typecheck) result.typecheck = scripts.typecheck;
+
+    return result;
+  }
+
+  /**
    * Generate project index JSON (v2.0 schema with deep analysis)
    */
   generateIndex(projectInfo: ProjectInfo): string {

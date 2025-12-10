@@ -489,7 +489,7 @@ export class MCPManagerV2 extends EventEmitter {
               description: tool.description || `Tool from ${serverName} server`,
               inputSchema: tool.inputSchema,
               // MCP 2025-06-18: Include output schema if provided by server
-              outputSchema: (tool as any).outputSchema,
+              outputSchema: (tool as { outputSchema?: Record<string, unknown> }).outputSchema,
               serverName
             };
             this.tools.set(toolName, mcpTool);

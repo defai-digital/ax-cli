@@ -135,7 +135,7 @@ export function loadMCPConfig(): MCPConfig {
       hadLegacyFormat = true;
 
       // Auto-migrate legacy format
-      const migration = migrateConfig(server);
+      const migration = migrateConfig(server as Record<string, unknown>);
 
       if (migration.success && migration.migratedConfig) {
         // Check for REPL commands that would hang

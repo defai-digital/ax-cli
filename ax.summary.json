@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "generatedAt": "2025-12-10T10:54:13.776Z",
+  "project": {
+    "name": "@defai.digital/ax-cli",
+    "type": "cli",
+    "language": "TypeScript",
+    "version": "4.4.3",
+    "techStack": [
+      "React",
+      "Vitest",
+      "Zod",
+      "Commander",
+      "Ink",
+      "ESM",
+      "TypeScript"
+    ],
+    "entryPoint": "bin/ax-cli",
+    "packageManager": "pnpm"
+  },
+  "directories": {
+    "source": "src",
+    "tests": "tests",
+    "docs": "docs",
+    "tools": "src/tools",
+    "dist": "dist"
+  },
+  "commands": {
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "dev": "tsx src/index.ts",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "gotchas": [
+    "ESM requires .js extension in imports even for TypeScript files",
+    "TypeScript strict mode is enabled - null checks required",
+    "Monorepo: use pnpm --filter <pkg> to target specific packages"
+  ],
+  "indexFile": "ax.index.json"
+}

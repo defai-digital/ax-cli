@@ -1,7 +1,7 @@
 {
   "name": "@defai.digital/ax-core",
   "version": "4.4.4",
-  "description": "Core functionality for ax-cli, ax-glm, and ax-grok - includes all tools, UI, MCP, and agent infrastructure",
+  "description": "Core library for AX CLI ecosystem - Shared tools, React UI components, MCP client, LLM agent infrastructure, and AutomatosX integration for ax-cli, ax-glm, and ax-grok.",
   "repository": {
     "type": "git",
     "url": "https://github.com/defai-digital/ax-cli.git",

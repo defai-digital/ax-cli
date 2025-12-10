@@ -24,6 +24,7 @@ import {
   generateZAIServerConfig,
 } from '../mcp/index.js';
 import { addUserMCPServer, removeUserMCPServer } from '../mcp/config.js';
+import { FILE_NAMES } from '../constants.js';
 
 /**
  * Handle user cancellation - exits process if cancelled
@@ -194,7 +195,7 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         let isLocalServer = false;
 
         if (provider.name === 'glm') {
-          prompts.log.step(chalk.bold('Step 1/5 — Server Selection'));
+          prompts.log.step(chalk.bold('Step 1/4 — Server Selection'));
 
           const serverType = await prompts.select({
             message: 'Select server type:',
@@ -633,7 +634,8 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         await prompts.note(
           'Project initialization analyzes your codebase and creates:\n' +
           '• CUSTOM.md - AI instructions tailored to your project\n' +
-          '• ax.index.json - Project structure for AI context\n\n' +
+          '• ax.index.json - Full project analysis (AI reads when needed)\n' +
+          '• ax.summary.json - Prompt summary (~500 tokens, fast loading)\n\n' +
           'This helps the AI understand your codebase from the first message.',
           'Project Initialization'
         );
@@ -657,8 +659,9 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
 
               const projectRoot = process.cwd();
               const projectConfigDir = join(projectRoot, activeConfigPaths.DIR_NAME);
-              const customMdPath = join(projectConfigDir, 'CUSTOM.md');
-              const indexPath = join(projectRoot, 'ax.index.json');
+              const customMdPath = join(projectConfigDir, FILE_NAMES.CUSTOM_MD);
+              const indexPath = join(projectRoot, FILE_NAMES.AX_INDEX_JSON);
+              const summaryPath = join(projectRoot, FILE_NAMES.AX_SUMMARY_JSON);
 
               // Ensure project config directory exists
               if (!existsSync(projectConfigDir)) {
@@ -681,14 +684,17 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
 
                 const instructions = generator.generateInstructions(result.projectInfo);
                 const index = generator.generateIndex(result.projectInfo);
+                const summary = generator.generateSummary(result.projectInfo);
 
                 // Write files
                 writeFileSync(customMdPath, instructions, 'utf-8');
                 writeFileSync(indexPath, index, 'utf-8');
+                writeFileSync(summaryPath, summary, 'utf-8');
 
                 initSpinner.stop('Project initialized successfully!');
                 prompts.log.success(`Created: ${activeConfigPaths.DIR_NAME}/CUSTOM.md`);
                 prompts.log.success('Created: ax.index.json');
+                prompts.log.success('Created: ax.summary.json');
               } else {
                 initSpinner.stop('Could not analyze project');
                 prompts.log.warn(result.error || 'Project analysis failed');

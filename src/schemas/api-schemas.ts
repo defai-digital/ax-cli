@@ -10,6 +10,7 @@ import { ToolCallIdSchema, ModelIdSchema } from '@defai.digital/ax-schemas';
 const MessageRoleEnum = z.enum(['system', 'user', 'assistant', 'tool']);
 
 // LLM Tool Call Schema
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const LLMToolCallSchema: z.ZodType<any> = z.object({
   id: ToolCallIdSchema,
   type: z.literal('function'),
@@ -22,6 +23,7 @@ export const LLMToolCallSchema: z.ZodType<any> = z.object({
 export type LLMToolCall = z.infer<typeof LLMToolCallSchema>;
 
 // LLM Message Schema
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const LLMMessageSchema: z.ZodType<any> = z.object({
   role: MessageRoleEnum,
   content: z.string().nullable(),
@@ -33,6 +35,7 @@ export const LLMMessageSchema: z.ZodType<any> = z.object({
 export type LLMMessage = z.infer<typeof LLMMessageSchema>;
 
 // LLM Response Schema
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const LLMResponseSchema: z.ZodType<any> = z.object({
   id: z.string().optional(),
   object: z.string().optional(),

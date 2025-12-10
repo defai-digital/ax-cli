@@ -6,6 +6,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { ProjectInfo } from '../types/project-analysis.js';
 import { parseJson, parseJsonFile } from './json-utils.js';
+import { getActiveConfigPaths } from '../provider/config.js';
+import { FILE_NAMES } from '../constants.js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -142,28 +144,39 @@ export class InitValidator {
    * Check for existing AX CLI configuration
    */
   private checkExistingConfig(result: ValidationResult): void {
-    if (this.pathExists('.ax-cli', 'CUSTOM.md')) {
-      result.warnings.push('Existing CUSTOM.md found - will be overwritten unless --force is used');
+    // Check provider-specific CUSTOM.md locations
+    const providerDirs = ['.ax-cli', '.ax-glm', '.ax-grok'];
+    for (const dir of providerDirs) {
+      if (this.pathExists(dir, 'CUSTOM.md')) {
+        result.warnings.push(`Existing ${dir}/CUSTOM.md found - will be preserved unless --force is used`);
+        break; // Only warn once
+      }
     }
 
-    if (this.pathExists('.ax-cli', 'index.json')) {
-      const indexPath = this.resolvePath('.ax-cli', 'index.json');
+    // Check shared project index at root (new location)
+    if (this.pathExists('ax.index.json')) {
+      const indexPath = this.resolvePath('ax.index.json');
       const parseResult = parseJsonFile(indexPath);
       if (parseResult.success) {
-        const indexData = parseResult.data as any;
-        const lastUpdated = indexData.lastAnalyzed || indexData.templateAppliedAt;
+        const indexData = parseResult.data as Record<string, unknown>;
+        const lastUpdated = (indexData.lastAnalyzed || indexData.templateAppliedAt) as string | undefined;
 
         if (lastUpdated) {
           const date = new Date(lastUpdated);
           const daysSince = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
 
           if (daysSince > 30) {
-            result.suggestions.push(`CUSTOM.md is ${daysSince} days old - consider refreshing`);
+            result.suggestions.push(`Project index is ${daysSince} days old - consider refreshing with 'init'`);
           }
         }
       } else {
-        result.warnings.push('Existing index.json is invalid');
+        result.warnings.push('Existing ax.index.json is invalid - will be rebuilt');
       }
+    }
+
+    // Check for summary file
+    if (this.pathExists('ax.index.json') && !this.pathExists('ax.summary.json')) {
+      result.suggestions.push('Missing ax.summary.json - run init to generate prompt summary');
     }
   }
 
@@ -283,7 +296,9 @@ export class InitValidator {
    * Check if force flag is needed
    */
   needsForceFlag(): boolean {
-    return this.pathExists('.ax-cli', 'CUSTOM.md');
+    // Check provider-specific CUSTOM.md location
+    const activeConfigPaths = getActiveConfigPaths();
+    return this.pathExists(activeConfigPaths.DIR_NAME, FILE_NAMES.CUSTOM_MD);
   }
 
   /**

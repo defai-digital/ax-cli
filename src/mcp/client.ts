@@ -268,7 +268,8 @@ export class MCPManager extends EventEmitter {
    * @internal
    */
   get tokenCounter() {
-    return (this.v2 as any).tokenCounter;
+    // Access private member via type assertion for testing purposes
+    return (this.v2 as unknown as { tokenCounter: ReturnType<typeof import('../utils/token-counter.js').getTokenCounter> }).tokenCounter;
   }
 
   /**

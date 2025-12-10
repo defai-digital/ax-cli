@@ -250,7 +250,7 @@ export const ERROR_REMEDIATION: Record<string, Remediation> = {
  */
 export function matchErrorPattern(error: Error): Remediation | null {
   const message = error.message.toLowerCase();
-  const errorCode = (error as any).code?.toLowerCase() || '';
+  const errorCode = (error as Error & { code?: string }).code?.toLowerCase() || '';
 
   for (const [pattern, remediation] of Object.entries(ERROR_REMEDIATION)) {
     if (message.includes(pattern) || errorCode.includes(pattern)) {

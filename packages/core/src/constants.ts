@@ -29,6 +29,8 @@ export const FILE_NAMES = {
   INDEX_JSON: 'index.json',
   /** Shared project index at root (used by all CLIs) */
   AX_INDEX_JSON: 'ax.index.json',
+  /** Pre-computed summary for prompt injection (references ax.index.json) */
+  AX_SUMMARY_JSON: 'ax.summary.json',
   /** Project memory file name */
   MEMORY_JSON: 'memory.json',
   /** History file name */
@@ -65,6 +67,8 @@ export const CONFIG_PATHS = {
   INDEX_JSON: join(process.cwd(), CONFIG_DIR_NAME, FILE_NAMES.INDEX_JSON),
   /** Shared project index at root (used by all CLIs) */
   AX_INDEX_JSON: join(process.cwd(), FILE_NAMES.AX_INDEX_JSON),
+  /** Pre-computed summary at root (used by all CLIs) */
+  AX_SUMMARY_JSON: join(process.cwd(), FILE_NAMES.AX_SUMMARY_JSON),
   /** Project memory file path (project-level) */
   MEMORY_JSON: join(process.cwd(), CONFIG_DIR_NAME, FILE_NAMES.MEMORY_JSON),
   /** User templates directory */
@@ -75,8 +79,14 @@ export const CONFIG_PATHS = {
   USER_HISTORY: join(homedir(), CONFIG_DIR_NAME, FILE_NAMES.HISTORY_JSON),
   /** User sessions directory */
   USER_SESSIONS_DIR: join(homedir(), CONFIG_DIR_NAME, FILE_NAMES.SESSIONS_DIR),
-  /** AutomatosX temporary files directory */
-  AUTOMATOSX_TMP: join(homedir(), 'automatosx', 'tmp'),
+  /** AutomatosX base directory (project-local) */
+  AUTOMATOSX_DIR: join(process.cwd(), 'automatosx'),
+  /** AutomatosX PRD directory (project-local) */
+  AUTOMATOSX_PRD: join(process.cwd(), 'automatosx', 'PRD'),
+  /** AutomatosX REPORT directory (project-local) */
+  AUTOMATOSX_REPORT: join(process.cwd(), 'automatosx', 'REPORT'),
+  /** AutomatosX temporary files directory (project-local) */
+  AUTOMATOSX_TMP: join(process.cwd(), 'automatosx', 'tmp'),
 } as const;
 
 // Agent Configuration

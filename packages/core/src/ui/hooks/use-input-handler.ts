@@ -824,9 +824,11 @@ export function useInputHandler({
         const activeConfigPaths = getActiveConfigPaths();
         const configDirName = activeConfigPaths.DIR_NAME; // e.g., '.ax-glm' or '.ax-grok'
         const axCliDir = path.join(projectRoot, configDirName);
-        const customMdPath = path.join(axCliDir, "CUSTOM.md");
+        const customMdPath = path.join(axCliDir, FILE_NAMES.CUSTOM_MD);
         // Shared project index at root (used by all CLIs)
         const sharedIndexPath = path.join(projectRoot, FILE_NAMES.AX_INDEX_JSON);
+        // Pre-computed summary for prompt injection
+        const sharedSummaryPath = path.join(projectRoot, FILE_NAMES.AX_SUMMARY_JSON);
 
         // /init always rebuilds ax.index.json (no --force needed for index)
         // Only CUSTOM.md requires --force to overwrite (use terminal command)
@@ -864,6 +866,7 @@ export function useInputHandler({
         });
         const instructions = generator.generateInstructions(projectInfo);
         const index = generator.generateIndex(projectInfo);
+        const summary = generator.generateSummary(projectInfo);
 
         // Create provider-specific directory
         if (!fs.existsSync(axCliDir)) {
@@ -875,8 +878,9 @@ export function useInputHandler({
           fs.writeFileSync(customMdPath, instructions, "utf-8");
         }
 
-        // Always write shared project index at root (no --force needed)
+        // Always write shared project index and summary at root (no --force needed)
         fs.writeFileSync(sharedIndexPath, index, "utf-8");
+        fs.writeFileSync(sharedSummaryPath, summary, "utf-8");
 
         // Display success
         const provider = getActiveProvider();
@@ -894,14 +898,15 @@ export function useInputHandler({
         if (result.duration) {
           successMessage += `   Analysis time: ${result.duration}ms\n`;
         }
-        successMessage += `\n✅ Rebuilt shared project index: ${sharedIndexPath}\n`;
+        successMessage += `\n✅ Rebuilt project index: ${sharedIndexPath}\n`;
+        successMessage += `✅ Rebuilt prompt summary: ${sharedSummaryPath}\n`;
         if (willSkipCustomMd) {
           successMessage += `⏭️  Skipped CUSTOM.md (already exists): ${customMdPath}\n`;
           successMessage += `   Use '${cliName} init --force' from terminal to regenerate CUSTOM.md\n`;
         } else {
           successMessage += `✅ Generated custom instructions: ${customMdPath}\n`;
         }
-        successMessage += `\n💡 The ax.index.json is shared by ax-cli, ax-glm, and ax-grok`;
+        successMessage += `\n💡 ax.summary.json is loaded into prompts, ax.index.json has full details`;
 
         const successEntry: ChatEntry = {
           type: "assistant",
@@ -1007,7 +1012,7 @@ Direct Commands (executed immediately):
   touch <file>- Create empty file
 
 Model Configuration:
-  Edit ~/.ax-cli/config.json to configure default model and settings
+  Edit ~/${getActiveConfigPaths().DIR_NAME}/config.json to configure default model and settings
 
 For complex operations, just describe what you want in natural language.
 Examples:
@@ -1503,7 +1508,7 @@ Examples:
                 resultContent += `   ${name.charAt(0).toUpperCase() + name.slice(1)}: ${tokenCount.toLocaleString()} tokens (${pct}%)\n`;
               }
             }
-            resultContent += `\n💾 Saved to .ax-cli/memory.json`;
+            resultContent += `\n💾 Saved to ${getActiveConfigPaths().DIR_NAME}/memory.json`;
 
             // Update the specific entry by index to avoid race conditions
             setChatHistory((prev) => {
@@ -2094,9 +2099,10 @@ Respond with ONLY the commit message, no additional text.`;
 
       if (customCmds.length === 0) {
         content += "No custom commands found.\n\n";
+        const configDir = getActiveConfigPaths().DIR_NAME;
         content += "Create commands by adding markdown files to:\n";
-        content += "  • `.ax-cli/commands/` (project-level)\n";
-        content += "  • `~/.ax-cli/commands/` (user-level)\n";
+        content += `  • \`${configDir}/commands/\` (project-level)\n`;
+        content += `  • \`~/${configDir}/commands/\` (user-level)\n`;
       } else {
         const projectCmds = customCmds.filter((c: CustomCommand) => c.scope === "project");
         const userCmds = customCmds.filter((c: CustomCommand) => c.scope === "user");

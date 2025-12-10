@@ -124,7 +124,7 @@ export function loadMCPConfig(): MCPConfig {
         if (!hasShownMigrationWarnings) {
           console.warn(
             formatWarning(
-              `Legacy MCP config format detected for "${(server as any)?.name || 'unknown'}"`,
+              `Legacy MCP config format detected for "${(server as Record<string, unknown>)?.name || 'unknown'}"`,
               [
                 'Auto-migrated to new format (temporary - not saved to file)',
                 'Please update your config with: ax-cli mcp migrate',

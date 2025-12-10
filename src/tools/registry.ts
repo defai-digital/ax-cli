@@ -34,12 +34,12 @@ export interface ToolDefinition {
   category: ToolCategory;
 
   /** Tool execution function */
-  execute: (args: any) => Promise<ToolResult>;
+  execute: (args: Record<string, unknown>) => Promise<ToolResult>;
 
   /** JSON Schema for tool parameters */
   schema: {
     type: 'object';
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     required?: string[];
   };
 

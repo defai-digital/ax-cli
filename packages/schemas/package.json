@@ -1,7 +1,7 @@
 {
   "name": "@defai.digital/ax-schemas",
   "version": "4.4.4",
-  "description": "Schema definitions and validation for AX CLI ecosystem",
+  "description": "Zod schema definitions and TypeScript types for AX CLI ecosystem - Shared validation schemas for config, API, tools, and MCP protocols.",
   "repository": {
     "type": "git",
     "url": "https://github.com/defai-digital/ax-cli.git",
@@ -41,10 +41,13 @@
     "zod",
     "schemas",
     "validation",
+    "typescript",
     "types",
-    "openapi",
-    "brand-types",
-    "type-safety"
+    "ax-cli",
+    "mcp",
+    "model-context-protocol",
+    "type-safety",
+    "runtime-validation"
   ],
   "author": "DEFAI Digital <https://defai.digital>",
   "license": "MIT",

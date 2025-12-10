@@ -177,8 +177,8 @@ export function loadAutomatosXMCPServers(projectRoot?: string): AutomatosXLoadRe
   // Migrate each server
   for (const [name, serverConfig] of Object.entries(config.mcpServers)) {
     // Ensure server has name field
-    const serverConfigObj = serverConfig as any;
-    const configWithName = { ...serverConfigObj, name: serverConfigObj.name || name };
+    const serverConfigObj = serverConfig as Record<string, unknown>;
+    const configWithName = { ...serverConfigObj, name: (serverConfigObj.name as string) || name };
 
     // Detect format
     const detection = detectConfigFormat(configWithName);

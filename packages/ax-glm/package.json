@@ -1,7 +1,7 @@
 {
   "name": "@defai.digital/ax-glm",
   "version": "4.4.4",
-  "description": "GLM-optimized AI coding assistant CLI powered by Z.AI - full-featured coding assistant with thinking mode and vision",
+  "description": "GLM AI Coding Assistant CLI powered by Z.AI - Terminal-based vibe coding with GLM-4 thinking mode, vision, web search, and MCP integration. Part of the AX CLI ecosystem.",
   "repository": {
     "type": "git",
     "url": "https://github.com/defai-digital/ax-cli.git",
@@ -52,12 +52,19 @@
   },
   "license": "MIT",
   "keywords": [
-    "ai",
+    "ai-coding-assistant",
     "cli",
+    "terminal",
+    "vibe-coding",
     "glm",
-    "chatglm",
-    "z.ai",
-    "coding-assistant",
-    "thinking-mode"
+    "glm-4",
+    "z-ai",
+    "thinking-mode",
+    "vision",
+    "web-search",
+    "mcp",
+    "model-context-protocol",
+    "code-generation",
+    "developer-tools"
   ]
 }

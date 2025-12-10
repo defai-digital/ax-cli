@@ -115,7 +115,7 @@ export function detectConfigFormat(config: unknown): ConfigDetectionResult {
       originalConfig: config
     };
   }
-  const configObj = config as Record<string, any>;
+  const configObj = config as Record<string, unknown>;
 
   // Check for required name field
   if (!configObj.name || typeof configObj.name !== 'string') {
@@ -144,7 +144,8 @@ export function detectConfigFormat(config: unknown): ConfigDetectionResult {
     issues.push('Missing transport configuration');
   } else {
     // Has transport - detect type
-    transportType = configObj.transport.type;
+    const transport = configObj.transport as Record<string, unknown>;
+    transportType = transport.type as string | undefined;
 
     // Try to validate as modern format
     const validationResult = MCPServerConfigSchema.safeParse(config);
@@ -197,11 +198,12 @@ export function validateTransportConfig(transport: unknown): {
     errors.push('Transport configuration is required');
     return { isValid: false, errors, warnings };
   }
-  const transportObj = transport as Record<string, any>;
+  const transportObj = transport as Record<string, unknown>;
 
   // Check transport type
   const validTypes = ['stdio', 'http', 'sse', 'streamable_http'];
-  if (!transportObj.type || !validTypes.includes(transportObj.type)) {
+  const transportType = transportObj.type;
+  if (!transportType || typeof transportType !== 'string' || !validTypes.includes(transportType)) {
     errors.push(`Transport type must be one of: ${validTypes.join(', ')}`);
     return { isValid: false, errors, warnings };
   }
@@ -259,8 +261,8 @@ export function detectMultipleConfigs(
 
   for (const [name, config] of Object.entries(configs)) {
     // Ensure config has name field
-    const configAsObject = config as Record<string, any>;
-    const configWithName = { ...configAsObject, name: configAsObject.name || name };
+    const configAsObject = config as Record<string, unknown>;
+    const configWithName = { ...configAsObject, name: (configAsObject.name as string) || name };
     const result = detectConfigFormat(configWithName);
     results.push({ serverName: name, detection: result });
   }

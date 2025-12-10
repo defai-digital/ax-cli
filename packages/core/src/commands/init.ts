@@ -89,6 +89,8 @@ export function createInitCommand(): Command {
         // Shared project index at root (used by all CLIs: ax-cli, ax-glm, ax-grok)
         // Note: Legacy provider-specific index.json is no longer generated
         const sharedIndexPath = join(projectRoot, FILE_NAMES.AX_INDEX_JSON);
+        // Pre-computed summary for prompt injection (references ax.index.json)
+        const sharedSummaryPath = join(projectRoot, FILE_NAMES.AX_SUMMARY_JSON);
 
         // init always rebuilds ax.index.json (no --force needed for index)
         // Only CUSTOM.md requires --force to overwrite
@@ -143,6 +145,7 @@ export function createInitCommand(): Command {
         // Generate content (either from template or project analysis)
         let instructions: string;
         let index: string;
+        let summary: string;
 
         if (selectedTemplate) {
           instructions = selectedTemplate.instructions;
@@ -155,6 +158,18 @@ export function createInitCommand(): Command {
             templateAppliedAt: new Date().toISOString(),
           };
           index = JSON.stringify(indexData, null, 2);
+          // Generate summary from template data
+          const summaryData = {
+            schemaVersion: '1.0',
+            generatedAt: new Date().toISOString(),
+            project: {
+              name: selectedTemplate.name,
+              type: selectedTemplate.projectType,
+              version: selectedTemplate.version,
+            },
+            indexFile: 'ax.index.json',
+          };
+          summary = JSON.stringify(summaryData, null, 2);
         } else {
           // Generate LLM-optimized instructions
           const generator = new LLMOptimizedInstructionGenerator({
@@ -166,12 +181,14 @@ export function createInitCommand(): Command {
           });
           instructions = generator.generateInstructions(projectInfo);
           index = generator.generateIndex(projectInfo);
+          summary = generator.generateSummary(projectInfo);
         }
 
         // Preview or dry-run mode
         if (options.dryRun) {
           prompts.log.info('Dry-run mode - no changes made');
-          prompts.log.info(`Would create: ${sharedIndexPath} (shared project index)`);
+          prompts.log.info(`Would create: ${sharedIndexPath} (full project index)`);
+          prompts.log.info(`Would create: ${sharedSummaryPath} (prompt summary)`);
           prompts.log.info(`Would create: ${customMdPath}`);
           prompts.outro(chalk.green('Dry-run complete'));
           return;
@@ -180,12 +197,18 @@ export function createInitCommand(): Command {
         // Write files using atomic operations
         const tmpCustomPath = `${customMdPath}.tmp`;
         const tmpSharedIndexPath = `${sharedIndexPath}.tmp`;
+        const tmpSharedSummaryPath = `${sharedSummaryPath}.tmp`;
 
         try {
           // Always write shared project index (no --force needed)
           writeFileSync(tmpSharedIndexPath, index, 'utf-8');
           renameSync(tmpSharedIndexPath, sharedIndexPath);
-          prompts.log.success(`Rebuilt shared project index: ${sharedIndexPath}`);
+          prompts.log.success(`Rebuilt project index: ${sharedIndexPath}`);
+
+          // Always write shared summary (no --force needed)
+          writeFileSync(tmpSharedSummaryPath, summary, 'utf-8');
+          renameSync(tmpSharedSummaryPath, sharedSummaryPath);
+          prompts.log.success(`Rebuilt prompt summary: ${sharedSummaryPath}`);
 
           // Write CUSTOM.md only if doesn't exist or --force
           if (!willSkipCustomMd) {
@@ -201,6 +224,7 @@ export function createInitCommand(): Command {
           try {
             if (existsSync(tmpCustomPath)) unlinkSync(tmpCustomPath);
             if (existsSync(tmpSharedIndexPath)) unlinkSync(tmpSharedIndexPath);
+            if (existsSync(tmpSharedSummaryPath)) unlinkSync(tmpSharedSummaryPath);
           } catch {
             // Ignore cleanup errors
           }
@@ -209,8 +233,8 @@ export function createInitCommand(): Command {
 
         // Show completion summary
         const filesInfo = willSkipCustomMd
-          ? `\nFiles:\n  ✅ ${sharedIndexPath} (rebuilt)\n  ⏭️  ${customMdPath} (skipped - already exists)`
-          : `\nFiles created:\n  ✅ ${sharedIndexPath} (shared by all AX CLIs)\n  ✅ ${customMdPath}`;
+          ? `\nFiles:\n  ✅ ${sharedIndexPath} (rebuilt)\n  ✅ ${sharedSummaryPath} (rebuilt)\n  ⏭️  ${customMdPath} (skipped - already exists)`
+          : `\nFiles created:\n  ✅ ${sharedIndexPath} (full analysis)\n  ✅ ${sharedSummaryPath} (prompt summary)\n  ✅ ${customMdPath}`;
 
         await prompts.note(
           `Project: ${projectInfo.name} (${projectInfo.projectType})\n` +
@@ -223,16 +247,18 @@ export function createInitCommand(): Command {
 
         if (willSkipCustomMd) {
           await prompts.note(
-            `The ax.index.json has been rebuilt with latest project analysis.\n` +
-            `CUSTOM.md was kept unchanged.\n\n` +
-            `Use --force to regenerate both files.`,
+            `Project files rebuilt with latest analysis:\n` +
+            `• ax.index.json - Full project analysis (for AI file reads)\n` +
+            `• ax.summary.json - Prompt summary (~500 tokens)\n\n` +
+            `CUSTOM.md was kept unchanged. Use --force to regenerate.`,
             'Next Steps'
           );
         } else {
           await prompts.note(
             `1. Review ${configDirName}/CUSTOM.md and customize if needed\n` +
-            '2. The ax.index.json is shared by ax-cli, ax-glm, and ax-grok\n' +
-            '3. Start chatting with your AI assistant',
+            '2. ax.summary.json is loaded into prompts (fast, pre-computed)\n' +
+            '3. ax.index.json has full details (AI reads when needed)\n' +
+            '4. Start chatting with your AI assistant',
             'Next Steps'
           );
         }

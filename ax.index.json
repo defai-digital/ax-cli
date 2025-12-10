@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "name": "@defai.digital/ax-cli",
-  "version": "4.4.0",
+  "version": "4.4.3",
   "description": "Enterprise-Class AI Command Line Interface - Primary support for GLM (General Language Model) with multi-provider AI orchestration powered by AutomatosX.",
   "primaryLanguage": "TypeScript",
   "techStack": [
@@ -72,13 +72,13 @@
   "runtimeTargets": [
     "Node.js >=24.0.0"
   ],
-  "lastAnalyzed": "2025-12-10T06:33:47.172Z",
+  "lastAnalyzed": "2025-12-10T10:54:13.623Z",
   "codeStats": {
     "filesByExtension": {
       ".ts": 234,
       ".tsx": 29
     },
-    "totalLinesOfCode": 92027,
+    "totalLinesOfCode": 92037,
     "totalFiles": 263,
     "largeFiles": [
       {
@@ -1541,7 +1541,7 @@
           "PLANNER_CONFIG"
         ],
         "isPublic": true,
-        "loc": 339,
+        "loc": 341,
         "functionCount": 1,
         "dependencies": [
           "src/utils/config-loader.ts"
@@ -2158,11 +2158,12 @@
           "MCPManager"
         ],
         "isPublic": false,
-        "loc": 282,
+        "loc": 283,
         "functionCount": 11,
         "dependencies": [
           "src/mcp/transports.ts",
-          "src/schemas/settings-schemas.ts"
+          "src/schemas/settings-schemas.ts",
+          "src/utils/token-counter.ts"
         ],
         "dependents": [
           "src/commands/mcp.ts",
@@ -2186,7 +2187,7 @@
           "getDetectionSummary"
         ],
         "isPublic": false,
-        "loc": 310,
+        "loc": 312,
         "functionCount": 14,
         "dependencies": [
           "src/schemas/settings-schemas.ts"
@@ -3490,7 +3491,7 @@
           "validateChatEntry"
         ],
         "isPublic": false,
-        "loc": 161,
+        "loc": 164,
         "functionCount": 4,
         "dependencies": [],
         "dependents": [
@@ -4552,7 +4553,7 @@
           "AnalysisResult"
         ],
         "isPublic": false,
-        "loc": 87,
+        "loc": 89,
         "functionCount": 1,
         "dependencies": [],
         "dependents": [
@@ -6580,6 +6581,7 @@
           "src/commands/doctor.ts",
           "src/commands/models.ts",
           "src/mcp/client-v2.ts",
+          "src/mcp/client.ts",
           "src/memory/context-generator.ts",
           "src/ui/components/loading-spinner.tsx"
         ]
@@ -7795,6 +7797,11 @@
       {
         "from": "src/mcp/client.ts",
         "to": "src/schemas/settings-schemas.ts",
+        "type": "static"
+      },
+      {
+        "from": "src/mcp/client.ts",
+        "to": "src/utils/token-counter.ts",
         "type": "static"
       },
       {
@@ -9572,12 +9579,12 @@
         "fanIn": 10
       },
       {
-        "module": "src/llm/tools.ts",
+        "module": "src/utils/token-counter.ts",
         "fanIn": 9
       },
       {
-        "module": "src/utils/token-counter.ts",
-        "fanIn": 8
+        "module": "src/llm/tools.ts",
+        "fanIn": 9
       },
       {
         "module": "src/agent/subagent.ts",

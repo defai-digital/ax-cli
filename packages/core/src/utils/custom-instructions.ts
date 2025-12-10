@@ -1,9 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { getActiveConfigPaths } from '../provider/config.js';
+import { FILE_NAMES } from '../constants.js';
 
 export function loadCustomInstructions(workingDirectory: string = process.cwd()): string | null {
   try {
-    const instructionsPath = path.join(workingDirectory, '.ax-cli', 'CUSTOM.md');
+    // Use provider-specific config directory (e.g., .ax-glm, .ax-grok)
+    const activeConfigPaths = getActiveConfigPaths();
+    const instructionsPath = path.join(workingDirectory, activeConfigPaths.DIR_NAME, FILE_NAMES.CUSTOM_MD);
 
     // Directly attempt to read the file - avoids TOCTOU race condition
     // If the file doesn't exist, readFileSync will throw ENOENT which is handled below

@@ -290,8 +290,8 @@ async function testModel(
           signal: AbortSignal.timeout(5000), // 5 second timeout
         });
         if (response.ok) {
-          const data = await response.json() as any;
-          availableModels = data.models?.map((m: any) => m.name) || [];
+          const data = await response.json() as { models?: Array<{ name?: string }> };
+          availableModels = data.models?.map((m) => m.name).filter((n): n is string => typeof n === 'string') || [];
         }
       } catch {
         // Ignore - timeout or connection error

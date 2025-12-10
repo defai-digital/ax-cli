@@ -1,12 +1,12 @@
 /**
  * Project Index Manager
  *
- * Manages the ax.index.json file which contains project analysis data.
+ * Manages ax.index.json (full analysis) and ax.summary.json (prompt summary).
  * Handles:
- * - Loading and caching the index
+ * - Loading and caching both files
  * - Checking staleness (24-hour threshold)
  * - Auto-regenerating when stale
- * - Providing index content for system prompts
+ * - Providing pre-computed summary for system prompts (fast, no runtime computation)
  */
 
 import * as fs from 'fs';
@@ -31,11 +31,31 @@ export interface ProjectIndexData {
   [key: string]: unknown;
 }
 
+export interface ProjectSummaryData {
+  schemaVersion: string;
+  generatedAt: string;
+  project: {
+    name: string;
+    type: string;
+    language: string;
+    version?: string;
+    techStack?: string[];
+    entryPoint?: string;
+    packageManager?: string;
+  };
+  directories?: Record<string, string>;
+  commands?: Record<string, string>;
+  gotchas?: string[];
+  indexFile: string;
+}
+
 export interface IndexStatus {
   exists: boolean;
   isStale: boolean;
   ageHours?: number;
   path: string;
+  summaryExists?: boolean;
+  summaryPath?: string;
 }
 
 /**
@@ -44,12 +64,16 @@ export interface IndexStatus {
 export class ProjectIndexManager {
   private projectRoot: string;
   private indexPath: string;
+  private summaryPath: string;
   private cachedIndex: string | null = null;
   private cachedData: ProjectIndexData | null = null;
+  private cachedSummary: string | null = null;
+  private cachedSummaryData: ProjectSummaryData | null = null;
 
   constructor(projectRoot: string = process.cwd()) {
     this.projectRoot = projectRoot;
     this.indexPath = path.join(projectRoot, FILE_NAMES.AX_INDEX_JSON);
+    this.summaryPath = path.join(projectRoot, FILE_NAMES.AX_SUMMARY_JSON);
   }
 
   /**
@@ -60,6 +84,13 @@ export class ProjectIndexManager {
   }
 
   /**
+   * Get the path to ax.summary.json
+   */
+  getSummaryPath(): string {
+    return this.summaryPath;
+  }
+
+  /**
    * Check if ax.index.json exists
    */
   exists(): boolean {
@@ -67,14 +98,25 @@ export class ProjectIndexManager {
   }
 
   /**
-   * Get the status of the project index
+   * Check if ax.summary.json exists
+   */
+  summaryExists(): boolean {
+    return fs.existsSync(this.summaryPath);
+  }
+
+  /**
+   * Get the status of the project index and summary
    */
   getStatus(): IndexStatus {
+    const hasSummary = this.summaryExists();
+
     if (!this.exists()) {
       return {
         exists: false,
         isStale: true,
         path: this.indexPath,
+        summaryExists: hasSummary,
+        summaryPath: this.summaryPath,
       };
     }
 
@@ -89,12 +131,16 @@ export class ProjectIndexManager {
         isStale,
         ageHours: Math.round(ageHours * 10) / 10, // Round to 1 decimal
         path: this.indexPath,
+        summaryExists: hasSummary,
+        summaryPath: this.summaryPath,
       };
     } catch {
       return {
         exists: false,
         isStale: true,
         path: this.indexPath,
+        summaryExists: hasSummary,
+        summaryPath: this.summaryPath,
       };
     }
   }
@@ -150,18 +196,66 @@ export class ProjectIndexManager {
   }
 
   /**
-   * Clear the cache
+   * Load the summary content as a string
+   */
+  loadSummary(): string | null {
+    if (this.cachedSummary) {
+      return this.cachedSummary;
+    }
+
+    if (!this.summaryExists()) {
+      return null;
+    }
+
+    try {
+      const content = fs.readFileSync(this.summaryPath, 'utf-8');
+      this.cachedSummary = content;
+      return content;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Load and parse the summary as JSON
+   */
+  loadSummaryData(): ProjectSummaryData | null {
+    if (this.cachedSummaryData) {
+      return this.cachedSummaryData;
+    }
+
+    const content = this.loadSummary();
+    if (!content) {
+      return null;
+    }
+
+    try {
+      const data = JSON.parse(content) as ProjectSummaryData;
+      this.cachedSummaryData = data;
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Clear all caches
    */
   clearCache(): void {
     this.cachedIndex = null;
     this.cachedData = null;
+    this.cachedSummary = null;
+    this.cachedSummaryData = null;
   }
 
   /**
-   * Regenerate the project index
+   * Regenerate the project index and summary
    * Returns true if successful, false otherwise
    */
   async regenerate(options: { verbose?: boolean } = {}): Promise<boolean> {
+    const tmpIndexPath = `${this.indexPath}.tmp`;
+    const tmpSummaryPath = `${this.summaryPath}.tmp`;
+
     try {
       // Analyze the project
       const analyzer = new ProjectAnalyzer(this.projectRoot);
@@ -174,7 +268,7 @@ export class ProjectIndexManager {
         return false;
       }
 
-      // Generate LLM-optimized index
+      // Generate LLM-optimized index and summary
       const generator = new LLMOptimizedInstructionGenerator({
         compressionLevel: 'moderate',
         hierarchyEnabled: true,
@@ -184,29 +278,35 @@ export class ProjectIndexManager {
       });
 
       const index = generator.generateIndex(result.projectInfo);
+      const summary = generator.generateSummary(result.projectInfo);
 
-      // Write atomically
-      const tmpPath = `${this.indexPath}.tmp`;
-      fs.writeFileSync(tmpPath, index, 'utf-8');
-      fs.renameSync(tmpPath, this.indexPath);
+      // Write both files atomically
+      fs.writeFileSync(tmpIndexPath, index, 'utf-8');
+      fs.renameSync(tmpIndexPath, this.indexPath);
+
+      fs.writeFileSync(tmpSummaryPath, summary, 'utf-8');
+      fs.renameSync(tmpSummaryPath, this.summaryPath);
 
       // Clear cache so next load gets fresh data
       this.clearCache();
 
       if (options.verbose) {
         console.log(`Regenerated project index: ${this.indexPath}`);
+        console.log(`Regenerated project summary: ${this.summaryPath}`);
       }
 
       return true;
     } catch (error) {
       if (options.verbose) {
-        console.error('Failed to regenerate project index:', error);
+        console.error('Failed to regenerate project files:', error);
       }
-      // Cleanup temp file if exists
+      // Cleanup temp files if they exist
       try {
-        const tmpPath = `${this.indexPath}.tmp`;
-        if (fs.existsSync(tmpPath)) {
-          fs.unlinkSync(tmpPath);
+        if (fs.existsSync(tmpIndexPath)) {
+          fs.unlinkSync(tmpIndexPath);
+        }
+        if (fs.existsSync(tmpSummaryPath)) {
+          fs.unlinkSync(tmpSummaryPath);
         }
       } catch {
         // Ignore cleanup errors
@@ -253,23 +353,84 @@ export class ProjectIndexManager {
 
   /**
    * Get formatted context for system prompt injection
-   * Returns null if no index exists
+   * Returns null if no summary/index exists
    *
-   * NOTE: Only includes a concise summary (~500 tokens max)
-   * The AI can read ax.index.json directly if it needs more details
+   * Uses pre-computed ax.summary.json for fast loading (~500 tokens).
+   * Falls back to dynamic generation from ax.index.json if summary is missing.
+   * The AI can read ax.index.json directly if it needs more details.
    */
   getPromptContext(): string | null {
+    // Try to load pre-computed summary first (fast path)
+    const summaryData = this.loadSummaryData();
+    if (summaryData) {
+      return this.formatSummaryForPrompt(summaryData);
+    }
+
+    // Fallback: dynamically generate from index (backward compatibility)
     const content = this.load();
     if (!content) {
       return null;
     }
 
-    // Parse and format a CONCISE summary for prompt
-    // Full details are available via view_file tool
+    return this.generateDynamicSummary(content);
+  }
+
+  /**
+   * Format pre-computed summary data for prompt injection
+   * This is the fast path - just formats the already-computed summary
+   */
+  private formatSummaryForPrompt(summary: ProjectSummaryData): string {
+    const lines: string[] = [
+      '<project-context>',
+      `Project: ${summary.project.name}`,
+    ];
+
+    if (summary.project.type) {
+      lines.push(`Type: ${summary.project.type}`);
+    }
+    if (summary.project.language) {
+      lines.push(`Language: ${summary.project.language}`);
+    }
+    if (summary.project.techStack && summary.project.techStack.length > 0) {
+      lines.push(`Tech Stack: ${summary.project.techStack.join(', ')}`);
+    }
+
+    // Add directories
+    if (summary.directories && Object.keys(summary.directories).length > 0) {
+      const dirList = Object.entries(summary.directories)
+        .map(([key, val]) => `${key}: ${val}`)
+        .join(', ');
+      lines.push(`Directories: ${dirList}`);
+    }
+
+    // Add commands
+    if (summary.commands && Object.keys(summary.commands).length > 0) {
+      const cmds = Object.entries(summary.commands)
+        .map(([key, val]) => `${key}: ${val}`)
+        .join(' | ');
+      lines.push(`Commands: ${cmds}`);
+    }
+
+    // Add gotchas
+    if (summary.gotchas && summary.gotchas.length > 0) {
+      lines.push(`Key Notes: ${summary.gotchas.join('; ')}`);
+    }
+
+    lines.push('');
+    lines.push(`For full project analysis, read: ${summary.indexFile}`);
+    lines.push('</project-context>');
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Dynamically generate summary from index content
+   * This is the fallback path for backward compatibility
+   */
+  private generateDynamicSummary(content: string): string | null {
     try {
       const data = JSON.parse(content) as Record<string, unknown>;
 
-      // Build a concise project context block (~500 tokens max)
       const lines: string[] = [
         '<project-context>',
         `Project: ${data.name || data.projectName || 'Unknown'}`,
