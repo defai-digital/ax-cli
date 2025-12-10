@@ -21,7 +21,7 @@ import {
 } from "../../packages/core/src/planner/types.js";
 
 // Mock the storage module
-vi.mock("../../src/planner/plan-storage.js", () => ({
+vi.mock("../../packages/core/src/planner/plan-storage.js", () => ({
   getPlanStorage: vi.fn(() => ({
     savePlan: vi.fn().mockResolvedValue(undefined),
     loadPlan: vi.fn().mockResolvedValue(null),

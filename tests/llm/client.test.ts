@@ -21,7 +21,7 @@ vi.mock("openai", () => {
 });
 
 // Mock rate limiter to avoid timing issues
-vi.mock("../../src/utils/rate-limiter.js", () => {
+vi.mock("../../packages/core/src/utils/rate-limiter.js", () => {
   class MockRateLimiter {
     constructor() {}
     checkLimit = vi.fn().mockResolvedValue(true);

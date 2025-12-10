@@ -17,7 +17,7 @@ import {
 } from "../../packages/core/src/utils/paste-utils.js";
 
 // Mock settings manager
-vi.mock("../../src/utils/settings-manager.js", () => ({
+vi.mock("../../packages/core/src/utils/settings-manager.js", () => ({
   getSettingsManager: vi.fn(() => ({
     getPasteConfig: vi.fn(() => ({
       autoCollapse: true,

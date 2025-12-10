@@ -28,6 +28,7 @@ export class AutoErrorRecovery implements vscode.Disposable {
   private disposables: vscode.Disposable[] = [];
   private isRecovering: boolean = false;
   private recoveryCallback: ((errors: vscode.Diagnostic[], filePath: string) => Promise<boolean>) | null = null;
+  private pendingTimeoutId: NodeJS.Timeout | null = null;
 
   constructor() {
     // Listen for diagnostic changes
@@ -221,10 +222,18 @@ export class AutoErrorRecovery implements vscode.Disposable {
 
   /**
    * Wait for diagnostics to update
+   * Timeout is tracked and cleared on dispose to prevent memory leaks
    */
   private waitForDiagnostics(ms: number): Promise<void> {
     return new Promise(resolve => {
-      setTimeout(resolve, ms);
+      // Clear any existing timeout to prevent leaks
+      if (this.pendingTimeoutId) {
+        clearTimeout(this.pendingTimeoutId);
+      }
+      this.pendingTimeoutId = setTimeout(() => {
+        this.pendingTimeoutId = null;
+        resolve();
+      }, ms);
     });
   }
 
@@ -246,6 +255,11 @@ export class AutoErrorRecovery implements vscode.Disposable {
    * Dispose resources
    */
   dispose(): void {
+    // Clear any pending timeout to prevent memory leaks
+    if (this.pendingTimeoutId) {
+      clearTimeout(this.pendingTimeoutId);
+      this.pendingTimeoutId = null;
+    }
     this.disposables.forEach(d => d.dispose());
   }
 }
