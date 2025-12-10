@@ -350,6 +350,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.4.8**: Maintenance release - Version bump and package updates.
 *   **v4.4.7**: Security & Documentation - Added AutomatosX integration guide to README with bug fixing, refactoring, and multi-agent examples. Fixed ESLint configuration for legacy src/ directory. Resolved all CodeQL security alerts (false positives dismissed with annotations).
 *   **v4.4.6**: Documentation update - Updated and refreshed documentation across the project.
 *   **v4.4.5**: Package metadata update - Updated descriptions and keywords for all packages to better reflect current features: vibe coding, thinking mode, vision, web search, MCP integration, and AutomatosX agent system. Added ax.summary.json for faster prompt context loading.
