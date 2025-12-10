@@ -436,11 +436,15 @@ export async function checkForUpdatesOnStartup(): Promise<StartupUpdateCheckResu
 
 /**
  * Prompt user to update and install if they accept
+ * @param currentVersion Current installed version
+ * @param latestVersion Latest available version
+ * @param cliName CLI name for display in messages (default: "ax-cli")
  * @returns true if update was installed, false otherwise
  */
 export async function promptAndInstallUpdate(
   currentVersion: string,
-  latestVersion: string
+  latestVersion: string,
+  cliName: string = "ax-cli"
 ): Promise<boolean> {
   console.log(
     chalk.yellow(
@@ -485,7 +489,7 @@ export async function promptAndInstallUpdate(
             }
 
             console.log(
-              chalk.gray("\nPlease restart ax-cli to use the new version.\n")
+              chalk.gray(`\nPlease restart ${cliName} to use the new version.\n`)
             );
             resolve(true);
           } catch (error) {

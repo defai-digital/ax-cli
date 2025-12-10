@@ -27,7 +27,7 @@ import {
 import ApiKeyInput from "./api-key-input.js";
 import { getVersion } from "../../utils/version.js";
 import { getHistoryManager } from "../../utils/history-manager.js";
-import { getMcpConnectionCount } from "../../llm/tools.js";
+import { getMCPConnectionStatus, getMCPManager } from "../../llm/tools.js";
 import { BackgroundTaskManager } from "../../utils/background-task-manager.js";
 import { isAutomatosXAvailable } from "../../utils/automatosx-detector.js";
 import { routeToAgent } from "../../agent/agent-router.js";
@@ -863,16 +863,80 @@ function ChatInterfaceWithAgent({
     processingStartTime.current = 0;
   };
 
-  // Get MCP server count safely
-  // MCP server count - only calculate once on mount
-  // MCP servers are configured at startup and rarely change during session
-  const mcpServerCount = useMemo(() => {
-    try {
-      return getMcpConnectionCount();
-    } catch {
-      return 0;
+  // MCP connection status - reactive to server changes
+  // BUG FIX: Changed from useMemo to useState+useEffect to properly update
+  // when MCP servers are initialized (which happens after component mount)
+  const [mcpStatus, setMcpStatus] = useState<{ connected: number; failed: number; connecting: number; total: number }>({ connected: 0, failed: 0, connecting: 0, total: 0 });
+
+  // Listen for MCP server changes
+  useEffect(() => {
+    // Update MCP status when servers are added/removed/reconnected
+    const updateMcpStatus = () => {
+      try {
+        setMcpStatus(getMCPConnectionStatus());
+      } catch {
+        // MCP manager not initialized yet
+      }
+    };
+
+    // Initial status check
+    updateMcpStatus();
+
+    // Try to get the MCP manager and listen for events
+    // We need to retry because manager might not exist yet at mount time
+    let mcpManager: ReturnType<typeof getMCPManager> | null = null;
+
+    const setupMcpListeners = () => {
+      try {
+        mcpManager = getMCPManager();
+        mcpManager.on('serverAdded', updateMcpStatus);
+        mcpManager.on('serverRemoved', updateMcpStatus);
+        mcpManager.on('serverError', updateMcpStatus);
+        mcpManager.on('reconnection-succeeded', updateMcpStatus);
+        mcpManager.on('reconnection-failed', updateMcpStatus);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    // Try immediately
+    if (!setupMcpListeners()) {
+      // Retry after a delay (MCP initialization happens after agent init)
+      const retryTimer = setTimeout(() => {
+        setupMcpListeners();
+        updateMcpStatus();
+      }, 2000);
+
+      // Also check again after longer delay for slow MCP servers
+      const retryTimer2 = setTimeout(() => {
+        if (!mcpManager) setupMcpListeners();
+        updateMcpStatus();
+      }, 5000);
+
+      return () => {
+        clearTimeout(retryTimer);
+        clearTimeout(retryTimer2);
+        if (mcpManager) {
+          mcpManager.off('serverAdded', updateMcpStatus);
+          mcpManager.off('serverRemoved', updateMcpStatus);
+          mcpManager.off('serverError', updateMcpStatus);
+          mcpManager.off('reconnection-succeeded', updateMcpStatus);
+          mcpManager.off('reconnection-failed', updateMcpStatus);
+        }
+      };
     }
-  }, []); // Only calculate once
+
+    return () => {
+      if (mcpManager) {
+        mcpManager.off('serverAdded', updateMcpStatus);
+        mcpManager.off('serverRemoved', updateMcpStatus);
+        mcpManager.off('serverError', updateMcpStatus);
+        mcpManager.off('reconnection-succeeded', updateMcpStatus);
+        mcpManager.off('reconnection-failed', updateMcpStatus);
+      }
+    };
+  }, []);
 
   // Get background task count (running tasks)
   const [backgroundTaskCount, setBackgroundTaskCount] = useState(0);
@@ -904,6 +968,15 @@ function ChatInterfaceWithAgent({
     setBackgroundTaskCount(manager.listTasks().filter(t => t.status === 'running').length);
   }, []);
 
+  // BUG FIX: Also handle taskError event which is emitted when a task fails
+  const handleTaskError = useCallback(({ taskId }: { taskId: string; error: string }) => {
+    const manager = BackgroundTaskManager.getInstance();
+    const taskInfo = manager.getTaskInfo(taskId);
+    const command = taskInfo?.command || taskId;
+    addToast(TOAST_MESSAGES.taskFailed(taskId, command));
+    setBackgroundTaskCount(manager.listTasks().filter(t => t.status === 'running').length);
+  }, [addToast]);
+
   useEffect(() => {
     const manager = BackgroundTaskManager.getInstance();
 
@@ -914,14 +987,16 @@ function ChatInterfaceWithAgent({
     manager.on('taskStarted', handleTaskStarted);
     manager.on('taskAdopted', handleTaskStarted);
     manager.on('taskKilled', handleTaskKilled);
+    manager.on('taskError', handleTaskError);
 
     return () => {
       manager.off('taskComplete', handleTaskComplete);
       manager.off('taskStarted', handleTaskStarted);
       manager.off('taskAdopted', handleTaskStarted);
       manager.off('taskKilled', handleTaskKilled);
+      manager.off('taskError', handleTaskError);
     };
-  }, [handleTaskComplete, handleTaskStarted, handleTaskKilled]);
+  }, [handleTaskComplete, handleTaskStarted, handleTaskKilled, handleTaskError]);
 
   // Handler for quick action selection
   const handleQuickActionSelect = (command: string) => {
@@ -1104,7 +1179,7 @@ function ChatInterfaceWithAgent({
             verboseMode={verboseMode}
             verbosityLevel={verbosityLevel}
             backgroundMode={backgroundMode}
-            mcpServerCount={mcpServerCount}
+            mcpStatus={mcpStatus}
             backgroundTaskCount={backgroundTaskCount}
             isProcessing={isProcessing || isStreaming}
             processingTime={processingTime}

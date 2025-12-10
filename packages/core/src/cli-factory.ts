@@ -249,7 +249,7 @@ export function createCLI(options: CLIFactoryOptions): Command {
       // 4. UPDATE CHECK - May involve network, do after showing welcome
       const updateResult = await checkForUpdatesOnStartup();
       if (updateResult.hasUpdate) {
-        const updated = await promptAndInstallUpdate(updateResult.currentVersion, updateResult.latestVersion);
+        const updated = await promptAndInstallUpdate(updateResult.currentVersion, updateResult.latestVersion, cliName);
         if (updated) {
           process.exit(0);
         }

@@ -350,6 +350,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.4.10**: Status Bar Bug Fixes - Fixed MCP server count and background task count always showing 0 in status bar. MCP status now properly updates when servers connect/disconnect (changed from static useMemo to reactive state with event listeners). Added taskError event handler for background tasks. Fixed update message to show correct CLI name (ax-glm/ax-grok) instead of hardcoded "ax-cli".
 *   **v4.4.9**: CI/CD Test Fixes - Fixed all failing GitHub Actions tests. Corrected mock paths for monorepo structure (../../src/ → ../../packages/core/src/), added missing deleteByPrefix method to ResponseCache, fixed test assertions to match implementation behavior, improved Windows path compatibility in tests.
 *   **v4.4.8**: Maintenance release - Version bump and package updates.
 *   **v4.4.7**: Security & Documentation - Added AutomatosX integration guide to README with bug fixing, refactoring, and multi-agent examples. Fixed ESLint configuration for legacy src/ directory. Resolved all CodeQL security alerts (false positives dismissed with annotations).
