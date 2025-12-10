@@ -1,4 +1,6 @@
 # Test Coverage Report - AX CLI
+Last reviewed: 2025-02-21  
+Status: Historical snapshot (2.2.1). Current coverage targets remain ≥98%; see CI for latest numbers.
 
 **Report Date**: 2025-11-19
 **Version**: 2.2.1

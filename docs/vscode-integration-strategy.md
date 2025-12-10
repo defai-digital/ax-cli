@@ -1,4 +1,6 @@
 # AX CLI VSCode Integration Strategy
+Last reviewed: 2025-02-21  
+Status: Legacy planning document (kept for reference; not a current commitment)
 
 **Strategic Analysis & Implementation Plan**
 *Created: 2025-01-19*

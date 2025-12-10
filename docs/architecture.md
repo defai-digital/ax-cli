@@ -1,4 +1,6 @@
 # AX CLI Architecture Documentation
+Last reviewed: 2025-02-21  
+Applies to: ax-cli/ax-glm/ax-grok v4.4.x
 
 This document provides a comprehensive technical overview of the AX CLI enterprise-class architecture, covering the Single Source of Truth (SSOT) type system, technology stack, code quality practices, and test suite information.
 

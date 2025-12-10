@@ -1,4 +1,6 @@
 # Code Analysis Tools Guide
+Last reviewed: 2025-02-21  
+Applies to: ax-cli/ax-glm/ax-grok v4.4.x
 
 AX CLI provides five powerful code analysis tools that can be invoked by the LLM agent to analyze your codebase and provide actionable insights.
 

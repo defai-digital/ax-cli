@@ -1,4 +1,6 @@
 # GLM-4.6 Migration Guide
+Last reviewed: 2025-02-21  
+Status: Historical reference — prefer `docs/glm-4.6-usage-guide.md` for current guidance.
 
 Quick guide for upgrading to GLM-4.6 with thinking mode support.
 

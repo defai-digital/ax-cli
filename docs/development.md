@@ -1,4 +1,6 @@
 # AX CLI Development Guide
+Last reviewed: 2025-02-21  
+Applies to: ax-cli/ax-glm/ax-grok v4.4.x
 
 A comprehensive guide for developers who want to contribute to AX CLI or set up a local development environment.
 
@@ -69,12 +71,12 @@ Create a `.env` file in the project root for local testing:
 ```bash
 # For testing with local Ollama models
 AI_BASE_URL=http://localhost:11434/v1
-AI_MODEL=glm4:9b
+AI_MODEL=qwen3:14b
 
 # OR for testing with cloud providers
 YOUR_API_KEY=your_api_key_here
 AI_BASE_URL=https://api.x.ai/v1
-AI_MODEL=grok-code-fast-1
+AI_MODEL=grok-4
 
 # Debug mode
 DEBUG=1
@@ -996,13 +998,13 @@ git push origin feature/my-feature
 
 ```bash
 # Test with Ollama locally
-npm run dev -- --model glm4:9b --base-url http://localhost:11434/v1
+npm run dev -- --model qwen3:14b --base-url http://localhost:11434/v1
 
 # Test with X.AI (Grok)
-npm run dev -- --model grok-code-fast-1 --base-url https://api.x.ai/v1
+npm run dev -- --model grok-4 --base-url https://api.x.ai/v1
 
 # Test with Z.AI
-npm run dev -- --model glm-4.6 --base-url https://api.z.ai/v1
+npm run dev -- --model glm-4.6 --base-url https://api.z.ai/api/coding/paas/v4
 
 # Test with OpenAI
 npm run dev -- --model gpt-4o --base-url https://api.openai.com/v1

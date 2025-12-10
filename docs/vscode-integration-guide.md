@@ -1,8 +1,8 @@
 # VSCode Integration Guide
+Last reviewed: 2025-02-21  
+Applies to: ax-cli/ax-glm/ax-grok v4.4.x (Phase 1 terminal integration)
 
-**AX CLI Phase 1: Enhanced Terminal Integration**
-
-This guide shows you how to integrate AX CLI with Visual Studio Code for a seamless AI-powered development experience.
+This guide shows how to use the CLI from VSCode. Use the provider-specific binaries (`ax-glm`, `ax-grok`) or the local/offline `ax-cli` as needed.
 
 ---
 
@@ -20,16 +20,24 @@ This guide shows you how to integrate AX CLI with Visual Studio Code for a seaml
 
 ## Quick Start
 
-### 1. Install AX CLI
+### 1. Install the CLI
+
+Pick the right binary for your provider or local use:
 
 ```bash
-npm install -g @defai.digital/ax-cli
+npm install -g @defai.digital/ax-glm    # GLM (Z.AI)
+npm install -g @defai.digital/ax-grok   # Grok (xAI)
+npm install -g @defai.digital/ax-cli    # Local/offline
 ```
 
 ### 2. Setup Configuration
 
+Run setup once per provider to create encrypted config:
+
 ```bash
-ax-cli setup
+ax-glm setup
+ax-grok setup
+# ax-cli setup (optional for local)
 ```
 
 ### 3. Copy VSCode Templates

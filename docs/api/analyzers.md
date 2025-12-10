@@ -1,4 +1,6 @@
 # Analyzers API Documentation
+Last reviewed: 2025-02-21  
+Status: Legacy/archived — the analyzers API surface is not shipped in current v4.4.x builds; keep for historical reference only.
 
 This document provides detailed API documentation for programmatic usage of the AX CLI analyzers.
 

@@ -1,4 +1,6 @@
 # Publishing AX CLI Extension to VSCode Marketplace
+Last reviewed: 2025-02-21  
+Status: Legacy/reference — use only if publishing the VSCode extension is in scope; not part of the core CLI workflow.
 
 **Complete guide to publishing the AX CLI VSCode extension publicly**
 

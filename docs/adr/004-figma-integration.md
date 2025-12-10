@@ -1,7 +1,6 @@
 # ADR-004: Figma Design Integration
-
-## Status
-**Proposed** - Implementation started 2025-12-02
+Last reviewed: 2025-02-21  
+Status: Proposed (historical) — integration not supported in v4.4.x; kept for reference.
 
 ## Context
 

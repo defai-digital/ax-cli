@@ -1,4 +1,6 @@
 # Slash Commands Implementation Summary
+Last reviewed: 2025-02-21  
+Status: Legacy/archived — `/usage` and related commands are not supported in current v4.4.x builds.
 
 ## Overview
 

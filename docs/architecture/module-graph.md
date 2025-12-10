@@ -1,4 +1,6 @@
 # AX-CLI Module Dependency Graph
+Last reviewed: 2025-02-21  
+Applies to: ax-cli/ax-glm/ax-grok v4.4.x (reference)
 
 This document describes the high-level module dependencies in the AX-CLI codebase after the architecture revamp (Phases 1-5).
 

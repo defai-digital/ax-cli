@@ -1,4 +1,6 @@
 # ADR-002: Agent Module Decomposition
+Last reviewed: 2025-02-21  
+Status: Accepted (historical) — kept for reference.
 
 ## Status
 **Accepted** - Implemented 2025-11-27

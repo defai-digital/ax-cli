@@ -319,6 +319,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.4.6**: Documentation update - Updated and refreshed documentation across the project.
 *   **v4.4.5**: Package metadata update - Updated descriptions and keywords for all packages to better reflect current features: vibe coding, thinking mode, vision, web search, MCP integration, and AutomatosX agent system. Added ax.summary.json for faster prompt context loading.
 *   **v4.4.4**: ax-grok setup fix - Fixed xAI model validation during setup. The `/models` endpoint returns only actual model IDs (e.g., `grok-4-0709`) but not aliases (e.g., `grok-4`). Setup now correctly recognizes model aliases and validates them against available versioned models.
 *   **v4.4.3**: Context optimization fix - Fixed project context injection that was consuming 65% of context at startup. Reduced from 69,000 tokens to 145 tokens (99.8% reduction). AI can still read full ax.index.json via view_file when needed.

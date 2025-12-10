@@ -1,8 +1,6 @@
 # Migration Guide: Phase 1 - Configurable Multi-line Input
-
-**Version:** 3.8.0+
-**Release Date:** TBD
-**Impact:** Low (Backward Compatible)
+Last reviewed: 2025-02-21  
+Status: Historical reference for older releases (3.8.x). Not required for v4.4.x users.
 
 ---
 

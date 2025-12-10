@@ -1,4 +1,6 @@
 # Usage Tracking Implementation Summary
+Last reviewed: 2025-02-21  
+Status: Legacy/archived — usage tracking features are not supported in v4.4.x; keep for historical reference only.
 
 ## Overview
 

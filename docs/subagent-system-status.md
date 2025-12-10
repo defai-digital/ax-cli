@@ -1,4 +1,6 @@
 # Subagent System Implementation Status
+Last reviewed: 2025-02-21  
+Status: Legacy/archived — subagent work is not part of the current v4.4.x release scope.
 
 **Date:** November 20, 2025
 **Status:** Partial Implementation (25% Complete)

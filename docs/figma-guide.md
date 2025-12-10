@@ -1,4 +1,6 @@
 # Figma Integration Guide
+Last reviewed: 2025-02-21  
+Status: Legacy/archived — Figma integration is not supported in v4.4.x; kept for historical reference only.
 
 This guide explains how to use AX CLI with Figma to automate design-to-code workflows, extract design tokens, and audit design consistency.
 

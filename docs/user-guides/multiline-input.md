@@ -1,7 +1,6 @@
 # User Guide: Multi-line Input Modes
-
-**Version:** 3.8.0+
-**Last Updated:** 2025-11-23
+Last reviewed: 2025-02-21  
+Status: Historical reference for 3.8.x; current defaults follow v4.4.x behavior.
 
 ---
 

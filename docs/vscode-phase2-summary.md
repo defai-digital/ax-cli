@@ -1,4 +1,6 @@
 # VSCode Integration Phase 2 - Implementation Summary
+Last reviewed: 2025-02-21  
+Status: Legacy summary (Phase 2). Refer to `docs/vscode-integration-guide.md` for current usage.
 
 **Status:** ✅ Complete
 **Date:** 2025-01-19

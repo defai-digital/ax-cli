@@ -1,4 +1,6 @@
 # MCP for Front-End Developers
+Last reviewed: 2025-02-21  
+Status: Reference — ensure MCP usage aligns with current MCP guide (`docs/mcp.md`) and provider defaults.
 
 **The ultimate guide to supercharging your front-end workflow with Model Context Protocol**
 

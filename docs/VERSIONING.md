@@ -1,8 +1,7 @@
 # AX CLI Versioning Strategy
-
-**Last Updated:** 2025-11-23
-**CLI Version:** 3.8.0
-**SDK Version:** 1.2.0
+Last reviewed: 2025-02-21  
+CLI Version: 4.4.3  
+SDK Version: 1.4.0
 
 ---
 

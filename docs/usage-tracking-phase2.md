@@ -1,4 +1,6 @@
 # Usage Tracking - Phase 2 Planning
+Last reviewed: 2025-02-21  
+Status: Legacy/archived — usage tracking beyond current providers is not supported in v4.4.x; keep for historical reference only.
 
 ## Overview
 

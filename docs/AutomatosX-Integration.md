@@ -1,7 +1,6 @@
 # AutomatosX Integration Guide
-
-**Version**: 8.4.15
-**Last Updated**: 2025-11-18
+Last reviewed: 2025-02-21  
+Status: Reference for internal integration; align with ax-cli/ax-glm/ax-grok v4.4.x
 
 This is the complete integration guide for AutomatosX - an AI agent orchestration platform with persistent memory, multi-agent collaboration, and policy-driven routing.
 
