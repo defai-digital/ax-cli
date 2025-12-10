@@ -8,8 +8,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createAgent, removeCleanupHandlers, type AgentOptions } from '../../packages/core/src/sdk/index.js';
 import { LLMAgent } from '../../packages/core/src/agent/llm-agent.js';
 
-// Mock provider settings manager to avoid needing actual credentials
-vi.mock('../../packages/core/src/utils/provider-settings.js', () => {
+// Mock settings manager to avoid needing actual credentials
+vi.mock('../../packages/core/src/utils/settings-manager.js', () => {
   const mockSettingsManager = {
     loadUserSettings: vi.fn(),
     getApiKey: vi.fn(() => 'test-api-key'),
@@ -18,10 +18,8 @@ vi.mock('../../packages/core/src/utils/provider-settings.js', () => {
   };
 
   return {
-    ProviderSettingsManager: {
-      forContext: vi.fn(() => mockSettingsManager),
-      forProvider: vi.fn(() => mockSettingsManager),
-    },
+    getSettingsManager: vi.fn(() => mockSettingsManager),
+    SettingsManager: vi.fn(() => mockSettingsManager),
   };
 });
 
