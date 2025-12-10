@@ -1,4 +1,4 @@
-# AX CLI - AI Coding Assistant for GLM & Grok
+# AX CLI - Enterprise-Class Vibe Coding
 
 [![npm](https://img.shields.io/npm/dt/@defai.digital/ax-cli?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
 [![Tests](https://img.shields.io/badge/tests-3725%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
