@@ -231,15 +231,23 @@ export interface PromptSection {
 export interface PromptsYaml {
   system_prompt: {
     identity: string;
+    // New Claude Code-style named sections
+    thinking?: PromptSection;
+    autonomy?: PromptSection;
+    context?: PromptSection;
+    tools?: PromptSection;
+    verification?: PromptSection;
+    safety?: PromptSection;
+    code_quality?: PromptSection;
+    scenarios?: PromptSection;
+    communication?: PromptSection;
+    agents?: PromptSection;
+    uncertainty?: PromptSection;
+    // Legacy fields (for backward compatibility)
     professional_objectivity?: PromptSection;
     core_principles?: PromptSection;
-    tools_header: string;
-    tools: Array<{
-      name: string;
-      description: string;
-      optional?: boolean;
-    }>;
-    sections: Record<string, PromptSection>;
+    tools_header?: string;
+    sections?: Record<string, PromptSection>;
     closing: string;
   };
   custom_instructions_prefix: string;

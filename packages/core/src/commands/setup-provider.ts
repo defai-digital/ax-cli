@@ -361,12 +361,33 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         const modelStep = provider.name === 'glm' ? 'Step 3/4' : 'Step 2/3';
         prompts.log.step(chalk.bold(`${modelStep} — Choose Model`));
 
-        // Build model choices from provider definition
-        const modelChoices = Object.entries(provider.models).map(([modelId, config]) => ({
-          value: modelId,
-          label: modelId === provider.defaultModel ? `${config.name} (default)` : config.name,
-          hint: config.description,
-        }));
+        // Format context window for display
+        const formatContext = (tokens: number): string => {
+          if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(0)}M`;
+          if (tokens >= 1000) return `${(tokens / 1000).toFixed(0)}K`;
+          return String(tokens);
+        };
+
+        // Build model choices from provider definition with context info
+        // Sort: default first, then by context window (descending)
+        const modelEntries = Object.entries(provider.models);
+        modelEntries.sort((a, b) => {
+          // Default model first
+          if (a[0] === provider.defaultModel) return -1;
+          if (b[0] === provider.defaultModel) return 1;
+          // Then by context window (descending)
+          return b[1].contextWindow - a[1].contextWindow;
+        });
+
+        const modelChoices = modelEntries.map(([modelId, config]) => {
+          const contextInfo = formatContext(config.contextWindow);
+          const isDefault = modelId === provider.defaultModel;
+          return {
+            value: modelId,
+            label: isDefault ? `${config.name} (recommended)` : config.name,
+            hint: `${contextInfo} context • ${config.description}`,
+          };
+        });
 
         // Safety check - should never happen but prevents crash if provider has no models
         if (modelChoices.length === 0) {
@@ -397,13 +418,16 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
 
         // Show model features
         const features: string[] = [];
-        if (modelConfig.supportsThinking) features.push('Thinking Mode');
+        if (modelConfig.supportsThinking) features.push('Thinking');
         if (modelConfig.supportsVision) features.push('Vision');
         if (modelConfig.supportsSearch) features.push('Search');
-        if (modelConfig.supportsSeed) features.push('Seed/Reproducible');
+        if (modelConfig.supportsSeed) features.push('Seed');
 
+        const contextStr = formatContext(modelConfig.contextWindow);
         if (features.length > 0) {
-          prompts.log.info(`Model features: ${features.join(', ')}`);
+          prompts.log.info(`${contextStr} context • Features: ${features.join(', ')}`);
+        } else {
+          prompts.log.info(`${contextStr} context window`);
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -604,6 +628,86 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         }
 
         // ═══════════════════════════════════════════════════════════════════
+        // Project Initialization
+        // ═══════════════════════════════════════════════════════════════════
+        await prompts.note(
+          'Project initialization analyzes your codebase and creates:\n' +
+          '• CUSTOM.md - AI instructions tailored to your project\n' +
+          '• ax.index.json - Project structure for AI context\n\n' +
+          'This helps the AI understand your codebase from the first message.',
+          'Project Initialization'
+        );
+
+        try {
+          const initProject = await prompts.confirm({
+            message: 'Initialize current project now?',
+            initialValue: true,
+          });
+
+          if (!prompts.isCancel(initProject) && initProject) {
+            const initSpinner = prompts.spinner();
+            initSpinner.start('Analyzing project and generating context...');
+
+            try {
+              // Run project initialization using the init command logic
+              const { ProjectAnalyzer } = await import('../utils/project-analyzer.js');
+              const { LLMOptimizedInstructionGenerator } = await import('../utils/llm-optimized-instruction-generator.js');
+              const { writeFileSync, mkdirSync } = await import('fs');
+              const { join } = await import('path');
+
+              const projectRoot = process.cwd();
+              const projectConfigDir = join(projectRoot, activeConfigPaths.DIR_NAME);
+              const customMdPath = join(projectConfigDir, 'CUSTOM.md');
+              const indexPath = join(projectRoot, 'ax.index.json');
+
+              // Ensure project config directory exists
+              if (!existsSync(projectConfigDir)) {
+                mkdirSync(projectConfigDir, { recursive: true });
+              }
+
+              // Analyze project
+              const analyzer = new ProjectAnalyzer(projectRoot);
+              const result = await analyzer.analyze();
+
+              if (result.success && result.projectInfo) {
+                // Generate LLM-optimized instructions
+                const generator = new LLMOptimizedInstructionGenerator({
+                  compressionLevel: 'moderate',
+                  hierarchyEnabled: true,
+                  criticalRulesCount: 5,
+                  includeDODONT: true,
+                  includeTroubleshooting: true,
+                });
+
+                const instructions = generator.generateInstructions(result.projectInfo);
+                const index = generator.generateIndex(result.projectInfo);
+
+                // Write files
+                writeFileSync(customMdPath, instructions, 'utf-8');
+                writeFileSync(indexPath, index, 'utf-8');
+
+                initSpinner.stop('Project initialized successfully!');
+                prompts.log.success(`Created: ${activeConfigPaths.DIR_NAME}/CUSTOM.md`);
+                prompts.log.success('Created: ax.index.json');
+              } else {
+                initSpinner.stop('Could not analyze project');
+                prompts.log.warn(result.error || 'Project analysis failed');
+                prompts.log.info(`You can initialize later with: ${cliName} init`);
+              }
+            } catch (initError) {
+              initSpinner.stop('Project initialization failed');
+              prompts.log.warn(`${extractErrorMessage(initError)}`);
+              prompts.log.info(`You can initialize later with: ${cliName} init`);
+            }
+          } else if (!prompts.isCancel(initProject)) {
+            prompts.log.info(`You can initialize later with: ${cliName} init`);
+          }
+        } catch {
+          prompts.log.info('Skipping project initialization (non-interactive mode).');
+          prompts.log.info(`Initialize later with: ${cliName} init`);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
         // Completion Summary
         // ═══════════════════════════════════════════════════════════════════
         await prompts.note(
@@ -619,9 +723,7 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         await prompts.note(
           '1. Start interactive mode:\n' +
           `   $ ${cliName}\n\n` +
-          `2. Initialize your project (inside ${cliName}):\n` +
-          '   > /init\n\n' +
-          '3. Or run a quick test:\n' +
+          '2. Run a quick test:\n' +
           `   $ ${cliName} -p "Hello, introduce yourself"`,
           'Next Steps'
         );

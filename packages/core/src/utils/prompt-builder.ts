@@ -2,6 +2,7 @@
  * System Prompt Builder
  * Builds AI assistant prompts from YAML configuration
  * Integrates project memory for z.ai GLM-4.6 caching
+ * Includes project index (ax.index.json) for project understanding
  * Includes priority-based tool selection guidance
  */
 
@@ -10,18 +11,33 @@ import { getContextInjector } from '../memory/index.js';
 import { getMCPManager } from '../llm/tools.js';
 import { getActiveProvider } from '../provider/config.js';
 import { getPriorityRegistry } from '../tools/priority-registry.js';
+import { getProjectIndexManager } from './project-index-manager.js';
 
 /**
  * Build the system prompt for the AI assistant
  * @param options.customInstructions - Custom instructions from CUSTOM.md
  * @param options.includeMemory - Whether to include project memory (default: true)
+ * @param options.includeProjectIndex - Whether to include project index (default: true)
  */
 export function buildSystemPrompt(options: {
   customInstructions?: string;
   includeMemory?: boolean;
+  includeProjectIndex?: boolean;
 }): string {
   const config = loadPromptsConfig();
   const sections: string[] = [];
+
+  // Project Index Context (ax.index.json) - project structure and tech stack
+  // This helps the AI understand the project before starting
+  const includeProjectIndex = options.includeProjectIndex !== false;
+  if (includeProjectIndex) {
+    const indexManager = getProjectIndexManager();
+    const projectContext = indexManager.getPromptContext();
+    if (projectContext) {
+      sections.push(projectContext);
+      sections.push('\n---\n');
+    }
+  }
 
   // Project Memory Context (prepended for z.ai caching)
   // This should be first and consistent to maximize cache hits
@@ -38,12 +54,34 @@ export function buildSystemPrompt(options: {
   // Identity
   sections.push(config.system_prompt.identity);
 
-  // Professional objectivity (if defined) - key for reducing sycophancy
+  // New Claude Code-style sections (if defined)
+  const namedSections = [
+    'thinking',
+    'autonomy',
+    'context',
+    'tools',
+    'verification',
+    'safety',
+    'code_quality',
+    'scenarios',
+    'communication',
+    'agents',
+    'uncertainty',
+  ] as const;
+
+  for (const sectionName of namedSections) {
+    const section = config.system_prompt[sectionName];
+    if (section) {
+      sections.push(formatSection(section));
+    }
+  }
+
+  // Legacy: Professional objectivity (if defined)
   if (config.system_prompt.professional_objectivity) {
     sections.push(formatSection(config.system_prompt.professional_objectivity));
   }
 
-  // Core principles (if defined)
+  // Legacy: Core principles (if defined)
   if (config.system_prompt.core_principles) {
     sections.push(formatSection(config.system_prompt.core_principles));
   }
@@ -57,15 +95,11 @@ export function buildSystemPrompt(options: {
     );
   }
 
-  // Tools header
-  sections.push(`\n${config.system_prompt.tools_header}`);
-
-  // List built-in tools
-  const toolsList = config.system_prompt.tools
-    .filter(tool => !tool.optional)
-    .map(tool => `- ${tool.name}: ${tool.description}`)
-    .join('\n');
-  sections.push(toolsList);
+  // Legacy: Tools header and list (if defined in old format)
+  if (config.system_prompt.tools_header && Array.isArray(config.system_prompt.sections?.tools)) {
+    sections.push(`\n${config.system_prompt.tools_header}`);
+    // Old format had tools as array
+  }
 
   // Add MCP tools if available
   const mcpManager = getMCPManager();
@@ -104,9 +138,11 @@ export function buildSystemPrompt(options: {
     }
   }
 
-  // Add all configured sections
-  for (const section of Object.values(config.system_prompt.sections)) {
-    sections.push(formatSection(section));
+  // Legacy: Add all configured sections from old format
+  if (config.system_prompt.sections) {
+    for (const section of Object.values(config.system_prompt.sections)) {
+      sections.push(formatSection(section));
+    }
   }
 
   // Closing statement

@@ -217,7 +217,11 @@ export function createCLI(options: CLIFactoryOptions): Command {
         return;
       }
 
-      // Interactive mode checks
+      // ═══════════════════════════════════════════════════════════════════════
+      // STARTUP SEQUENCE (ordered by priority and user experience)
+      // ═══════════════════════════════════════════════════════════════════════
+
+      // 1. TTY CHECK - Fail fast if terminal not supported
       if (!process.stdin.isTTY || !process.stdin.setRawMode) {
         console.error("❌ Interactive mode not supported: Terminal does not support raw mode");
         console.error(`💡 Use --prompt flag for headless mode instead`);
@@ -225,7 +229,22 @@ export function createCLI(options: CLIFactoryOptions): Command {
         process.exit(1);
       }
 
-      // Check for updates
+      // 2. WELCOME MESSAGE - Show branding early so user knows CLI is starting
+      console.log(provider.branding.welcomeMessage + "\n");
+
+      // 3. PROJECT INITIALIZATION CHECK - Important guidance for new users
+      const { existsSync } = await import("fs");
+      const { join } = await import("path");
+      const { getActiveConfigPaths } = await import("./provider/config.js");
+      const activeConfigPaths = getActiveConfigPaths();
+      const customMdPath = join(process.cwd(), activeConfigPaths.DIR_NAME, "CUSTOM.md");
+      const projectInitialized = existsSync(customMdPath);
+
+      if (!projectInitialized) {
+        console.log(`💡 Project not initialized. Run /init to help the AI understand your codebase.\n`);
+      }
+
+      // 4. UPDATE CHECK - May involve network, do after showing welcome
       const updateResult = await checkForUpdatesOnStartup();
       if (updateResult.hasUpdate) {
         const updated = await promptAndInstallUpdate(updateResult.currentVersion, updateResult.latestVersion);
@@ -234,11 +253,44 @@ export function createCLI(options: CLIFactoryOptions): Command {
         }
       }
 
-      // Create agent
+      // 5. PROJECT INDEX REFRESH - Only if project is initialized and index is stale
+      if (projectInitialized) {
+        const { getProjectIndexManager } = await import("./utils/project-index-manager.js");
+        const indexManager = getProjectIndexManager();
+        const indexStatus = indexManager.getStatus();
+
+        if (indexStatus.exists && indexStatus.isStale) {
+          console.log(`🔄 Project index is ${indexStatus.ageHours}h old, refreshing...`);
+          const refreshed = await indexManager.regenerate({ verbose: false });
+          if (refreshed) {
+            console.log(`✅ Project index refreshed\n`);
+          } else {
+            console.log(`⚠️  Could not refresh project index (using existing)\n`);
+          }
+        }
+      }
+
+      // 6. HISTORY MANAGER - Initialize for session continuity
+      const currentDir = process.cwd();
+      const { getHistoryManager } = await import("./utils/history-manager.js");
+      getHistoryManager(currentDir, true);
+
+      // 7. CONTINUE FLAG - Show session restoration status
+      if (cliOptions.continue) {
+        const historyManager = getHistoryManager(currentDir);
+        const previousHistory = historyManager.loadHistory();
+
+        if (previousHistory.length > 0) {
+          console.log(`🔄 Continuing conversation (${previousHistory.length} previous messages)\n`);
+        } else {
+          console.log(`💬 Starting new conversation\n`);
+        }
+      }
+
+      // 8. AGENT SETUP - Create and configure the LLM agent
       const agent = new LLMAgent(apiKey, baseURL, model, maxToolRounds);
       activeAgent = agent;
 
-      // Configure thinking mode if supported
       if (provider.features.supportsThinking) {
         if (cliOptions.think === true) {
           agent.setThinkingConfig({ type: "enabled" });
@@ -253,28 +305,6 @@ export function createCLI(options: CLIFactoryOptions): Command {
           }
         }
       }
-
-      // Initialize history manager with project directory
-      // This ensures history is ALWAYS stored per-project so --continue can find it
-      const currentDir = process.cwd();
-      const { getHistoryManager } = await import("./utils/history-manager.js");
-      // Always create with projectDir so ChatInterface gets the correct singleton
-      getHistoryManager(currentDir, true);
-
-      // Handle --continue flag: show status about loaded history
-      if (cliOptions.continue) {
-        const historyManager = getHistoryManager(currentDir);
-        const previousHistory = historyManager.loadHistory();
-
-        if (previousHistory.length > 0) {
-          console.log(`🔄 Continuing conversation from ${currentDir}`);
-          console.log(`📜 Loaded ${previousHistory.length} previous messages\n`);
-        } else {
-          console.log(`💬 Starting new conversation in ${currentDir}\n`);
-        }
-      }
-
-      console.log(provider.branding.welcomeMessage + "\n");
 
       // Support variadic positional arguments
       const initialMessage = Array.isArray(message) ? message.join(" ") : message;

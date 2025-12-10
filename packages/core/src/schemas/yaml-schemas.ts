@@ -133,14 +133,30 @@ export const ToolDefinitionSchema = z.object({
   optional: z.boolean().optional(),
 });
 
+/**
+ * New simplified prompts.yaml schema
+ * Supports the Claude Code-style prompt structure with named sections
+ */
 export const PromptsYamlSchema = z.object({
   system_prompt: z.object({
     identity: z.string().min(1),
+    // Named sections with title + content
+    thinking: PromptSectionSchema.optional(),
+    autonomy: PromptSectionSchema.optional(),
+    context: PromptSectionSchema.optional(),
+    tools: PromptSectionSchema.optional(),
+    verification: PromptSectionSchema.optional(),
+    safety: PromptSectionSchema.optional(),
+    code_quality: PromptSectionSchema.optional(),
+    scenarios: PromptSectionSchema.optional(),
+    communication: PromptSectionSchema.optional(),
+    agents: PromptSectionSchema.optional(),
+    uncertainty: PromptSectionSchema.optional(),
+    // Legacy fields (optional for backward compatibility)
     professional_objectivity: PromptSectionSchema.optional(),
     core_principles: PromptSectionSchema.optional(),
-    tools_header: z.string().min(1),
-    tools: z.array(ToolDefinitionSchema),
-    sections: z.record(z.string(), PromptSectionSchema),
+    tools_header: z.string().optional(),
+    sections: z.record(z.string(), PromptSectionSchema).optional(),
     closing: z.string().min(1),
   }),
   custom_instructions_prefix: z.string(),
