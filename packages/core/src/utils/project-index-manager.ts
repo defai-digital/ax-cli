@@ -254,6 +254,9 @@ export class ProjectIndexManager {
   /**
    * Get formatted context for system prompt injection
    * Returns null if no index exists
+   *
+   * NOTE: Only includes a concise summary (~500 tokens max)
+   * The AI can read ax.index.json directly if it needs more details
    */
   getPromptContext(): string | null {
     const content = this.load();
@@ -261,14 +264,15 @@ export class ProjectIndexManager {
       return null;
     }
 
-    // Parse and format for prompt
+    // Parse and format a CONCISE summary for prompt
+    // Full details are available via view_file tool
     try {
-      const data = JSON.parse(content) as ProjectIndexData;
+      const data = JSON.parse(content) as Record<string, unknown>;
 
-      // Build a concise project context block
+      // Build a concise project context block (~500 tokens max)
       const lines: string[] = [
         '<project-context>',
-        `Project: ${data.projectName || 'Unknown'}`,
+        `Project: ${data.name || data.projectName || 'Unknown'}`,
       ];
 
       if (data.projectType) {
@@ -277,22 +281,50 @@ export class ProjectIndexManager {
       if (data.primaryLanguage) {
         lines.push(`Language: ${data.primaryLanguage}`);
       }
-      if (data.techStack && data.techStack.length > 0) {
-        lines.push(`Tech Stack: ${data.techStack.join(', ')}`);
+      if (data.techStack && Array.isArray(data.techStack)) {
+        lines.push(`Tech Stack: ${(data.techStack as string[]).join(', ')}`);
       }
 
-      // Add the full index data as JSON for detailed reference
+      // Add key directories if available
+      if (data.directories && typeof data.directories === 'object') {
+        const dirs = data.directories as Record<string, string>;
+        const dirList = Object.entries(dirs)
+          .slice(0, 5) // Limit to 5 directories
+          .map(([key, val]) => `${key}: ${val}`)
+          .join(', ');
+        if (dirList) {
+          lines.push(`Directories: ${dirList}`);
+        }
+      }
+
+      // Add build/test commands if available
+      if (data.scripts && typeof data.scripts === 'object') {
+        const scripts = data.scripts as Record<string, unknown>;
+        const cmds: string[] = [];
+        if (scripts.build) cmds.push(`build: ${scripts.build}`);
+        if (scripts.test) cmds.push(`test: ${scripts.test}`);
+        if (scripts.lint) cmds.push(`lint: ${scripts.lint}`);
+        if (cmds.length > 0) {
+          lines.push(`Commands: ${cmds.join(' | ')}`);
+        }
+      }
+
+      // Add gotchas if available (important warnings)
+      if (data.gotchas && Array.isArray(data.gotchas)) {
+        const gotchas = (data.gotchas as string[]).slice(0, 3); // Max 3 gotchas
+        if (gotchas.length > 0) {
+          lines.push(`Key Notes: ${gotchas.join('; ')}`);
+        }
+      }
+
       lines.push('');
-      lines.push('Full project analysis:');
-      lines.push('```json');
-      lines.push(content);
-      lines.push('```');
+      lines.push('For full project analysis, read: ax.index.json');
       lines.push('</project-context>');
 
       return lines.join('\n');
     } catch {
-      // If parsing fails, just wrap the raw content
-      return `<project-context>\n${content}\n</project-context>`;
+      // If parsing fails, return minimal context with file reference
+      return '<project-context>\nProject index available at: ax.index.json\n</project-context>';
     }
   }
 }
