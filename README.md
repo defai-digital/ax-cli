@@ -16,6 +16,7 @@
 - [Configuration](#configuration)
 - [MCP Integration](#mcp-integration)
 - [VSCode Extension](#vscode-extension)
+- [AutomatosX Integration](#automatosx-integration)
 - [Project Memory](#project-memory)
 - [Security](#security)
 - [Architecture](#architecture)
@@ -82,6 +83,9 @@ Run `/init` inside the CLI to initialize your project context.
 |---------|-------------|
 | **Provider Optimized** | First-class support for GLM (Z.AI) and Grok (xAI) with provider-specific parameters |
 | **17 Built-in Tools** | File editing, bash execution, search, todos, and more |
+| **AutomatosX Agents** | 20+ specialized AI agents for backend, frontend, security, DevOps, and more |
+| **Autonomous Bug Fixing** | Scan and auto-fix timer leaks, resource issues, type errors with rollback safety |
+| **Intelligent Refactoring** | Dead code removal, type safety fixes, complexity reduction with verification |
 | **MCP Integration** | Model Context Protocol with 12+ production-ready templates |
 | **Project Memory** | Intelligent context caching with 50% token savings |
 | **Enterprise Security** | AES-256-GCM encryption, no telemetry, CVSS-rated protections |
@@ -252,6 +256,33 @@ code --install-extension defai-digital.ax-cli-vscode
 
 ---
 
+## AutomatosX Integration
+
+AX CLI integrates with [AutomatosX](https://github.com/defai-digital/automatosx) - a multi-agent AI system with autonomous bug fixing, intelligent refactoring, and 20+ specialized agents.
+
+In interactive mode (`ax-glm` or `ax-grok`), just ask naturally:
+
+```
+> please scan and fix bugs in this codebase
+
+> refactor the authentication module, focus on removing dead code
+
+> use the security agent to audit the API endpoints
+
+> review this PRD and work with the product agent to improve it
+
+> ask the backend and frontend agents to implement user registration together
+```
+
+**What you get:**
+- **Bug fixing**: Detects timer leaks, missing cleanup, resource issues - auto-fixes with rollback safety
+- **Refactoring**: Removes dead code, fixes type safety, reduces complexity - verified by typecheck
+- **20+ agents**: Backend, frontend, security, architecture, DevOps, data, and more
+
+See [AutomatosX Guide](docs/AutomatosX-Integration.md) for agent list, advanced options, and configuration
+
+---
+
 ## Project Memory
 
 Reduce token costs and improve context recall with intelligent caching that stores and retrieves relevant project information, avoiding redundant processing.
@@ -357,6 +388,7 @@ For a complete history of changes, please refer to the [full release notes on Gi
 - [Configuration](docs/configuration.md)
 - [CLI Reference](docs/cli-reference.md)
 - [MCP Integration](docs/mcp.md)
+- [AutomatosX Guide](docs/AutomatosX-Integration.md)
 - [VSCode Guide](docs/vscode-integration-guide.md)
 - [Figma Integration](docs/figma-guide.md)
 - [Troubleshooting](docs/troubleshooting.md)
