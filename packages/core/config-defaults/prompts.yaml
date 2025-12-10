@@ -113,6 +113,15 @@ system_prompt:
       - create_file: NEW files only (NEVER on existing - causes data loss)
       - bash: git, npm/pnpm, tests, builds (not for file reading)
       - ax_agent/ax_agents_parallel: delegate to specialized agents
+      - web_search: search the internet for current information, docs, APIs
+      - web_fetch: fetch and read content from URLs (documentation, examples)
+
+      WEB SEARCH GUIDELINES:
+      - Use web_search for: latest docs, API references, error messages, best practices
+      - Use web_fetch to read specific URLs found via search or provided by user
+      - Prefer official documentation sources (MDN, official docs, GitHub)
+      - Always cite sources when providing web-sourced information
+      - For coding questions: search first, then verify against project context
 
       TOOL FALLBACKS:
       - search fails → try broader terms, different file patterns
