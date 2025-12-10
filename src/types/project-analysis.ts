@@ -7,6 +7,8 @@ export interface ProjectInfo {
   name: string;
   /** Project version */
   version?: string;
+  /** Project description from README or package.json */
+  description?: string;
   /** Primary programming language */
   primaryLanguage: string;
   /** Detected tech stack */
@@ -37,6 +39,10 @@ export interface ProjectInfo {
   packageManager?: string;
   /** Last analysis timestamp */
   lastAnalyzed: string;
+  /** CI/CD platform detected */
+  cicdPlatform?: string;
+  /** Important gotchas and tips */
+  gotchas?: string[];
 }
 
 export interface CodeConventions {

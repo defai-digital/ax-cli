@@ -191,7 +191,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # Publish ax-cli (main package - using npm since it has no workspace deps)
+      # Publish ax-cli (main package - using pnpm to resolve workspace:* correctly)
       - name: Publish ax-cli
         if: steps.package.outputs.package == 'ax-cli' || steps.package.outputs.package == 'all'
         run: |
@@ -200,7 +200,8 @@ jobs:
           if npm view $PACKAGE_NAME@$VERSION version 2>/dev/null; then
             echo "⏭️ $PACKAGE_NAME@$VERSION already exists, skipping"
           else
-            npm publish --provenance --access public
+            # Use pnpm to handle workspace:* resolution
+            pnpm publish --provenance --access public --no-git-checks
             echo "✅ Published $PACKAGE_NAME@$VERSION"
           fi
         env:

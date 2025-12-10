@@ -57,19 +57,42 @@ export class LLMOptimizedInstructionGenerator {
       sections.push(this.generateTroubleshooting(projectInfo));
     }
 
+    // Gotchas/Tips section
+    const gotchasSection = this.generateGotchas(projectInfo);
+    if (gotchasSection) {
+      sections.push(gotchasSection);
+    }
+
     return sections.join('\n\n---\n\n');
   }
 
+  private generateGotchas(projectInfo: ProjectInfo): string | null {
+    const { gotchas } = projectInfo;
+    if (!gotchas || gotchas.length === 0) return null;
+
+    const lines = ['## 💡 Development Tips'];
+    for (const tip of gotchas) {
+      lines.push(`- ${tip}`);
+    }
+    return lines.join('\n');
+  }
+
   private generateHeader(projectInfo: ProjectInfo): string {
-    // Compressed header - remove "Custom Instructions for AX CLI"
+    // Compressed header with description
     const version = projectInfo.version ? ` v${projectInfo.version}` : '';
     const stack = projectInfo.techStack.length > 0
       ? `\n**Stack:** ${projectInfo.techStack.join(', ')}`
       : '';
+    const description = projectInfo.description
+      ? `\n\n${projectInfo.description}`
+      : '';
+    const cicd = projectInfo.cicdPlatform
+      ? ` | **CI:** ${projectInfo.cicdPlatform}`
+      : '';
 
     return `# ${projectInfo.name} - Quick Reference
 
-**Type:** ${projectInfo.projectType} | **Lang:** ${projectInfo.primaryLanguage}${version ? ` | **Ver:** ${version}` : ''}${stack}`;
+**Type:** ${projectInfo.projectType} | **Lang:** ${projectInfo.primaryLanguage}${version ? ` | **Ver:** ${version}` : ''}${cicd}${stack}${description}`;
   }
 
   private generateCriticalRules(projectInfo: ProjectInfo): string {
