@@ -90,17 +90,10 @@ export function createInitCommand(): Command {
         // Note: Legacy provider-specific index.json is no longer generated
         const sharedIndexPath = join(projectRoot, FILE_NAMES.AX_INDEX_JSON);
 
-        // Check if already initialized (check both shared index and custom.md)
-        if (!options.force && (existsSync(sharedIndexPath) || existsSync(customMdPath))) {
-          prompts.log.success('Project already initialized!');
-          if (existsSync(sharedIndexPath)) {
-            prompts.log.info(`Shared project index: ${sharedIndexPath}`);
-          }
-          prompts.log.info(`Custom instructions: ${customMdPath}`);
-          prompts.log.info('Use --force to regenerate');
-          prompts.outro(chalk.green('Already configured'));
-          return;
-        }
+        // init always rebuilds ax.index.json (no --force needed for index)
+        // Only CUSTOM.md requires --force to overwrite
+        const customMdExists = existsSync(customMdPath);
+        const willSkipCustomMd = !options.force && customMdExists;
 
         // Run interactive wizard for template selection (unless --yes or --no-interaction)
         let selectedTemplate = undefined;
@@ -189,18 +182,20 @@ export function createInitCommand(): Command {
         const tmpSharedIndexPath = `${sharedIndexPath}.tmp`;
 
         try {
-          writeFileSync(tmpCustomPath, instructions, 'utf-8');
+          // Always write shared project index (no --force needed)
           writeFileSync(tmpSharedIndexPath, index, 'utf-8');
-
-          // Atomic rename
-          renameSync(tmpCustomPath, customMdPath);
           renameSync(tmpSharedIndexPath, sharedIndexPath);
+          prompts.log.success(`Rebuilt shared project index: ${sharedIndexPath}`);
 
-          prompts.log.success(`Generated shared project index: ${sharedIndexPath}`);
-          prompts.log.success(`Generated custom instructions: ${customMdPath}`);
-
-          // Note: We no longer generate the legacy provider-specific index.json
-          // The ax.index.json at root is shared by all CLIs
+          // Write CUSTOM.md only if doesn't exist or --force
+          if (!willSkipCustomMd) {
+            writeFileSync(tmpCustomPath, instructions, 'utf-8');
+            renameSync(tmpCustomPath, customMdPath);
+            prompts.log.success(`Generated custom instructions: ${customMdPath}`);
+          } else {
+            prompts.log.info(`Skipped CUSTOM.md (already exists): ${customMdPath}`);
+            prompts.log.info('Use --force to regenerate CUSTOM.md');
+          }
         } catch (writeError) {
           // Cleanup temp files on error
           try {
@@ -213,26 +208,36 @@ export function createInitCommand(): Command {
         }
 
         // Show completion summary
+        const filesInfo = willSkipCustomMd
+          ? `\nFiles:\n  ✅ ${sharedIndexPath} (rebuilt)\n  ⏭️  ${customMdPath} (skipped - already exists)`
+          : `\nFiles created:\n  ✅ ${sharedIndexPath} (shared by all AX CLIs)\n  ✅ ${customMdPath}`;
+
         await prompts.note(
           `Project: ${projectInfo.name} (${projectInfo.projectType})\n` +
           `Language: ${projectInfo.primaryLanguage}\n` +
           (projectInfo.techStack.length > 0 ? `Stack: ${projectInfo.techStack.join(', ')}\n` : '') +
-          (result.duration ? `Analysis time: ${result.duration}ms\n` : '') +
-          `\nFiles created:\n` +
-          `  ${sharedIndexPath} (shared by all AX CLIs)\n` +
-          `  ${customMdPath}`,
-          'Project Summary'
+          (result.duration ? `Analysis time: ${result.duration}ms` : '') +
+          filesInfo,
+          willSkipCustomMd ? 'Project Index Rebuilt' : 'Project Summary'
         );
 
-        await prompts.note(
-          `1. Review ${configDirName}/CUSTOM.md and customize if needed\n` +
-          '2. The ax.index.json is shared by ax-cli, ax-glm, and ax-grok\n' +
-          '3. Start chatting with your AI assistant\n' +
-          '4. Use --force to regenerate after project changes',
-          'Next Steps'
-        );
+        if (willSkipCustomMd) {
+          await prompts.note(
+            `The ax.index.json has been rebuilt with latest project analysis.\n` +
+            `CUSTOM.md was kept unchanged.\n\n` +
+            `Use --force to regenerate both files.`,
+            'Next Steps'
+          );
+        } else {
+          await prompts.note(
+            `1. Review ${configDirName}/CUSTOM.md and customize if needed\n` +
+            '2. The ax.index.json is shared by ax-cli, ax-glm, and ax-grok\n' +
+            '3. Start chatting with your AI assistant',
+            'Next Steps'
+          );
+        }
 
-        prompts.outro(chalk.green('Project initialized successfully!'));
+        prompts.outro(chalk.green(willSkipCustomMd ? 'Project index rebuilt!' : 'Project initialized successfully!'));
 
       } catch (error) {
         prompts.log.error(`Error during initialization: ${extractErrorMessage(error)}`);

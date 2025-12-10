@@ -828,26 +828,12 @@ export function useInputHandler({
         // Shared project index at root (used by all CLIs)
         const sharedIndexPath = path.join(projectRoot, FILE_NAMES.AX_INDEX_JSON);
 
-        // Check if already initialized
-        if (fs.existsSync(sharedIndexPath) || fs.existsSync(customMdPath)) {
-          const provider = getActiveProvider();
-          const cliName = provider.branding.cliName;
-          let content = `✅ Project already initialized!\n`;
-          if (fs.existsSync(sharedIndexPath)) {
-            content += `📊 Shared project index: ${sharedIndexPath}\n`;
-          }
-          content += `📝 Custom instructions: ${customMdPath}\n\n`;
-          content += `💡 Run '${cliName} init --force' from terminal to regenerate`;
-          const alreadyInitEntry: ChatEntry = {
-            type: "assistant",
-            content,
-            timestamp: new Date(),
-          };
-          setChatHistory((prev) => [...prev, alreadyInitEntry]);
-          setIsProcessing(false);
-          clearInput();
-          return true;
-        }
+        // /init always rebuilds ax.index.json (no --force needed for index)
+        // Only CUSTOM.md requires --force to overwrite (use terminal command)
+        const customMdExists = fs.existsSync(customMdPath);
+
+        // If CUSTOM.md exists, warn user but still rebuild ax.index.json
+        const willSkipCustomMd = customMdExists;
 
         // Analyze project with deep analysis (Tier 3 - default)
         const analyzer = new ProjectAnalyzer(projectRoot);
@@ -884,16 +870,20 @@ export function useInputHandler({
           fs.mkdirSync(axCliDir, { recursive: true });
         }
 
-        // Write custom instructions (provider-specific)
-        fs.writeFileSync(customMdPath, instructions, "utf-8");
+        // Write custom instructions (provider-specific) - only if doesn't exist
+        if (!willSkipCustomMd) {
+          fs.writeFileSync(customMdPath, instructions, "utf-8");
+        }
 
-        // Write shared project index at root
+        // Always write shared project index at root (no --force needed)
         fs.writeFileSync(sharedIndexPath, index, "utf-8");
 
         // Display success
         const provider = getActiveProvider();
         const cliName = provider.branding.cliName;
-        let successMessage = `🎉 Project initialized successfully!\n\n`;
+        let successMessage = willSkipCustomMd
+          ? `🔄 Project index rebuilt!\n\n`
+          : `🎉 Project initialized successfully!\n\n`;
         successMessage += `📋 Analysis Results:\n`;
         successMessage += `   Name: ${projectInfo.name}\n`;
         successMessage += `   Type: ${projectInfo.projectType}\n`;
@@ -904,12 +894,14 @@ export function useInputHandler({
         if (result.duration) {
           successMessage += `   Analysis time: ${result.duration}ms\n`;
         }
-        successMessage += `\n✅ Generated shared project index: ${sharedIndexPath}\n`;
-        successMessage += `✅ Generated custom instructions: ${customMdPath}\n\n`;
-        successMessage += `💡 Next steps:\n`;
-        successMessage += `   1. Review and customize ${configDirName}/CUSTOM.md if needed\n`;
-        successMessage += `   2. The ax.index.json is shared by ax-cli, ax-glm, and ax-grok\n`;
-        successMessage += `   3. Use '${cliName} init --force' to regenerate after project changes`;
+        successMessage += `\n✅ Rebuilt shared project index: ${sharedIndexPath}\n`;
+        if (willSkipCustomMd) {
+          successMessage += `⏭️  Skipped CUSTOM.md (already exists): ${customMdPath}\n`;
+          successMessage += `   Use '${cliName} init --force' from terminal to regenerate CUSTOM.md\n`;
+        } else {
+          successMessage += `✅ Generated custom instructions: ${customMdPath}\n`;
+        }
+        successMessage += `\n💡 The ax.index.json is shared by ax-cli, ax-glm, and ax-grok`;
 
         const successEntry: ChatEntry = {
           type: "assistant",
