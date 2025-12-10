@@ -83,4 +83,6 @@ export interface AnalysisResult {
   projectInfo?: ProjectInfo;
   error?: string;
   warnings?: string[];
+  /** Analysis duration in milliseconds */
+  duration?: number;
 }

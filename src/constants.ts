@@ -27,6 +27,8 @@ export const FILE_NAMES = {
   AX_MD: 'AX.md',
   /** Project index file name */
   INDEX_JSON: 'index.json',
+  /** Shared project index at root (used by all CLIs) */
+  AX_INDEX_JSON: 'ax.index.json',
   /** Project memory file name */
   MEMORY_JSON: 'memory.json',
   /** History file name */
