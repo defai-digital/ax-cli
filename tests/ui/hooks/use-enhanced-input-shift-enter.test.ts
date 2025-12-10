@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isShiftEnterKey, type Key } from '../../../src/ui/hooks/use-enhanced-input.js';
+import { isShiftEnterKey, type Key } from '../../../packages/core/src/ui/hooks/use-enhanced-input.js';
 
 describe('isShiftEnterKey', () => {
   it('detects Shift+Enter when Ink reports modifiers', () => {

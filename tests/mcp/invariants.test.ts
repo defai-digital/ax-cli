@@ -30,7 +30,7 @@ import {
   criticalOperation,
   processServers,
   Resource,
-} from "../../src/mcp/invariants.js";
+} from "../../packages/core/src/mcp/invariants.js";
 
 describe("MCP Invariants", () => {
   describe("invariant", () => {

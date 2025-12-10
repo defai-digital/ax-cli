@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { LLMAPIError, createLLMAPIError } from '../../src/utils/api-error.js';
+import { LLMAPIError, createLLMAPIError } from '../../packages/core/src/utils/api-error.js';
 
 describe('api-error', () => {
   describe('LLMAPIError', () => {

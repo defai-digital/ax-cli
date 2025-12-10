@@ -12,8 +12,8 @@ import {
   HealthCheckConfig,
   DEFAULT_RECONNECTION_CONFIG,
   DEFAULT_HEALTH_CHECK_CONFIG
-} from '../../src/mcp/client-v2.js';
-import type { MCPServerConfig } from '../../src/schemas/settings-schemas.js';
+} from '../../packages/core/src/mcp/client-v2.js';
+import type { MCPServerConfig } from '../../packages/core/src/schemas/settings-schemas.js';
 
 describe('MCPManagerV2 Reconnection', () => {
   let manager: MCPManagerV2;

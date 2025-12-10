@@ -8,7 +8,7 @@ import {
   ProgressEventType,
   getProgressReporter,
   type ProgressEvent,
-} from "../../src/sdk/progress-reporter.js";
+} from "../../packages/core/src/sdk/progress-reporter.js";
 
 describe("Progress Reporter", () => {
   let reporter: ProgressReporter;

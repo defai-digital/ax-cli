@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { BashOutputTool } from "../../src/tools/bash-output.js";
+import { BashOutputTool } from "../../packages/core/src/tools/bash-output.js";
 
 // Mock the background task manager
 const mockTasks: Map<string, any> = new Map();

@@ -18,8 +18,8 @@ import {
   getCheckpointManager,
   initCheckpointManager,
   resetCheckpointManager,
-} from '../../src/checkpoint/manager.js';
-import type { CheckpointConfig, CheckpointOptions, ChatEntry } from '../../src/checkpoint/types.js';
+} from '../../packages/core/src/checkpoint/manager.js';
+import type { CheckpointConfig, CheckpointOptions, ChatEntry } from '../../packages/core/src/checkpoint/types.js';
 
 describe('CheckpointManager', () => {
   let manager: CheckpointManager;

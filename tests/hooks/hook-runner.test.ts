@@ -8,8 +8,8 @@ import {
   getHookRunner,
   disposeHookRunner,
   initializeHookRunner,
-} from '../../src/hooks/hook-runner.js';
-import type { LLMToolCall } from '../../src/llm/client.js';
+} from '../../packages/core/src/hooks/hook-runner.js';
+import type { LLMToolCall } from '../../packages/core/src/llm/client.js';
 
 describe('HookRunner', () => {
   let runner: HookRunner;

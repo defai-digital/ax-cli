@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { ToolRegistry, type ToolDefinition } from '../../src/tools/registry.js';
+import { ToolRegistry, type ToolDefinition } from '../../packages/core/src/tools/registry.js';
 
 describe('ToolRegistry', () => {
   describe('register', () => {

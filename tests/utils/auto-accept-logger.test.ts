@@ -9,8 +9,8 @@ import {
   AutoAcceptLogger,
   getAutoAcceptLogger,
   initializeAutoAcceptLogger,
-} from '../../src/utils/auto-accept-logger.js';
-import { DESTRUCTIVE_OPERATIONS } from '../../src/utils/safety-rules.js';
+} from '../../packages/core/src/utils/auto-accept-logger.js';
+import { DESTRUCTIVE_OPERATIONS } from '../../packages/core/src/utils/safety-rules.js';
 import { existsSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';

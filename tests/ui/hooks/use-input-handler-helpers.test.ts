@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldIgnoreContentChunk } from "../../../src/ui/hooks/use-input-handler.js";
+import { shouldIgnoreContentChunk } from "../../../packages/core/src/ui/hooks/use-input-handler.js";
 
 describe("use-input-handler helpers", () => {
   describe("shouldIgnoreContentChunk", () => {

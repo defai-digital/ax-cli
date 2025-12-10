@@ -6,14 +6,14 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   TokenEstimator,
   getTokenEstimator,
-} from "../../src/planner/token-estimator.js";
+} from "../../packages/core/src/planner/token-estimator.js";
 import {
   createPhase,
   createPlan,
   RiskLevel,
   TaskPhase,
-} from "../../src/planner/types.js";
-import type { ExecutionBatch } from "../../src/planner/dependency-resolver.js";
+} from "../../packages/core/src/planner/types.js";
+import type { ExecutionBatch } from "../../packages/core/src/planner/dependency-resolver.js";
 
 describe("TokenEstimator", () => {
   let estimator: TokenEstimator;

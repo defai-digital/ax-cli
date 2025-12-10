@@ -6,7 +6,7 @@ import {
   PermissionManager,
   PermissionTier,
   getPermissionManager,
-} from '../../src/permissions/permission-manager.js';
+} from '../../packages/core/src/permissions/permission-manager.js';
 
 describe('PermissionManager', () => {
   let manager: PermissionManager;

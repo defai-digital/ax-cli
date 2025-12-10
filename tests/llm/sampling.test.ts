@@ -9,7 +9,7 @@ import {
   createDeterministicSampling,
   createCreativeSampling,
   SamplingConfig,
-} from "../../src/llm/types.js";
+} from "../../packages/core/src/llm/types.js";
 
 describe("SamplingConfig", () => {
   describe("validateSampling", () => {

@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { UserSettingsSchema, type UserSettings } from '../../src/schemas/settings-schemas.js';
+import { UserSettingsSchema, type UserSettings } from '../../packages/core/src/schemas/settings-schemas.js';
 
 describe('Optional Security Configuration', () => {
   describe('SecuritySettings Schema Validation', () => {

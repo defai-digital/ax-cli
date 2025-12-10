@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { SubagentOrchestrator } from '../../src/agent/subagent-orchestrator.js';
-import { SubagentRole, SubagentTask, SubagentState } from '../../src/agent/subagent-types.js';
+import { SubagentOrchestrator } from '../../packages/core/src/agent/subagent-orchestrator.js';
+import { SubagentRole, SubagentTask, SubagentState } from '../../packages/core/src/agent/subagent-types.js';
 
 // Mock settings manager for CI environments
 vi.mock('../../src/utils/settings-manager.js', () => ({

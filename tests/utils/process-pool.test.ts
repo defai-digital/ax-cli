@@ -10,7 +10,7 @@ import {
   ProcessPool,
   getRipgrepPool,
   shutdownRipgrepPool,
-} from '../../src/utils/process-pool.js';
+} from '../../packages/core/src/utils/process-pool.js';
 
 describe('REQ-ARCH-002: Process Pool - Memory Leak Prevention', () => {
   let pool: ProcessPool;

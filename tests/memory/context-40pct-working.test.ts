@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ContextGenerator } from '../../src/memory/context-generator.js';
-import { GLM_MODELS } from '../../src/constants.js';
+import { ContextGenerator } from '../../packages/core/src/memory/context-generator.js';
+import { GLM_MODELS } from '../../packages/core/src/constants.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 

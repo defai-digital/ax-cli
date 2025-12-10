@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createAgent, removeCleanupHandlers, type AgentOptions } from '../../src/sdk/index.js';
-import { LLMAgent } from '../../src/agent/llm-agent.js';
+import { createAgent, removeCleanupHandlers, type AgentOptions } from '../../packages/core/src/sdk/index.js';
+import { LLMAgent } from '../../packages/core/src/agent/llm-agent.js';
 
 // Mock provider settings manager to avoid needing actual credentials
 vi.mock('../../src/utils/provider-settings.js', () => {

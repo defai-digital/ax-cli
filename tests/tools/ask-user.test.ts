@@ -10,7 +10,7 @@ import {
   getAskUserTool,
   type Question,
   type QuestionRequest,
-} from '../../src/tools/ask-user.js';
+} from '../../packages/core/src/tools/ask-user.js';
 
 describe('AskUserService', () => {
   let service: AskUserService;

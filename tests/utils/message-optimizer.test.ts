@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MessageOptimizer, getMessageOptimizer } from '../../src/utils/message-optimizer.js';
+import { MessageOptimizer, getMessageOptimizer } from '../../packages/core/src/utils/message-optimizer.js';
 
 describe('MessageOptimizer', () => {
   describe('TypeScript Build Error Extraction', () => {

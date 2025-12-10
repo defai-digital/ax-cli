@@ -10,8 +10,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { MCPManager } from '../../src/mcp/client.js';
-import type { MCPServerConfig } from '../../src/schemas/settings-schemas.js';
+import { MCPManager } from '../../packages/core/src/mcp/client.js';
+import type { MCPServerConfig } from '../../packages/core/src/schemas/settings-schemas.js';
 
 describe('MCPManager v1 Wrapper', () => {
   let manager: MCPManager;

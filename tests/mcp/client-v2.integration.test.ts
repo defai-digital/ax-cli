@@ -8,8 +8,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { MCPManagerV2, createServerName, type ConnectionState } from '../../src/mcp/client-v2.js';
-import type { MCPServerConfig } from '../../src/types/index.js';
+import { MCPManagerV2, createServerName, type ConnectionState } from '../../packages/core/src/mcp/client-v2.js';
+import type { MCPServerConfig } from '../../packages/core/src/types/index.js';
 
 // Simple URL validation helper (was previously in transports-v2.ts)
 function isValidURL(url: string): boolean {

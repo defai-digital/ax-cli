@@ -10,7 +10,7 @@ import {
   validateMCPServerConfig,
   safeValidateUserSettings,
   safeValidateProjectSettings,
-} from '../../src/schemas/index';
+} from '../../packages/core/src/schemas/index';
 import { z } from 'zod';
 
 describe('Schema Validation', () => {

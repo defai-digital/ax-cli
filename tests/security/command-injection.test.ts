@@ -12,7 +12,7 @@ import {
   sanitizeEnv,
   isSafeCommand,
   getSafeCommands,
-} from '../../src/utils/command-security.js';
+} from '../../packages/core/src/utils/command-security.js';
 
 describe('REQ-SEC-001: Command Injection Prevention', () => {
   describe('Command Whitelist', () => {

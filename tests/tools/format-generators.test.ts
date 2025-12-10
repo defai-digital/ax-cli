@@ -13,8 +13,8 @@ import {
   filterByCategory,
   filterBySafetyLevel,
   getToolsRequiringConfirmation,
-} from "../../src/tools/format-generators.js";
-import type { ToolDefinition } from "../../src/tools/types.js";
+} from "../../packages/core/src/tools/format-generators.js";
+import type { ToolDefinition } from "../../packages/core/src/tools/types.js";
 
 // Create test tool definition
 const createTestTool = (overrides: Partial<ToolDefinition> = {}): ToolDefinition => ({

@@ -13,7 +13,7 @@ import {
   getAvailableAgents,
   isAgentAvailable,
   type AgentRouterConfig,
-} from '../../src/agent/agent-router.js';
+} from '../../packages/core/src/agent/agent-router.js';
 import * as fs from 'fs';
 
 // Mock fs module

@@ -12,8 +12,8 @@ import {
   formatDuration,
   type ToolGroup,
   type GroupedEntry,
-} from '../../../src/ui/utils/tool-grouper.js';
-import type { ChatEntry } from '../../../src/agent/llm-agent.js';
+} from '../../../packages/core/src/ui/utils/tool-grouper.js';
+import type { ChatEntry } from '../../../packages/core/src/agent/llm-agent.js';
 
 // Helper to create mock chat entries
 function createToolCall(

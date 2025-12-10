@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { FigmaClient, type FigmaClientConfig, type FigmaApiError } from "../../src/design/figma-client.js";
+import { FigmaClient, type FigmaClientConfig, type FigmaApiError } from "../../packages/core/src/design/figma-client.js";
 
 // Mock fetch globally
 const mockFetch = vi.fn();

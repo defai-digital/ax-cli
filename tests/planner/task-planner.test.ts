@@ -7,7 +7,7 @@ import {
   TaskPlanner,
   getTaskPlanner,
   resetTaskPlanner,
-} from "../../src/planner/task-planner.js";
+} from "../../packages/core/src/planner/task-planner.js";
 import {
   createPhase,
   createPlan,
@@ -18,7 +18,7 @@ import {
   TaskPhase,
   TaskPlan,
   PhaseResult,
-} from "../../src/planner/types.js";
+} from "../../packages/core/src/planner/types.js";
 
 // Mock the storage module
 vi.mock("../../src/planner/plan-storage.js", () => ({

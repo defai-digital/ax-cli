@@ -9,7 +9,7 @@ import {
   isGLM46Response,
   hasReasoningContent,
   type ThinkingConfig,
-} from '../../src/llm/types.js';
+} from '../../packages/core/src/llm/types.js';
 
 describe('GLM-4.6 Type Validation', () => {
   describe('validateTemperature', () => {

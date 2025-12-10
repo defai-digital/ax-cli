@@ -789,7 +789,7 @@ export class LLMAgent extends EventEmitter {
 
 function generateTestFile(index: number): string {
   return `import { describe, it, expect } from 'vitest';
-import { Component${index} } from '../../src/components/Component${index}';
+import { Component${index} } from '../../packages/core/src/components/Component${index}';
 
 describe('Component${index}', () => {
   it('should render correctly', () => {

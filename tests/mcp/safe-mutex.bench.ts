@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, bench } from 'vitest';
-import { SafeKeyedMutex } from '../../src/mcp/mutex-safe.js';
+import { SafeKeyedMutex } from '../../packages/core/src/mcp/mutex-safe.js';
 
 describe('SafeKeyedMutex Performance Benchmarks', () => {
   describe('Lock Acquisition Performance', () => {

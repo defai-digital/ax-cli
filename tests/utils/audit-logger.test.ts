@@ -12,7 +12,7 @@ import {
   AuditSeverity,
   AuditCategory,
   type AuditEvent,
-} from '../../src/utils/audit-logger.js';
+} from '../../packages/core/src/utils/audit-logger.js';
 
 describe('AuditLogger', () => {
   let testLogDir: string;

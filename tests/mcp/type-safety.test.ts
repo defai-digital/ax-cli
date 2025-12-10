@@ -26,7 +26,7 @@ import {
   type ServerName,
   type ConnectionState,
   type Result,
-} from '../../src/mcp/type-safety.js';
+} from '../../packages/core/src/mcp/type-safety.js';
 
 describe('Brand Types', () => {
   describe('createServerName', () => {

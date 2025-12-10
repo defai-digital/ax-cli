@@ -8,8 +8,8 @@ import {
   hasTemplate,
   generateConfigFromTemplate,
   type MCPServerTemplate
-} from '../../src/mcp/templates.js';
-import { MCPServerConfigSchema } from '../../src/schemas/settings-schemas.js';
+} from '../../packages/core/src/mcp/templates.js';
+import { MCPServerConfigSchema } from '../../packages/core/src/schemas/settings-schemas.js';
 
 describe('MCP Templates', () => {
   describe('TEMPLATES constant', () => {

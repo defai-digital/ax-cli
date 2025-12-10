@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { getAxBaseDir } from '../../../src/utils/path-helpers.js';
+import { getAxBaseDir } from '../../../packages/core/src/utils/path-helpers.js';
 
 /**
  * Tests for project-specific command history isolation

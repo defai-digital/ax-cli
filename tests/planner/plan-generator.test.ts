@@ -6,13 +6,13 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   PlanGenerator,
   getPlanGenerator,
-} from "../../src/planner/plan-generator.js";
+} from "../../packages/core/src/planner/plan-generator.js";
 import {
   RiskLevel,
   FallbackStrategy,
   PhaseStatus,
   PlanStatus,
-} from "../../src/planner/types.js";
+} from "../../packages/core/src/planner/types.js";
 
 describe("PlanGenerator", () => {
   let generator: PlanGenerator;

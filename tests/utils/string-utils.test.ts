@@ -4,7 +4,7 @@ import {
   containsIgnoreCase,
   startsWithIgnoreCase,
   endsWithIgnoreCase,
-} from '../../src/utils/string-utils.js';
+} from '../../packages/core/src/utils/string-utils.js';
 
 describe('string-utils', () => {
   describe('equalsIgnoreCase', () => {

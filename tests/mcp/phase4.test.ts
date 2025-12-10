@@ -6,15 +6,15 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { MCPManager } from '../../src/mcp/client.js';
-import { validateServerConfig } from '../../src/mcp/validation.js';
+import { MCPManager } from '../../packages/core/src/mcp/client.js';
+import { validateServerConfig } from '../../packages/core/src/mcp/validation.js';
 import {
   extractMCPReferences,
   parseMCPReference,
   searchResources,
   type MCPResource
-} from '../../src/mcp/resources.js';
-import type { MCPServerConfig } from '../../src/schemas/settings-schemas.js';
+} from '../../packages/core/src/mcp/resources.js';
+import type { MCPServerConfig } from '../../packages/core/src/schemas/settings-schemas.js';
 
 describe('MCP Phase 4 - Token Limiting', () => {
   let mcpManager: MCPManager;

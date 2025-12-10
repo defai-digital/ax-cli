@@ -8,7 +8,7 @@ import {
   MultiTierRateLimiter,
   KeyedRateLimiter,
   DEFAULT_RATE_LIMITS,
-} from '../../src/utils/rate-limiter.js';
+} from '../../packages/core/src/utils/rate-limiter.js';
 
 describe('RateLimiter', () => {
   beforeEach(() => {

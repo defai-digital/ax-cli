@@ -14,7 +14,7 @@ import {
   getDefaultAlwaysConfirm,
   formatSeverity,
   DESTRUCTIVE_OPERATIONS,
-} from '../../src/utils/safety-rules.js';
+} from '../../packages/core/src/utils/safety-rules.js';
 
 describe('Safety Rules System', () => {
   describe('isDestructiveCommand', () => {

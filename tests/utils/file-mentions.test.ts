@@ -11,7 +11,7 @@ import {
   extractFilePaths,
   type ParseConfig,
   type FileMention,
-} from "../../src/utils/file-mentions.js";
+} from "../../packages/core/src/utils/file-mentions.js";
 
 describe("File Mentions Parser", () => {
   let testDir: string;

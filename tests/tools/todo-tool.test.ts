@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { TodoTool } from "../../src/tools/todo-tool.js";
+import { TodoTool } from "../../packages/core/src/tools/todo-tool.js";
 
 describe("TodoTool", () => {
   let todoTool: TodoTool;

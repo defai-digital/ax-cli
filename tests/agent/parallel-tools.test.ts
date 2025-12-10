@@ -8,8 +8,8 @@ import {
   partitionToolCalls,
   executeToolsInParallel,
   TOOL_CLASSIFICATION,
-} from "../../src/agent/parallel-tools.js";
-import type { LLMToolCall } from "../../src/llm/client.js";
+} from "../../packages/core/src/agent/parallel-tools.js";
+import type { LLMToolCall } from "../../packages/core/src/llm/client.js";
 
 // Helper to create mock tool calls
 function createToolCall(name: string, id?: string): LLMToolCall {

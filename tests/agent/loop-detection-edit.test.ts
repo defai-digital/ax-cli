@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { LLMAgent } from '../../src/agent/llm-agent.js';
-import { getLoopDetector, resetLoopDetector } from '../../src/agent/loop-detector.js';
-import type { LLMToolCall } from '../../src/llm/client.js';
+import { LLMAgent } from '../../packages/core/src/agent/llm-agent.js';
+import { getLoopDetector, resetLoopDetector } from '../../packages/core/src/agent/loop-detector.js';
+import type { LLMToolCall } from '../../packages/core/src/llm/client.js';
 
 describe('Loop Detection for str_replace_editor', () => {
   let agent: LLMAgent;

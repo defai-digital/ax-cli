@@ -10,8 +10,8 @@ import {
   isCompatibleTransition,
   getActionDescription,
   formatActionWithCounts,
-} from '../../../src/ui/utils/semantic-action-detector.js';
-import type { ChatEntry } from '../../../src/agent/llm-agent.js';
+} from '../../../packages/core/src/ui/utils/semantic-action-detector.js';
+import type { ChatEntry } from '../../../packages/core/src/agent/llm-agent.js';
 
 // Helper to create mock ChatEntry
 function createToolCallEntry(toolName: string, args: Record<string, unknown>): ChatEntry {

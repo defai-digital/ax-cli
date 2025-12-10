@@ -13,8 +13,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { CheckpointStorage, calculateHash, verifyFileSnapshot } from '../../src/checkpoint/storage.js';
-import type { Checkpoint, FileSnapshot } from '../../src/checkpoint/types.js';
+import { CheckpointStorage, calculateHash, verifyFileSnapshot } from '../../packages/core/src/checkpoint/storage.js';
+import type { Checkpoint, FileSnapshot } from '../../packages/core/src/checkpoint/types.js';
 
 describe('CheckpointStorage', () => {
   let storage: CheckpointStorage;

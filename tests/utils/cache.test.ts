@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { LRUCache, memoize, memoizeAsync } from '../../src/utils/cache.js';
+import { LRUCache, memoize, memoizeAsync } from '../../packages/core/src/utils/cache.js';
 
 describe('cache', () => {
   describe('LRUCache', () => {

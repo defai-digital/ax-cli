@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { parallelLimit } from '../../src/utils/parallel-analyzer.js';
+import { parallelLimit } from '../../packages/core/src/utils/parallel-analyzer.js';
 
 describe('parallelLimit', () => {
   // Helper to simulate async operations with controllable delays

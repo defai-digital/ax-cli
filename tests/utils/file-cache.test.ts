@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { FileCache, createFileCache, getFileCache, clearAllCaches } from '../../src/utils/file-cache.js';
+import { FileCache, createFileCache, getFileCache, clearAllCaches } from '../../packages/core/src/utils/file-cache.js';
 import { writeFile, mkdir, rm, utimes } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';

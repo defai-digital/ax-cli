@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ProjectAnalyzer } from '../../src/utils/project-analyzer.js';
+import { ProjectAnalyzer } from '../../packages/core/src/utils/project-analyzer.js';
 import { expectPathsToBeEqual } from '../helpers/path-assertions.js';
 import * as fs from 'fs';
 import * as path from 'path';

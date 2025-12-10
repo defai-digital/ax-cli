@@ -7,27 +7,27 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { MCPManager } from '../../src/mcp/client.js';
+import { MCPManager } from '../../packages/core/src/mcp/client.js';
 import {
   validateServerConfig,
   type ValidationResult
-} from '../../src/mcp/validation.js';
+} from '../../packages/core/src/mcp/validation.js';
 import {
   listAllResources,
   parseMCPReference,
   extractMCPReferences,
   resolveMCPReferences
-} from '../../src/mcp/resources.js';
+} from '../../packages/core/src/mcp/resources.js';
 import {
   searchRegistry,
   generateConfigFromRegistry,
   type RegistryServer
-} from '../../src/mcp/registry.js';
+} from '../../packages/core/src/mcp/registry.js';
 import {
   ReconnectionManager,
   DEFAULT_STRATEGY
-} from '../../src/mcp/reconnection.js';
-import type { MCPServerConfig } from '../../src/types/index.js';
+} from '../../packages/core/src/mcp/reconnection.js';
+import type { MCPServerConfig } from '../../packages/core/src/types/index.js';
 
 describe('MCP Phases 4 & 5 - Integration Tests', () => {
 

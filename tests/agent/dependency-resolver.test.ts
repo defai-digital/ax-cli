@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { DependencyResolver, createDependencyResolver } from '../../src/agent/dependency-resolver.js';
-import type { SubagentTask } from '../../src/agent/subagent-types.js';
-import { SubagentRole } from '../../src/agent/subagent-types.js';
+import { DependencyResolver, createDependencyResolver } from '../../packages/core/src/agent/dependency-resolver.js';
+import type { SubagentTask } from '../../packages/core/src/agent/subagent-types.js';
+import { SubagentRole } from '../../packages/core/src/agent/subagent-types.js';
 
 // Helper to create mock tasks
 function createTask(

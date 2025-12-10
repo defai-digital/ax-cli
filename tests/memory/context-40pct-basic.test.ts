@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { GLM_MODELS } from '../../src/constants.js';
+import { GLM_MODELS } from '../../packages/core/src/constants.js';
 
 describe('Basic 40% Context Usage Test', () => {
   it('should calculate 40% of GLM-4.6 context correctly', () => {

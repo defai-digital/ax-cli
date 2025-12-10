@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SearchTool } from '../../src/tools/search.js';
+import { SearchTool } from '../../packages/core/src/tools/search.js';
 
 describe('Search Tool ReDoS Regression Tests', () => {
   let searchTool: SearchTool;

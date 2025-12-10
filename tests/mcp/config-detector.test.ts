@@ -17,8 +17,8 @@ import {
   validateTransportConfig,
   detectMultipleConfigs,
   getDetectionSummary
-} from '../../src/mcp/config-detector.js';
-import type { MCPServerConfig } from '../../src/schemas/settings-schemas.js';
+} from '../../packages/core/src/mcp/config-detector.js';
+import type { MCPServerConfig } from '../../packages/core/src/schemas/settings-schemas.js';
 
 describe('MCP Config Detector', () => {
   describe('isLegacyStdioFormat', () => {

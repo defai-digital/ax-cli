@@ -6,10 +6,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { LLMAgent } from '../../src/agent/llm-agent.js';
-import { getSettingsManager } from '../../src/utils/settings-manager.js';
-import { ConfirmationService } from '../../src/utils/confirmation-service.js';
-import type { ChatEntry } from '../../src/types/index.js';
+import { LLMAgent } from '../../packages/core/src/agent/llm-agent.js';
+import { getSettingsManager } from '../../packages/core/src/utils/settings-manager.js';
+import { ConfirmationService } from '../../packages/core/src/utils/confirmation-service.js';
+import type { ChatEntry } from '../../packages/core/src/types/index.js';
 
 // NOTE: These integration tests are currently skipped because they require
 // actual LLM API access (OpenAI, GLM, etc.) which may not be available in CI/CD

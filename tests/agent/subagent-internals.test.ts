@@ -7,10 +7,10 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { EventEmitter } from 'events';
-import { Subagent } from '../../src/agent/subagent.js';
-import { SubagentRole, SubagentState } from '../../src/agent/subagent-types.js';
-import type { SubagentTask, SubagentConfig } from '../../src/agent/subagent-types.js';
-import type { LLMMessage, LLMTool } from '../../src/llm/client.js';
+import { Subagent } from '../../packages/core/src/agent/subagent.js';
+import { SubagentRole, SubagentState } from '../../packages/core/src/agent/subagent-types.js';
+import type { SubagentTask, SubagentConfig } from '../../packages/core/src/agent/subagent-types.js';
+import type { LLMMessage, LLMTool } from '../../packages/core/src/llm/client.js';
 
 // Mock settings manager for CI environments
 vi.mock('../../src/utils/settings-manager.js', () => ({

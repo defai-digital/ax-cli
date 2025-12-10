@@ -15,7 +15,7 @@ import {
   formatProgress,
   formatElapsedTime,
   type ProgressUpdate,
-} from '../../src/mcp/progress.js';
+} from '../../packages/core/src/mcp/progress.js';
 import {
   CancellationManager,
   getCancellationManager,
@@ -23,19 +23,19 @@ import {
   isRequestCancelled,
   createCancellationError,
   CANCELLED_ERROR_CODE,
-} from '../../src/mcp/cancellation.js';
+} from '../../packages/core/src/mcp/cancellation.js';
 import {
   SubscriptionManager,
   getSubscriptionManager,
   resetSubscriptionManager,
-} from '../../src/mcp/subscriptions.js';
+} from '../../packages/core/src/mcp/subscriptions.js';
 import {
   ToolOutputValidator,
   getToolOutputValidator,
   resetToolOutputValidator,
-} from '../../src/mcp/schema-validator.js';
-import { MCPManagerV2 } from '../../src/mcp/client-v2.js';
-import { createServerName, createToolName } from '../../src/mcp/type-safety.js';
+} from '../../packages/core/src/mcp/schema-validator.js';
+import { MCPManagerV2 } from '../../packages/core/src/mcp/client-v2.js';
+import { createServerName, createToolName } from '../../packages/core/src/mcp/type-safety.js';
 
 // ============================================================================
 // Progress Notifications Tests

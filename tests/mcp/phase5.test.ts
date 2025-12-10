@@ -13,12 +13,12 @@ import {
   formatRegistryServer,
   generateConfigFromRegistry,
   type RegistryServer
-} from '../../src/mcp/registry.js';
+} from '../../packages/core/src/mcp/registry.js';
 import {
   ReconnectionManager,
   DEFAULT_STRATEGY,
   type ReconnectionStrategy
-} from '../../src/mcp/reconnection.js';
+} from '../../packages/core/src/mcp/reconnection.js';
 
 describe('MCP Phase 5 - Registry Integration', () => {
   describe('Server parsing utilities', () => {

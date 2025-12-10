@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
-import { loadYamlConfig } from '../../src/utils/config-loader.js';
+import { loadYamlConfig } from '../../packages/core/src/utils/config-loader.js';
 
 // Mock fs module
 vi.mock('fs', () => ({

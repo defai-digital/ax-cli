@@ -12,7 +12,7 @@ import {
   SUPPORTED_IMAGE_FORMATS,
   MAX_IMAGE_SIZE_BYTES,
   TOKENS_PER_IMAGE,
-} from '../../src/utils/image-processor.js';
+} from '../../packages/core/src/utils/image-processor.js';
 
 describe('ImageProcessor', () => {
   const testDir = path.join(process.cwd(), 'tests', 'fixtures', 'images');

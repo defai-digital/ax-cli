@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync, writeFileSync, renameSync, existsSync, unlinkSync, copyFileSync, mkdirSync } from 'fs';
 import { z } from 'zod';
-import { parseJson, parseJsonFile, writeJsonFile } from '../../src/utils/json-utils.js';
+import { parseJson, parseJsonFile, writeJsonFile } from '../../packages/core/src/utils/json-utils.js';
 
 // Mock fs module
 vi.mock('fs', () => ({

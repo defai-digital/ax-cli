@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { StreamHandler, type StreamHandlerConfig, type TokenRefs } from "../../../src/agent/streaming/stream-handler.js";
-import type { GLM46StreamChunk } from "../../../src/llm/types.js";
+import { StreamHandler, type StreamHandlerConfig, type TokenRefs } from "../../../packages/core/src/agent/streaming/stream-handler.js";
+import type { GLM46StreamChunk } from "../../../packages/core/src/llm/types.js";
 
 // Mock usage tracker
 vi.mock("../../../src/utils/usage-tracker.js", () => ({

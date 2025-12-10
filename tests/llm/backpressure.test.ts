@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { LLMClient } from '../../src/llm/client.js';
+import { LLMClient } from '../../packages/core/src/llm/client.js';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat.js';
 
 // NOTE: These tests remain skipped pending proper OpenAI streaming mock infrastructure.

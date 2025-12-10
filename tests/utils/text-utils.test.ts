@@ -13,7 +13,7 @@ import {
   deleteCharBefore,
   deleteCharAfter,
   insertText,
-} from '../../src/utils/text-utils';
+} from '../../packages/core/src/utils/text-utils';
 
 describe('text-utils', () => {
   describe('isWordBoundary', () => {

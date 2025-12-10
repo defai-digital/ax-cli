@@ -15,7 +15,7 @@ import {
   testEncryption,
   getEncryptionInfo,
   type EncryptedValue,
-} from '../../src/utils/encryption.js';
+} from '../../packages/core/src/utils/encryption.js';
 
 describe('REQ-SEC-003: API Key Encryption', () => {
   describe('Basic Encryption/Decryption', () => {
@@ -332,8 +332,9 @@ describe('REQ-SEC-003: API Key Encryption', () => {
       expect(info.ivLength).toBe(16);
       expect(info.pbkdf2Iterations).toBe(600000); // Updated for OWASP 2024
       expect(info.version).toBe(1);
-      expect(typeof info.machineId).toBe('string');
-      expect(info.machineId.length).toBeGreaterThan(0);
+      // SECURITY FIX: Now returns hashed machineId instead of raw value
+      expect(typeof info.machineIdHash).toBe('string');
+      expect(info.machineIdHash.length).toBeGreaterThan(0);
     });
   });
 

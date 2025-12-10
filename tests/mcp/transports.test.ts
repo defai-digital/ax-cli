@@ -15,7 +15,7 @@ import {
   StreamableHttpTransport,
   createTransport,
   type TransportConfig,
-} from '../../src/mcp/transports.js';
+} from '../../packages/core/src/mcp/transports.js';
 
 describe('MCP Transports', () => {
   beforeEach(() => {

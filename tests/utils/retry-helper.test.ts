@@ -12,7 +12,7 @@ import {
   calculateExponentialBackoff,
   type RetryableError,
   type RetryOptions,
-} from '../../src/utils/retry-helper.js';
+} from '../../packages/core/src/utils/retry-helper.js';
 
 describe('retry-helper', () => {
   beforeEach(() => {

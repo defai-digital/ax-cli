@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { BashTool, BashExecuteOptions } from "../../src/tools/bash.js";
+import { BashTool, BashExecuteOptions } from "../../packages/core/src/tools/bash.js";
 import { EventEmitter } from "events";
 import * as os from "os";
 

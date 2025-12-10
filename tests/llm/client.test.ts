@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { LLMClient, type LLMTool, type LLMMessage } from "../../src/llm/client.js";
+import { LLMClient, type LLMTool, type LLMMessage } from "../../packages/core/src/llm/client.js";
 
 // Mock OpenAI
 vi.mock("openai", () => {

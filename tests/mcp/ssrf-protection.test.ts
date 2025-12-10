@@ -10,8 +10,8 @@ import {
   validateURLs,
   getSSRFStats,
   SSRFThreatCategory,
-} from '../../src/mcp/ssrf-protection.js';
-import { AuditLogger } from '../../src/utils/audit-logger.js';
+} from '../../packages/core/src/mcp/ssrf-protection.js';
+import { AuditLogger } from '../../packages/core/src/utils/audit-logger.js';
 
 describe('SSRF Protection (REQ-SEC-011)', () => {
   beforeEach(() => {

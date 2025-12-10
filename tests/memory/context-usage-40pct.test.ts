@@ -6,11 +6,11 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ContextGenerator } from '../../src/memory/context-generator.js';
-import { ContextStore } from '../../src/memory/context-store.js';
-import { createTokenCounter } from '../../src/utils/token-counter.js';
-import { GLM_MODELS } from '../../src/constants.js';
-import type { ProjectMemory, SourceConfig, WarmupResult } from '../../src/memory/types.js';
+import { ContextGenerator } from '../../packages/core/src/memory/context-generator.js';
+import { ContextStore } from '../../packages/core/src/memory/context-store.js';
+import { createTokenCounter } from '../../packages/core/src/utils/token-counter.js';
+import { GLM_MODELS } from '../../packages/core/src/constants.js';
+import type { ProjectMemory, SourceConfig, WarmupResult } from '../../packages/core/src/memory/types.js';
 
 describe('Context Usage 40% Tests', () => {
   let contextGenerator: ContextGenerator;
@@ -493,7 +493,7 @@ export class LLMAgent extends EventEmitter {
   // Create test files
   const testContent = `
 import { describe, it, expect } from 'vitest';
-import { createValidator, ContextManager } from '../src/utils/validation.js';
+import { createValidator, ContextManager } from '../packages/core/src/utils/validation.js';
 import { z } from 'zod';
 
 describe('Validation Utils', () => {

@@ -3,8 +3,8 @@ import {
   auditDesign,
   formatAuditResult,
   formatAuditSummary,
-} from '../../src/design/figma-audit.js';
-import type { MapResult, SimplifiedNode } from '../../src/design/types.js';
+} from '../../packages/core/src/design/figma-audit.js';
+import type { MapResult, SimplifiedNode } from '../../packages/core/src/design/types.js';
 
 describe('figma-audit', () => {
   // Helper to create a mock MapResult

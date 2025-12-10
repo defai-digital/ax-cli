@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { ConfirmationService, type ConfirmationOptions } from "../../src/utils/confirmation-service.js";
-import { TIMEOUT_CONFIG } from "../../src/constants.js";
+import { ConfirmationService, type ConfirmationOptions } from "../../packages/core/src/utils/confirmation-service.js";
+import { TIMEOUT_CONFIG } from "../../packages/core/src/constants.js";
 
 // Mock the IPC module
 vi.mock("../../src/ipc/index.js", () => ({

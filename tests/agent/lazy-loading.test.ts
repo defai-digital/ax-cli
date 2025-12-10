@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { LLMAgent } from '../../src/agent/llm-agent.js';
+import { LLMAgent } from '../../packages/core/src/agent/llm-agent.js';
 
 describe('LLMAgent Lazy Tool Loading', () => {
   it('should create agent without instantiating lazy tools immediately', () => {

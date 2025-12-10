@@ -14,7 +14,7 @@ import {
   AGENT_REGISTRY,
   type AxAgentOptions,
   type AxAgentsParallelOptions,
-} from '../../src/tools/ax-agent.js';
+} from '../../packages/core/src/tools/ax-agent.js';
 
 // Mock child_process spawn
 vi.mock('child_process', () => ({

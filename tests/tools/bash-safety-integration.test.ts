@@ -7,11 +7,11 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { BashTool } from '../../src/tools/bash.js';
-import { ConfirmationService } from '../../src/utils/confirmation-service.js';
-import { getSettingsManager } from '../../src/utils/settings-manager.js';
-import { AutoAcceptLogger } from '../../src/utils/auto-accept-logger.js';
-import { DESTRUCTIVE_OPERATIONS } from '../../src/utils/safety-rules.js';
+import { BashTool } from '../../packages/core/src/tools/bash.js';
+import { ConfirmationService } from '../../packages/core/src/utils/confirmation-service.js';
+import { getSettingsManager } from '../../packages/core/src/utils/settings-manager.js';
+import { AutoAcceptLogger } from '../../packages/core/src/utils/auto-accept-logger.js';
+import { DESTRUCTIVE_OPERATIONS } from '../../packages/core/src/utils/safety-rules.js';
 import os from 'os';
 
 describe('Bash Tool Safety Rules Integration', () => {

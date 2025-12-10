@@ -11,7 +11,7 @@ import {
   ToolOutputValidator,
   getToolOutputValidator,
   resetToolOutputValidator,
-} from '../../src/mcp/schema-validator.js';
+} from '../../packages/core/src/mcp/schema-validator.js';
 
 describe('ToolOutputValidator', () => {
   let validator: ToolOutputValidator;

@@ -12,7 +12,7 @@ import {
   getBackgroundTaskManager,
   type BackgroundTask,
   type TaskOutput,
-} from '../../src/utils/background-task-manager.js';
+} from '../../packages/core/src/utils/background-task-manager.js';
 
 // We need to test a fresh instance each time, but the module exports a singleton
 // So we'll test the public interface through the singleton

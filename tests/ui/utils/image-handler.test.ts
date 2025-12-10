@@ -7,7 +7,7 @@ import {
   buildMessageContent,
   getImageHelpText,
   formatAttachmentForDisplay,
-} from '../../../src/ui/utils/image-handler.js';
+} from '../../../packages/core/src/ui/utils/image-handler.js';
 
 describe('ImageInputHandler', () => {
   // Use unique directory to avoid conflicts with parallel test runs

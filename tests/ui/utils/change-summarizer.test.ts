@@ -4,9 +4,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { summarizeChanges, getBriefToolSummary } from '../../../src/ui/utils/change-summarizer.js';
-import type { ToolGroup } from '../../../src/ui/utils/tool-grouper.js';
-import type { ChatEntry } from '../../../src/agent/llm-agent.js';
+import { summarizeChanges, getBriefToolSummary } from '../../../packages/core/src/ui/utils/change-summarizer.js';
+import type { ToolGroup } from '../../../packages/core/src/ui/utils/tool-grouper.js';
+import type { ChatEntry } from '../../../packages/core/src/agent/llm-agent.js';
 
 // Helper to create mock tool result
 function createToolResult(

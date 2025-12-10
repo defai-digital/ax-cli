@@ -2,7 +2,7 @@
  * Tests for Progress-Based Detection System (Phase 2)
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ProgressTracker, getProgressTracker, resetProgressTracker } from '../../src/agent/progress-tracker.js';
+import { ProgressTracker, getProgressTracker, resetProgressTracker } from '../../packages/core/src/agent/progress-tracker.js';
 
 describe('ProgressTracker', () => {
   let tracker: ProgressTracker;

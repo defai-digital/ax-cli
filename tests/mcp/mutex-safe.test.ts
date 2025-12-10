@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SafeMutex, SafeKeyedMutex, LockToken } from '../../src/mcp/mutex-safe.js';
+import { SafeMutex, SafeKeyedMutex, LockToken } from '../../packages/core/src/mcp/mutex-safe.js';
 
 describe('SafeMutex', () => {
   let mutex: SafeMutex;

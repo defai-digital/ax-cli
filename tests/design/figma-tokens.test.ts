@@ -5,7 +5,7 @@ import {
   tokensToTailwind,
   compareTokens,
   formatComparison,
-} from '../../src/design/figma-tokens.js';
+} from '../../packages/core/src/design/figma-tokens.js';
 import type { FigmaVariablesResponse } from '@ax-cli/schemas';
 
 describe('figma-tokens', () => {

@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { ToolExecutor, type ToolExecutorConfig } from "../../../src/agent/execution/tool-executor.js";
-import type { LLMToolCall } from "../../../src/llm/client.js";
+import { ToolExecutor, type ToolExecutorConfig } from "../../../packages/core/src/agent/execution/tool-executor.js";
+import type { LLMToolCall } from "../../../packages/core/src/llm/client.js";
 
 // Mock dependencies
 vi.mock("../../../src/llm/tools.js", () => ({

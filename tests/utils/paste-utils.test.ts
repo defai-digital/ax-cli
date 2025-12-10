@@ -14,7 +14,7 @@ import {
   expandAllPlaceholders,
   validatePasteSettings,
   type PastedBlock,
-} from "../../src/utils/paste-utils.js";
+} from "../../packages/core/src/utils/paste-utils.js";
 
 // Mock settings manager
 vi.mock("../../src/utils/settings-manager.js", () => ({

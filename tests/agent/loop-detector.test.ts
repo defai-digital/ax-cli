@@ -2,7 +2,7 @@
  * Comprehensive tests for the intelligent loop detection system
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { LoopDetector, getLoopDetector, resetLoopDetector } from '../../src/agent/loop-detector.js';
+import { LoopDetector, getLoopDetector, resetLoopDetector } from '../../packages/core/src/agent/loop-detector.js';
 
 // Mock AGENT_CONFIG
 vi.mock('../../src/constants.js', () => ({

@@ -8,8 +8,8 @@ import {
   formatEnhancedError,
   createFriendlyError,
   FriendlyErrors,
-} from '../../src/utils/enhanced-error-messages.js';
-import { ErrorCategory } from '../../src/utils/error-handler.js';
+} from '../../packages/core/src/utils/enhanced-error-messages.js';
+import { ErrorCategory } from '../../packages/core/src/utils/error-handler.js';
 
 describe('Enhanced Error Messages', () => {
   describe('formatEnhancedError', () => {

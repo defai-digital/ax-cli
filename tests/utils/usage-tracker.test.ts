@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { UsageTracker, getUsageTracker } from '../../src/utils/usage-tracker.js';
+import { UsageTracker, getUsageTracker } from '../../packages/core/src/utils/usage-tracker.js';
 
 describe('UsageTracker', () => {
   let tracker: UsageTracker;

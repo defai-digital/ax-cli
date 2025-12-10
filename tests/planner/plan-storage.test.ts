@@ -9,7 +9,7 @@ import {
   PlanStorage,
   getPlanStorage,
   resetPlanStorage,
-} from "../../src/planner/plan-storage.js";
+} from "../../packages/core/src/planner/plan-storage.js";
 import {
   type TaskPlan,
   type TaskPhase,
@@ -17,7 +17,7 @@ import {
   FallbackStrategy,
   PhaseStatus,
   PlanStatus,
-} from "../../src/planner/types.js";
+} from "../../packages/core/src/planner/types.js";
 
 describe("PlanStorage", () => {
   let testDir: string;

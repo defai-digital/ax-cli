@@ -9,7 +9,7 @@ import {
   isWindows,
   pathsEqual,
   pathContains,
-} from "../../src/utils/path-utils.js";
+} from "../../packages/core/src/utils/path-utils.js";
 
 // Note: We can't mock os.platform() in ESM, so we test based on actual platform
 // and use conditional tests for platform-specific behavior

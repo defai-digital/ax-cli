@@ -8,9 +8,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ContextManager } from '../../src/agent/context-manager.js';
-import { createTokenCounter } from '../../src/utils/token-counter.js';
-import type { LLMMessage } from '../../src/llm/client.js';
+import { ContextManager } from '../../packages/core/src/agent/context-manager.js';
+import { createTokenCounter } from '../../packages/core/src/utils/token-counter.js';
+import type { LLMMessage } from '../../packages/core/src/llm/client.js';
 
 describe('Context Manager Concurrent Access Tests', () => {
   let contextManager: ContextManager;

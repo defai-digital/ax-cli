@@ -4,9 +4,9 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventEmitter } from "events";
-import { PlanExecutor, type PlanExecutorConfig } from "../../../src/agent/planning/plan-executor.js";
-import type { TaskPhase, TaskPlan, PlanResult } from "../../../src/planner/index.js";
-import type { LLMMessage } from "../../../src/llm/client.js";
+import { PlanExecutor, type PlanExecutorConfig } from "../../../packages/core/src/agent/planning/plan-executor.js";
+import type { TaskPhase, TaskPlan, PlanResult } from "../../../packages/core/src/planner/index.js";
+import type { LLMMessage } from "../../../packages/core/src/llm/client.js";
 
 // Mock dependencies
 vi.mock("../../../src/agent/status-reporter.js", () => ({

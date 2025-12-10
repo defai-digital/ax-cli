@@ -15,7 +15,7 @@ import {
   validateRegexPattern,
   SAFE_PATTERNS,
   MAX_INPUT_LENGTHS,
-} from '../../src/utils/input-sanitizer.js';
+} from '../../packages/core/src/utils/input-sanitizer.js';
 
 describe('normalizeUnicode', () => {
   it('should normalize Unicode to NFC form', () => {

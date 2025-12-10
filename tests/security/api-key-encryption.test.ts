@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { encrypt, decrypt, isEncrypted, encryptFields, decryptFields } from '../../src/utils/encryption.js';
-import type { EncryptedValue } from '../../src/utils/encryption.js';
+import { encrypt, decrypt, isEncrypted, encryptFields, decryptFields } from '../../packages/core/src/utils/encryption.js';
+import type { EncryptedValue } from '../../packages/core/src/utils/encryption.js';
 
 describe('REQ-SEC-003: API Key Encryption', () => {
   describe('Basic Encryption/Decryption', () => {

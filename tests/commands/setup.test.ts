@@ -39,7 +39,7 @@ vi.mock('../../src/utils/setup-validator.js', () => ({
 }));
 
 // Import after mocks
-import { createSetupCommand } from '../../src/commands/setup.js';
+import { createSetupCommand } from '../../packages/core/src/commands/setup.js';
 
 describe('setup command', () => {
   beforeEach(() => {

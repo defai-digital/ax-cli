@@ -17,7 +17,7 @@ import {
   LockGuard,
   SafeJsonFile,
   cleanupStaleLocks,
-} from '../../src/utils/file-lock.js';
+} from '../../packages/core/src/utils/file-lock.js';
 
 describe('file-lock', () => {
   let testDir: string;

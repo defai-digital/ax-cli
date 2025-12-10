@@ -14,7 +14,7 @@ import {
   loadDesignConfig,
   saveDesignConfig,
   getDesignConfigPath,
-} from '../../src/design/figma-alias.js';
+} from '../../packages/core/src/design/figma-alias.js';
 
 describe('figma-alias', () => {
   const testDir = join(process.cwd(), 'test-figma-alias-temp');

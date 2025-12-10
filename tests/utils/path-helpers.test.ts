@@ -24,7 +24,7 @@ vi.mock("../../src/constants.js", () => ({
 }));
 
 // Import after mocks
-import { getAxBaseDir } from "../../src/utils/path-helpers.js";
+import { getAxBaseDir } from "../../packages/core/src/utils/path-helpers.js";
 import * as fs from "fs";
 
 describe("Path Helpers", () => {

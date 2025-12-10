@@ -17,7 +17,7 @@ import {
   createPlan,
   createDefaultExecutionOptions,
   createDefaultPlannerOptions,
-} from "../../src/planner/types.js";
+} from "../../packages/core/src/planner/types.js";
 
 describe("planner/types", () => {
   describe("Enums", () => {

@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { MCPHealthMonitor } from '../../src/mcp/health.js';
-import type { MCPManager } from '../../src/llm/tools.js';
+import { MCPHealthMonitor } from '../../packages/core/src/mcp/health.js';
+import type { MCPManager } from '../../packages/core/src/llm/tools.js';
 
 // Mock MCPManager
 const createMockMCPManager = (): MCPManager => {

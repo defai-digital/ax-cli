@@ -5,7 +5,7 @@ import {
   findNodeById,
   findNodes,
   getNodePath,
-} from '../../src/design/figma-map.js';
+} from '../../packages/core/src/design/figma-map.js';
 import type { FigmaFileResponse } from '@ax-cli/schemas';
 
 describe('figma-map', () => {

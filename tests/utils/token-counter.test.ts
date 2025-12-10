@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { TokenCounter, formatTokenCount, createTokenCounter, getTokenCounter } from '../../src/utils/token-counter';
+import { TokenCounter, formatTokenCount, createTokenCounter, getTokenCounter } from '../../packages/core/src/utils/token-counter';
 
 describe('TokenCounter', () => {
   let counter: TokenCounter;

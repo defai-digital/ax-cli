@@ -16,8 +16,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { TextEditorTool } from '../../src/tools/text-editor.js';
-import { ConfirmationService } from '../../src/utils/confirmation-service.js';
+import { TextEditorTool } from '../../packages/core/src/tools/text-editor.js';
+import { ConfirmationService } from '../../packages/core/src/utils/confirmation-service.js';
 
 describe('Text Editor TOCTOU Regression Tests', () => {
   let textEditor: TextEditorTool;

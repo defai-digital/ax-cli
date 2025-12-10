@@ -11,7 +11,7 @@ import {
   extractErrorMessage,
   safeJsonParse,
   wrapToolOperation,
-} from "../../src/utils/error-handler.js";
+} from "../../packages/core/src/utils/error-handler.js";
 
 // Mock enhanced-error-messages
 vi.mock("../../src/utils/enhanced-error-messages.js", () => ({

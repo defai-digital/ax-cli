@@ -6,9 +6,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ContextGenerator } from '../../src/memory/context-generator.js';
-import { createTokenCounter } from '../../src/utils/token-counter.js';
-import { GLM_MODELS } from '../../src/constants.js';
+import { ContextGenerator } from '../../packages/core/src/memory/context-generator.js';
+import { createTokenCounter } from '../../packages/core/src/utils/token-counter.js';
+import { GLM_MODELS } from '../../packages/core/src/constants.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -420,7 +420,7 @@ export const apiService = new ApiService();
       path: 'tests/api.test.ts',
       content: `
 import { describe, it, expect, vi } from 'vitest';
-import { apiService } from '../src/services/api.js';
+import { apiService } from '../packages/core/src/services/api.js';
 
 describe('ApiService', () => {
   it('should fetch users successfully', async () => {

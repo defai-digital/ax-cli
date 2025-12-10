@@ -14,7 +14,7 @@ import {
   getDangerousPathsForOS,
   isDangerousFile,
   canonicalizePath,
-} from '../../src/utils/path-security.js';
+} from '../../packages/core/src/utils/path-security.js';
 
 describe('REQ-SEC-002: Path Traversal Prevention', () => {
   const testRoot = process.cwd();

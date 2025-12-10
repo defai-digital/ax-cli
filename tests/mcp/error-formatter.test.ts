@@ -11,7 +11,7 @@ import {
   formatWarning,
   formatSuccess,
   formatInfo,
-} from "../../src/mcp/error-formatter.js";
+} from "../../packages/core/src/mcp/error-formatter.js";
 
 // Strip ANSI codes for easier assertions
 function stripAnsi(str: string): string {
