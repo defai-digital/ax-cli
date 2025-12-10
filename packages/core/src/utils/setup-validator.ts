@@ -322,15 +322,22 @@ async function testModel(
     if (response.ok) {
       let availableModels: string[] = [];
       try {
-        const data = await response.json() as any;
-        if (Array.isArray(data?.data)) {
-          availableModels = data.data
-            .map((m: any) => m.id || m.model)
-            .filter((m: any) => typeof m === 'string');
-        } else if (Array.isArray(data?.models)) {
-          availableModels = data.models
-            .map((m: any) => m.id || m.model || m.name)
-            .filter((m: any) => typeof m === 'string');
+        const data = await response.json() as unknown;
+        const dataObj = data as { data?: unknown[]; models?: unknown[] };
+        if (Array.isArray(dataObj?.data)) {
+          availableModels = dataObj.data
+            .map((m) => {
+              const model = m as { id?: string; model?: string };
+              return model.id || model.model;
+            })
+            .filter((m): m is string => typeof m === 'string');
+        } else if (Array.isArray(dataObj?.models)) {
+          availableModels = dataObj.models
+            .map((m) => {
+              const model = m as { id?: string; model?: string; name?: string };
+              return model.id || model.model || model.name;
+            })
+            .filter((m): m is string => typeof m === 'string');
         }
       } catch {
         // Ignore parse errors; treat as unknown list
@@ -338,6 +345,32 @@ async function testModel(
 
       if (availableModels.includes(model)) {
         return { success: true, availableModels };
+      }
+
+      // xAI/Grok uses model aliases (e.g., "grok-4" -> "grok-4-0709") that aren't listed
+      // in the /models endpoint. Accept aliased models if the base version exists.
+      const isXAI = providerName.toLowerCase() === 'grok' ||
+                    providerName.toLowerCase() === 'xai' ||
+                    baseURL.includes('api.x.ai');
+
+      if (isXAI) {
+        // Known xAI model aliases that map to versioned models
+        const xaiAliases: Record<string, string> = {
+          'grok-4': 'grok-4-',           // matches grok-4-0709, grok-4-fast-*, etc.
+          'grok-4-latest': 'grok-4-',
+          'grok-4.1': 'grok-4-1-',        // matches grok-4-1-fast-*, etc.
+          'grok-4.1-latest': 'grok-4-1-',
+          'grok-3-latest': 'grok-3',
+          'grok-3-mini-latest': 'grok-3-mini',
+        };
+
+        const aliasPrefix = xaiAliases[model];
+        if (aliasPrefix) {
+          const hasMatchingModel = availableModels.some(m => m.startsWith(aliasPrefix));
+          if (hasMatchingModel) {
+            return { success: true, availableModels };
+          }
+        }
       }
 
       return {
