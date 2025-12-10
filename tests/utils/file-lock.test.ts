@@ -42,7 +42,8 @@ describe('file-lock', () => {
   describe('getLockPath', () => {
     it('should return lock path with .lock extension', () => {
       const lockPath = getLockPath('/path/to/file.json');
-      expect(lockPath).toMatch(/\/path\/to\/file\.json\.lock$/);
+      // Cross-platform: match either forward or back slashes
+      expect(lockPath).toMatch(/[/\\]path[/\\]to[/\\]file\.json\.lock$/);
     });
 
     it('should resolve relative paths', () => {
