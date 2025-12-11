@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-core",
-  "version": "4.4.10",
+  "version": "4.4.12",
   "description": "Core library for AX CLI ecosystem - Shared tools, React UI components, MCP client, LLM agent infrastructure, and AutomatosX integration for ax-cli, ax-glm, and ax-grok.",
   "repository": {
     "type": "git",
@@ -81,7 +81,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@defai.digital/ax-schemas": "^4.4.10",
+    "@defai.digital/ax-schemas": "^4.4.12",
     "@clack/prompts": "^0.11.0",
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@types/ws": "^8.18.1",

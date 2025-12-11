@@ -350,6 +350,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.4.12**: NPM Publishing Fix - Fixed `workspace:*` dependency protocol causing "Unsupported URL Type" error on npm install. Replaced pnpm workspace protocol with versioned dependencies for all published packages. Fixed ax-cli package name from `@ax-cli/cli` to `@defai.digital/ax-cli` to match npm registry. All CI/CD tests now passing on all platforms (ubuntu, macos, windows).
 *   **v4.4.10**: Status Bar Bug Fixes - Fixed MCP server count and background task count always showing 0 in status bar. MCP status now properly updates when servers connect/disconnect (changed from static useMemo to reactive state with event listeners). Added taskError event handler for background tasks. Fixed update message to show correct CLI name (ax-glm/ax-grok) instead of hardcoded "ax-cli".
 *   **v4.4.9**: CI/CD Test Fixes - Fixed all failing GitHub Actions tests. Corrected mock paths for monorepo structure (../../src/ → ../../packages/core/src/), added missing deleteByPrefix method to ResponseCache, fixed test assertions to match implementation behavior, improved Windows path compatibility in tests.
 *   **v4.4.8**: Maintenance release - Version bump and package updates.
