@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-cli",
-  "version": "4.4.12",
+  "version": "4.4.13",
   "sdkVersion": "1.4.0",
   "description": "Enterprise-Class AI Coding Assistant CLI - Terminal-based vibe coding with GLM, Grok, and multi-provider AI orchestration. Features thinking mode, vision, web search, MCP integration, and AutomatosX agent system.",
   "type": "module",
@@ -106,6 +106,10 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.1.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
     "@types/fs-extra": "^11.0.2",
     "@types/glob": "^8.1.0",
     "@types/js-yaml": "^4.0.9",
@@ -118,7 +122,10 @@
     "@vitest/ui": "^4.0.15",
     "eslint": "^9.31.0",
     "husky": "^9.1.7",
+    "ink-testing-library": "^4.0.0",
+    "jsdom": "^27.3.0",
     "lint-staged": "^16.2.7",
+    "msw": "^2.12.4",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.15"

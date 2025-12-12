@@ -1,8 +1,10 @@
 # AX CLI - Enterprise-Class Vibe Coding
 
-[![npm](https://img.shields.io/npm/dt/@defai.digital/ax-cli?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
-[![Tests](https://img.shields.io/badge/tests-3725%20passing-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli/actions/workflows/test.yml)
-[![Coverage](https://img.shields.io/badge/coverage-98%2B%25-brightgreen?style=flat-square)](https://github.com/defai-digital/ax-cli)
+[![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
+[![Tests](https://img.shields.io/badge/tests-5,836+%20passing-brightgreen.svg)](#)
+[![macOS](https://img.shields.io/badge/macOS-26.0-blue.svg)](https://www.apple.com/macos)
+[![Windows](https://img.shields.io/badge/Windows-10+-blue.svg)](https://www.microsoft.com/windows)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-blue.svg)](https://ubuntu.com)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24.0.0-blue?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
@@ -89,7 +91,7 @@ Run `/init` inside the CLI to initialize your project context.
 | **MCP Integration** | Model Context Protocol with 12+ production-ready templates |
 | **Project Memory** | Intelligent context caching with 50% token savings |
 | **Enterprise Security** | AES-256-GCM encryption, no telemetry, CVSS-rated protections |
-| **98%+ Test Coverage** | 3725+ tests with strict TypeScript |
+| **60% Test Coverage** | 5,836+ tests with strict TypeScript |
 
 ---
 
@@ -350,6 +352,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.4.13**: Test Coverage & Bug Fixes - Improved DeepAnalyzer test coverage to 85%+ (Statements: 94.82%, Branches: 85.89%, Functions: 94.5%, Lines: 96.13%) with 179 comprehensive tests covering architecture analysis, security scanning, module mapping, and code statistics. Fixed indentation bug in process-pool.ts. Fixed broken context memory tests with unrealistic expectations. Total test count: 5,836+ passing.
 *   **v4.4.12**: NPM Publishing Fix - Fixed `workspace:*` dependency protocol causing "Unsupported URL Type" error on npm install. Replaced pnpm workspace protocol with versioned dependencies for all published packages. Fixed ax-cli package name from `@ax-cli/cli` to `@defai.digital/ax-cli` to match npm registry. All CI/CD tests now passing on all platforms (ubuntu, macos, windows).
 *   **v4.4.10**: Status Bar Bug Fixes - Fixed MCP server count and background task count always showing 0 in status bar. MCP status now properly updates when servers connect/disconnect (changed from static useMemo to reactive state with event listeners). Added taskError event handler for background tasks. Fixed update message to show correct CLI name (ax-glm/ax-grok) instead of hardcoded "ax-cli".
 *   **v4.4.9**: CI/CD Test Fixes - Fixed all failing GitHub Actions tests. Corrected mock paths for monorepo structure (../../src/ → ../../packages/core/src/), added missing deleteByPrefix method to ResponseCache, fixed test assertions to match implementation behavior, improved Windows path compatibility in tests.

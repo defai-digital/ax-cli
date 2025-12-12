@@ -11,7 +11,8 @@ import { LLMAgent } from '../../packages/core/src/agent/llm-agent.js';
 // Mock settings manager to avoid needing actual credentials
 vi.mock('../../packages/core/src/utils/settings-manager.js', () => {
   const mockSettingsManager = {
-    loadUserSettings: vi.fn(),
+    loadUserSettings: vi.fn(() => ({})),
+    loadProjectSettings: vi.fn(() => ({})),
     getApiKey: vi.fn(() => 'test-api-key'),
     getCurrentModel: vi.fn(() => 'glm-4.6'),
     getBaseURL: vi.fn(() => 'http://localhost:11434/v1'),

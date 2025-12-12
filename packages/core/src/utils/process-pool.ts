@@ -174,9 +174,15 @@ export class ProcessPool extends EventEmitter {
       }
 
       // Collect stdout
+      const MAX_BUFFER = 4 * 1024 * 1024; // 4MB safety cap to prevent runaway buffers
       if (proc.stdout) {
         proc.stdout.on('data', (data) => {
-          stdout += data.toString();
+          if (stdout.length >= MAX_BUFFER) {
+            return; // avoid RangeError from unbounded growth
+          }
+          const chunk = data.toString();
+          const spaceLeft = MAX_BUFFER - stdout.length;
+          stdout += chunk.slice(0, Math.max(0, spaceLeft));
         });
       }
 

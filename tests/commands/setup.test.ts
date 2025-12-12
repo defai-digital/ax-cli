@@ -66,7 +66,7 @@ describe('setup command', () => {
       const command = createSetupCommand();
       const forceOption = command.options.find(opt => opt.flags === '--force');
       expect(forceOption).toBeDefined();
-      expect(forceOption?.description).toContain('Overwrite existing configuration');
+      expect(forceOption?.description).toContain('Delete existing configuration');
     });
   });
 
