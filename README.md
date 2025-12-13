@@ -352,6 +352,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.4.17**: README Fix - Added README.md files to all npm packages (ax-grok, ax-glm, ax-cli, ax-core) for proper documentation display on npmjs.com.
 *   **v4.4.16**: Keywords & Bug Fixes - Updated package keywords (antigravity, sdk, mcp, ide, coding, developer-tools, code-generation, glm, grok, xai, z-ai, qwen, deepseek, ai-coding, vibe-coding, automatosx). Verified timeout leak fixes in tool-approval-manager, llm-agent, permission-manager, and process-pool modules - all properly clean up resources in dispose/destroy methods.
 *   **v4.4.15**: NPM Publishing & CI/CD Fixes - Fixed cross-platform path issues in tests (Windows backslash vs Unix forward slash). Fixed confirmation-service test timeout. Successfully published all packages to npm.
 *   **v4.4.13**: Test Coverage & Bug Fixes - Improved DeepAnalyzer test coverage to 85%+ (Statements: 94.82%, Branches: 85.89%, Functions: 94.5%, Lines: 96.13%) with 179 comprehensive tests covering architecture analysis, security scanning, module mapping, and code statistics. Fixed indentation bug in process-pool.ts. Fixed broken context memory tests with unrealistic expectations. Total test count: 5,836+ passing.

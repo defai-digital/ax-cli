@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-core",
-  "version": "4.4.16",
+  "version": "4.4.17",
   "description": "Core library for AX CLI ecosystem - Shared tools, React UI components, MCP client, LLM agent infrastructure, and AutomatosX integration for ax-cli, ax-glm, and ax-grok.",
   "repository": {
     "type": "git",
@@ -73,7 +73,8 @@
   },
   "files": [
     "dist",
-    "config-defaults"
+    "config-defaults",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc -b",
