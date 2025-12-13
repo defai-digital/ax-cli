@@ -1,0 +1,189 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ax-cli.dev/schemas/design-check.json",
+  "title": "Design Check Configuration",
+  "description": "Configuration file for ax-cli design check command",
+  "type": "object",
+  "required": ["tokens", "rules"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON schema reference for IDE support"
+    },
+    "tokens": {
+      "type": "object",
+      "description": "Design tokens to validate against",
+      "required": ["colors", "spacing"],
+      "properties": {
+        "colors": {
+          "type": "object",
+          "description": "Color tokens: token name mapped to hex color value",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+            "description": "Hex color value (#RGB, #RRGGBB, or #RRGGBBAA)"
+          },
+          "examples": [
+            {
+              "primary": "#1e90ff",
+              "secondary": "#ff6b6b",
+              "success": "#4caf50",
+              "warning": "#ff9800",
+              "error": "#f44336"
+            }
+          ]
+        },
+        "spacing": {
+          "type": "object",
+          "description": "Spacing tokens: token name mapped to pixel value",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d+)?(px|rem|em)$",
+            "description": "Spacing value with unit (px, rem, or em)"
+          },
+          "examples": [
+            {
+              "xs": "4px",
+              "sm": "8px",
+              "md": "16px",
+              "lg": "24px",
+              "xl": "32px"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "rules": {
+      "type": "object",
+      "description": "Rule severity settings",
+      "properties": {
+        "no-hardcoded-colors": {
+          "$ref": "#/definitions/ruleSeverity",
+          "description": "Detect hardcoded color values (hex, rgb, hsl)"
+        },
+        "no-raw-spacing": {
+          "$ref": "#/definitions/ruleSeverity",
+          "description": "Detect raw pixel values for spacing properties"
+        },
+        "no-inline-styles": {
+          "$ref": "#/definitions/ruleSeverity",
+          "description": "Detect inline style props in JSX/HTML"
+        },
+        "missing-alt-text": {
+          "$ref": "#/definitions/ruleSeverity",
+          "description": "Detect images without alt attributes"
+        },
+        "missing-form-labels": {
+          "$ref": "#/definitions/ruleSeverity",
+          "description": "Detect form inputs without proper labels"
+        }
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/ruleSeverity"
+      },
+      "default": {
+        "no-hardcoded-colors": "error",
+        "no-raw-spacing": "warn",
+        "no-inline-styles": "warn",
+        "missing-alt-text": "error",
+        "missing-form-labels": "error"
+      }
+    },
+    "include": {
+      "type": "array",
+      "description": "File patterns to include in scanning",
+      "items": {
+        "type": "string",
+        "description": "Glob pattern for files to include"
+      },
+      "default": ["src/**/*.tsx", "src/**/*.jsx", "src/**/*.css"],
+      "examples": [
+        ["src/**/*.tsx", "src/**/*.jsx"],
+        ["**/*.tsx", "**/*.css"]
+      ]
+    },
+    "ignore": {
+      "type": "array",
+      "description": "File patterns to exclude from scanning",
+      "items": {
+        "type": "string",
+        "description": "Glob pattern for files to ignore"
+      },
+      "default": [
+        "**/node_modules/**",
+        "**/*.test.*",
+        "**/*.spec.*",
+        "**/dist/**",
+        "**/build/**"
+      ],
+      "examples": [
+        ["**/node_modules/**", "**/*.test.*"],
+        ["**/stories/**", "**/mocks/**"]
+      ]
+    },
+    "extends": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Path to base configuration file to extend"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of configuration files to extend"
+        }
+      ],
+      "description": "Extend configuration from another file"
+    }
+  },
+  "definitions": {
+    "ruleSeverity": {
+      "type": "string",
+      "enum": ["error", "warn", "off"],
+      "description": "Rule severity: 'error' fails the check, 'warn' shows warning, 'off' disables the rule"
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "$schema": "https://ax-cli.dev/schemas/design-check.json",
+      "tokens": {
+        "colors": {
+          "primary": "#1e90ff",
+          "secondary": "#ff6b6b",
+          "success": "#4caf50",
+          "warning": "#ff9800",
+          "error": "#f44336",
+          "background": "#ffffff",
+          "text": "#212121",
+          "text-muted": "#757575"
+        },
+        "spacing": {
+          "xs": "4px",
+          "sm": "8px",
+          "md": "16px",
+          "lg": "24px",
+          "xl": "32px",
+          "2xl": "48px"
+        }
+      },
+      "rules": {
+        "no-hardcoded-colors": "error",
+        "no-raw-spacing": "warn",
+        "no-inline-styles": "warn",
+        "missing-alt-text": "error",
+        "missing-form-labels": "error"
+      },
+      "include": ["src/**/*.tsx", "src/**/*.jsx", "src/**/*.css"],
+      "ignore": [
+        "**/node_modules/**",
+        "**/*.test.*",
+        "**/*.spec.*",
+        "**/stories/**"
+      ]
+    }
+  ]
+}

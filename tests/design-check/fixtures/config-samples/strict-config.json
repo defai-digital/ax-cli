@@ -1,0 +1,22 @@
+{
+  "tokens": {
+    "colors": {
+      "primary": "#1e90ff",
+      "danger": "#ff6b6b"
+    },
+    "spacing": {
+      "sm": "8px",
+      "md": "16px",
+      "lg": "24px"
+    }
+  },
+  "rules": {
+    "no-hardcoded-colors": "error",
+    "no-raw-spacing": "error",
+    "no-inline-styles": "error",
+    "missing-alt-text": "error",
+    "missing-form-labels": "error"
+  },
+  "include": ["**/*.tsx", "**/*.jsx"],
+  "ignore": ["**/node_modules/**"]
+}

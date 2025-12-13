@@ -69,6 +69,10 @@
     "./sdk": {
       "types": "./dist/sdk/index.d.ts",
       "import": "./dist/sdk/index.js"
+    },
+    "./design-check": {
+      "types": "./dist/design-check/index.d.ts",
+      "import": "./dist/design-check/index.js"
     }
   },
   "files": [
@@ -82,13 +86,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@defai.digital/ax-schemas": "4.4.19",
     "@clack/prompts": "^0.11.0",
+    "@defai.digital/ax-schemas": "4.4.19",
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@types/ws": "^8.18.1",
     "axios": "^1.13.2",
     "chalk": "^5.6.2",
     "clipboardy": "^5.0.1",
+    "colord": "^2.9.3",
     "commander": "^14.0.2",
     "dotenv": "^17.2.3",
     "enquirer": "^2.4.1",
