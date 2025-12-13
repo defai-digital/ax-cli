@@ -54,6 +54,62 @@ export function buildNativeSearchInstructions(provider: ProviderDefinition | nul
 }
 
 /**
+ * Build Grok-specific capability instructions (xAI Agent Tools API).
+ * This informs the LLM about Grok's unique server-side tool capabilities.
+ *
+ * @param provider The active provider definition
+ * @returns Grok capabilities string, or empty string if not a Grok provider
+ */
+export function buildGrokCapabilitiesInstructions(provider: ProviderDefinition | null | undefined): string {
+  // Only add instructions for Grok provider with server-side tool support
+  if (!provider?.features.supportsServerTools) {
+    return '';
+  }
+
+  const capabilities: string[] = [];
+
+  if (provider.features.supportsParallelFunctionCalling) {
+    capabilities.push('- PARALLEL TOOL CALLING: When multiple tools are needed, call them ALL in a single response');
+    capabilities.push('  The server will execute them in parallel for faster completion');
+  }
+
+  if (provider.features.supportsXSearch) {
+    capabilities.push('- X (TWITTER) SEARCH: You can search X/Twitter posts for real-time social media data');
+  }
+
+  if (provider.features.supportsCodeExecution) {
+    capabilities.push('- CODE EXECUTION SANDBOX: Server-side Python execution is available for computation tasks');
+  }
+
+  if (capabilities.length === 0) {
+    return '';
+  }
+
+  return [
+    '',
+    '---',
+    '[Grok Agent Capabilities (xAI)]',
+    'You have enhanced server-side tool capabilities through the xAI Agent Tools API:',
+    ...capabilities,
+    '',
+    'OPTIMIZATION: When a task requires multiple independent tool calls (e.g., reading multiple files,',
+    'running multiple searches), make ALL calls in a SINGLE response to leverage parallel execution.',
+    'This significantly reduces total response time.',
+  ].join('\n');
+}
+
+/**
+ * Check if a system prompt already contains Grok capabilities instructions.
+ * Used to prevent duplicate instructions.
+ *
+ * @param content The current system prompt content
+ * @returns true if Grok capabilities instructions already exist
+ */
+export function hasGrokCapabilitiesInstructions(content: string): boolean {
+  return content.includes('Grok Agent Capabilities (xAI)');
+}
+
+/**
  * Format a single MCP tool for display in the system prompt.
  *
  * @param tool The LLM tool definition
@@ -143,6 +199,9 @@ export function buildCompleteSystemPrompt(
   // Add native search instructions if provider supports it
   if (options.provider) {
     prompt += buildNativeSearchInstructions(options.provider);
+
+    // Add Grok-specific capability instructions (xAI Agent Tools API)
+    prompt += buildGrokCapabilitiesInstructions(options.provider);
   }
 
   // Add MCP tools section if tools are available
@@ -188,4 +247,21 @@ export function appendMCPToolsSection(
     return content;
   }
   return content + buildMCPToolsSection(mcpTools, hasNativeSearch);
+}
+
+/**
+ * Append Grok capabilities instructions to existing content if not already present.
+ *
+ * @param content Current prompt content
+ * @param provider Active provider definition
+ * @returns Updated content with Grok capabilities (or unchanged if already present)
+ */
+export function appendGrokCapabilitiesInstructions(
+  content: string,
+  provider: ProviderDefinition | null | undefined
+): string {
+  if (hasGrokCapabilitiesInstructions(content)) {
+    return content;
+  }
+  return content + buildGrokCapabilitiesInstructions(provider);
 }

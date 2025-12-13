@@ -180,6 +180,14 @@ interface APIRequestPayload {
   top_p?: number;
   // Grok seed for reproducibility
   seed?: number;
+  // Grok parallel function calling (xAI Agent Tools API)
+  // When true, Grok will execute multiple tool calls in parallel server-side
+  parallel_function_calling?: boolean;
+  // Grok server-side tools (xAI Agent Tools API)
+  // Array of server tool names: 'web_search', 'x_search', 'code_execution'
+  server_tools?: string[];
+  // Grok server tool configuration
+  server_tool_config?: Record<string, unknown>;
 }
 
 /** API error structure for type-safe error handling */
@@ -470,7 +478,9 @@ export class LLMClient {
     searchOptions: SearchOptions | undefined,
     stream: boolean = false,
     responseFormat?: { type: "text" | "json_object" },
-    sampling?: SamplingConfig
+    sampling?: SamplingConfig,
+    serverTools?: string[],
+    serverToolConfig?: Record<string, unknown>
   ): APIRequestPayload {
     const payload: APIRequestPayload = {
       model,
@@ -479,19 +489,26 @@ export class LLMClient {
       max_tokens: maxTokens,
     };
 
+    // Detect if this is a Grok model (xAI)
+    const isGrokModel = model.toLowerCase().includes('grok');
+
     // Only include tools if there are any - some APIs reject empty tools array
     if (tools && tools.length > 0) {
       payload.tools = tools;
       payload.tool_choice = "auto";
+
+      // Enable parallel function calling for Grok models (xAI Agent Tools API)
+      // This allows Grok to execute multiple tool calls in parallel server-side
+      // significantly improving performance for multi-tool operations
+      if (isGrokModel) {
+        payload.parallel_function_calling = true;
+      }
     }
 
     if (stream) {
       payload.stream = true;
       // Note: tool_stream is NOT a valid z.ai parameter - removed to prevent API errors
     }
-
-    // Detect if this is a Grok model (xAI)
-    const isGrokModel = model.toLowerCase().includes('grok');
 
     // Add thinking/reasoning parameters based on provider
     if (thinking && thinking.type === 'enabled') {
@@ -540,6 +557,15 @@ export class LLMClient {
         if (sampling.topP !== undefined) {
           payload.top_p = sampling.topP;
         }
+      }
+    }
+
+    // Add Grok server-side tools (xAI Agent Tools API)
+    // These tools run on xAI infrastructure: web_search, x_search, code_execution
+    if (isGrokModel && serverTools && serverTools.length > 0) {
+      payload.server_tools = serverTools;
+      if (serverToolConfig) {
+        payload.server_tool_config = serverToolConfig;
       }
     }
 
@@ -651,6 +677,9 @@ export class LLMClient {
       const searchOptions = options?.searchOptions;
       const responseFormat = options?.responseFormat;
       const sampling = options?.sampling;
+      // Grok-specific options (xAI Agent Tools API)
+      const serverTools = options?.serverTools;
+      const serverToolConfig = options?.serverToolConfig;
 
       // Validate parameters (clamp maxTokens to model limit)
       this.validateTemperature(temperature, model);
@@ -669,8 +698,13 @@ export class LLMClient {
         searchOptions,
         false, // not streaming
         responseFormat,
-        sampling
+        sampling,
+        serverTools,
+        serverToolConfig
       );
+
+      // Track response time for performance metrics
+      const requestStartTime = Date.now();
 
       const response = await retryWithBackoff(
         () => this.client.chat.completions.create(requestPayload, {
@@ -693,6 +727,10 @@ export class LLMClient {
           },
         }
       );
+
+      // Track response time
+      const responseTimeMs = Date.now() - requestStartTime;
+      getUsageTracker().trackResponseTime(responseTimeMs);
 
       // REQ-SEC-008: Audit log successful API call
       auditLogger.logInfo({
@@ -872,6 +910,9 @@ export class LLMClient {
       const searchOptions = options?.searchOptions;
       const responseFormat = options?.responseFormat;
       const sampling = options?.sampling;
+      // Grok-specific options (xAI Agent Tools API)
+      const serverTools = options?.serverTools;
+      const serverToolConfig = options?.serverToolConfig;
 
       // Validate parameters (clamp maxTokens to model limit)
       this.validateTemperature(temperature, model);
@@ -890,8 +931,13 @@ export class LLMClient {
         searchOptions,
         true, // streaming
         responseFormat,
-        sampling
+        sampling,
+        serverTools,
+        serverToolConfig
       );
+
+      // Track response time for streaming (time to first chunk + total stream time)
+      const streamStartTime = Date.now();
 
       const client = this.client;
       const extractUsage = this.safeExtractUsage.bind(this);
@@ -1031,6 +1077,10 @@ export class LLMClient {
         tracker.trackUsage(model, usageForTracking);
       }
 
+      // Track total stream response time
+      const streamResponseTimeMs = Date.now() - streamStartTime;
+      getUsageTracker().trackResponseTime(streamResponseTimeMs);
+
       const totalTokens = usageForTracking?.total_tokens;
 
       auditLogger.logInfo({
@@ -1041,6 +1091,7 @@ export class LLMClient {
         details: {
           chunks: totalChunks,
           totalTokens,
+          responseTimeMs: streamResponseTimeMs,
         },
       });
     } catch (error: unknown) {

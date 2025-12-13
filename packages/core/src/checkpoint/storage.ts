@@ -43,7 +43,12 @@ export class CheckpointStorage {
     const previous = this.mutationLock;
     let release!: () => void;
 
-    this.mutationLock = new Promise<void>(resolve => { release = resolve; });
+    this.mutationLock = new Promise<void>(resolve => { release = resolve; })
+      .catch(error => {
+        // Guard against unhandled rejections; should never reject in normal flow
+        console.error(`Mutation lock rejected: ${extractErrorMessage(error)}`);
+        throw error;
+      });
     await previous;
 
     try {
@@ -218,7 +223,12 @@ export class CheckpointStorage {
 
     // Create lock for this load operation
     let unlock: () => void = () => {};
-    this.indexLock = new Promise<void>(resolve => { unlock = resolve; });
+    this.indexLock = new Promise<void>(resolve => { unlock = resolve; })
+      .catch(error => {
+        // Guard against unhandled rejections; should never reject in normal flow
+        console.error(`Index lock rejected: ${extractErrorMessage(error)}`);
+        throw error;
+      });
 
     try {
       const content = await fs.readFile(this.indexPath, 'utf-8');

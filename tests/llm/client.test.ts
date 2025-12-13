@@ -55,6 +55,7 @@ vi.mock("../../packages/core/src/utils/audit-logger.js", () => ({
 vi.mock("../../packages/core/src/utils/usage-tracker.js", () => ({
   getUsageTracker: () => ({
     trackUsage: vi.fn(),
+    trackResponseTime: vi.fn(),
   }),
 }));
 

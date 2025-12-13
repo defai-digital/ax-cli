@@ -516,48 +516,56 @@ export async function promptAndInstallUpdate(
 
     rl.question(
       chalk.yellow("Would you like to update now? (y/N) "),
-      async (answer) => {
-        rl.close();
+      (answer) => {
+        void (async () => {
+          rl.close();
 
-        if (equalsIgnoreCase(answer, "y") || equalsIgnoreCase(answer, "yes")) {
-          try {
-            console.log(chalk.cyan("\n📥 Installing update...\n"));
-            await installUpdate(latestVersion);
-            console.log(
-              chalk.green.bold("✅ AX CLI updated successfully!")
-            );
-            console.log(chalk.gray("New version:"), chalk.cyan(latestVersion));
+          if (equalsIgnoreCase(answer, "y") || equalsIgnoreCase(answer, "yes")) {
+            try {
+              console.log(chalk.cyan("\n📥 Installing update...\n"));
+              await installUpdate(latestVersion);
+              console.log(
+                chalk.green.bold("✅ AX CLI updated successfully!")
+              );
+              console.log(chalk.gray("New version:"), chalk.cyan(latestVersion));
 
-            // Also update AutomatosX if installed
-            if (isAutomatosXInstalled()) {
-              console.log(chalk.blue("\n🔄 Updating AutomatosX...\n"));
-              const axUpdated = await updateAutomatosX();
-              if (axUpdated) {
-                console.log(chalk.green("✅ AutomatosX updated successfully!"));
-              } else {
-                console.log(chalk.yellow("⚠️  AutomatosX update failed. You can try manually: ax update -y"));
+              // Also update AutomatosX if installed
+              if (isAutomatosXInstalled()) {
+                console.log(chalk.blue("\n🔄 Updating AutomatosX...\n"));
+                const axUpdated = await updateAutomatosX();
+                if (axUpdated) {
+                  console.log(chalk.green("✅ AutomatosX updated successfully!"));
+                } else {
+                  console.log(chalk.yellow("⚠️  AutomatosX update failed. You can try manually: ax update -y"));
+                }
               }
-            }
 
-            console.log(
-              chalk.gray(`\nPlease restart ${cliName} to use the new version.\n`)
-            );
-            resolve(true);
-          } catch (error) {
-            console.error(
-              chalk.red("❌ Failed to install update:"),
-              (error as Error).message
-            );
-            console.log(
-              chalk.gray("You can manually update with:"),
-              chalk.cyan(`npm install -g ${PACKAGE_NAME}@${latestVersion}\n`)
-            );
+              console.log(
+                chalk.gray(`\nPlease restart ${cliName} to use the new version.\n`)
+              );
+              resolve(true);
+            } catch (error) {
+              console.error(
+                chalk.red("❌ Failed to install update:"),
+                (error as Error).message
+              );
+              console.log(
+                chalk.gray("You can manually update with:"),
+                chalk.cyan(`npm install -g ${PACKAGE_NAME}@${latestVersion}\n`)
+              );
+              resolve(false);
+            }
+          } else {
+            console.log(chalk.gray("Update skipped.\n"));
             resolve(false);
           }
-        } else {
-          console.log(chalk.gray("Update skipped.\n"));
+        })().catch((error) => {
+          console.error(
+            chalk.red("❌ Failed to process update prompt:"),
+            (error as Error).message
+          );
           resolve(false);
-        }
+        });
       }
     );
   });

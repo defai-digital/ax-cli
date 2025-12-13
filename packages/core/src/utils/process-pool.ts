@@ -93,15 +93,19 @@ export class ProcessPool extends EventEmitter {
     }
 
     return new Promise<ProcessExecutionResult>((resolve, reject) => {
-      const task: QueuedTask = {
-        options,
-        resolve,
-        reject,
-        timestamp: Date.now(),
-      };
+      try {
+        const task: QueuedTask = {
+          options,
+          resolve,
+          reject,
+          timestamp: Date.now(),
+        };
 
-      this.taskQueue.push(task);
-      this.processQueue();
+        this.taskQueue.push(task);
+        this.processQueue();
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
     });
   }
 
@@ -150,76 +154,80 @@ export class ProcessPool extends EventEmitter {
     options: ProcessExecutionOptions
   ): Promise<ProcessExecutionResult> {
     return new Promise<ProcessExecutionResult>((resolve, reject) => {
-      const proc = spawn(options.command, options.args, {
-        cwd: options.cwd,
-      });
-
-      this.activeProcesses.add(proc);
-
-      let stdout = '';
-      let stderr = '';
-      let isResolved = false;
-      let timeoutHandle: NodeJS.Timeout | null = null;
-
-      // Set timeout
-      const timeout = options.timeout ?? this.processTimeout;
-      if (timeout > 0) {
-        timeoutHandle = setTimeout(() => {
-          if (!isResolved) {
-            isResolved = true;
-            this.cleanupProcess(proc, timeoutHandle);
-            reject(new Error(`Process timeout after ${timeout}ms`));
-          }
-        }, timeout);
-      }
-
-      // Collect stdout
-      const MAX_BUFFER = 4 * 1024 * 1024; // 4MB safety cap to prevent runaway buffers
-      if (proc.stdout) {
-        proc.stdout.on('data', (data) => {
-          if (stdout.length >= MAX_BUFFER) {
-            return; // avoid RangeError from unbounded growth
-          }
-          const chunk = data.toString();
-          const spaceLeft = MAX_BUFFER - stdout.length;
-          stdout += chunk.slice(0, Math.max(0, spaceLeft));
+      try {
+        const proc = spawn(options.command, options.args, {
+          cwd: options.cwd,
         });
-      }
 
-      // Collect stderr
-      if (proc.stderr) {
-        proc.stderr.on('data', (data) => {
-          stderr += data.toString();
-        });
-      }
+        this.activeProcesses.add(proc);
 
-      // Handle process exit
-      proc.on('close', (code, signal) => {
-        if (isResolved) {
-          return;
+        let stdout = '';
+        let stderr = '';
+        let isResolved = false;
+        let timeoutHandle: NodeJS.Timeout | null = null;
+
+        // Set timeout
+        const timeout = options.timeout ?? this.processTimeout;
+        if (timeout > 0) {
+          timeoutHandle = setTimeout(() => {
+            if (!isResolved) {
+              isResolved = true;
+              this.cleanupProcess(proc, timeoutHandle);
+              reject(new Error(`Process timeout after ${timeout}ms`));
+            }
+          }, timeout);
         }
-        isResolved = true;
 
-        this.cleanupProcess(proc, timeoutHandle);
-
-        resolve({
-          stdout,
-          stderr,
-          exitCode: code,
-          signal: signal,
-        });
-      });
-
-      // Handle process errors
-      proc.on('error', (error) => {
-        if (isResolved) {
-          return;
+        // Collect stdout
+        const MAX_BUFFER = 4 * 1024 * 1024; // 4MB safety cap to prevent runaway buffers
+        if (proc.stdout) {
+          proc.stdout.on('data', (data) => {
+            if (stdout.length >= MAX_BUFFER) {
+              return; // avoid RangeError from unbounded growth
+            }
+            const chunk = data.toString();
+            const spaceLeft = MAX_BUFFER - stdout.length;
+            stdout += chunk.slice(0, Math.max(0, spaceLeft));
+          });
         }
-        isResolved = true;
 
-        this.cleanupProcess(proc, timeoutHandle);
-        reject(error);
-      });
+        // Collect stderr
+        if (proc.stderr) {
+          proc.stderr.on('data', (data) => {
+            stderr += data.toString();
+          });
+        }
+
+        // Handle process exit
+        proc.on('close', (code, signal) => {
+          if (isResolved) {
+            return;
+          }
+          isResolved = true;
+
+          this.cleanupProcess(proc, timeoutHandle);
+
+          resolve({
+            stdout,
+            stderr,
+            exitCode: code,
+            signal: signal,
+          });
+        });
+
+        // Handle process errors
+        proc.on('error', (error) => {
+          if (isResolved) {
+            return;
+          }
+          isResolved = true;
+
+          this.cleanupProcess(proc, timeoutHandle);
+          reject(error);
+        });
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
     });
   }
 

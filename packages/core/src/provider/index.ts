@@ -45,3 +45,16 @@ export {
   isModelAlias,
   getAvailableModelsWithAliases,
 } from './config.js';
+
+// Grok-specific exports (xAI Agent Tools API)
+export {
+  type WebSearchConfig,
+  type XSearchConfig,
+  type CodeExecutionConfig,
+  type GrokServerToolsConfig,
+  DEFAULT_GROK_SERVER_TOOLS,
+  buildServerToolsArray,
+  buildServerToolConfig,
+  hasEnabledServerTools,
+  mergeServerToolsConfig,
+} from './grok/index.js';

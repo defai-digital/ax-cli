@@ -201,6 +201,38 @@ export interface ChatOptions {
    * Allows the caller to cancel in-progress requests when needed.
    */
   signal?: AbortSignal;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Grok-specific options (xAI Agent Tools API)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Enable server-side tools (Grok only)
+   *
+   * xAI Agent Tools API provides server-side execution for:
+   * - web_search: Real-time web search
+   * - x_search: X/Twitter posts search
+   * - code_execution: Python execution sandbox
+   *
+   * Server tools run on xAI infrastructure for better performance.
+   * @default false (must be explicitly enabled)
+   */
+  serverTools?: string[];
+
+  /**
+   * Server tool configuration (Grok only)
+   *
+   * Customize behavior of server-side tools.
+   * @example
+   * ```typescript
+   * {
+   *   web_search: { max_results: 10 },
+   *   x_search: { search_type: 'semantic', time_range: '7d' },
+   *   code_execution: { timeout: 30000 }
+   * }
+   * ```
+   */
+  serverToolConfig?: Record<string, unknown>;
 }
 
 /**
@@ -455,7 +487,7 @@ export function validateThinking(
 /**
  * Create default chat options with sensible defaults
  */
-export function createDefaultChatOptions(model?: string): Required<Omit<ChatOptions, 'thinking' | 'searchOptions' | 'tools' | 'responseFormat' | 'sampling' | 'signal'>> {
+export function createDefaultChatOptions(model?: string): Required<Omit<ChatOptions, 'thinking' | 'searchOptions' | 'tools' | 'responseFormat' | 'sampling' | 'signal' | 'serverTools' | 'serverToolConfig'>> {
   // Use the configured default model as fallback, not hardcoded "glm-4.6"
   const modelName = model || DEFAULT_MODEL;
   const config = getModelConfig(modelName);

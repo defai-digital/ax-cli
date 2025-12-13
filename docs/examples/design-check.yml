@@ -1,0 +1,135 @@
+# GitHub Actions Workflow for Design Check
+# Copy this file to .github/workflows/design-check.yml in your repository
+
+name: Design Check
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  design-check:
+    name: Check Design System Violations
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run design check
+        id: design-check
+        run: |
+          # Run check and capture output
+          pnpm ax design check --format json > design-check-results.json || true
+
+          # Extract metrics
+          ERRORS=$(jq '.summary.errors' design-check-results.json)
+          WARNINGS=$(jq '.summary.warnings' design-check-results.json)
+          FILES=$(jq '.summary.files' design-check-results.json)
+
+          # Set outputs
+          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+          echo "warnings=$WARNINGS" >> $GITHUB_OUTPUT
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+
+          # Print summary
+          echo "### Design Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Files Scanned | $FILES |" >> $GITHUB_STEP_SUMMARY
+          echo "| Errors | $ERRORS |" >> $GITHUB_STEP_SUMMARY
+          echo "| Warnings | $WARNINGS |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-check-results
+          path: design-check-results.json
+          retention-days: 30
+
+      - name: Check for errors
+        if: steps.design-check.outputs.errors != '0'
+        run: |
+          echo "::error::Design check found ${{ steps.design-check.outputs.errors }} errors"
+
+          # Show violations in annotation format
+          jq -r '.results[] | select(.violations | length > 0) | .violations[] | select(.severity == "error") | "::error file=\(.file),line=\(.line),col=\(.column)::\(.message): \(.found)"' design-check-results.json
+
+          exit 1
+
+      - name: Warn about warnings
+        if: steps.design-check.outputs.warnings != '0'
+        run: |
+          echo "::warning::Design check found ${{ steps.design-check.outputs.warnings }} warnings"
+
+          # Show warnings in annotation format
+          jq -r '.results[] | select(.violations | length > 0) | .violations[] | select(.severity == "warning") | "::warning file=\(.file),line=\(.line),col=\(.column)::\(.message): \(.found)"' design-check-results.json
+
+  # Optional: Auto-fix job for main branch
+  design-fix:
+    name: Auto-fix Design Violations
+    runs-on: ubuntu-latest
+    needs: design-check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run auto-fix
+        run: pnpm ax design check --fix
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit fixes
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add -A
+          git commit -m "fix: Auto-fix design system violations
+
+          Automated fixes applied by design check.
+
+          [skip ci]"
+          git push

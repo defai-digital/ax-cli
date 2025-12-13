@@ -22,34 +22,11 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { runSetup } from './setup.js';
-import { existsSync, readFileSync } from 'fs';
-import { homedir } from 'os';
-import { join } from 'path';
+import { loadConfig, type AxCliConfig } from './config.js';
 
 const VERSION = '4.3.16';
 const NAME = 'ax-cli';
-
-// Config paths
-const CONFIG_FILE = join(homedir(), '.ax-cli', 'config.json');
-
-interface AxCliConfig {
-  selectedProvider?: 'local' | 'deepseek';
-  _provider?: string;
-  defaultModel?: string;
-  apiKey?: string;
-  baseURL?: string;
-}
-
-function loadConfig(): AxCliConfig | null {
-  try {
-    if (existsSync(CONFIG_FILE)) {
-      return JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'));
-    }
-  } catch {
-    // Ignore errors
-  }
-  return null;
-}
+type AxCoreModule = typeof import('@defai.digital/ax-core');
 
 /**
  * Display the AX-CLI banner with cool theme
@@ -70,7 +47,7 @@ function showBanner(): void {
 /**
  * Show status of current configuration
  */
-function showStatus(config: AxCliConfig | null): void {
+function showStatus(config: AxCliConfig): void {
   console.log(chalk.blue('\n  ══════════════════════════════════════'));
   console.log(chalk.blue('  ║') + chalk.bold('       AX-CLI Status                ') + chalk.blue('║'));
   console.log(chalk.blue('  ══════════════════════════════════════\n'));
@@ -93,33 +70,48 @@ function showStatus(config: AxCliConfig | null): void {
 }
 
 /**
+ * Load ax-core with a clear error if it is missing
+ */
+async function loadAxCore(): Promise<AxCoreModule> {
+  try {
+    return await import('@defai.digital/ax-core');
+  } catch (error) {
+    console.log(chalk.yellow('\n  Unable to load @defai.digital/ax-core.'));
+    console.log('  If it is not installed, add it first:\n');
+    console.log(chalk.gray('    npm install -g @defai.digital/ax-core'));
+    if (error instanceof Error && error.message) {
+      console.log(chalk.red(`\n  Details: ${error.message}`));
+    }
+    console.log();
+    process.exit(1);
+  }
+}
+
+/**
  * Launch the CLI with the configured provider
  */
-async function launchCLI(config: AxCliConfig, _args: string[]): Promise<void> {
-  // Dynamically import the core module
+async function launchCLI(config: AxCliConfig): Promise<void> {
+  const core = await loadAxCore();
+
+  // Use AX_CLI_PROVIDER directly - it has no GLM/Grok specific features
+  // Override baseURL and model from config if provided
+  const axCliProvider = {
+    ...core.AX_CLI_PROVIDER,
+    // Override with user's configured settings
+    defaultBaseURL: config.baseURL || core.AX_CLI_PROVIDER.defaultBaseURL,
+    defaultModel: config.defaultModel || core.AX_CLI_PROVIDER.defaultModel,
+  };
+
   try {
-    const core = await import('@defai.digital/ax-core');
-
-    // Use AX_CLI_PROVIDER directly - it has no GLM/Grok specific features
-    // Override baseURL and model from config if provided
-    const axCliProvider = {
-      ...core.AX_CLI_PROVIDER,
-      // Override with user's configured settings
-      defaultBaseURL: config.baseURL || core.AX_CLI_PROVIDER.defaultBaseURL,
-      defaultModel: config.defaultModel || core.AX_CLI_PROVIDER.defaultModel,
-    };
-
-    // Run the CLI with AX-CLI provider (no web search, no vision, no image)
-    core.runCLI({
+    await core.runCLI({
       provider: axCliProvider,
       version: VERSION,
     });
   } catch (error) {
-    // Core module not available - show helpful message
-    console.log(chalk.yellow('\n  @defai.digital/ax-core is not installed.'));
-    console.log('  Please install it first:\n');
-    console.log(chalk.gray('    npm install -g @defai.digital/ax-core'));
-    console.log();
+    console.log(chalk.red('\n  Failed to launch ax-cli.'));
+    if (error instanceof Error && error.message) {
+      console.log(chalk.red(`  ${error.message}`));
+    }
     process.exit(1);
   }
 }
@@ -160,7 +152,7 @@ program
  */
 program
   .argument('[message...]', 'Initial message to send to the AI')
-  .action(async (messageArgs: string[]) => {
+  .action(async (_messageArgs: string[]) => {
     const config = loadConfig();
 
     if (!config?.selectedProvider) {
@@ -178,7 +170,7 @@ program
     }
 
     // Launch the full CLI
-    await launchCLI(config, messageArgs);
+    await launchCLI(config);
   });
 
 program.parse();

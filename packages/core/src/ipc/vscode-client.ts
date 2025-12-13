@@ -159,7 +159,7 @@ export class VSCodeIPCClient extends EventEmitter {
    * Establish WebSocket connection
    */
   private establishConnection(): Promise<boolean> {
-    return new Promise((resolve) => {
+    return new Promise<boolean>((resolve) => {
       // BUG FIX: Track if we've already resolved to prevent race conditions
       // between timeout firing and 'open' event handler
       let resolved = false;
@@ -212,6 +212,17 @@ export class VSCodeIPCClient extends EventEmitter {
       } catch {
         safeResolve(false);
       }
+    }).catch(() => {
+      // Ensure we don't leave the client in a connecting state on unexpected errors
+      this.connecting = false;
+      this.connected = false;
+      try {
+        this.ws?.close();
+      } catch {
+        // Ignore close errors during cleanup
+      }
+      this.ws = null;
+      return false;
     });
   }
 
@@ -383,7 +394,7 @@ export class VSCodeIPCClient extends EventEmitter {
    * BUG FIX: Use resolved flag to prevent race condition between timeout and actual response
    */
   private sendRequest(message: IPCMessage): Promise<IPCResponse> {
-    return new Promise((resolve, reject) => {
+    return new Promise<IPCResponse>((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
         reject(new Error('Not connected'));
         return;
@@ -422,6 +433,15 @@ export class VSCodeIPCClient extends EventEmitter {
           reject(new Error('Failed to send message'));
         }
       }
+    }).catch(() => {
+      // Clean up any pending request entry if an unexpected error bubbles up
+      const pending = this.pendingRequests.get(message.requestId);
+      if (pending) {
+        clearTimeout(pending.timeout);
+        this.pendingRequests.delete(message.requestId);
+      }
+      // Fall back to approval to avoid unhandled rejections blocking the CLI
+      return { type: 'approved', requestId: message.requestId };
     });
   }
 

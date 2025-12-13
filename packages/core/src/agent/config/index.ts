@@ -15,11 +15,14 @@ export {
 export {
   buildSessionContext,
   buildNativeSearchInstructions,
+  buildGrokCapabilitiesInstructions,
   buildMCPToolsSection,
   buildCompleteSystemPrompt,
   formatMCPTool,
   hasNativeSearchInstructions,
+  hasGrokCapabilitiesInstructions,
   hasMCPToolsSection,
   appendNativeSearchInstructions,
+  appendGrokCapabilitiesInstructions,
   appendMCPToolsSection,
 } from "./system-prompt-builder.js";

@@ -429,50 +429,66 @@ export class HookRunner extends EventEmitter {
         this.runningProcesses.delete(proc);
       };
 
+      const handleError = (error: unknown) => {
+        proc.removeListener('error', handleError);
+        proc.stdin?.removeListener('error', handleError);
+        cleanup();
+        reject(error instanceof Error ? error : new Error(String(error)));
+      };
+
       proc.on('close', (code) => {
+        proc.removeListener('error', handleError);
+        proc.stdin?.removeListener('error', handleError);
         cleanup();
 
-        // Handle exit codes
-        if (code === EXIT_CODES.BLOCK) {
-          resolve({
-            action: 'block',
-            reason: stderr || stdout || 'Blocked by hook',
-          });
-          return;
-        }
-
-        if (code === EXIT_CODES.ERROR) {
-          // Log error but continue
-          this.emit('hook:warning', {
-            hook: hook.name,
-            message: stderr || stdout || 'Hook returned error',
-          });
-          resolve({ action: 'continue' });
-          return;
-        }
-
-        // Try to parse JSON output
         try {
-          if (stdout.trim()) {
-            const output = JSON.parse(stdout.trim()) as HookOutput;
-            resolve(output);
-          } else {
+          // Handle exit codes
+          if (code === EXIT_CODES.BLOCK) {
+            resolve({
+              action: 'block',
+              reason: stderr || stdout || 'Blocked by hook',
+            });
+            return;
+          }
+
+          if (code === EXIT_CODES.ERROR) {
+            // Log error but continue
+            this.emit('hook:warning', {
+              hook: hook.name,
+              message: stderr || stdout || 'Hook returned error',
+            });
+            resolve({ action: 'continue' });
+            return;
+          }
+
+          // Try to parse JSON output
+          try {
+            if (stdout.trim()) {
+              const output = JSON.parse(stdout.trim()) as HookOutput;
+              resolve(output);
+            } else {
+              resolve({ action: 'continue' });
+            }
+          } catch {
+            // Non-JSON output, treat as continue
             resolve({ action: 'continue' });
           }
-        } catch {
-          // Non-JSON output, treat as continue
-          resolve({ action: 'continue' });
+        } catch (error) {
+          // Ensure unexpected errors reject the promise instead of causing unhandled exceptions
+          reject(error);
         }
       });
 
-      proc.on('error', (error) => {
-        cleanup();
-        reject(error);
-      });
+      proc.on('error', handleError);
+      proc.stdin?.on('error', handleError);
 
       // Send input via stdin
-      proc.stdin?.write(JSON.stringify(input));
-      proc.stdin?.end();
+      try {
+        proc.stdin?.write(JSON.stringify(input));
+        proc.stdin?.end();
+      } catch (error) {
+        handleError(error);
+      }
     });
   }
 

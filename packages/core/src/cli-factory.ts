@@ -33,7 +33,8 @@ import { migrateCommandHistory } from "./utils/history-migration.js";
 import { AGENT_CONFIG } from "./constants.js";
 import { getVSCodeIPCClient, disposeVSCodeIPCClient } from "./ipc/index.js";
 import type { ProviderDefinition } from "./provider/config.js";
-import { getApiKeyFromEnv, setActiveProviderConfigPaths } from "./provider/config.js";
+import { getApiKeyFromEnv, setActiveProviderConfigPaths, resolveModelAlias } from "./provider/config.js";
+import { createConfigFromFlags } from "./agent/config/agentic-config.js";
 
 // Load environment variables (quiet mode to suppress dotenv v17+ output)
 dotenv.config({ quiet: true });
@@ -46,6 +47,15 @@ export interface CLIFactoryOptions {
   provider: ProviderDefinition;
   /** Optional version override */
   version?: string;
+  /** Optional model override (e.g., for --fast flag) */
+  modelOverride?: string;
+  /** Provider-specific options */
+  providerOptions?: {
+    /** Use server-side tools (xAI Agent Tools API) */
+    useServerTools?: boolean;
+    /** Enable parallel function calling */
+    parallelFunctionCalling?: boolean;
+  };
 }
 
 // Global agent tracker for cleanup on exit
@@ -102,7 +112,7 @@ function setupGlobalHandlers(): void {
  * Create a CLI for a specific provider
  */
 export function createCLI(options: CLIFactoryOptions): Command {
-  const { provider } = options;
+  const { provider, modelOverride } = options;
   const cliName = provider.branding.cliName;
   const version = options.version || getVersionString();
 
@@ -154,6 +164,16 @@ export function createCLI(options: CLIFactoryOptions): Command {
 
   cli.option("--top-p <number>", "nucleus sampling parameter (0.0-1.0)");
 
+  // Add --fast flag for providers that have a fast model for agentic tasks
+  if (provider.fastModel) {
+    cli.option("--fast", `use fastest model for agentic tasks (${provider.fastModel})`);
+  }
+
+  // Agentic behavior flags (Phase 2 - GLM optimization)
+  cli.option("--react", "enable ReAct loop mode (explicit reasoning cycles)");
+  cli.option("--verify", "enable verification after plan phases (TypeScript check)");
+  cli.option("--no-correction", "disable self-correction on failures");
+
   // Main action
   cli.action(async (message, cliOptions) => {
     if (cliOptions.directory) {
@@ -174,8 +194,21 @@ export function createCLI(options: CLIFactoryOptions): Command {
       // Get base URL: CLI flag > settings > provider default
       const baseURL = cliOptions.baseUrl || manager.getBaseURL() || provider.defaultBaseURL;
 
-      // Get model: CLI flag > settings > provider default
-      const model = cliOptions.model || manager.getCurrentModel() || provider.defaultModel;
+      // Get model with priority: --fast flag > modelOverride > CLI flag > settings > provider default
+      let model: string;
+      if (cliOptions.fast && provider.fastModel) {
+        // --fast flag: use provider's fast model for agentic tasks
+        model = provider.fastModel;
+      } else if (modelOverride) {
+        // Model override from CLI factory options
+        model = modelOverride;
+      } else {
+        // Standard resolution: CLI flag > settings > provider default
+        model = cliOptions.model || manager.getCurrentModel() || provider.defaultModel;
+      }
+      // Resolve model aliases (e.g., 'grok-fast' -> 'grok-4.1-fast-reasoning')
+      // Uses provider-specific aliases - Grok aliases only work in ax-grok, GLM in ax-glm
+      model = resolveModelAlias(model, provider);
 
       // Parse max tool rounds
       const parsedMaxToolRounds = cliOptions.maxToolRounds ? parseInt(cliOptions.maxToolRounds.toString(), 10) : AGENT_CONFIG.MAX_TOOL_ROUNDS;
@@ -213,6 +246,9 @@ export function createCLI(options: CLIFactoryOptions): Command {
             gitDiff: cliOptions.gitDiff,
             vscode: cliOptions.vscode,
             think: cliOptions.think,
+            react: cliOptions.react,
+            verify: cliOptions.verify,
+            correction: cliOptions.correction,
           }
         );
         return;
@@ -305,6 +341,28 @@ export function createCLI(options: CLIFactoryOptions): Command {
             agent.setThinkingConfig({ type: "disabled" });
           }
         }
+      }
+
+      // Enable server tools for Grok (xAI Agent Tools API)
+      // Provides server-side execution for x_search, web_search, code_execution
+      if (provider.features.supportsServerTools || options.providerOptions?.useServerTools) {
+        agent.setServerToolsConfig({
+          tools: ['x_search', 'web_search'],
+          // Default config: semantic search for X, no specific config for web_search
+          config: {
+            x_search: { search_type: 'semantic' }
+          }
+        });
+      }
+
+      // Configure agentic behaviors (Phase 2 - GLM optimization)
+      if (cliOptions.react || cliOptions.verify || cliOptions.correction === false) {
+        const agenticConfig = createConfigFromFlags({
+          react: cliOptions.react,
+          verify: cliOptions.verify,
+          noCorrection: cliOptions.correction === false,
+        });
+        agent.updateAgenticConfig(agenticConfig);
       }
 
       // Support variadic positional arguments
@@ -404,6 +462,9 @@ async function processPromptHeadless(
     gitDiff?: boolean;
     vscode?: boolean;
     think?: boolean;
+    react?: boolean;
+    verify?: boolean;
+    correction?: boolean;
   }
 ): Promise<void> {
   let agent: LLMAgent | null = null;
@@ -425,6 +486,26 @@ async function processPromptHeadless(
           agent.setThinkingConfig({ type: "disabled" });
         }
       }
+    }
+
+    // Enable server tools for Grok (xAI Agent Tools API)
+    if (provider.features.supportsServerTools) {
+      agent.setServerToolsConfig({
+        tools: ['x_search', 'web_search'],
+        config: {
+          x_search: { search_type: 'semantic' }
+        }
+      });
+    }
+
+    // Configure agentic behaviors (Phase 2 - GLM optimization)
+    if (options.react || options.verify || options.correction === false) {
+      const agenticConfig = createConfigFromFlags({
+        react: options.react,
+        verify: options.verify,
+        noCorrection: options.correction === false,
+      });
+      agent.updateAgenticConfig(agenticConfig);
     }
 
     // Configure confirmation service for headless mode

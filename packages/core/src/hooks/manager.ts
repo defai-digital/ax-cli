@@ -216,115 +216,123 @@ export class HooksManager {
     const startTime = Date.now();
     const timeout = hook.timeout || DEFAULT_HOOK_TIMEOUT;
 
-    return new Promise((resolve) => {
-      const env = {
-        ...process.env,
-        ...hook.env,
-        AXCLI_PROJECT_DIR: input.projectDir,
-        AXCLI_EVENT: input.event,
-        AXCLI_HOOK_INPUT: JSON.stringify(input),
-      };
-
-      const child = spawn(hook.command, [], {
-        shell: true,
-        cwd: hook.cwd || input.projectDir,
-        env,
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-
-      let stdout = "";
-      let stderr = "";
-      let timedOut = false;
-
-      // Handle stdin errors (e.g., if child closes stdin early)
-      if (child.stdin.on) {
-        child.stdin.on("error", () => {
-          // Ignore stdin errors - child may have closed before we finished writing
-        });
-      }
-
-      // Send input as JSON to stdin
-      try {
-        child.stdin.write(JSON.stringify(input));
-        child.stdin.end();
-      } catch {
-        // Ignore write errors - child may have already exited
-      }
-
-      child.stdout.on("data", (data) => {
-        stdout += data.toString();
-      });
-
-      child.stderr.on("data", (data) => {
-        stderr += data.toString();
-      });
-
-      const timeoutId = setTimeout(() => {
-        timedOut = true;
-        child.kill("SIGTERM");
-      }, timeout);
-
-      // BUG FIX: Handle spawn errors (e.g., command not found, permission denied)
-      // Without this handler, spawn errors would be unhandled and could crash the process
-      child.on("error", (error) => {
-        clearTimeout(timeoutId);
-        resolve({
-          success: false,
-          error: `Hook execution failed: ${error.message}`,
-          durationMs: Date.now() - startTime,
-        });
-      });
-
-      child.on("close", (code) => {
-        clearTimeout(timeoutId);
-
-        if (timedOut) {
-          resolve({
-            success: false,
-            error: `Hook timed out after ${timeout}ms`,
-            durationMs: Date.now() - startTime,
-          });
-          return;
-        }
-
-        // Parse output for special fields
-        let output: HookOutput = {
-          exitCode: code || 0,
-          stdout: stdout.trim(),
-          stderr: stderr.trim(),
+    try {
+      return await new Promise((resolve) => {
+        const env = {
+          ...process.env,
+          ...hook.env,
+          AXCLI_PROJECT_DIR: input.projectDir,
+          AXCLI_EVENT: input.event,
+          AXCLI_HOOK_INPUT: JSON.stringify(input),
         };
 
-        // Try to parse JSON output for structured response
-        try {
-          if (stdout.trim().startsWith("{")) {
-            const parsed = JSON.parse(stdout.trim());
-            if (parsed.permissionDecision) {
-              output.permissionDecision = parsed.permissionDecision;
-            }
-            if (parsed.updatedInput) {
-              output.updatedInput = parsed.updatedInput;
-            }
-          }
-        } catch {
-          // Not JSON, use raw output
+        const child = spawn(hook.command, [], {
+          shell: true,
+          cwd: hook.cwd || input.projectDir,
+          env,
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+
+        let stdout = "";
+        let stderr = "";
+        let timedOut = false;
+
+        // Handle stdin errors (e.g., if child closes stdin early)
+        if (child.stdin.on) {
+          child.stdin.on("error", () => {
+            // Ignore stdin errors - child may have closed before we finished writing
+          });
         }
 
-        resolve({
-          success: code === 0,
-          output,
-          durationMs: Date.now() - startTime,
-        });
-      });
+        // Send input as JSON to stdin
+        try {
+          child.stdin.write(JSON.stringify(input));
+          child.stdin.end();
+        } catch {
+          // Ignore write errors - child may have already exited
+        }
 
-      child.on("error", (error) => {
-        clearTimeout(timeoutId);
-        resolve({
-          success: false,
-          error: extractErrorMessage(error),
-          durationMs: Date.now() - startTime,
+        child.stdout.on("data", (data) => {
+          stdout += data.toString();
+        });
+
+        child.stderr.on("data", (data) => {
+          stderr += data.toString();
+        });
+
+        const timeoutId = setTimeout(() => {
+          timedOut = true;
+          child.kill("SIGTERM");
+        }, timeout);
+
+        // BUG FIX: Handle spawn errors (e.g., command not found, permission denied)
+        // Without this handler, spawn errors would be unhandled and could crash the process
+        child.on("error", (error) => {
+          clearTimeout(timeoutId);
+          resolve({
+            success: false,
+            error: `Hook execution failed: ${error.message}`,
+            durationMs: Date.now() - startTime,
+          });
+        });
+
+        child.on("close", (code) => {
+          clearTimeout(timeoutId);
+
+          if (timedOut) {
+            resolve({
+              success: false,
+              error: `Hook timed out after ${timeout}ms`,
+              durationMs: Date.now() - startTime,
+            });
+            return;
+          }
+
+          // Parse output for special fields
+          let output: HookOutput = {
+            exitCode: code || 0,
+            stdout: stdout.trim(),
+            stderr: stderr.trim(),
+          };
+
+          // Try to parse JSON output for structured response
+          try {
+            if (stdout.trim().startsWith("{")) {
+              const parsed = JSON.parse(stdout.trim());
+              if (parsed.permissionDecision) {
+                output.permissionDecision = parsed.permissionDecision;
+              }
+              if (parsed.updatedInput) {
+                output.updatedInput = parsed.updatedInput;
+              }
+            }
+          } catch {
+            // Not JSON, use raw output
+          }
+
+          resolve({
+            success: code === 0,
+            output,
+            durationMs: Date.now() - startTime,
+          });
+        });
+
+        child.on("error", (error) => {
+          clearTimeout(timeoutId);
+          resolve({
+            success: false,
+            error: extractErrorMessage(error),
+            durationMs: Date.now() - startTime,
+          });
         });
       });
-    });
+    } catch (error) {
+      return {
+        success: false,
+        error: extractErrorMessage(error),
+        durationMs: Date.now() - startTime,
+      };
+    }
   }
 
   /**

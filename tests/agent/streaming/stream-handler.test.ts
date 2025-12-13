@@ -10,6 +10,7 @@ import type { GLM46StreamChunk } from "../../../packages/core/src/llm/types.js";
 vi.mock("../../../packages/core/src/utils/usage-tracker.js", () => ({
   getUsageTracker: vi.fn().mockReturnValue({
     trackUsage: vi.fn(),
+    trackResponseTime: vi.fn(),
   }),
 }));
 

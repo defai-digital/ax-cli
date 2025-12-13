@@ -186,6 +186,179 @@ export function createUsageCommand(): Command {
       }
     });
 
+  // Performance metrics command (Phase 3)
+  usageCommand
+    .command('perf')
+    .description('Show performance metrics (response times, latency)')
+    .option('-j, --json', 'Output in JSON format')
+    .action((options) => {
+      try {
+        const tracker = getUsageTracker();
+        const perf = tracker.getPerformanceMetrics();
+
+        if (options.json) {
+          console.log(JSON.stringify(perf, null, 2));
+          return;
+        }
+
+        prompts.intro(chalk.cyan('⚡ Performance Metrics'));
+
+        if (perf.totalCalls === 0) {
+          prompts.log.warn('No API calls recorded in this session.');
+          prompts.outro(chalk.dim('Start a conversation to see performance metrics'));
+          return;
+        }
+
+        const perfLines = [
+          `Total API Calls:     ${chalk.cyan(perf.totalCalls.toLocaleString())}`,
+          ``,
+          `${chalk.bold('Response Time (ms):')}`,
+          `  Average:           ${chalk.green(perf.avgResponseTimeMs.toFixed(0))}`,
+          `  Min:               ${chalk.green(perf.minResponseTimeMs.toFixed(0))}`,
+          `  Max:               ${chalk.yellow(perf.maxResponseTimeMs.toFixed(0))}`,
+          ``,
+          `${chalk.bold('Percentiles:')}`,
+          `  P50 (median):      ${chalk.green(perf.p50ResponseTimeMs.toFixed(0))}`,
+          `  P95:               ${chalk.yellow(perf.p95ResponseTimeMs.toFixed(0))}`,
+          `  P99:               ${chalk.red(perf.p99ResponseTimeMs.toFixed(0))}`,
+        ];
+
+        prompts.note(perfLines.join('\n'), 'API Latency');
+        prompts.outro(chalk.dim('Lower response times = faster API responses'));
+
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        prompts.log.error(`Error: ${message}`);
+        process.exit(1);
+      }
+    });
+
+  // Tool usage command (Phase 3)
+  usageCommand
+    .command('tools')
+    .description('Show tool usage statistics')
+    .option('-l, --limit <number>', 'Limit number of tools shown', '10')
+    .option('-j, --json', 'Output in JSON format')
+    .action((options) => {
+      try {
+        const tracker = getUsageTracker();
+        const limit = parseInt(options.limit, 10) || 10;
+        const topTools = tracker.getTopTools(limit);
+
+        if (options.json) {
+          console.log(JSON.stringify(topTools, null, 2));
+          return;
+        }
+
+        prompts.intro(chalk.cyan('🔧 Tool Usage Statistics'));
+
+        if (topTools.length === 0) {
+          prompts.log.warn('No tool calls recorded in this session.');
+          prompts.outro(chalk.dim('Tools will be tracked as they are used'));
+          return;
+        }
+
+        for (const tool of topTools) {
+          const successRate = tool.calls > 0
+            ? ((tool.successes / tool.calls) * 100).toFixed(1)
+            : '0.0';
+          const successColor = parseFloat(successRate) >= 90 ? chalk.green : chalk.yellow;
+
+          const toolLines = [
+            `Calls:              ${chalk.cyan(tool.calls.toLocaleString())}`,
+            `Success Rate:       ${successColor(successRate + '%')}`,
+            `Avg Exec Time:      ${chalk.dim(tool.avgExecutionTimeMs.toFixed(0) + 'ms')}`,
+          ];
+
+          prompts.note(toolLines.join('\n'), `🔧 ${tool.name}`);
+        }
+
+        prompts.outro(chalk.dim(`Showing top ${topTools.length} tools by usage`));
+
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        prompts.log.error(`Error: ${message}`);
+        process.exit(1);
+      }
+    });
+
+  // Server tools command (Phase 3 - Grok specific)
+  usageCommand
+    .command('server-tools')
+    .description('Show Grok server tool metrics (xAI Agent Tools API)')
+    .option('-j, --json', 'Output in JSON format')
+    .action((options) => {
+      try {
+        const tracker = getUsageTracker();
+        const serverTools = tracker.getServerToolMetrics();
+
+        if (options.json) {
+          console.log(JSON.stringify(serverTools, null, 2));
+          return;
+        }
+
+        prompts.intro(chalk.cyan('🌐 Grok Server Tools (xAI Agent Tools API)'));
+
+        const totalCalls = serverTools.webSearch.calls +
+                          serverTools.xSearch.calls +
+                          serverTools.codeExecution.calls;
+
+        if (totalCalls === 0) {
+          prompts.log.warn('No server tool calls recorded in this session.');
+          prompts.log.info('Server tools are exclusive to Grok models:');
+          prompts.log.message('  • web_search: Real-time web search');
+          prompts.log.message('  • x_search: X (Twitter) posts search');
+          prompts.log.message('  • code_execution: Python sandbox');
+          prompts.outro(chalk.dim('Use ax-grok with --fast flag for best server tool performance'));
+          return;
+        }
+
+        // Web Search
+        if (serverTools.webSearch.calls > 0) {
+          const wsLines = [
+            `Calls:              ${chalk.cyan(serverTools.webSearch.calls.toLocaleString())}`,
+            `Total Results:      ${chalk.green(serverTools.webSearch.totalResults.toLocaleString())}`,
+            `Avg Results/Call:   ${chalk.dim(serverTools.webSearch.avgResultsPerCall.toFixed(1))}`,
+          ];
+          prompts.note(wsLines.join('\n'), '🔍 web_search');
+        }
+
+        // X Search
+        if (serverTools.xSearch.calls > 0) {
+          const xsLines = [
+            `Calls:              ${chalk.cyan(serverTools.xSearch.calls.toLocaleString())}`,
+            `Total Results:      ${chalk.green(serverTools.xSearch.totalResults.toLocaleString())}`,
+            `Avg Results/Call:   ${chalk.dim(serverTools.xSearch.avgResultsPerCall.toFixed(1))}`,
+            ``,
+            `${chalk.bold('By Search Type:')}`,
+            `  Keyword:          ${serverTools.xSearch.bySearchType.keyword}`,
+            `  Semantic:         ${serverTools.xSearch.bySearchType.semantic}`,
+          ];
+          prompts.note(xsLines.join('\n'), '📱 x_search');
+        }
+
+        // Code Execution
+        if (serverTools.codeExecution.calls > 0) {
+          const successRate = serverTools.codeExecution.calls > 0
+            ? ((serverTools.codeExecution.successes / serverTools.codeExecution.calls) * 100).toFixed(1)
+            : '0.0';
+          const ceLines = [
+            `Calls:              ${chalk.cyan(serverTools.codeExecution.calls.toLocaleString())}`,
+            `Success Rate:       ${chalk.green(successRate + '%')}`,
+            `Total Exec Time:    ${chalk.dim(serverTools.codeExecution.totalExecutionTimeMs.toFixed(0) + 'ms')}`,
+          ];
+          prompts.note(ceLines.join('\n'), '💻 code_execution');
+        }
+
+        prompts.outro(chalk.dim('Server tools run on xAI infrastructure'));
+
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        prompts.log.error(`Error: ${message}`);
+        process.exit(1);
+      }
+    });
+
   // Default action (show usage)
   usageCommand.action(() => {
     usageCommand.commands.find(cmd => cmd.name() === 'show')?.parseAsync(['node', 'ax', 'usage', 'show'], { from: 'user' });
@@ -256,37 +429,65 @@ function getProviderDisplay(provider: string, baseURL: string): string {
 /**
  * Grok API pricing per token (as of Dec 2025)
  * Source: https://docs.x.ai/docs/models
+ *
+ * Grok 4.1 Models (Dec 2025):
+ * - grok-4.1: $3.00/$15.00 per 1M tokens (input/output), 131K context
+ * - grok-4.1-fast-reasoning: $0.20/$0.50 per 1M tokens, 2M context (best for agentic tasks)
+ * - grok-4.1-fast-non-reasoning: $0.20/$0.50 per 1M tokens, 2M context
+ * - grok-4.1-mini: $0.30/$0.50 per 1M tokens
+ *
+ * Legacy Models:
+ * - grok-4: Same as grok-4.1
+ * - grok-3/grok-2: Legacy pricing
  */
 const GROK_PRICING = {
-  // Grok 4 pricing
+  // Grok 4.1 (default flagship model)
+  'grok-4.1': {
+    input: 3.0 / 1_000_000,      // $3.00 per 1M tokens
+    output: 15.0 / 1_000_000,    // $15.00 per 1M tokens
+    cached: 0.75 / 1_000_000,    // $0.75 per 1M tokens (75% discount)
+  },
+  // Grok 4.1 Fast Reasoning (best for agentic/coding tasks, 2M context!)
+  'grok-4.1-fast-reasoning': {
+    input: 0.20 / 1_000_000,     // $0.20 per 1M tokens
+    output: 0.50 / 1_000_000,    // $0.50 per 1M tokens
+    cached: 0.05 / 1_000_000,    // $0.05 per 1M tokens (75% discount)
+  },
+  // Grok 4.1 Fast Non-Reasoning (fastest, 2M context)
+  'grok-4.1-fast-non-reasoning': {
+    input: 0.20 / 1_000_000,     // $0.20 per 1M tokens
+    output: 0.50 / 1_000_000,    // $0.50 per 1M tokens
+    cached: 0.05 / 1_000_000,    // $0.05 per 1M tokens
+  },
+  // Grok 4.1 Mini (cost-effective variant)
+  'grok-4.1-mini': {
+    input: 0.30 / 1_000_000,     // $0.30 per 1M tokens
+    output: 0.50 / 1_000_000,    // $0.50 per 1M tokens
+    cached: 0.075 / 1_000_000,   // $0.075 per 1M tokens
+  },
+  // Grok 4 (alias to 4.1)
   'grok-4': {
     input: 3.0 / 1_000_000,      // $3.00 per 1M tokens
     output: 15.0 / 1_000_000,    // $15.00 per 1M tokens
     cached: 0.75 / 1_000_000,    // $0.75 per 1M tokens
   },
-  // Grok 4.1 Fast pricing
-  'grok-4.1-fast': {
-    input: 0.20 / 1_000_000,     // $0.20 per 1M tokens
-    output: 0.50 / 1_000_000,    // $0.50 per 1M tokens
-    cached: 0.05 / 1_000_000,    // estimated
-  },
-  // Grok 3 pricing
+  // Legacy: Grok 3
   'grok-3': {
     input: 3.0 / 1_000_000,      // $3.00 per 1M tokens
     output: 15.0 / 1_000_000,    // $15.00 per 1M tokens
     cached: 0.75 / 1_000_000,    // $0.75 per 1M tokens
   },
-  // Grok 3 Mini pricing
+  // Legacy: Grok 3 Mini
   'grok-3-mini': {
     input: 0.30 / 1_000_000,     // $0.30 per 1M tokens
     output: 0.50 / 1_000_000,    // $0.50 per 1M tokens
-    cached: 0.075 / 1_000_000,   // estimated
+    cached: 0.075 / 1_000_000,
   },
-  // Grok 2 pricing (legacy)
+  // Legacy: Grok 2
   'grok-2': {
     input: 2.0 / 1_000_000,      // $2.00 per 1M tokens
     output: 10.0 / 1_000_000,    // $10.00 per 1M tokens
-    cached: 0.50 / 1_000_000,    // estimated
+    cached: 0.50 / 1_000_000,
   },
 } as const;
 
@@ -296,9 +497,22 @@ const GROK_PRICING = {
 function getGrokPricing(model: string): { input: number; output: number; cached: number } {
   const modelLower = model.toLowerCase();
 
-  if (modelLower.includes('grok-4.1-fast') || modelLower.includes('grok-4.1')) {
-    return GROK_PRICING['grok-4.1-fast'];
+  // Grok 4.1 Fast variants (best value for agentic tasks)
+  if (modelLower.includes('grok-4.1-fast-reasoning') || modelLower.includes('grok-fast')) {
+    return GROK_PRICING['grok-4.1-fast-reasoning'];
   }
+  if (modelLower.includes('grok-4.1-fast-non-reasoning') || modelLower.includes('grok-fast-nr')) {
+    return GROK_PRICING['grok-4.1-fast-non-reasoning'];
+  }
+  // Grok 4.1 Mini
+  if (modelLower.includes('grok-4.1-mini') || modelLower.includes('grok-mini')) {
+    return GROK_PRICING['grok-4.1-mini'];
+  }
+  // Grok 4.1 (flagship)
+  if (modelLower.includes('grok-4.1') || modelLower.includes('grok-latest')) {
+    return GROK_PRICING['grok-4.1'];
+  }
+  // Grok 4 (alias to 4.1)
   if (modelLower.includes('grok-4')) {
     return GROK_PRICING['grok-4'];
   }
@@ -313,8 +527,8 @@ function getGrokPricing(model: string): { input: number; output: number; cached:
     return GROK_PRICING['grok-2'];
   }
 
-  // Default to Grok 4 pricing (current default model)
-  return GROK_PRICING['grok-4'];
+  // Default to Grok 4.1 pricing (current default model)
+  return GROK_PRICING['grok-4.1'];
 }
 
 /**

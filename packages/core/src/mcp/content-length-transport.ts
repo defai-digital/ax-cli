@@ -70,7 +70,7 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
 
     const startupTimeout = this.config.startupTimeout ?? MCP_TIMEOUTS.STARTUP;
 
-    return new Promise((resolve, reject) => {
+    const startupPromise = new Promise<void>((resolve, reject) => {
       let resolved = false;
       let timeoutId: NodeJS.Timeout | undefined;
 
@@ -156,6 +156,13 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
         handleReject(error instanceof Error ? error : new Error(String(error)));
       }
     });
+
+    // Attach catch to avoid unhandled rejections when callers forget to await
+    startupPromise.catch((error) => {
+      this.onerror?.(error instanceof Error ? error : new Error(String(error)));
+    });
+
+    return startupPromise;
   }
 
   /**
@@ -378,7 +385,7 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
    * This ensures the message was actually transmitted, not just buffered
    */
   send(message: JSONRPCMessage): Promise<void> {
-    return new Promise((resolve, reject) => {
+    const writePromise = new Promise<void>((resolve, reject) => {
       if (!this.process?.stdin?.writable) {
         reject(new Error("Not connected"));
         return;
@@ -404,10 +411,16 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
           resolve();
         }
       });
-
       // BUG FIX: Removed early resolve on success=true
       // The callback ensures the write completed, not just that it was buffered
     });
+
+    // Report send failures even if caller forgets to await
+    writePromise.catch((error) => {
+      this.onerror?.(error instanceof Error ? error : new Error(String(error)));
+    });
+
+    return writePromise;
   }
 
   /**

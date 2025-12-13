@@ -6,7 +6,8 @@ import { EventEmitter } from "events";
 import { AGENT_CONFIG, CACHE_CONFIG, TIMEOUT_CONFIG } from "../constants.js";
 import type { TokenCounter } from "../utils/token-counter.js";
 import { ContextManager } from "./context-manager.js";
-// Note: getUsageTracker is now used by StreamHandler (Phase 2 refactoring)
+// Note: getUsageTracker is also used for tool usage tracking (Phase 3 metrics)
+import { getUsageTracker } from "../utils/usage-tracker.js";
 import { extractErrorMessage } from "../utils/error-handler.js";
 import type { CheckpointManager } from "../checkpoint/index.js";
 import { SubagentOrchestrator } from "./subagent-orchestrator.js";
@@ -33,6 +34,14 @@ import { StreamHandler } from "./streaming/index.js";
 import { PlanExecutor } from "./planning/index.js";
 import type { StreamResult } from "./core/index.js";
 import { partitionToolCalls } from "./parallel-tools.js";
+
+// Import agentic behaviors (Phase 2 - GLM optimization)
+import {
+  SelfCorrectionEngine,
+  createSelfCorrectionEngine,
+} from "./correction/index.js";
+import type { AgenticConfig } from "./config/agentic-config.js";
+import { mergeAgenticConfig } from "./config/agentic-config.js";
 
 // Import and re-export types from core module (maintains backward compatibility)
 import type {
@@ -81,6 +90,8 @@ export class LLMAgent extends EventEmitter {
   private samplingConfig: SamplingConfig | undefined;
   /** Thinking/reasoning mode configuration */
   private thinkingConfig: ThinkingConfig | undefined;
+  /** Server tools configuration for Grok (xAI Agent Tools API) */
+  private serverToolsConfig: { tools: string[]; config?: Record<string, unknown> } | undefined;
   /** Track if auto-thinking was enabled for current message (for UI indicator) */
   private autoThinkingEnabled: boolean = false;
   /** User's explicit thinking preference (undefined = auto, true/false = explicit) */
@@ -102,6 +113,12 @@ export class LLMAgent extends EventEmitter {
   private mcpClientConfig?: { name?: string; version?: string };
   /** BUG FIX: Store subagent event listeners for proper cleanup in dispose() */
   private subagentEventListeners: Array<{ event: string; listener: (...args: unknown[]) => void }> = [];
+
+  // Agentic behaviors (Phase 2 - GLM optimization)
+  /** Self-correction engine for failure detection and recovery */
+  private correctionEngine: SelfCorrectionEngine;
+  /** Agentic configuration */
+  private agenticConfig: AgenticConfig;
 
   constructor(
     apiKey: string,
@@ -203,6 +220,13 @@ export class LLMAgent extends EventEmitter {
 
     // Load sampling configuration from settings (supports env vars, project, and user settings)
     this.samplingConfig = manager.getSamplingSettings();
+
+    // Initialize agentic behaviors (Phase 2 - GLM optimization)
+    this.agenticConfig = mergeAgenticConfig({});
+    this.correctionEngine = createSelfCorrectionEngine(
+      this.agenticConfig.correction,
+      this // Pass this as EventEmitter for correction events
+    );
 
     // Initialize checkpoint manager
     this.initializeCheckpointManager();
@@ -442,6 +466,14 @@ export class LLMAgent extends EventEmitter {
       }
     }
 
+    // Include server tools configuration if set and not overridden (Grok xAI Agent Tools)
+    if (this.serverToolsConfig && !result.serverTools) {
+      result.serverTools = this.serverToolsConfig.tools;
+      if (this.serverToolsConfig.config && !result.serverToolConfig) {
+        result.serverToolConfig = this.serverToolsConfig.config;
+      }
+    }
+
     return result;
   }
 
@@ -502,6 +534,34 @@ export class LLMAgent extends EventEmitter {
    */
   public getSamplingConfig(): SamplingConfig | undefined {
     return this.samplingConfig;
+  }
+
+  /**
+   * Set server tools configuration for Grok (xAI Agent Tools API)
+   *
+   * Enables server-side tool execution for:
+   * - x_search: X/Twitter posts search
+   * - web_search: Real-time web search
+   * - code_execution: Python execution sandbox
+   *
+   * @param config Server tools configuration
+   * @example
+   * ```typescript
+   * agent.setServerToolsConfig({
+   *   tools: ['x_search', 'web_search'],
+   *   config: { x_search: { search_type: 'semantic' } }
+   * });
+   * ```
+   */
+  public setServerToolsConfig(config: { tools: string[]; config?: Record<string, unknown> } | undefined): void {
+    this.serverToolsConfig = config;
+  }
+
+  /**
+   * Get current server tools configuration
+   */
+  public getServerToolsConfig(): { tools: string[]; config?: Record<string, unknown> } | undefined {
+    return this.serverToolsConfig;
   }
 
   /**
@@ -1693,6 +1753,9 @@ export class LLMAgent extends EventEmitter {
       detector.recordToolCall(toolCall, result.success);
       debugLoop(`📝 Recorded: ${toolCall.function.name}, success=${result.success}`);
 
+      // Track tool usage for performance metrics (Phase 3)
+      getUsageTracker().trackToolUsage(toolCall.function.name, result.success, executionDurationMs);
+
       const toolResultEntry: ChatEntry = {
         type: "tool_result",
         content: this.formatToolResultContent(result),
@@ -2026,6 +2089,38 @@ export class LLMAgent extends EventEmitter {
     this.tokenCounter = deps.getTokenCounter(model);
     // Update stream handler model for usage tracking
     this.streamHandler.setModel(model);
+  }
+
+  /**
+   * Get the agentic configuration
+   */
+  getAgenticConfig(): AgenticConfig {
+    return this.agenticConfig;
+  }
+
+  /**
+   * Update agentic configuration
+   */
+  updateAgenticConfig(config: Partial<AgenticConfig>): void {
+    this.agenticConfig = mergeAgenticConfig({ ...this.agenticConfig, ...config });
+    // Update correction engine if correction config changed
+    if (config.correction) {
+      this.correctionEngine.updateConfig(config.correction);
+    }
+  }
+
+  /**
+   * Get self-correction statistics
+   */
+  getCorrectionStats(): {
+    totalFailures: number;
+    totalCorrections: number;
+    successfulCorrections: number;
+    activeRecords: number;
+    successRate: number;
+    activeBudgets: number;
+  } {
+    return this.correctionEngine.getStats();
   }
 
   abortCurrentOperation(): void {

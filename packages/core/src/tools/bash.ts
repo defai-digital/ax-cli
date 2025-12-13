@@ -82,6 +82,28 @@ export class BashTool extends EventEmitter {
   }
 
   /**
+   * Emit events while guarding against async listener rejections
+   */
+  private emitSafely(event: string, payload: unknown): void {
+    for (const listener of this.listeners(event)) {
+      try {
+        const result = (listener as (data: unknown) => unknown).call(this, payload);
+        if (result && typeof (result as Promise<unknown>).catch === 'function') {
+          (result as Promise<unknown>).catch((error) => {
+            if (process.env.DEBUG || process.env.AX_DEBUG) {
+              console.error(`BashTool ${event} listener rejected: ${extractErrorMessage(error)}`);
+            }
+          });
+        }
+      } catch (error) {
+        if (process.env.DEBUG || process.env.AX_DEBUG) {
+          console.error(`BashTool ${event} listener threw: ${extractErrorMessage(error)}`);
+        }
+      }
+    }
+  }
+
+  /**
    * Check if a command is currently executing
    */
   isExecuting(): boolean {
@@ -464,7 +486,7 @@ export class BashTool extends EventEmitter {
       this.currentOutput = [];
 
       // Emit event for UI to know execution started
-      this.emit('executionStarted', { command, pid: childProcess.pid });
+      this.emitSafely('executionStarted', { command, pid: childProcess.pid });
 
       // TIMEOUT LEAK FIX: Set up timeout with tracked IDs
       mainTimeoutId = setTimeout(() => {
@@ -533,7 +555,7 @@ export class BashTool extends EventEmitter {
         }
 
         // Emit for streaming output
-        this.emit('stdout', { data: str });
+        this.emitSafely('stdout', { data: str });
       });
 
       // Collect stderr
@@ -543,50 +565,55 @@ export class BashTool extends EventEmitter {
         this.currentOutput.push(`STDERR: ${str}`);
 
         // Emit for streaming output
-        this.emit('stderr', { data: str });
+        this.emitSafely('stderr', { data: str });
       });
 
       // Handle process completion
       childProcess.on('close', (code: number | null) => {
-        // TIMEOUT LEAK FIX: Clear all timers on completion
-        clearAllTimers();
-        cleanupAbortListener(); // Remove abort listener to prevent memory leaks
+        try {
+          // TIMEOUT LEAK FIX: Clear all timers on completion
+          clearAllTimers();
+          cleanupAbortListener(); // Remove abort listener to prevent memory leaks
 
-        // BUG FIX: Remove stream listeners to prevent memory leak accumulation
-        childProcess.stdout?.removeAllListeners('data');
-        childProcess.stderr?.removeAllListeners('data');
+          // BUG FIX: Remove stream listeners to prevent memory leak accumulation
+          childProcess.stdout?.removeAllListeners('data');
+          childProcess.stderr?.removeAllListeners('data');
 
-        // Clear current process state
-        if (this.currentProcess === childProcess) {
-          this.currentProcess = null;
-          this.currentCommand = '';
-          this.currentOutput = [];
-        }
+          // Clear current process state
+          if (this.currentProcess === childProcess) {
+            this.currentProcess = null;
+            this.currentCommand = '';
+            this.currentOutput = [];
+          }
 
-        // Emit completion event
-        this.emit('executionCompleted', { command, exitCode: code });
+          // Emit completion event
+        this.emitSafely('executionCompleted', { command, exitCode: code });
 
-        if (movedToBackground) {
-          return; // Already resolved
-        }
+          if (movedToBackground) {
+            return; // Already resolved
+          }
 
-        const rawOutput = stdout.join('') + (stderr.length > 0 ? `\nSTDERR: ${stderr.join('')}` : '');
-        const trimmedOutput = rawOutput.trim() || 'Command executed successfully (no output)';
+          const rawOutput = stdout.join('') + (stderr.length > 0 ? `\nSTDERR: ${stderr.join('')}` : '');
+          const trimmedOutput = rawOutput.trim() || 'Command executed successfully (no output)';
 
-        // Optimize output
-        const optimizer = getMessageOptimizer();
-        const optimized = optimizer.optimizeToolOutput(trimmedOutput, 'bash');
+          // Optimize output
+          const optimizer = getMessageOptimizer();
+          const optimized = optimizer.optimizeToolOutput(trimmedOutput, 'bash');
 
-        if (code === 0) {
-          resolve({
-            success: true,
-            output: optimized.content
-          });
-        } else {
-          resolve({
-            success: false,
-            error: `Command failed (exit code ${code}):\n${optimized.content}`
-          });
+          if (code === 0) {
+            resolve({
+              success: true,
+              output: optimized.content
+            });
+          } else {
+            resolve({
+              success: false,
+              error: `Command failed (exit code ${code}):\n${optimized.content}`
+            });
+          }
+        } catch (error) {
+          const normalizedError = error instanceof Error ? error : new Error(String(error));
+          reject(normalizedError);
         }
       });
 

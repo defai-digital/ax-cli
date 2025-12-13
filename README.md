@@ -95,6 +95,14 @@ Run `/init` inside the CLI to initialize your project context.
 
 ---
 
+### Provider highlights (GLM + Grok)
+- **GLM (ax-glm)**: 200K context, thinking_mode support, strong Chinese language performance, vision via `glm-4.6v`, fast iterations via `glm-4-flash`.
+- **Grok (ax-grok)**: Built-in web search, vision, reasoning_effort; **Grok 4.1 fast variants ship with 2M context, parallel server tools, x_search, and server-side code execution**. See `docs/grok-4.1-advanced-features.md` for details.
+- Both CLIs share the same toolchain (file edits, MCP, bash) and project memory; pick the provider that matches your API key.
+- Install both to run in parallel with isolated state (`.ax-glm`, `.ax-grok`) for side-by-side comparisons.
+
+---
+
 ## Supported Models
 
 ### GLM (Z.AI)
@@ -108,12 +116,14 @@ Run `/init` inside the CLI to initialize your project context.
 
 ### Grok (xAI)
 
-> **Grok 4 only**: ax-grok now exclusively supports Grok 4, which has **all capabilities built-in**: vision, extended thinking (reasoning_effort), and live web search.
+> **Grok 4.1 advanced**: ax-grok now enables Grok 4.1’s server-side agent tools (web_search, x_search, code_execution) with parallel function calling and 2M-context fast variants. See the full guide in `docs/grok-4.1-advanced-features.md`.
 
 | Model | Context | Features | Alias |
 |-------|---------|----------|-------|
-| `grok-4-0709` | 131K | **Most capable**: reasoning, coding, vision, search (default) | `grok-latest` |
-| `grok-4.1-fast` | 131K | Fast variant with agent tools support | `grok-fast` |
+| `grok-4.1` | 131K | Balanced default with built-in reasoning, vision, search | `grok-latest` |
+| `grok-4.1-fast-reasoning` | 2M | Best for agentic/tool-heavy sessions with reasoning | `grok-fast` |
+| `grok-4.1-fast-non-reasoning` | 2M | Fastest agentic runs without extended reasoning | `grok-fast-nr` |
+| `grok-4-0709` | 131K | Original Grok 4 release (compatible) | `grok-4` |
 | `grok-2-image-1212` | 32K | **Image generation**: text-to-image | `grok-image` |
 
 > **Model Aliases**: Use convenient aliases like `ax-grok -m grok-latest` instead of full model names.

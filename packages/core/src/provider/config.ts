@@ -38,6 +38,35 @@ export interface ProviderFeatures {
    * - 'reasoning_effort': Grok 3 style - uses reasoning_effort parameter (low/high)
    */
   thinkingModeStyle?: 'thinking_mode' | 'reasoning_effort';
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Grok-specific capabilities (xAI Agent Tools API)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Server-side parallel function calling (xAI: parallel_function_calling)
+   * When true, the API can execute multiple tool calls in parallel on the server.
+   * Default is true for Grok models.
+   */
+  supportsParallelFunctionCalling?: boolean;
+
+  /**
+   * Server-side tools via xAI Agent Tools API
+   * When true, tools like web_search, x_search, code_execution run on xAI infrastructure.
+   */
+  supportsServerTools?: boolean;
+
+  /**
+   * X (Twitter) posts search capability via x_search tool
+   * Supports both keyword and semantic search modes.
+   */
+  supportsXSearch?: boolean;
+
+  /**
+   * Server-side code execution sandbox
+   * Python code execution on xAI infrastructure with 30s timeout.
+   */
+  supportsCodeExecution?: boolean;
 }
 
 /**
@@ -59,6 +88,8 @@ export interface ProviderDefinition {
   defaultModel: string;
   /** Default vision model (for image analysis, if supported) */
   defaultVisionModel?: string;
+  /** Fast model optimized for agentic/tool-calling tasks (used by --fast flag) */
+  fastModel?: string;
   /** Supported models */
   models: Record<string, ProviderModelConfig>;
   /** Provider feature flags */
@@ -79,6 +110,12 @@ export interface ProviderDefinition {
   };
   /** Configuration directory name (e.g., '.ax-glm', '.ax-grok') */
   configDirName: string;
+  /**
+   * Provider-specific model aliases
+   * Maps friendly names to actual model identifiers for this provider only
+   * e.g., { 'grok-fast': 'grok-4.1-fast-reasoning' }
+   */
+  aliases?: Record<string, string>;
 }
 
 /**
@@ -93,6 +130,13 @@ export const GLM_PROVIDER: ProviderDefinition = {
   defaultModel: 'glm-4.6',
   defaultVisionModel: 'glm-4.6v',
   configDirName: '.ax-glm',
+  // GLM-specific aliases (only for ax-glm users)
+  aliases: {
+    'glm-latest': 'glm-4.6',
+    'glm-fast': 'glm-4-flash',
+    'glm-vision': 'glm-4.6v',
+    'glm-image': 'cogview-4',
+  },
   models: {
     'glm-4.6': {
       name: 'GLM-4.6',
@@ -207,8 +251,17 @@ export const GROK_PROVIDER: ProviderDefinition = {
   apiKeyEnvVarAliases: ['GROK_API_KEY'],
   defaultBaseURL: 'https://api.x.ai/v1',
   defaultModel: 'grok-4',
+  fastModel: 'grok-4.1-fast-reasoning', // Best for agentic tasks (2M context, parallel tools)
   // NOTE: Grok-4 has built-in vision, thinking, and search - no separate vision model needed
   configDirName: '.ax-grok',
+  // Grok-specific aliases (only for ax-grok users)
+  aliases: {
+    'grok-latest': 'grok-4.1',
+    'grok-fast': 'grok-4.1-fast-reasoning',
+    'grok-fast-nr': 'grok-4.1-fast-non-reasoning',
+    'grok-mini': 'grok-4.1-mini',
+    'grok-image': 'grok-2-image-1212',
+  },
   models: {
     // ═══════════════════════════════════════════════════════════════════════
     // Grok 4.1 Series - Latest generation (November 2025)
@@ -374,6 +427,11 @@ export const GROK_PROVIDER: ProviderDefinition = {
     supportsSeed: true,
     supportsDoSample: false,
     thinkingModeStyle: 'reasoning_effort',
+    // Grok-specific capabilities (xAI Agent Tools API)
+    supportsParallelFunctionCalling: true,  // parallel_function_calling=true (default)
+    supportsServerTools: true,              // web_search, x_search, code_execution
+    supportsXSearch: true,                  // X/Twitter posts search
+    supportsCodeExecution: true,            // Server-side Python execution
   },
   branding: {
     cliName: 'ax-grok',
@@ -855,40 +913,45 @@ export function getActiveConfigPaths(): ProviderConfigPaths {
 }
 
 /**
- * Model aliases for convenient model selection
- * Maps friendly names to actual model identifiers
+ * @deprecated Use provider.aliases instead. This global constant will be removed in a future version.
+ * Model aliases for convenient model selection - LEGACY, kept for backward compatibility
  */
 export const MODEL_ALIASES: Record<string, string> = {
-  // GLM aliases
-  'glm-latest': 'glm-4.6',
-  'glm-fast': 'glm-4-flash',
-  'glm-vision': 'glm-4.6v',
-  'glm-image': 'cogview-4',
-  // Grok aliases - all Grok 4.x models have vision built-in
-  'grok-latest': 'grok-4.1',
-  'grok-fast': 'grok-4.1-fast-reasoning',
-  'grok-fast-nr': 'grok-4.1-fast-non-reasoning',
-  'grok-mini': 'grok-4.1-mini',
-  'grok-image': 'grok-2-image-1212',
+  // Combined for backward compatibility only - prefer provider.aliases
+  ...GLM_PROVIDER.aliases,
+  ...GROK_PROVIDER.aliases,
 };
 
 /**
  * Resolve a model name, handling aliases
- * Returns the actual model name if alias exists, otherwise returns input unchanged
+ * Prefers provider-specific aliases if provider is specified
  *
  * @param modelName - Model name or alias
+ * @param provider - Optional provider to use provider-specific aliases
  * @returns Resolved model name
  *
  * @example
- * resolveModelAlias('grok-latest')  // Returns 'grok-4.1'
- * resolveModelAlias('glm-4.6')      // Returns 'glm-4.6' (unchanged)
+ * resolveModelAlias('grok-fast', GROK_PROVIDER)  // Returns 'grok-4.1-fast-reasoning'
+ * resolveModelAlias('glm-4.6')                   // Returns 'glm-4.6' (unchanged)
  */
-export function resolveModelAlias(modelName: string): string {
-  return MODEL_ALIASES[modelName.toLowerCase()] || modelName;
+export function resolveModelAlias(modelName: string, provider?: ProviderDefinition): string {
+  const lowerName = modelName.toLowerCase();
+
+  // First, try provider-specific aliases
+  if (provider?.aliases) {
+    const providerAlias = provider.aliases[lowerName];
+    if (providerAlias) {
+      return providerAlias;
+    }
+  }
+
+  // Fall back to global aliases for backward compatibility
+  return MODEL_ALIASES[lowerName] || modelName;
 }
 
 /**
  * Get all model aliases for a provider
+ * Uses provider-specific aliases (provider.aliases)
  *
  * @param provider - Provider definition
  * @returns Array of alias entries { alias, model, description }
@@ -896,11 +959,11 @@ export function resolveModelAlias(modelName: string): string {
 export function getProviderModelAliases(
   provider: ProviderDefinition
 ): Array<{ alias: string; model: string; description: string }> {
-  const prefix = provider.name.toLowerCase();
   const aliases: Array<{ alias: string; model: string; description: string }> = [];
 
-  for (const [alias, model] of Object.entries(MODEL_ALIASES)) {
-    if (alias.startsWith(prefix + '-')) {
+  // Use provider-specific aliases
+  if (provider.aliases) {
+    for (const [alias, model] of Object.entries(provider.aliases)) {
       const modelConfig = provider.models[model];
       if (modelConfig) {
         aliases.push({
@@ -916,10 +979,21 @@ export function getProviderModelAliases(
 }
 
 /**
- * Check if a model name is an alias
+ * Check if a model name is an alias for a given provider
+ *
+ * @param modelName - Model name to check
+ * @param provider - Optional provider for provider-specific check
  */
-export function isModelAlias(modelName: string): boolean {
-  return modelName.toLowerCase() in MODEL_ALIASES;
+export function isModelAlias(modelName: string, provider?: ProviderDefinition): boolean {
+  const lowerName = modelName.toLowerCase();
+
+  // Check provider-specific aliases first
+  if (provider?.aliases && lowerName in provider.aliases) {
+    return true;
+  }
+
+  // Fall back to global check
+  return lowerName in MODEL_ALIASES;
 }
 
 /**
@@ -934,10 +1008,10 @@ export function getAvailableModelsWithAliases(
 ): Array<{ model: string; alias?: string; description: string; isDefault: boolean }> {
   const result: Array<{ model: string; alias?: string; description: string; isDefault: boolean }> = [];
 
-  // Build reverse lookup for aliases
+  // Build reverse lookup for aliases from provider-specific aliases
   const aliasLookup: Record<string, string> = {};
-  for (const [alias, model] of Object.entries(MODEL_ALIASES)) {
-    if (alias.startsWith(provider.name.toLowerCase() + '-')) {
+  if (provider.aliases) {
+    for (const [alias, model] of Object.entries(provider.aliases)) {
       aliasLookup[model] = alias;
     }
   }

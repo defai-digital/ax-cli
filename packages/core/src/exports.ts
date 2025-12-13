@@ -41,6 +41,9 @@ export {
   getAvailableProviders,
   getProviderModelConfig,
   getApiKeyFromEnv,
+  // Model aliases (now provider-specific via provider.aliases)
+  MODEL_ALIASES,  // @deprecated - use provider.aliases instead
+  resolveModelAlias,
 } from './provider/index.js';
 
 // Agent
@@ -57,6 +60,16 @@ export {
 
 // Settings
 export { getSettingsManager } from './utils/settings-manager.js';
+
+// Usage tracking
+export {
+  getUsageTracker,
+  type UsageStats,
+  type SessionStats,
+  type PerformanceMetrics,
+  type ToolUsageStats,
+  type ServerToolMetrics,
+} from './utils/usage-tracker.js';
 
 // Version
 export { getVersionString } from './utils/version.js';
