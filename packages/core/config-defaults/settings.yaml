@@ -2,7 +2,9 @@
 # Global configuration values for AX CLI
 
 agent:
-  max_tool_rounds: 400
+  # BUG FIX: Reduced from 400 to 60 to prevent runaway sessions
+  # The code also clamps this to max 100 as an additional safeguard
+  max_tool_rounds: 60
   default_timeout: 360000  # 6 minutes in milliseconds
   default_max_tokens: 8192
   max_recent_tool_calls: 20  # Keep only last 20 unique tool calls
@@ -62,8 +64,10 @@ timeouts:
   hook_default: 30000  # 30 seconds for hook execution
 
   # Streaming timeouts
-  streaming_first_chunk: 90000  # 90 seconds for first chunk
-  streaming_idle: 120000  # 120 seconds between chunks
+  # BUG FIX: Reduced from 90s/120s to 60s each to prevent long waits on slow API responses
+  # With 3 retries, 90s timeout could mean 4.5+ minutes waiting for a single API call
+  streaming_first_chunk: 60000  # 60 seconds for first chunk (was 90s)
+  streaming_idle: 60000  # 60 seconds between chunks (was 120s)
 
   # Process pool timeouts
   process_execution: 30000  # 30 seconds for process execution

@@ -212,7 +212,9 @@ export const DEFAULT_CORRECTION_CONFIG: SelfCorrectionConfig = {
   retryDelayMs: 1000,
   customFailurePatterns: [],
   reflectionDepth: 'shallow',
-  useThinkingModeForReflection: true, // GLM-optimized
+  // BUG FIX: Disabled thinking mode by default to reduce latency on failures
+  // Thinking mode adds 10-30s per reflection, which significantly slows down error recovery
+  useThinkingModeForReflection: false,
   resetBudgetOnSuccess: true,
 };
 

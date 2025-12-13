@@ -124,6 +124,8 @@ export class ReActLoop {
 
     let stopReason: ReActStopReason = 'goal_achieved';
     let finalResponse: string | undefined;
+    let consecutiveNoProgress = 0; // BUG FIX: Track consecutive no-progress steps
+    const MAX_NO_PROGRESS = 3; // Maximum consecutive no-progress steps before stopping
 
     try {
       // Main ReAct loop
@@ -149,6 +151,22 @@ export class ReActLoop {
           stopReason = stepResult.stopReason || 'goal_achieved';
           finalResponse = stepResult.finalResponse;
           break;
+        }
+
+        // BUG FIX: Track consecutive no-progress steps and stop if too many
+        if (stepResult.stopReason === 'no_progress' || stepResult.stopReason === 'error') {
+          consecutiveNoProgress++;
+          if (consecutiveNoProgress >= MAX_NO_PROGRESS) {
+            yield {
+              type: 'react_thought',
+              stepNumber,
+              content: '\n⚠️ *Unable to make progress after multiple attempts. Stopping ReAct loop.*\n',
+            };
+            stopReason = 'no_progress';
+            break;
+          }
+        } else {
+          consecutiveNoProgress = 0; // Reset on successful progress
         }
 
         // Check for stalling
@@ -221,9 +239,14 @@ export class ReActLoop {
     stopReason?: ReActStopReason;
     finalResponse?: string;
   }> {
+    type StepResult = {
+      shouldStop: boolean;
+      stopReason?: ReActStopReason;
+      finalResponse?: string;
+    };
     const self = this;
 
-    async function* stepGenerator(): AsyncGenerator<ReActStreamChunk> {
+    async function* stepGenerator(): AsyncGenerator<ReActStreamChunk, StepResult | undefined> {
       if (!self.scratchpad) {
         return;
       }
@@ -379,20 +402,17 @@ export class ReActLoop {
     let stopReason: ReActStopReason | undefined;
     let finalResponse: string | undefined;
 
-    for await (const chunk of chunks) {
-      collectedChunks.push(chunk);
-
-      // Check if this is the step result (returned from generator)
-      if (typeof chunk === 'object' && 'shouldStop' in chunk) {
-        const result = chunk as unknown as {
-          shouldStop: boolean;
-          stopReason?: ReActStopReason;
-          finalResponse?: string;
-        };
-        shouldStop = result.shouldStop;
-        stopReason = result.stopReason;
-        finalResponse = result.finalResponse;
+    while (true) {
+      const { value, done } = await chunks.next();
+      if (done) {
+        if (value) {
+          shouldStop = value.shouldStop;
+          stopReason = value.stopReason;
+          finalResponse = value.finalResponse;
+        }
+        break;
       }
+      collectedChunks.push(value);
     }
 
     // Return async generator for collected chunks

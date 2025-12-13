@@ -286,8 +286,11 @@ export const PLANNER_CONFIG = {
   /** Enable multi-phase planning */
   ENABLED: true,
 
-  /** Minimum expected tool calls to trigger auto-planning (lowered for more parallelization) */
-  AUTO_PLAN_THRESHOLD: 2,
+  /** Minimum expected tool calls to trigger auto-planning
+   * BUG FIX: Increased from 2 to 5 to reduce planning overhead for simple tasks
+   * Planning adds latency (LLM call to create plan), so only use for complex requests
+   */
+  AUTO_PLAN_THRESHOLD: 5,
 
   /** Maximum phases per plan */
   MAX_PHASES: 10,

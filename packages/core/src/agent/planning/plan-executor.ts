@@ -22,6 +22,8 @@ import { extractErrorMessage } from "../../utils/error-handler.js";
 import { getStatusReporter } from "../status-reporter.js";
 import { PLANNER_CONFIG } from "../../constants.js";
 import { EventEmitter } from "events";
+import type { PlanVerifier } from "../../planner/verification/index.js";
+import type { VerificationConfig } from "../config/agentic-config.js";
 
 /**
  * Plan executor configuration
@@ -49,6 +51,10 @@ export interface PlanExecutorConfig {
   maxToolRounds?: number;
   /** Callback to temporarily disable planning during phase execution */
   setPlanningEnabled?: (enabled: boolean) => void;
+  /** Optional verifier for post-phase verification (Phase 2 - GLM optimization) */
+  verifier?: PlanVerifier;
+  /** Verification configuration */
+  verificationConfig?: VerificationConfig;
 }
 
 /**
@@ -61,6 +67,15 @@ export class PlanExecutor {
 
   constructor(config: PlanExecutorConfig) {
     this.config = config;
+  }
+
+  /**
+   * Update the verifier configuration (Phase 2 - GLM optimization)
+   * Called when agentic config is updated via CLI flags
+   */
+  setVerifier(verifier: PlanVerifier | undefined, verificationConfig: VerificationConfig | undefined): void {
+    this.config.verifier = verifier;
+    this.config.verificationConfig = verificationConfig;
   }
 
   /**
@@ -102,13 +117,28 @@ export class PlanExecutor {
       // Execute using the standard tool loop
       const tools = await this.config.getTools();
       let toolRounds = 0;
+      let emptyResponseCount = 0; // BUG FIX: Track consecutive empty responses
+      const MAX_EMPTY_RESPONSES = 3; // Maximum consecutive empty responses before stopping
       const maxPhaseRounds = this.config.maxToolRounds ?? 50; // Limit per phase
 
       while (toolRounds < maxPhaseRounds) {
         const response = await this.config.llmClient.chat(messages, tools, this.config.buildChatOptions());
         const assistantMessage = response.choices[0]?.message;
 
-        if (!assistantMessage) break;
+        // BUG FIX: Guard against empty responses with counter and warning
+        if (!assistantMessage) {
+          emptyResponseCount++;
+          if (emptyResponseCount >= MAX_EMPTY_RESPONSES) {
+            this.config.emitter.emit("phase:warning", {
+              phase,
+              planId: context.planId,
+              message: "Unable to get response from AI after multiple attempts"
+            });
+            break;
+          }
+          continue; // Retry
+        }
+        emptyResponseCount = 0; // Reset on successful response
 
         // Capture the assistant's content for phase output
         if (assistantMessage.content) {
@@ -171,11 +201,57 @@ export class PlanExecutor {
         result: { success: true, output, filesModified }
       });
 
-      return {
-        result: {
+      // Run verification if enabled (Phase 2 - GLM optimization)
+      let verificationPassed = true;
+      let verificationOutput = "";
+      if (this.config.verifier && this.config.verificationConfig?.enabled && filesModified.length > 0) {
+        this.config.emitter.emit("phase:verifying", { phase, planId: context.planId });
+
+        const phaseResult: PhaseResult = {
           phaseId: phase.id,
           success: true,
           output,
+          duration,
+          tokensUsed: endTokens - startTokens,
+          filesModified,
+          wasRetry: false,
+          retryAttempt: 0,
+        };
+
+        const verificationResult = await this.config.verifier.verifyPhase(phase, phaseResult, {
+          modifiedFiles: filesModified,
+        });
+
+        verificationPassed = verificationResult.passed;
+
+        if (!verificationPassed) {
+          // Build verification failure message
+          const failedCallbacks = verificationResult.callbackResults
+            .filter(r => !r.passed)
+            .map(r => `${r.name}: ${r.output.slice(0, 200)}`)
+            .join('\n');
+
+          verificationOutput = `\n\n⚠️ **Verification Failed**\n${failedCallbacks}`;
+
+          this.config.emitter.emit("phase:verification_failed", {
+            phase,
+            planId: context.planId,
+            verification: verificationResult,
+          });
+        } else {
+          this.config.emitter.emit("phase:verified", {
+            phase,
+            planId: context.planId,
+            verification: verificationResult,
+          });
+        }
+      }
+
+      return {
+        result: {
+          phaseId: phase.id,
+          success: verificationPassed, // Fail phase if verification fails
+          output: output + verificationOutput,
           duration,
           tokensUsed: endTokens - startTokens,
           filesModified,

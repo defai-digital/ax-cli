@@ -40,6 +40,10 @@ import {
   SelfCorrectionEngine,
   createSelfCorrectionEngine,
 } from "./correction/index.js";
+import {
+  createReActLoop,
+} from "./react/index.js";
+import type { ReActStreamChunk } from "./react/types.js";
 import type { AgenticConfig } from "./config/agentic-config.js";
 import { mergeAgenticConfig } from "./config/agentic-config.js";
 
@@ -119,6 +123,8 @@ export class LLMAgent extends EventEmitter {
   private correctionEngine: SelfCorrectionEngine;
   /** Agentic configuration */
   private agenticConfig: AgenticConfig;
+  /** Plan verifier for post-phase verification (lazy initialized) */
+  private planVerifier?: import("../planner/verification/index.js").PlanVerifier;
 
   constructor(
     apiKey: string,
@@ -593,8 +599,9 @@ export class LLMAgent extends EventEmitter {
     if (shouldUseThinkingMode(message)) {
       const complexity = getComplexityScore(message);
 
-      // Only auto-enable for moderately complex or higher tasks
-      if (complexity >= 25) {
+      // BUG FIX: Increased threshold from 25 to 40 to reduce unnecessary thinking mode overhead
+      // Thinking mode adds significant latency, so only enable for genuinely complex tasks
+      if (complexity >= 40) {
         this.thinkingConfig = { type: 'enabled' };
         this.autoThinkingEnabled = true;
 
@@ -1237,6 +1244,8 @@ export class LLMAgent extends EventEmitter {
 
     const maxToolRounds = this.maxToolRounds;
     let toolRounds = 0;
+    let emptyStreamCount = 0; // BUG FIX: Track consecutive empty stream results to prevent infinite loops
+    const MAX_EMPTY_STREAMS = 3; // Maximum consecutive empty streams before aborting
     const totalOutputTokensRef = { value: 0 };
     const lastTokenUpdateRef = { value: 0 };
 
@@ -1276,9 +1285,19 @@ export class LLMAgent extends EventEmitter {
           }
         }
 
+        // BUG FIX: Guard against infinite loops when stream returns no result
         if (!streamResult) {
+          emptyStreamCount++;
+          if (emptyStreamCount >= MAX_EMPTY_STREAMS) {
+            yield {
+              type: "content",
+              content: "\n⚠️ Unable to get response from AI after multiple attempts. Please try again.\n",
+            };
+            break;
+          }
           continue;
         }
+        emptyStreamCount = 0; // Reset on successful stream result
 
         // Add assistant message to history
         this.addAssistantMessage(streamResult.accumulated);
@@ -1851,6 +1870,129 @@ export class LLMAgent extends EventEmitter {
     };
   }
 
+  /**
+   * Process message using ReAct loop (Thought → Action → Observation cycles)
+   *
+   * ReAct mode provides explicit reasoning traces for complex tasks.
+   * Optimized for GLM-4.6 with thinking mode support.
+   */
+  private async *processWithReActLoop(
+    message: string
+  ): AsyncGenerator<StreamingChunk, void, unknown> {
+    // Reset tool call tracking for new message
+    this.resetToolCallTracking();
+
+    // Prepare user message
+    const inputTokens = this.prepareUserMessageForStreaming(message);
+    yield {
+      type: "token_count",
+      tokenCount: inputTokens,
+    };
+
+    // Load tools
+    const tools = await this.loadToolsSafely();
+
+    // Create ReAct loop
+    const reactLoop = createReActLoop({
+      llmClient: this.llmClient,
+      tools,
+      executeToolCall: async (toolCall) => {
+        return this.executeTool(toolCall);
+      },
+      config: this.agenticConfig.react,
+      emitter: this,
+      // System prompt is included in messages[0], no need to pass separately
+    });
+
+    // Execute ReAct loop and convert chunks to StreamingChunk format
+    const reactGen = reactLoop.execute({
+      goal: message,
+      messages: [...this.messages],
+      abortSignal: this.abortController?.signal,
+    });
+
+    let totalOutputTokens = 0;
+
+    for await (const chunk of reactGen) {
+      // Convert ReActStreamChunk to StreamingChunk
+      yield* this.convertReActChunk(chunk);
+
+      // Track tokens from complete events
+      if (chunk.type === 'react_complete' && chunk.result) {
+        totalOutputTokens = chunk.result.totalTokens;
+      }
+    }
+
+    // Final token count
+    yield {
+      type: "token_count",
+      tokenCount: inputTokens + totalOutputTokens,
+    };
+
+    yield { type: "done" };
+  }
+
+  /**
+   * Convert ReAct streaming chunks to standard StreamingChunk format
+   */
+  private async *convertReActChunk(
+    chunk: ReActStreamChunk
+  ): AsyncGenerator<StreamingChunk, void, unknown> {
+    switch (chunk.type) {
+      case 'react_start':
+        yield {
+          type: 'content',
+          content: `\n🔄 **ReAct Mode** - Starting reasoning loop (max ${chunk.maxSteps} steps)\n\n`,
+        };
+        break;
+
+      case 'react_thought':
+        yield {
+          type: 'content',
+          content: chunk.content,
+        };
+        break;
+
+      case 'react_action':
+        yield {
+          type: 'content',
+          content: `\n**Action:** tool_call\n`,
+        };
+        if (chunk.toolCall) {
+          yield {
+            type: 'tool_calls',
+            toolCalls: [chunk.toolCall],
+          };
+        }
+        break;
+
+      case 'react_observation':
+        if (chunk.content) {
+          yield {
+            type: 'content',
+            content: `\n**Observation:** ${chunk.content.slice(0, 500)}${chunk.content.length > 500 ? '...' : ''}\n`,
+          };
+        }
+        break;
+
+      case 'react_complete':
+        if (chunk.result) {
+          const statusEmoji = chunk.result.success ? '✅' : '⚠️';
+          yield {
+            type: 'content',
+            content: `\n${statusEmoji} **ReAct Complete** - ${chunk.result.totalSteps} steps, ${chunk.result.stopReason}\n`,
+          };
+          if (chunk.result.finalResponse) {
+            yield {
+              type: 'content',
+              content: `\n${chunk.result.finalResponse}\n`,
+            };
+          }
+        }
+        break;
+    }
+  }
+
   async *processUserMessageStream(
     message: string | MessageContentPart[]
   ): AsyncGenerator<StreamingChunk, void, unknown> {
@@ -1880,6 +2022,17 @@ export class LLMAgent extends EventEmitter {
       return;
     }
 
+    // Check if ReAct mode is enabled (Phase 2 - GLM optimization)
+    // ReAct provides explicit Thought → Action → Observation reasoning cycles
+    if (typeof message === 'string' && this.agenticConfig.react.enabled) {
+      yield {
+        type: "content",
+        content: "🔄 *ReAct mode enabled - using explicit reasoning cycles*\n\n"
+      };
+      yield* this.processWithReActLoop(textContent);
+      return;
+    }
+
     // Reset tool call tracking for new message
     this.resetToolCallTracking();
 
@@ -1895,6 +2048,8 @@ export class LLMAgent extends EventEmitter {
 
     const maxToolRounds = this.maxToolRounds;
     let toolRounds = 0;
+    let emptyStreamCount = 0; // BUG FIX: Track consecutive empty stream results to prevent infinite loops
+    const MAX_EMPTY_STREAMS = 3; // Maximum consecutive empty streams before aborting
     const totalOutputTokensRef = { value: 0 };
     const lastTokenUpdateRef = { value: 0 };
 
@@ -1944,9 +2099,19 @@ export class LLMAgent extends EventEmitter {
           }
         }
 
+        // BUG FIX: Guard against infinite loops when stream returns no result
         if (!streamResult) {
+          emptyStreamCount++;
+          if (emptyStreamCount >= MAX_EMPTY_STREAMS) {
+            yield {
+              type: "content",
+              content: "\n⚠️ Unable to get response from AI after multiple attempts. Please try again.\n",
+            };
+            break;
+          }
           continue;
         }
+        emptyStreamCount = 0; // Reset on successful stream result
 
         // Add assistant message to history
         this.addAssistantMessage(streamResult.accumulated);
@@ -2106,6 +2271,21 @@ export class LLMAgent extends EventEmitter {
     // Update correction engine if correction config changed
     if (config.correction) {
       this.correctionEngine.updateConfig(config.correction);
+    }
+    // Update verifier if verification config changed (Phase 2 - GLM optimization)
+    if (config.verification) {
+      if (config.verification.enabled) {
+        // Lazy import to avoid circular dependencies
+        import("../planner/verification/index.js").then(({ createPlanVerifier }) => {
+          this.planVerifier = createPlanVerifier(config.verification, this);
+          this.planExecutor.setVerifier(this.planVerifier, this.agenticConfig.verification);
+        }).catch(() => {
+          // Silently ignore if verification module not available
+        });
+      } else {
+        this.planVerifier = undefined;
+        this.planExecutor.setVerifier(undefined, undefined);
+      }
     }
   }
 
