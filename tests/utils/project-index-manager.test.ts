@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'fs';
+import * as path from 'path';
 
 // Mock fs module
 vi.mock('fs', () => ({
@@ -66,9 +67,10 @@ describe('ProjectIndexManager', () => {
 
   describe('constructor', () => {
     it('should create manager with custom project root', () => {
-      const manager = new ProjectIndexManager('/custom/path');
-      expect(manager.getIndexPath()).toBe('/custom/path/ax.index.json');
-      expect(manager.getSummaryPath()).toBe('/custom/path/ax.summary.json');
+      const testRoot = path.join(path.sep, 'custom', 'path');
+      const manager = new ProjectIndexManager(testRoot);
+      expect(manager.getIndexPath()).toBe(path.join(testRoot, 'ax.index.json'));
+      expect(manager.getSummaryPath()).toBe(path.join(testRoot, 'ax.summary.json'));
     });
 
     it('should create manager with default project root (cwd)', () => {
@@ -80,13 +82,15 @@ describe('ProjectIndexManager', () => {
 
   describe('getIndexPath / getSummaryPath', () => {
     it('should return correct index path', () => {
-      const manager = new ProjectIndexManager('/project');
-      expect(manager.getIndexPath()).toBe('/project/ax.index.json');
+      const testRoot = path.join(path.sep, 'project');
+      const manager = new ProjectIndexManager(testRoot);
+      expect(manager.getIndexPath()).toBe(path.join(testRoot, 'ax.index.json'));
     });
 
     it('should return correct summary path', () => {
-      const manager = new ProjectIndexManager('/project');
-      expect(manager.getSummaryPath()).toBe('/project/ax.summary.json');
+      const testRoot = path.join(path.sep, 'project');
+      const manager = new ProjectIndexManager(testRoot);
+      expect(manager.getSummaryPath()).toBe(path.join(testRoot, 'ax.summary.json'));
     });
   });
 
@@ -128,12 +132,13 @@ describe('ProjectIndexManager', () => {
     it('should return not exists status when index does not exist', () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
 
-      const manager = new ProjectIndexManager('/project');
+      const testRoot = path.join(path.sep, 'project');
+      const manager = new ProjectIndexManager(testRoot);
       const status = manager.getStatus();
 
       expect(status.exists).toBe(false);
       expect(status.isStale).toBe(true);
-      expect(status.path).toBe('/project/ax.index.json');
+      expect(status.path).toBe(path.join(testRoot, 'ax.index.json'));
     });
 
     it('should return fresh status when index is less than 24 hours old', () => {
@@ -165,15 +170,16 @@ describe('ProjectIndexManager', () => {
     });
 
     it('should include summary status', () => {
-      vi.mocked(fs.existsSync).mockImplementation((path) =>
-        String(path).includes('summary')
+      vi.mocked(fs.existsSync).mockImplementation((p) =>
+        String(p).includes('summary')
       );
 
-      const manager = new ProjectIndexManager('/project');
+      const testRoot = path.join(path.sep, 'project');
+      const manager = new ProjectIndexManager(testRoot);
       const status = manager.getStatus();
 
       expect(status.summaryExists).toBe(true);
-      expect(status.summaryPath).toBe('/project/ax.summary.json');
+      expect(status.summaryPath).toBe(path.join(testRoot, 'ax.summary.json'));
     });
 
     it('should return not exists when statSync throws', () => {
@@ -462,25 +468,26 @@ describe('ProjectIndexManager', () => {
         projectInfo: { name: 'test' },
       });
 
-      const manager = new ProjectIndexManager('/project');
+      const testRoot = path.join(path.sep, 'project');
+      const manager = new ProjectIndexManager(testRoot);
       await manager.regenerate();
 
       // Should write to temp files first
       expect(fs.writeFileSync).toHaveBeenCalledWith(
-        '/project/ax.index.json.tmp',
+        path.join(testRoot, 'ax.index.json.tmp'),
         expect.any(String),
         'utf-8'
       );
       expect(fs.writeFileSync).toHaveBeenCalledWith(
-        '/project/ax.summary.json.tmp',
+        path.join(testRoot, 'ax.summary.json.tmp'),
         expect.any(String),
         'utf-8'
       );
 
       // Then rename to final paths
       expect(fs.renameSync).toHaveBeenCalledWith(
-        '/project/ax.index.json.tmp',
-        '/project/ax.index.json'
+        path.join(testRoot, 'ax.index.json.tmp'),
+        path.join(testRoot, 'ax.index.json')
       );
     });
 

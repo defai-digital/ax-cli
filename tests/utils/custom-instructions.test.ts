@@ -139,8 +139,13 @@ Some notes here
 
     loadCustomInstructions('/my/project/dir');
 
+    // Use toContain for cross-platform compatibility (forward vs backslashes)
     expect(fs.readFileSync).toHaveBeenCalledWith(
-      expect.stringMatching(/\/my\/project\/dir.*\.ax-test.*CUSTOM\.md/),
+      expect.stringContaining('.ax-test'),
+      'utf-8'
+    );
+    expect(fs.readFileSync).toHaveBeenCalledWith(
+      expect.stringContaining('CUSTOM.md'),
       'utf-8'
     );
   });

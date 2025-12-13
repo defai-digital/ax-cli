@@ -290,8 +290,10 @@ describe('HooksManager', () => {
         ],
       };
 
-      vi.mocked(fs.existsSync).mockImplementation((path: unknown) => {
-        return String(path).includes('.ax-cli/hooks.json');
+      vi.mocked(fs.existsSync).mockImplementation((p: unknown) => {
+        const pathStr = String(p);
+        // Check for hooks.json in .ax-cli directory (cross-platform)
+        return pathStr.includes('.ax-cli') && pathStr.endsWith('hooks.json');
       });
       vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(hooksConfig));
 
