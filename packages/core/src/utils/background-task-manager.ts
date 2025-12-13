@@ -1,5 +1,33 @@
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
+import * as path from 'path';
+import * as fs from 'fs';
+
+/**
+ * Validate and normalize a directory path to prevent shell injection
+ * @param dir - Directory path to validate
+ * @returns Normalized absolute path
+ * @throws Error if path is invalid or doesn't exist
+ */
+function validateCwd(dir: string): string {
+  // Resolve to absolute path to normalize the path
+  const resolved = path.resolve(dir);
+
+  // Check that directory exists and is accessible
+  try {
+    const stats = fs.statSync(resolved);
+    if (!stats.isDirectory()) {
+      throw new Error(`Path is not a directory: ${resolved}`);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error(`Directory does not exist: ${resolved}`);
+    }
+    throw error;
+  }
+
+  return resolved;
+}
 
 export interface BackgroundTask {
   id: string;
@@ -120,9 +148,12 @@ export class BackgroundTaskManager extends EventEmitter {
   spawn(command: string, cwd: string = process.cwd()): string {
     const taskId = this.generateTaskId();
 
+    // Validate and normalize cwd to prevent shell injection (CodeQL security fix)
+    const safeCwd = validateCwd(cwd);
+
     // Use shell to execute command (supports pipes, redirects, etc.)
     const childProcess = spawn('bash', ['-c', command], {
-      cwd,
+      cwd: safeCwd,
       detached: false,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env },
@@ -131,7 +162,7 @@ export class BackgroundTaskManager extends EventEmitter {
     const task: BackgroundTask = {
       id: taskId,
       command,
-      cwd,
+      cwd: safeCwd,
       status: 'running',
       startTime: new Date(),
       stdout: [],

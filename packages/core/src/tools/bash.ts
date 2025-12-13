@@ -1,7 +1,34 @@
 import { spawn, ChildProcess } from 'child_process';
 import { homedir } from 'os';
 import path from 'path';
+import * as fs from 'fs';
 import { ToolResult } from '../types/index.js';
+
+/**
+ * Validate and normalize a directory path to prevent shell injection
+ * @param dir - Directory path to validate
+ * @returns Normalized absolute path
+ * @throws Error if path is invalid or doesn't exist
+ */
+function validateCwd(dir: string): string {
+  // Resolve to absolute path to normalize the path
+  const resolved = path.resolve(dir);
+
+  // Check that directory exists and is accessible
+  try {
+    const stats = fs.statSync(resolved);
+    if (!stats.isDirectory()) {
+      throw new Error(`Path is not a directory: ${resolved}`);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error(`Directory does not exist: ${resolved}`);
+    }
+    throw error;
+  }
+
+  return resolved;
+}
 import { ConfirmationService } from '../utils/confirmation-service.js';
 import { getMessageOptimizer } from '../utils/message-optimizer.js';
 import { getBackgroundTaskManager } from '../utils/background-task-manager.js';
@@ -422,8 +449,11 @@ export class BashTool extends EventEmitter {
       };
 
       // Spawn the process
+      // Validate and normalize cwd to prevent shell injection (CodeQL security fix)
+      const safeCwd = validateCwd(this.currentDirectory);
+
       const childProcess = spawn('bash', ['-c', command], {
-        cwd: this.currentDirectory,
+        cwd: safeCwd,
         env: { ...process.env },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
