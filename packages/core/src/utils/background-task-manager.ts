@@ -173,35 +173,39 @@ export class BackgroundTaskManager extends EventEmitter {
 
     // MEMORY LEAK FIX: Define listeners as named functions so we can remove them later
     const onStdout = (data: Buffer) => {
-      const lines = data.toString().split('\n').filter(line => line.length > 0);
+      let lines = data.toString().split('\n').filter(line => line.length > 0);
 
-      // MEMORY LEAK FIX: Prevent unbounded growth before pushing
-      // Check if we need to make room BEFORE pushing to avoid spikes
+      // MEMORY LEAK FIX: Prevent unbounded growth
+      // First, limit incoming chunk if it exceeds max (handles large single-chunk output)
+      if (lines.length > this.maxOutputLines) {
+        lines = lines.slice(-this.maxOutputLines);
+      }
+
+      // Then make room in existing buffer if needed
       if (task.stdout.length + lines.length > this.maxOutputLines) {
-        // Calculate how many elements to remove
         const overflow = task.stdout.length + lines.length - this.maxOutputLines;
-        // Remove from beginning using splice (more efficient than slice for large arrays)
         task.stdout.splice(0, overflow);
       }
 
-      // Now push new lines (array is guaranteed to stay within limit)
       task.stdout.push(...lines);
       this.emit('output', { taskId, type: 'stdout', data: data.toString() });
     };
 
     const onStderr = (data: Buffer) => {
-      const lines = data.toString().split('\n').filter(line => line.length > 0);
+      let lines = data.toString().split('\n').filter(line => line.length > 0);
 
-      // MEMORY LEAK FIX: Prevent unbounded growth before pushing
-      // Check if we need to make room BEFORE pushing to avoid spikes
+      // MEMORY LEAK FIX: Prevent unbounded growth
+      // First, limit incoming chunk if it exceeds max (handles large single-chunk output)
+      if (lines.length > this.maxOutputLines) {
+        lines = lines.slice(-this.maxOutputLines);
+      }
+
+      // Then make room in existing buffer if needed
       if (task.stderr.length + lines.length > this.maxOutputLines) {
-        // Calculate how many elements to remove
         const overflow = task.stderr.length + lines.length - this.maxOutputLines;
-        // Remove from beginning using splice (more efficient than slice for large arrays)
         task.stderr.splice(0, overflow);
       }
 
-      // Now push new lines (array is guaranteed to stay within limit)
       task.stderr.push(...lines);
       this.emit('output', { taskId, type: 'stderr', data: data.toString() });
     };
@@ -350,9 +354,15 @@ export class BackgroundTaskManager extends EventEmitter {
 
     // MEMORY LEAK FIX: Define listeners as named functions so we can remove them later
     const onStdout = (data: Buffer) => {
-      const lines = data.toString().split('\n').filter(line => line.length > 0);
+      let lines = data.toString().split('\n').filter(line => line.length > 0);
 
-      // MEMORY LEAK FIX: Prevent unbounded growth before pushing
+      // MEMORY LEAK FIX: Prevent unbounded growth
+      // First, limit incoming chunk if it exceeds max (handles large single-chunk output)
+      if (lines.length > this.maxOutputLines) {
+        lines = lines.slice(-this.maxOutputLines);
+      }
+
+      // Then make room in existing buffer if needed
       if (task.stdout.length + lines.length > this.maxOutputLines) {
         const overflow = task.stdout.length + lines.length - this.maxOutputLines;
         task.stdout.splice(0, overflow);
@@ -363,9 +373,15 @@ export class BackgroundTaskManager extends EventEmitter {
     };
 
     const onStderr = (data: Buffer) => {
-      const lines = data.toString().split('\n').filter(line => line.length > 0);
+      let lines = data.toString().split('\n').filter(line => line.length > 0);
 
-      // MEMORY LEAK FIX: Prevent unbounded growth before pushing
+      // MEMORY LEAK FIX: Prevent unbounded growth
+      // First, limit incoming chunk if it exceeds max (handles large single-chunk output)
+      if (lines.length > this.maxOutputLines) {
+        lines = lines.slice(-this.maxOutputLines);
+      }
+
+      // Then make room in existing buffer if needed
       if (task.stderr.length + lines.length > this.maxOutputLines) {
         const overflow = task.stderr.length + lines.length - this.maxOutputLines;
         task.stderr.splice(0, overflow);
@@ -593,8 +609,10 @@ export class BackgroundTaskManager extends EventEmitter {
 
   /**
    * Clean up resources and remove all event listeners.
+   * BUG FIX: Now calls cleanup() to properly clear all tasks and timeouts
    */
   destroy(): void {
+    this.cleanup();
     this.removeAllListeners();
   }
 }
