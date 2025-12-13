@@ -19,19 +19,7 @@ import {
   generateZAIServerConfig,
 } from '../mcp/index.js';
 import { addUserMCPServer, removeUserMCPServer } from '../mcp/config.js';
-
-/**
- * Handle user cancellation - exits process if cancelled
- * Uses unified exit handler for consistent cleanup
- */
-function exitIfCancelled<T>(value: T | symbol): asserts value is T {
-  if (prompts.isCancel(value)) {
-    const terminalManager = getTerminalStateManager();
-    terminalManager.forceCleanup();
-    prompts.cancel('Setup cancelled.');
-    exitCancelled('Setup cancelled by user');
-  }
-}
+import { exitIfCancelled } from './utils.js';
 
 /**
  * Check AutomatosX status - returns version if installed, null otherwise

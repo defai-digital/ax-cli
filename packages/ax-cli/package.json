@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-cli",
-  "version": "4.4.17",
+  "version": "4.4.18",
   "description": "Enterprise-Class AI Command Line Interface with cool theme (blue, purple, green)",
   "repository": {
     "type": "git",

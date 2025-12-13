@@ -87,22 +87,32 @@ export class MCPManager extends EventEmitter {
   /** @internal v2 implementation */
   private v2: MCPManagerV2;
 
+  /** @internal Track v2 event handlers for cleanup to prevent memory leaks */
+  private v2EventHandlers: Map<string, (...args: unknown[]) => void> = new Map();
+
   constructor(clientConfig?: { name?: string; version?: string }) {
     super();
     this.v2 = new MCPManagerV2({}, {}, clientConfig);
 
     // Forward all v2 events to v1 listeners
-    this.v2.on('serverAdded', (...args) => this.emit('serverAdded', ...args));
-    this.v2.on('serverError', (...args) => this.emit('serverError', ...args));
-    this.v2.on('serverRemoved', (...args) => this.emit('serverRemoved', ...args));
-    this.v2.on('token-limit-exceeded', (...args) => this.emit('token-limit-exceeded', ...args));
-    this.v2.on('token-warning', (...args) => this.emit('token-warning', ...args));
+    // BUG FIX: Store handler references so they can be removed in dispose()
+    const events = [
+      'serverAdded',
+      'serverError',
+      'serverRemoved',
+      'token-limit-exceeded',
+      'token-warning',
+      'reconnection-scheduled',
+      'reconnection-succeeded',
+      'reconnection-failed',
+      'server-unhealthy',
+    ] as const;
 
-    // Forward new v2 events (for users who might be listening)
-    this.v2.on('reconnection-scheduled', (...args) => this.emit('reconnection-scheduled', ...args));
-    this.v2.on('reconnection-succeeded', (...args) => this.emit('reconnection-succeeded', ...args));
-    this.v2.on('reconnection-failed', (...args) => this.emit('reconnection-failed', ...args));
-    this.v2.on('server-unhealthy', (...args) => this.emit('server-unhealthy', ...args));
+    for (const event of events) {
+      const handler = (...args: unknown[]) => this.emit(event, ...args);
+      this.v2EventHandlers.set(event, handler);
+      this.v2.on(event, handler);
+    }
   }
 
   /**
@@ -246,6 +256,13 @@ export class MCPManager extends EventEmitter {
    * Cleanup all resources and remove event listeners
    */
   async dispose(): Promise<void> {
+    // BUG FIX: Remove v2 event handlers to prevent memory leak
+    // The arrow function handlers kept references to `this`, preventing GC
+    for (const [event, handler] of this.v2EventHandlers) {
+      this.v2.off(event, handler);
+    }
+    this.v2EventHandlers.clear();
+
     const result = await this.v2.dispose();
     if (!result.success) {
       // Don't throw during cleanup - v1 behavior was to log warnings
@@ -275,6 +292,12 @@ export class MCPManager extends EventEmitter {
    * Clean up resources and remove all event listeners.
    */
   destroy(): void {
+    // BUG FIX: Also remove v2 event handlers in synchronous destroy
+    for (const [event, handler] of this.v2EventHandlers) {
+      this.v2.off(event, handler);
+    }
+    this.v2EventHandlers.clear();
+
     this.removeAllListeners();
   }
 }

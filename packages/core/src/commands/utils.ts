@@ -8,6 +8,8 @@
 import chalk from 'chalk';
 import * as prompts from '@clack/prompts';
 import { extractErrorMessage } from '../utils/error-handler.js';
+import { getTerminalStateManager } from '../utils/terminal-state.js';
+import { exitCancelled } from '../utils/exit-handler.js';
 
 /**
  * Standard result type for command operations
@@ -138,11 +140,16 @@ export async function confirmAction(
 }
 
 /**
- * Exit if user cancelled a prompt
+ * Exit if user cancelled a prompt.
+ * Ensures proper terminal cleanup before exit.
  */
 export function exitIfCancelled<T>(value: T | symbol, message = 'Operation cancelled'): asserts value is T {
   if (prompts.isCancel(value)) {
+    // Ensure terminal state is cleaned up (cursor visibility, raw mode, etc.)
+    const terminalManager = getTerminalStateManager();
+    terminalManager.forceCleanup();
+
     prompts.cancel(message);
-    process.exit(0);
+    exitCancelled(message);
   }
 }

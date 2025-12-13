@@ -1,7 +1,7 @@
 # AX CLI - Enterprise-Class Vibe Coding
 
 [![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
-[![Tests](https://img.shields.io/badge/tests-5,836+%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-6,030+%20passing-brightgreen.svg)](#)
 [![macOS](https://img.shields.io/badge/macOS-26.0-blue.svg)](https://www.apple.com/macos)
 [![Windows](https://img.shields.io/badge/Windows-10+-blue.svg)](https://www.microsoft.com/windows)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-blue.svg)](https://ubuntu.com)
@@ -91,7 +91,7 @@ Run `/init` inside the CLI to initialize your project context.
 | **MCP Integration** | Model Context Protocol with 12+ production-ready templates |
 | **Project Memory** | Intelligent context caching with 50% token savings |
 | **Enterprise Security** | AES-256-GCM encryption, no telemetry, CVSS-rated protections |
-| **60% Test Coverage** | 5,836+ tests with strict TypeScript |
+| **60% Test Coverage** | 6,030+ tests with strict TypeScript |
 
 ---
 
@@ -352,6 +352,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v4.4.18**: Bug Fixes & Stability - Fixed MCP Client v1 wrapper event listener memory leak (added handler tracking for proper cleanup). Fixed negative activeCount bug in SubagentOrchestrator (cancel handler now checks if task was started). Fixed missing spawn error handler in hooks manager (prevents crashes from command not found errors). Refactored BackgroundTaskManager with consolidated appendLinesWithLimit method. Enhanced exitIfCancelled utility with proper terminal cleanup. Total test count: 6,030+ passing.
 *   **v4.4.17**: README Fix - Added README.md files to all npm packages (ax-grok, ax-glm, ax-cli, ax-core) for proper documentation display on npmjs.com.
 *   **v4.4.16**: Keywords & Bug Fixes - Updated package keywords (antigravity, sdk, mcp, ide, coding, developer-tools, code-generation, glm, grok, xai, z-ai, qwen, deepseek, ai-coding, vibe-coding, automatosx). Verified timeout leak fixes in tool-approval-manager, llm-agent, permission-manager, and process-pool modules - all properly clean up resources in dispose/destroy methods.
 *   **v4.4.15**: NPM Publishing & CI/CD Fixes - Fixed cross-platform path issues in tests (Windows backslash vs Unix forward slash). Fixed confirmation-service test timeout. Successfully published all packages to npm.

@@ -233,8 +233,14 @@ export class SubagentOrchestrator extends EventEmitter {
     // When abort() is called on a subagent, it emits 'cancel' but NOT 'task-completed'
     // or 'task-failed'. Without this handler, activeCount would never decrement for
     // cancelled tasks, causing the orchestrator to report incorrect active counts.
+    // BUG FIX #2: Only decrement activeCount if the task actually started (taskId is not null).
+    // If abort() is called before executeTask() emits 'task-started', activeCount was never
+    // incremented, so decrementing would make it negative.
     const cancelHandler = (data: { role: SubagentRole; taskId: string | null }) => {
-      this.activeCount--;
+      // Only decrement if task was started (taskId is set when executeTask() begins)
+      if (data.taskId !== null) {
+        this.activeCount--;
+      }
       this.emit('subagent-cancelled', { subagentId: id, ...data });
     };
     handlers.set('cancel', cancelHandler as (...args: unknown[]) => void);

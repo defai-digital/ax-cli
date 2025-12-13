@@ -264,6 +264,17 @@ export class HooksManager {
         child.kill("SIGTERM");
       }, timeout);
 
+      // BUG FIX: Handle spawn errors (e.g., command not found, permission denied)
+      // Without this handler, spawn errors would be unhandled and could crash the process
+      child.on("error", (error) => {
+        clearTimeout(timeoutId);
+        resolve({
+          success: false,
+          error: `Hook execution failed: ${error.message}`,
+          durationMs: Date.now() - startTime,
+        });
+      });
+
       child.on("close", (code) => {
         clearTimeout(timeoutId);
 
