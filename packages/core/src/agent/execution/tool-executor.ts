@@ -17,7 +17,6 @@ import {
   SearchTool,
 } from "../../tools/index.js";
 import { BashOutputTool } from "../../tools/bash-output.js";
-import { DesignTool } from "../../tools/design-tool.js";
 import { getAskUserTool, type Question } from "../../tools/ask-user.js";
 import { executeAxAgent, executeAxAgentsParallel, type AxAgentOptions, type AxAgentsParallelOptions } from "../../tools/ax-agent.js";
 import { extractErrorMessage } from "../../utils/error-handler.js";
@@ -49,9 +48,6 @@ export class ToolExecutor {
   private todoTool: TodoTool;
   private search: SearchTool;
 
-  // Lazy-loaded tools (rarely used)
-  private _designTool?: DesignTool;
-
   // Callbacks for ax_agent events
   private onAxAgentStart?: (agentName: string) => void;
   private onAxAgentEnd?: (agentName: string) => void;
@@ -71,17 +67,6 @@ export class ToolExecutor {
     // Set ax_agent callbacks if provided
     this.onAxAgentStart = config?.onAxAgentStart;
     this.onAxAgentEnd = config?.onAxAgentEnd;
-  }
-
-  /**
-   * Lazy-loaded getter for DesignTool
-   * Only instantiates when first accessed to reduce startup time
-   */
-  private get designTool(): DesignTool {
-    if (!this._designTool) {
-      this._designTool = new DesignTool();
-    }
-    return this._designTool;
   }
 
   /**
@@ -242,115 +227,16 @@ export class ToolExecutor {
         }
 
         case "ask_user": {
-          const questions = args.questions;
-          if (!Array.isArray(questions)) {
+          const validQuestions = this.validateAskUserQuestions(args.questions);
+          if (!validQuestions) {
             return {
               success: false,
-              error: "ask_user requires a 'questions' array",
-            };
-          }
-
-          // Validate and transform questions
-          const validQuestions: Question[] = [];
-          for (const q of questions) {
-            if (typeof q !== 'object' || q === null) continue;
-            const qObj = q as Record<string, unknown>;
-            if (typeof qObj.question !== 'string' || !Array.isArray(qObj.options)) continue;
-
-            const validOptions = (qObj.options as unknown[]).filter(
-              (opt): opt is { label: string; description?: string } =>
-                typeof opt === 'object' && opt !== null && typeof (opt as Record<string, unknown>).label === 'string'
-            ).map(opt => ({
-              label: opt.label,
-              description: typeof opt.description === 'string' ? opt.description : undefined,
-            }));
-
-            // Skip questions with fewer than 2 valid options
-            if (validOptions.length < 2) continue;
-
-            validQuestions.push({
-              question: qObj.question,
-              header: typeof qObj.header === 'string' ? qObj.header : undefined,
-              options: validOptions,
-              multiSelect: typeof qObj.multiSelect === 'boolean' ? qObj.multiSelect : false,
-            });
-          }
-
-          if (validQuestions.length === 0) {
-            return {
-              success: false,
-              error: "No valid questions provided",
+              error: "ask_user requires a 'questions' array with valid questions (each needs question string, 2+ options with labels)",
             };
           }
 
           const askUserTool = getAskUserTool();
           return await askUserTool.execute(validQuestions);
-        }
-
-        // =====================================================================
-        // Design Tools (Figma Integration)
-        // =====================================================================
-        case "figma_map": {
-          const fileKey = getString('file_key');
-          const formatValue = args.format;
-          const validFormat = (formatValue === 'tree' || formatValue === 'json' || formatValue === 'flat') ? formatValue : undefined;
-          return await this.designTool.mapFile(fileKey, {
-            depth: getNumber('depth'),
-            format: validFormat,
-            showIds: getBoolean('show_ids'),
-            showTypes: getBoolean('show_types'),
-            framesOnly: getBoolean('frames_only'),
-          });
-        }
-
-        case "figma_tokens": {
-          const fileKey = getString('file_key');
-          const formatValue = args.format;
-          const validFormat = (formatValue === 'json' || formatValue === 'tailwind' || formatValue === 'css' || formatValue === 'scss') ? formatValue : undefined;
-          const colorFormatValue = args.color_format;
-          const validColorFormat = (colorFormatValue === 'hex' || colorFormatValue === 'rgb' || colorFormatValue === 'hsl') ? colorFormatValue : undefined;
-          const dimensionUnitValue = args.dimension_unit;
-          const validDimensionUnit = (dimensionUnitValue === 'px' || dimensionUnitValue === 'rem') ? dimensionUnitValue : undefined;
-          return await this.designTool.extractTokens(fileKey, {
-            format: validFormat,
-            colorFormat: validColorFormat,
-            dimensionUnit: validDimensionUnit,
-            remBase: getNumber('rem_base'),
-          });
-        }
-
-        case "figma_audit": {
-          const fileKey = getString('file_key');
-          const rules = Array.isArray(args.rules)
-            ? args.rules.filter((r: unknown): r is string => typeof r === 'string')
-            : undefined;
-          const excludeRules = Array.isArray(args.exclude_rules)
-            ? args.exclude_rules.filter((r: unknown): r is string => typeof r === 'string')
-            : undefined;
-          return await this.designTool.auditFile(fileKey, {
-            depth: getNumber('depth'),
-            rules,
-            excludeRules,
-          });
-        }
-
-        case "figma_search": {
-          const fileKey = getString('file_key');
-          return await this.designTool.searchNodes(fileKey, {
-            name: typeof args.name === 'string' ? args.name : undefined,
-            type: typeof args.type === 'string' ? args.type : undefined,
-            text: typeof args.text === 'string' ? args.text : undefined,
-            limit: getNumber('limit'),
-          });
-        }
-
-        case "figma_alias_list": {
-          return await this.designTool.listAliases();
-        }
-
-        case "figma_alias_resolve": {
-          const alias = getString('alias');
-          return await this.designTool.resolveAlias(alias);
         }
 
         // =====================================================================
@@ -383,50 +269,17 @@ export class ToolExecutor {
         }
 
         case "ax_agents_parallel": {
-          // Parse agents array from arguments
-          const agentsArg = args.agents;
-          if (!Array.isArray(agentsArg) || agentsArg.length === 0) {
-            return {
-              success: false,
-              error: "agents parameter must be a non-empty array of {agent, task} objects",
-            };
+          const validation = this.validateAgentsArray(args.agents);
+          if ('error' in validation) {
+            return { success: false, error: validation.error };
           }
 
-          // Validate and transform agents array
-          const agents: AxAgentsParallelOptions['agents'] = [];
-          for (const item of agentsArg) {
-            if (typeof item !== 'object' || item === null) {
-              return {
-                success: false,
-                error: "Each agent entry must be an object with agent and task properties",
-              };
-            }
-            const agentItem = item as Record<string, unknown>;
-            if (typeof agentItem.agent !== 'string' || typeof agentItem.task !== 'string') {
-              return {
-                success: false,
-                error: "Each agent entry must have string 'agent' and 'task' properties",
-              };
-            }
-            const formatValue = agentItem.format;
-            const validFormat = (formatValue === 'text' || formatValue === 'markdown') ? formatValue : undefined;
-            agents.push({
-              agent: agentItem.agent,
-              task: agentItem.task,
-              format: validFormat,
-              save: typeof agentItem.save === 'string' ? agentItem.save : undefined,
-            });
-          }
-
-          const parallelOptions: AxAgentsParallelOptions = { agents };
-
-          // Notify that parallel agents are starting (notify for first agent as summary)
+          const { agents } = validation;
           const agentNames = agents.map(a => a.agent).join(', ');
-          this.onAxAgentStart?.(`parallel: ${agentNames}`);
 
+          this.onAxAgentStart?.(`parallel: ${agentNames}`);
           try {
-            const result = await executeAxAgentsParallel(parallelOptions);
-            return result;
+            return await executeAxAgentsParallel({ agents });
           } finally {
             this.onAxAgentEnd?.(`parallel: ${agentNames}`);
           }
@@ -458,6 +311,79 @@ export class ToolExecutor {
         error: `Tool execution error: ${errorMsg}`,
       };
     }
+  }
+
+  /**
+   * Validate and transform ask_user questions array
+   * @returns Valid questions array or null if validation fails
+   */
+  private validateAskUserQuestions(questions: unknown): Question[] | null {
+    if (!Array.isArray(questions)) return null;
+
+    const validQuestions: Question[] = [];
+
+    for (const q of questions) {
+      if (typeof q !== 'object' || q === null) continue;
+
+      const qObj = q as Record<string, unknown>;
+      if (typeof qObj.question !== 'string' || !Array.isArray(qObj.options)) continue;
+
+      const validOptions = (qObj.options as unknown[])
+        .filter((opt): opt is { label: string; description?: string } =>
+          typeof opt === 'object' && opt !== null && typeof (opt as Record<string, unknown>).label === 'string'
+        )
+        .map(opt => ({
+          label: opt.label,
+          description: typeof opt.description === 'string' ? opt.description : undefined,
+        }));
+
+      // Skip questions with fewer than 2 valid options
+      if (validOptions.length < 2) continue;
+
+      validQuestions.push({
+        question: qObj.question,
+        header: typeof qObj.header === 'string' ? qObj.header : undefined,
+        options: validOptions,
+        multiSelect: typeof qObj.multiSelect === 'boolean' ? qObj.multiSelect : false,
+      });
+    }
+
+    return validQuestions.length > 0 ? validQuestions : null;
+  }
+
+  /**
+   * Validate and transform ax_agents_parallel agents array
+   * @returns Validated agents array or error message
+   */
+  private validateAgentsArray(agentsArg: unknown): { agents: AxAgentsParallelOptions['agents'] } | { error: string } {
+    if (!Array.isArray(agentsArg) || agentsArg.length === 0) {
+      return { error: "agents parameter must be a non-empty array of {agent, task} objects" };
+    }
+
+    const agents: AxAgentsParallelOptions['agents'] = [];
+
+    for (const item of agentsArg) {
+      if (typeof item !== 'object' || item === null) {
+        return { error: "Each agent entry must be an object with agent and task properties" };
+      }
+
+      const agentItem = item as Record<string, unknown>;
+      if (typeof agentItem.agent !== 'string' || typeof agentItem.task !== 'string') {
+        return { error: "Each agent entry must have string 'agent' and 'task' properties" };
+      }
+
+      const formatValue = agentItem.format;
+      const validFormat = (formatValue === 'text' || formatValue === 'markdown') ? formatValue : undefined;
+
+      agents.push({
+        agent: agentItem.agent,
+        task: agentItem.task,
+        format: validFormat,
+        save: typeof agentItem.save === 'string' ? agentItem.save : undefined,
+      });
+    }
+
+    return { agents };
   }
 
   /**

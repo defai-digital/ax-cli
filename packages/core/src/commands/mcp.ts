@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { addMCPServer, removeMCPServer, addUserMCPServer, removeUserMCPServer, loadMCPConfig, PREDEFINED_SERVERS, getTemplate, generateConfigFromTemplate } from '../mcp/config.js';
+import { addMCPServer, removeMCPServer, loadMCPConfig, PREDEFINED_SERVERS, getTemplate, generateConfigFromTemplate } from '../mcp/config.js';
 import { getTemplateNames, getTemplatesByCategory } from '../mcp/templates.js';
 import { getMCPManager } from '../llm/tools.js';
 import { MCPServerConfig } from '../mcp/client.js';
@@ -20,19 +20,14 @@ import {
 } from '../mcp/registry.js';
 import type { ServerHealth } from '../mcp/health.js';
 import { MCP_CONFIG } from '../constants.js';
-import {
-  ZAI_SERVER_NAMES,
-  ZAI_MCP_TEMPLATES,
-  generateZAIServerConfig,
-  getAllZAIServerNames,
-  isZAIServer,
-  detectZAIServices,
-  getZAIApiKey,
-  getRecommendedServers,
-  formatZAIStatus,
-  type ZAIServerName,
-} from '../mcp/index.js';
+// Z.AI functionality moved to ./mcp/zai-handlers.ts
 import { getActiveProvider } from '../provider/config.js';
+// Extracted handlers for better maintainability and testability
+import {
+  handleStatusZai,
+  handleAddZai,
+  handleRemoveZai,
+} from './mcp/zai-handlers.js';
 
 /**
  * Get the CLI name from the active provider.
@@ -413,7 +408,7 @@ export function createMCPCommand(): Command {
   mcpCommand
     .command('list')
     .description('List configured MCP servers')
-    .option('--connect', 'Connect to servers before listing to show accurate status')
+    .option('--no-connect', 'Skip connecting to servers (only show config)')
     .action(async (options) => {
       const config = loadMCPConfig();
       const manager = getMCPManager();
@@ -423,8 +418,11 @@ export function createMCPCommand(): Command {
         return;
       }
 
-      // If --connect flag is provided, try to connect to all servers first
-      if (options.connect) {
+      // BUG FIX: Connect to servers by default (consistent with `mcp health`)
+      // This ensures `mcp list` and `mcp health` show the same connection status
+      // Use --no-connect to skip connection and only show config
+      const shouldConnect = options.connect !== false;
+      if (shouldConnect) {
         console.log(chalk.blue('Connecting to servers...'));
         for (const server of config.servers) {
           if (!manager.getServers().includes(server.name)) {
@@ -443,13 +441,12 @@ export function createMCPCommand(): Command {
 
       for (const server of config.servers) {
         const isConnected = manager.getServers().includes(server.name);
-        // BUG FIX: Show "Not Connected" instead of "Disconnected" when connection wasn't attempted
-        // "Disconnected" implies a connection was lost, which is misleading
+        // Show connection status based on whether we attempted to connect
         const statusMsg = isConnected
           ? chalk.green('✓ Connected')
-          : options.connect
+          : shouldConnect
             ? chalk.red('✗ Failed to connect')
-            : chalk.yellow('○ Not connected (use --connect to test)');
+            : chalk.yellow('○ Not connected (run without --no-connect to test)');
 
         console.log(`${chalk.bold(server.name)}: ${statusMsg}`);
 
@@ -485,8 +482,8 @@ export function createMCPCommand(): Command {
         console.log();
       }
 
-      if (!options.connect) {
-        console.log(chalk.gray(`💡 Use --connect to test server connections: ${getCliName()} mcp list --connect`));
+      if (!shouldConnect) {
+        console.log(chalk.gray(`💡 Run without --no-connect to test server connections: ${getCliName()} mcp list`));
         console.log(chalk.gray(`   Or test a specific server: ${getCliName()} mcp test <server-name>`));
         console.log();
       }
@@ -1256,43 +1253,21 @@ export function createMCPCommand(): Command {
       }
     });
 
-  // Z.AI MCP Status command
+  // Z.AI MCP Status command - uses extracted handler
   mcpCommand
     .command('status-zai')
     .description('Show Z.AI MCP integration status')
     .option('--json', 'Output in JSON format')
     .action(async (options) => {
       try {
-        const status = await detectZAIServices();
-
-        if (options.json) {
-          console.log(JSON.stringify(status, null, 2));
-          return;
-        }
-
-        console.log(formatZAIStatus(status));
-        console.log();
-
-        // Show recommendations
-        if (!status.hasApiKey) {
-          console.log(chalk.yellow('To get started with Z.AI MCP:'));
-          console.log(chalk.gray('  1. Get an API key from https://z.ai'));
-          console.log(chalk.gray(`  2. Set it: ${getCliName()} config set apiKey YOUR_API_KEY`));
-          console.log(chalk.gray(`  3. Enable servers: ${getCliName()} mcp add-zai`));
-          console.log();
-        } else if (status.enabledServers.length === 0) {
-          console.log(chalk.blue('API key configured. Enable Z.AI MCP servers with:'));
-          console.log(chalk.cyan(`  ${getCliName()} mcp add-zai`));
-          console.log();
-        }
-
+        await handleStatusZai(options);
       } catch (error: unknown) {
-        console.error(chalk.red(`\n❌ Error: ${extractErrorMessage(error)}\n`));
+        console.error(chalk.red(`\nError: ${extractErrorMessage(error)}\n`));
         process.exit(1);
       }
     });
 
-  // Z.AI MCP Add command
+  // Z.AI MCP Add command - uses extracted handler
   mcpCommand
     .command('add-zai')
     .description('Enable Z.AI MCP servers (web-reader, web-search, vision)')
@@ -1301,122 +1276,17 @@ export function createMCPCommand(): Command {
     .option('--api-key <key>', 'Z.AI API key (or use config/environment)')
     .action(async (options) => {
       try {
-        console.log(chalk.blue.bold('\n🚀 Setting up Z.AI MCP Servers\n'));
-
-        // Get API key
-        let apiKey = options.apiKey || getZAIApiKey();
-
-        if (!apiKey) {
-          console.error(chalk.red('❌ No Z.AI API key found\n'));
-          console.log(chalk.gray('Provide an API key using one of these methods:'));
-          console.log(chalk.gray('  • --api-key <key> flag'));
-          console.log(chalk.gray('  • ax-cli config set apiKey YOUR_API_KEY'));
-          console.log(chalk.gray('  • Set YOUR_API_KEY or Z_AI_API_KEY environment variable'));
-          console.log();
-          console.log(chalk.blue('Get your API key at: https://z.ai'));
-          console.log();
+        const result = await handleAddZai(options);
+        if (!result.success && result.serversFailed.length > 0) {
           process.exit(1);
         }
-
-        // Detect current status
-        const status = await detectZAIServices();
-
-        // Determine which servers to add
-        let serversToAdd: ZAIServerName[];
-
-        if (options.server && options.server.length > 0) {
-          // Specific servers requested
-          serversToAdd = options.server.filter((s: string): s is ZAIServerName => isZAIServer(s));
-          const invalidServers = options.server.filter((s: string) => !isZAIServer(s));
-
-          if (invalidServers.length > 0) {
-            console.log(chalk.yellow(`⚠️  Unknown server(s): ${invalidServers.join(', ')}`));
-            console.log(chalk.gray(`Available: ${getAllZAIServerNames().join(', ')}`));
-            console.log();
-          }
-        } else if (options.all) {
-          serversToAdd = getAllZAIServerNames();
-        } else {
-          // Default: recommended servers based on system
-          serversToAdd = getRecommendedServers(status);
-        }
-
-        // Filter out already enabled
-        const newServers = serversToAdd.filter(s => !status.enabledServers.includes(s));
-
-        if (newServers.length === 0) {
-          console.log(chalk.yellow('⚠️  All requested Z.AI servers are already configured\n'));
-          console.log(chalk.gray('Enabled servers:'));
-          status.enabledServers.forEach(s => console.log(chalk.green(`  ✓ ${s}`)));
-          console.log();
-          return;
-        }
-
-        // Check Node.js version for vision
-        if (newServers.includes(ZAI_SERVER_NAMES.VISION) && !status.nodeVersionOk) {
-          console.log(chalk.yellow(`⚠️  Vision server requires Node.js 22+, you have v${status.nodeVersion}`));
-          console.log(chalk.gray('  Skipping vision server. Update Node.js to enable it.'));
-          const visionIndex = newServers.indexOf(ZAI_SERVER_NAMES.VISION);
-          if (visionIndex > -1) {
-            newServers.splice(visionIndex, 1);
-          }
-          console.log();
-        }
-
-        if (newServers.length === 0) {
-          console.log(chalk.yellow('No servers to add after filtering.\n'));
-          return;
-        }
-
-        // Add each server
-        const manager = getMCPManager();
-        let successCount = 0;
-
-        for (const serverName of newServers) {
-          const template = ZAI_MCP_TEMPLATES[serverName];
-          console.log(chalk.blue(`Adding ${template.displayName}...`));
-          console.log(chalk.gray(`  ${template.description}`));
-
-          try {
-            const config = generateZAIServerConfig(serverName, apiKey);
-
-            // Connect first, then save config to user-level settings only on success
-            // User-level settings ensure Z.AI servers work from any directory
-            await manager.addServer(config);
-            addUserMCPServer(config);
-
-            const tools = manager.getTools().filter(t => t.serverName === serverName);
-            console.log(chalk.green(`  ✓ Connected (${tools.length} tool${tools.length !== 1 ? 's' : ''})`));
-            successCount++;
-          } catch (error) {
-            console.log(chalk.red(`  ✗ Failed: ${extractErrorMessage(error)}`));
-          }
-          console.log();
-        }
-
-        // Summary
-        if (successCount > 0) {
-          console.log(chalk.green.bold(`✨ ${successCount} Z.AI MCP server${successCount !== 1 ? 's' : ''} enabled!\n`));
-          console.log(chalk.gray('Available tools:'));
-          const allTools = manager.getTools().filter(t =>
-            newServers.some(s => t.serverName === s)
-          );
-          allTools.forEach(tool => {
-            console.log(chalk.gray(`  • ${tool.name.replace('mcp__', '').replace('__', '/')}`));
-          });
-          console.log();
-        } else {
-          console.log(chalk.red('❌ No servers were successfully added.\n'));
-          process.exit(1);
-        }
-
       } catch (error: unknown) {
-        console.error(chalk.red(`\n❌ Error: ${extractErrorMessage(error)}\n`));
+        console.error(chalk.red(`\nError: ${extractErrorMessage(error)}\n`));
         process.exit(1);
       }
     });
 
-  // Z.AI MCP Remove command
+  // Z.AI MCP Remove command - uses extracted handler
   mcpCommand
     .command('remove-zai')
     .description('Disable Z.AI MCP servers')
@@ -1424,72 +1294,12 @@ export function createMCPCommand(): Command {
     .option('--server <servers...>', 'Specific servers to remove')
     .action(async (options) => {
       try {
-        console.log(chalk.blue.bold('\n🗑️  Removing Z.AI MCP Servers\n'));
-
-        const status = await detectZAIServices();
-
-        if (status.enabledServers.length === 0) {
-          console.log(chalk.yellow('⚠️  No Z.AI MCP servers are currently configured.\n'));
-          return;
-        }
-
-        // Determine which servers to remove
-        let serversToRemove: ZAIServerName[];
-
-        if (options.server && options.server.length > 0) {
-          serversToRemove = options.server.filter((s: string): s is ZAIServerName =>
-            isZAIServer(s) && status.enabledServers.includes(s as ZAIServerName)
-          );
-
-          const notEnabled = options.server.filter((s: string) =>
-            isZAIServer(s) && !status.enabledServers.includes(s as ZAIServerName)
-          );
-
-          if (notEnabled.length > 0) {
-            console.log(chalk.yellow(`⚠️  Server(s) not enabled: ${notEnabled.join(', ')}`));
-          }
-        } else if (options.all) {
-          serversToRemove = [...status.enabledServers];
-        } else {
-          // Default: remove all
-          serversToRemove = [...status.enabledServers];
-        }
-
-        if (serversToRemove.length === 0) {
-          console.log(chalk.yellow('⚠️  No matching servers to remove.\n'));
-          return;
-        }
-
-        // Remove each server
-        const manager = getMCPManager();
-        let successCount = 0;
-
-        for (const serverName of serversToRemove) {
-          const template = ZAI_MCP_TEMPLATES[serverName];
-          console.log(chalk.blue(`Removing ${template.displayName}...`));
-
-          try {
-            await manager.removeServer(serverName);
-            // Z.AI servers are stored in user-level settings, not project settings
-            removeUserMCPServer(serverName);
-            console.log(chalk.green(`  ✓ Removed`));
-            successCount++;
-          } catch (error) {
-            console.log(chalk.red(`  ✗ Failed: ${extractErrorMessage(error)}`));
-          }
-        }
-
-        console.log();
-
-        if (successCount > 0) {
-          console.log(chalk.green(`✓ ${successCount} Z.AI MCP server${successCount !== 1 ? 's' : ''} removed.\n`));
-        } else {
-          console.log(chalk.red('❌ No servers were successfully removed.\n'));
+        const result = await handleRemoveZai(options);
+        if (!result.success) {
           process.exit(1);
         }
-
       } catch (error: unknown) {
-        console.error(chalk.red(`\n❌ Error: ${extractErrorMessage(error)}\n`));
+        console.error(chalk.red(`\nError: ${extractErrorMessage(error)}\n`));
         process.exit(1);
       }
     });

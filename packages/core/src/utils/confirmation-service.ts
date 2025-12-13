@@ -1,10 +1,8 @@
-import { exec } from "child_process";
-import { promisify } from "util";
 import { EventEmitter } from "events";
 import { TIMEOUT_CONFIG } from "../constants.js";
 import { getVSCodeIPCClient, type DiffPayload } from "../ipc/index.js";
-
-const execAsync = promisify(exec);
+import { findOnPath } from "./path-helpers.js";
+import { getSessionState, type SessionFlags } from "../permissions/session-state.js";
 
 export interface ConfirmationOptions {
   operation: string;
@@ -33,12 +31,13 @@ export class ConfirmationService extends EventEmitter {
     null;
   private confirmationTimeoutId: NodeJS.Timeout | null = null;
 
-  // Session flags for different operation types
-  private sessionFlags = {
-    fileOperations: false,
-    bashCommands: false,
-    allOperations: true, // Default to true (auto-edit enabled by default)
-  };
+  /**
+   * @deprecated Session flags are now managed by the shared SessionStateManager
+   * This getter provides backward compatibility
+   */
+  private get sessionFlags(): SessionFlags {
+    return getSessionState().getFlags();
+  }
 
   static getInstance(): ConfirmationService {
     if (!ConfirmationService.instance) {
@@ -183,11 +182,12 @@ export class ConfirmationService extends EventEmitter {
     const result = await this.pendingConfirmation;
 
     if (result.dontAskAgain) {
-      // Set the appropriate session flag based on operation type
+      // Set the appropriate session flag using shared session state
+      const sessionState = getSessionState();
       if (operationType === "file") {
-        this.sessionFlags.fileOperations = true;
+        sessionState.setFlag("fileOperations", true);
       } else if (operationType === "bash") {
-        this.sessionFlags.bashCommands = true;
+        sessionState.setFlag("bashCommands", true);
       }
       // Could also set allOperations for global skip
     }
@@ -227,11 +227,12 @@ export class ConfirmationService extends EventEmitter {
     // Try different VS Code commands
     const commands = ["code", "code-insiders", "codium"];
     const isWindows = process.platform === "win32";
-    const whichCmd = isWindows ? "where" : "which";
 
     for (const cmd of commands) {
       try {
-        await execAsync(`${whichCmd} ${cmd}`);
+        // Check if command exists using cross-platform findOnPath
+        const cmdPath = await findOnPath(cmd);
+        if (!cmdPath) continue;
         // Properly escape filename to prevent command injection
         // Use spawn with array args to avoid shell interpretation entirely
         const { spawn } = await import("child_process");
@@ -262,29 +263,49 @@ export class ConfirmationService extends EventEmitter {
     return this.pendingConfirmation !== null;
   }
 
+  /**
+   * Reset session to default state
+   * Delegates to shared session state
+   */
   resetSession(): void {
-    this.sessionFlags = {
-      fileOperations: false,
-      bashCommands: false,
-      allOperations: false,
-    };
+    getSessionState().reset();
   }
 
-  getSessionFlags() {
-    return { ...this.sessionFlags };
+  /**
+   * Get current session flags
+   * @deprecated Use getSessionState().getFlags() directly for new code
+   */
+  getSessionFlags(): SessionFlags {
+    return getSessionState().getFlags();
   }
 
+  /**
+   * Set a session flag
+   * Delegates to shared session state
+   */
   setSessionFlag(
     flagType: "fileOperations" | "bashCommands" | "allOperations",
     value: boolean
-  ) {
-    this.sessionFlags[flagType] = value;
+  ): void {
+    getSessionState().setFlag(flagType, value);
   }
 
   /**
    * Clean up resources and remove all event listeners.
+   * BUG FIX: Now clears pending confirmation timeout to prevent timer leak
    */
   destroy(): void {
+    // Clear pending confirmation timeout
+    if (this.confirmationTimeoutId) {
+      clearTimeout(this.confirmationTimeoutId);
+      this.confirmationTimeoutId = null;
+    }
+    // Resolve any pending confirmation to prevent hanging promises
+    if (this.resolveConfirmation) {
+      this.resolveConfirmation({ confirmed: false, feedback: 'Service destroyed' });
+      this.resolveConfirmation = null;
+      this.pendingConfirmation = null;
+    }
     this.removeAllListeners();
   }
 }

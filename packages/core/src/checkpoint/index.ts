@@ -24,4 +24,4 @@ export { DEFAULT_CHECKPOINT_CONFIG } from './types.js';
 export { CheckpointStorage, calculateHash, verifyFileSnapshot } from './storage.js';
 
 // Manager
-export { CheckpointManager, getCheckpointManager, resetCheckpointManager } from './manager.js';
+export { CheckpointManager, getCheckpointManager, initCheckpointManager, resetCheckpointManager } from './manager.js';

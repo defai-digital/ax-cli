@@ -57,7 +57,8 @@ export function createModelsCommand(): Command {
         } catch {
           // Invalid URL, hostname remains empty
         }
-        const isOllama = hostname === 'localhost' && baseURL?.includes(':11434') || hostname.includes('ollama');
+        // BUG FIX: Add parentheses for clarity and correct operator precedence
+        const isOllama = (hostname === 'localhost' && baseURL?.includes(':11434')) || hostname === 'ollama';
         if (isOllama) {
           customModels.push({
             id: "llama3.1:8b",

@@ -31,6 +31,7 @@ const RECOVERY_HINT = "TIP: Use view_file first to get the exact content before 
 
 const ERROR_MESSAGES = {
   FILE_NOT_FOUND: (filePath: string) => `File not found: ${filePath}. Use view_file to check the directory structure.`,
+  FILE_ALREADY_EXISTS: (filePath: string) => `File already exists: ${filePath}. Use str_replace_editor or insert for edits instead of create.`,
   PATH_NOT_FOUND: (filePath: string) => `File or directory not found: ${filePath}`,
   SECURITY_ERROR: (error: string) => `Security: ${error}`,
   EMPTY_SEARCH_STRING: "Search string cannot be empty",
@@ -389,6 +390,14 @@ export class TextEditorTool {
       if ('success' in pathResult) return pathResult;
 
       const resolvedPath = pathResult.path;
+
+      // Fail fast if the target already exists to avoid destructive overwrites
+      if (await fs.pathExists(resolvedPath)) {
+        return {
+          success: false,
+          error: ERROR_MESSAGES.FILE_ALREADY_EXISTS(filePath),
+        };
+      }
 
       // Create a diff-style preview for file creation
       const contentLines = content.split("\n");

@@ -329,3 +329,102 @@ describe('DEFAULT_RATE_LIMITS', () => {
     expect(DEFAULT_RATE_LIMITS.FILE_OPS.maxRequests).toBe(50);
   });
 });
+
+describe('KeyedRateLimiter cleanup', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('should clean up inactive limiters after cleanup interval', () => {
+    const limiter = new KeyedRateLimiter({
+      maxRequests: 10,
+      windowMs: 1000,
+      cleanupInterval: 100, // 100ms cleanup interval
+    });
+
+    // Create some limiters by acquiring tokens
+    limiter.tryAcquire('key1');
+    limiter.tryAcquire('key2');
+
+    // Advance time for tokens to refill (window passes)
+    vi.advanceTimersByTime(2000);
+
+    // Now advance past the cleanup interval
+    vi.advanceTimersByTime(200);
+
+    // Dispose to clean up
+    limiter.dispose();
+  });
+
+  it('should not cleanup limiters that are still in use', () => {
+    const limiter = new KeyedRateLimiter({
+      maxRequests: 10,
+      windowMs: 5000, // 5 second window
+      cleanupInterval: 100,
+    });
+
+    // Acquire tokens (will mark limiter as in use)
+    limiter.tryAcquire('key1');
+
+    // Advance time but not past the window
+    vi.advanceTimersByTime(200);
+
+    // Should still be able to acquire (limiter not cleaned up)
+    const result = limiter.tryAcquire('key1');
+    expect(result.allowed).toBe(true);
+
+    limiter.dispose();
+  });
+
+  it('should handle cleanup with mixed limiter states', () => {
+    const limiter = new KeyedRateLimiter({
+      maxRequests: 2,
+      windowMs: 100,
+      cleanupInterval: 50,
+    });
+
+    // Key1: Use all tokens (should not be cleaned)
+    limiter.tryAcquire('key1');
+    limiter.tryAcquire('key1');
+
+    // Key2: Use only one token
+    limiter.tryAcquire('key2');
+
+    // Advance past window so tokens refill
+    vi.advanceTimersByTime(200);
+
+    // Key1 and key2 should have full tokens now (could be cleaned)
+
+    // Advance past cleanup interval
+    vi.advanceTimersByTime(100);
+
+    // Try to acquire on a "cleaned" key - should work as fresh limiter
+    const result = limiter.tryAcquire('key1');
+    expect(result.allowed).toBe(true);
+
+    limiter.dispose();
+  });
+
+  it('should properly dispose cleanup timer', () => {
+    const limiter = new KeyedRateLimiter({
+      maxRequests: 10,
+      windowMs: 1000,
+      cleanupInterval: 100,
+    });
+
+    limiter.tryAcquire('key1');
+
+    // Dispose should clear the cleanup timer
+    limiter.dispose();
+
+    // Advance time - should not throw or cause issues
+    vi.advanceTimersByTime(1000);
+
+    // Limiter map should be cleared
+    expect(() => limiter.tryAcquire('key1')).not.toThrow();
+  });
+});

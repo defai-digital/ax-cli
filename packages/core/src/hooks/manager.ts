@@ -10,6 +10,7 @@ import { spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import * as yaml from "js-yaml";
 import type {
   AnyHookConfig,
   HooksConfig,
@@ -35,6 +36,7 @@ const CONFIG_FILE_NAMES = ["hooks.json", "hooks.yaml", "hooks.yml"];
 export class HooksManager {
   private static instance: HooksManager | null = null;
   private hooks: AnyHookConfig[] = [];
+  private registeredHooks: AnyHookConfig[] = []; // Hooks added via registerHook()
   private projectDir: string;
   private userDir: string;
   private initialized: boolean = false;
@@ -63,8 +65,10 @@ export class HooksManager {
 
   /**
    * Register a hook programmatically
+   * These hooks are preserved across ensureInitialized() calls
    */
   registerHook(hook: AnyHookConfig): void {
+    this.registeredHooks.push(hook);
     this.hooks.push(hook);
   }
 
@@ -74,40 +78,48 @@ export class HooksManager {
   private ensureInitialized(): void {
     if (this.initialized) return;
 
-    this.hooks = [];
+    // Start with programmatically registered hooks (preserve them)
+    this.hooks = [...this.registeredHooks];
 
-    // Load hooks from project directory (.ax-cli/hooks.json)
+    // Load hooks from project directory (.ax-cli/hooks.json or .yaml)
     const projectHooksDir = path.join(this.projectDir, ".ax-cli");
-    for (const fileName of CONFIG_FILE_NAMES) {
-      const filePath = path.join(projectHooksDir, fileName);
-      if (fs.existsSync(filePath)) {
-        try {
-          const content = fs.readFileSync(filePath, "utf-8");
-          const config = JSON.parse(content) as HooksConfig;
-          this.hooks.push(...(config.hooks || []));
-          break;
-        } catch (error) {
-          console.warn(`Failed to load hooks from ${filePath}:`, extractErrorMessage(error));
-        }
-      }
-    }
+    this.loadHooksFromDirectory(projectHooksDir);
 
-    // Load hooks from user directory (~/.ax-cli/hooks.json)
-    for (const fileName of CONFIG_FILE_NAMES) {
-      const filePath = path.join(this.userDir, fileName);
-      if (fs.existsSync(filePath)) {
-        try {
-          const content = fs.readFileSync(filePath, "utf-8");
-          const config = JSON.parse(content) as HooksConfig;
-          this.hooks.push(...(config.hooks || []));
-          break;
-        } catch (error) {
-          console.warn(`Failed to load hooks from ${filePath}:`, extractErrorMessage(error));
-        }
-      }
-    }
+    // Load hooks from user directory (~/.ax-cli/hooks.json or .yaml)
+    this.loadHooksFromDirectory(this.userDir);
 
     this.initialized = true;
+  }
+
+  /**
+   * Load hooks from a directory, trying each config file name
+   */
+  private loadHooksFromDirectory(dir: string): void {
+    for (const fileName of CONFIG_FILE_NAMES) {
+      const filePath = path.join(dir, fileName);
+      if (fs.existsSync(filePath)) {
+        try {
+          const content = fs.readFileSync(filePath, "utf-8");
+          const config = this.parseConfigFile(content, fileName);
+          if (config?.hooks) {
+            this.hooks.push(...config.hooks);
+          }
+          break; // Stop after first valid config found
+        } catch (error) {
+          console.warn(`Failed to load hooks from ${filePath}:`, extractErrorMessage(error));
+        }
+      }
+    }
+  }
+
+  /**
+   * Parse config file content based on file extension
+   */
+  private parseConfigFile(content: string, fileName: string): HooksConfig | null {
+    if (fileName.endsWith(".yaml") || fileName.endsWith(".yml")) {
+      return yaml.load(content) as HooksConfig;
+    }
+    return JSON.parse(content) as HooksConfig;
   }
 
   /**
@@ -224,9 +236,20 @@ export class HooksManager {
       let stderr = "";
       let timedOut = false;
 
+      // Handle stdin errors (e.g., if child closes stdin early)
+      if (child.stdin.on) {
+        child.stdin.on("error", () => {
+          // Ignore stdin errors - child may have closed before we finished writing
+        });
+      }
+
       // Send input as JSON to stdin
-      child.stdin.write(JSON.stringify(input));
-      child.stdin.end();
+      try {
+        child.stdin.write(JSON.stringify(input));
+        child.stdin.end();
+      } catch {
+        // Ignore write errors - child may have already exited
+      }
 
       child.stdout.on("data", (data) => {
         stdout += data.toString();
@@ -315,22 +338,22 @@ export class HooksManager {
     const results = await this.executeHooks("PreToolUse", input);
 
     for (const result of results) {
-      if (!result.success) {
-        // Hook execution failed - treat as non-blocking but log
-        console.warn(`PreToolUse hook failed: ${result.error}`);
-        continue;
-      }
-
-      // Check for explicit denial
-      if (result.output?.permissionDecision === "deny") {
+      // Exit code 2 means explicit block (check before success check)
+      if (result.output?.exitCode === 2) {
         return {
           blocked: true,
           reason: result.output.stderr || result.output.stdout || "Blocked by hook",
         };
       }
 
-      // Exit code 2 means blocking error
-      if (result.output?.exitCode === 2) {
+      if (!result.success) {
+        // Hook execution failed - treat as non-blocking but log
+        console.warn(`PreToolUse hook failed: ${result.error}`);
+        continue;
+      }
+
+      // Check for explicit denial via JSON output
+      if (result.output?.permissionDecision === "deny") {
         return {
           blocked: true,
           reason: result.output.stderr || result.output.stdout || "Blocked by hook",
@@ -407,6 +430,7 @@ export class HooksManager {
    */
   clearHooks(): void {
     this.hooks = [];
+    this.registeredHooks = [];
     this.initialized = false;
   }
 }

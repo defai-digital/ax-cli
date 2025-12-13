@@ -7,14 +7,7 @@ import { OnboardingManager } from '../../utils/onboarding-manager.js';
 import { TemplateManager } from '../../utils/template-manager.js';
 import type { ProjectInfo } from '../../types/project-analysis.js';
 import type { ProjectTemplate } from '../../schemas/index.js';
-
-/** Handle user cancellation - exits process if cancelled */
-function exitIfCancelled<T>(value: T | symbol): asserts value is T {
-  if (prompts.isCancel(value)) {
-    prompts.cancel('Operation cancelled.');
-    process.exit(0);
-  }
-}
+import { exitIfCancelled } from '../utils.js';
 
 export interface WizardOptions {
   nonInteractive?: boolean;

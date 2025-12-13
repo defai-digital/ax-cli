@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { ConfirmationService, type ConfirmationOptions } from "../../packages/core/src/utils/confirmation-service.js";
 import { TIMEOUT_CONFIG } from "../../packages/core/src/constants.js";
+import { resetSessionState } from "../../packages/core/src/permissions/session-state.js";
 
 // Mock the IPC module
 vi.mock("../../packages/core/src/ipc/index.js", () => ({
@@ -14,20 +15,26 @@ vi.mock("../../packages/core/src/ipc/index.js", () => ({
   }),
 }));
 
-// Mock child_process exec
-vi.mock("child_process", () => ({
-  exec: vi.fn((cmd, callback) => {
-    // Default to failing (VS Code not found)
-    const error = new Error("Command not found");
-    if (callback) callback(error, "", "");
-    return { on: vi.fn(), stdout: { on: vi.fn() }, stderr: { on: vi.fn() } };
-  }),
-}));
+// Mock child_process exec and execFile
+vi.mock("child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("child_process")>();
+  return {
+    ...actual,
+    exec: vi.fn((cmd, callback) => {
+      // Default to failing (VS Code not found)
+      const error = new Error("Command not found");
+      if (callback) callback(error, "", "");
+      return { on: vi.fn(), stdout: { on: vi.fn() }, stderr: { on: vi.fn() } };
+    }),
+  };
+});
 
 describe("ConfirmationService", () => {
   let service: ConfirmationService;
 
   beforeEach(() => {
+    // Reset shared session state to default (allOperations: false for tests)
+    resetSessionState();
     // Create a fresh instance for each test
     service = new ConfirmationService();
     vi.clearAllMocks();
@@ -52,7 +59,7 @@ describe("ConfirmationService", () => {
 
       expect(flags.fileOperations).toBe(false);
       expect(flags.bashCommands).toBe(false);
-      expect(flags.allOperations).toBe(true); // Default to true
+      expect(flags.allOperations).toBe(false); // Default to false for safety
     });
   });
 

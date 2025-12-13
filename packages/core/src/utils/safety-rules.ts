@@ -1,14 +1,21 @@
 /**
  * Safety Rules for Auto-accept Mode - Phase 2
  *
- * Defines destructive operations that always require confirmation
- * even when auto-accept mode is enabled.
+ * Single source of truth for:
+ * - Destructive operations that always require confirmation
+ * - Command permission tiers (auto-approve, notify, confirm, block)
+ * - Sensitive file patterns
  *
  * Safety Philosophy:
  * - Auto-accept is for convenience, not carte blanche
  * - Destructive operations ALWAYS require explicit confirmation
  * - Better safe than sorry (false positives acceptable)
  */
+
+/**
+ * Permission tiers for command classification
+ */
+export type CommandTier = 'auto_approve' | 'notify' | 'confirm' | 'block';
 
 export interface DestructiveOperation {
   id: string;
@@ -17,6 +24,57 @@ export interface DestructiveOperation {
   patterns: RegExp[];
   severity: 'high' | 'medium' | 'low';
 }
+
+/**
+ * Command pattern with associated permission tier
+ */
+interface CommandPattern {
+  pattern: RegExp;
+  tier: CommandTier;
+  description?: string;
+}
+
+/**
+ * Consolidated command patterns for permission checking
+ * Order matters: first match wins
+ */
+const COMMAND_PATTERNS: CommandPattern[] = [
+  // === BLOCK: Never allow these ===
+  { pattern: /rm\s+-rf\s+\/(?!tmp)/, tier: 'block', description: 'Recursive delete from root (except /tmp)' },
+  { pattern: /:\(\)\{\s*:\|:&\s*\};:/, tier: 'block', description: 'Fork bomb' },
+  { pattern: /\bdd\b.*of=\/dev\//, tier: 'block', description: 'Direct disk write' },
+
+  // === CONFIRM: Require explicit approval ===
+  { pattern: /^rm\s/, tier: 'confirm', description: 'Delete command' },
+  { pattern: /^(sudo|chmod|chown|mv|cp)\b/, tier: 'confirm', description: 'File system modification' },
+  { pattern: /\|\s*(sh|bash|zsh)\b/, tier: 'confirm', description: 'Pipe to shell' },
+  { pattern: /(&&|;|\|).*rm\b/, tier: 'confirm', description: 'Chained delete command' },
+
+  // === NOTIFY: Show notification but allow ===
+  { pattern: /^(npm|npx|node|pnpm|yarn)\s+(test|run|list|ls)\b/, tier: 'notify' },
+  { pattern: /^git\s+(add|commit|push|pull|checkout|merge)\b/, tier: 'notify' },
+
+  // === AUTO-APPROVE: Safe read-only commands ===
+  { pattern: /^(ls|cat|echo|pwd|date|whoami|which|type|file)\b/, tier: 'auto_approve' },
+  { pattern: /^git\s+(status|log|diff|branch|show)\b/, tier: 'auto_approve' },
+];
+
+/**
+ * Sensitive file patterns that require confirmation for modifications
+ */
+export const SENSITIVE_FILE_PATTERNS: string[] = [
+  '*.config.*',
+  '.env*',
+  'package.json',
+  'tsconfig.json',
+  '*.key',
+  '*.pem',
+  '*.crt',
+  'secrets.*',
+  'credentials.*',
+  '.ssh/*',
+  '.aws/*',
+];
 
 /**
  * Predefined destructive operations
@@ -263,4 +321,102 @@ export function isDestructiveFileOperation(filepath: string, operation: 'edit' |
     isDestructive: matchedOperations.length > 0,
     matchedOperations,
   };
+}
+
+// ============================================================================
+// Command Permission Tier Functions (consolidated from PermissionManager)
+// ============================================================================
+
+/**
+ * Get the permission tier for a bash command
+ * This is the single source of truth for command classification
+ *
+ * @param command The bash command to check
+ * @returns The permission tier, or null if no pattern matches (use default)
+ */
+export function getCommandTier(command: string): CommandTier | null {
+  for (const { pattern, tier } of COMMAND_PATTERNS) {
+    if (pattern.test(command)) {
+      return tier;
+    }
+  }
+  return null;
+}
+
+/**
+ * Check if a file path matches sensitive file patterns
+ * Uses simple glob matching with ReDoS prevention
+ *
+ * @param filePath The file path to check
+ * @param patterns Optional custom patterns (defaults to SENSITIVE_FILE_PATTERNS)
+ * @returns true if the file matches any sensitive pattern
+ */
+export function isSensitiveFile(filePath: string, patterns: string[] = SENSITIVE_FILE_PATTERNS): boolean {
+  const fileName = filePath.split('/').pop() || filePath;
+
+  for (const pattern of patterns) {
+    // Simple glob matching with ReDoS prevention
+    // BUG FIX: Use possessive-like matching to prevent catastrophic backtracking
+    // Instead of .* which can backtrack, we use a more controlled pattern
+    const regexPattern = '^' + pattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')  // Escape special regex chars
+      .replace(/\*\*/g, '(?:[^/]*(?:/[^/]*)*)') // ** matches path segments safely (non-backtracking)
+      .replace(/\*/g, '[^/]*')  // * matches anything except /
+      .replace(/\?/g, '[^/]') + '$';  // ? matches single char
+
+    try {
+      const regex = new RegExp(regexPattern, 'i');
+      if (regex.test(fileName) || regex.test(filePath)) {
+        return true;
+      }
+    } catch {
+      // Invalid pattern, skip
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Assess risk level for a command
+ * Consolidated from PermissionManager.assessRisk
+ */
+export function assessCommandRisk(command: string): 'low' | 'medium' | 'high' | 'critical' {
+  const cmd = command.toLowerCase();
+
+  // Critical risk patterns
+  if (cmd.includes('rm -rf') || cmd.includes('sudo')) {
+    return 'critical';
+  }
+
+  // High risk patterns
+  if (cmd.includes('rm ') || cmd.includes('mv ') || cmd.includes('chmod')) {
+    return 'high';
+  }
+
+  // Medium risk patterns
+  if (cmd.includes('git push') || cmd.includes('npm publish')) {
+    return 'medium';
+  }
+
+  return 'low';
+}
+
+/**
+ * Assess risk level for a file path
+ */
+export function assessFileRisk(filePath: string): 'low' | 'medium' | 'high' | 'critical' {
+  const path = filePath.toLowerCase();
+
+  // High risk - secrets and credentials
+  if (path.includes('.env') || path.includes('secret') || path.includes('credential')) {
+    return 'high';
+  }
+
+  // Medium risk - configuration
+  if (path.includes('config') || path.includes('package.json')) {
+    return 'medium';
+  }
+
+  return 'low';
 }

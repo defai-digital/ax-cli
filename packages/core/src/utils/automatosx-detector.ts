@@ -4,10 +4,7 @@
  * Checks if AutomatosX CLI is installed and available in the system.
  */
 
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { findOnPath } from './path-helpers.js';
 
 let cachedResult: boolean | null = null;
 let cacheTimestamp: number = 0;
@@ -25,22 +22,15 @@ export async function isAutomatosXAvailable(): Promise<boolean> {
     return cachedResult;
   }
 
-  try {
-    // Check if 'ax' command exists
-    const { stdout } = await execAsync('which ax 2>/dev/null || command -v ax 2>/dev/null');
-    const isAvailable = stdout.trim().length > 0;
+  // Check if 'ax' command exists using cross-platform findOnPath
+  const axPath = await findOnPath('ax');
+  const isAvailable = axPath !== null;
 
-    // Update cache
-    cachedResult = isAvailable;
-    cacheTimestamp = now;
+  // Update cache
+  cachedResult = isAvailable;
+  cacheTimestamp = now;
 
-    return isAvailable;
-  } catch {
-    // Command not found or error occurred
-    cachedResult = false;
-    cacheTimestamp = now;
-    return false;
-  }
+  return isAvailable;
 }
 
 /**

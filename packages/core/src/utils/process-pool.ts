@@ -385,8 +385,26 @@ export class ProcessPool extends EventEmitter {
 
   /**
    * Clean up resources and remove all event listeners.
+   * BUG FIX: Now clears idleTimers and rejects queued tasks to prevent timer leaks
    */
   destroy(): void {
+    // Prevent new tasks
+    this.shuttingDown = true;
+
+    // Clear all idle timers
+    for (const timer of this.idleTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.idleTimers.clear();
+
+    // Reject all queued tasks
+    while (this.taskQueue.length > 0) {
+      const task = this.taskQueue.shift();
+      if (task) {
+        task.reject(new Error('Process pool destroyed'));
+      }
+    }
+
     this.removeAllListeners();
   }
 }

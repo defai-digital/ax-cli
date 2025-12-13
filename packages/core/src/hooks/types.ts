@@ -20,6 +20,9 @@ export type HookEventType =
 
 /**
  * Hook type - shell command or prompt-based
+ *
+ * Note: Only "command" hooks are currently implemented.
+ * "prompt" hooks are reserved for future LLM-based evaluation.
  */
 export type HookType = "command" | "prompt";
 
@@ -68,6 +71,9 @@ export interface CommandHookConfig extends HookConfig {
 
 /**
  * Prompt-based hook configuration (uses Claude Haiku for evaluation)
+ *
+ * @experimental This hook type is not yet implemented. The interface is
+ * defined for future use. Using this configuration will result in an error.
  */
 export interface PromptHookConfig extends HookConfig {
   type: "prompt";

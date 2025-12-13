@@ -137,9 +137,10 @@ program
 program
   .command('setup')
   .description('Configure your LLM provider')
-  .action(async () => {
+  .option('--force', 'Delete existing configuration and start fresh')
+  .action(async (options: { force?: boolean }) => {
     showBanner();
-    await runSetup();
+    await runSetup({ force: options.force });
   });
 
 /**

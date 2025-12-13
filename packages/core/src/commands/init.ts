@@ -17,6 +17,7 @@ import { InitWizard } from './init/wizard.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
 import { FILE_NAMES } from '../constants.js';
 import { getActiveConfigPaths } from '../provider/config.js';
+import type { ProjectInfo } from '../types/project-analysis.js';
 
 export function createInitCommand(): Command {
   const initCommand = new Command('init')
@@ -30,6 +31,8 @@ export function createInitCommand(): Command {
     .option('--preview', 'Preview changes before applying', false)
     .option('--dry-run', 'Show what would be done without making changes', false)
     .option('--validate', 'Run validation checks only', false)
+    // Hidden flag to skip project analysis (used by CLI wrappers/tests); falls back to template-only flow
+    .option('--skip-analysis', 'Skip project analysis step', false)
     .action(async (options: {
       force?: boolean;
       verbose?: boolean;
@@ -40,6 +43,7 @@ export function createInitCommand(): Command {
       preview?: boolean;
       dryRun?: boolean;
       validate?: boolean;
+      skipAnalysis?: boolean;
     }) => {
       try {
         prompts.intro(chalk.cyan('AX CLI Project Initialization'));
@@ -118,23 +122,29 @@ export function createInitCommand(): Command {
         }
 
         // Analyze project
-        const spinner = prompts.spinner();
-        spinner.start('Analyzing project...');
+        let projectInfo: ProjectInfo | null = null;
 
-        const analyzer = new ProjectAnalyzer(projectRoot);
-        const result = await analyzer.analyze();
+        if (options.skipAnalysis) {
+          prompts.log.warn('Skipping project analysis (per --skip-analysis). Templates only.');
+        } else {
+          const spinner = prompts.spinner();
+          spinner.start('Analyzing project...');
 
-        if (!result.success || !result.projectInfo) {
-          spinner.stop('Analysis failed');
-          prompts.log.error(`Project analysis failed: ${result.error || 'Unknown error'}`);
-          process.exit(1);
+          const analyzer = new ProjectAnalyzer(projectRoot);
+          const result = await analyzer.analyze();
+
+          if (!result.success || !result.projectInfo) {
+            spinner.stop('Analysis failed');
+            prompts.log.error(`Project analysis failed: ${result.error || 'Unknown error'}`);
+            process.exit(1);
+          }
+
+          projectInfo = result.projectInfo;
+          spinner.stop('Analysis complete');
         }
 
-        const projectInfo = result.projectInfo;
-        spinner.stop('Analysis complete');
-
         // Display analysis results
-        if (options.verbose) {
+        if (options.verbose && projectInfo) {
           prompts.log.info(`Project: ${projectInfo.name} (${projectInfo.projectType})`);
           prompts.log.info(`Language: ${projectInfo.primaryLanguage}`);
           if (projectInfo.techStack.length > 0) {
@@ -170,7 +180,7 @@ export function createInitCommand(): Command {
             indexFile: 'ax.index.json',
           };
           summary = JSON.stringify(summaryData, null, 2);
-        } else {
+        } else if (projectInfo) {
           // Generate LLM-optimized instructions
           const generator = new LLMOptimizedInstructionGenerator({
             compressionLevel: 'moderate',
@@ -182,6 +192,30 @@ export function createInitCommand(): Command {
           instructions = generator.generateInstructions(projectInfo);
           index = generator.generateIndex(projectInfo);
           summary = generator.generateSummary(projectInfo);
+        } else {
+          // No template and analysis skipped/failed: fall back to minimal scaffold
+          instructions = '# Project Instructions\n\nNo analysis was run. Add guidance here.\n';
+          const fallbackIndex = {
+            schemaVersion: '1.0',
+            generatedAt: new Date().toISOString(),
+            project: {
+              name: 'Unknown Project',
+              type: 'custom',
+            },
+            indexFile: 'ax.index.json',
+            notice: 'Generated without project analysis (--skip-analysis). Update after running init without skip.',
+          };
+          index = JSON.stringify(fallbackIndex, null, 2);
+          summary = JSON.stringify({
+            schemaVersion: '1.0',
+            generatedAt: new Date().toISOString(),
+            project: {
+              name: 'Unknown Project',
+              type: 'custom',
+            },
+            indexFile: 'ax.index.json',
+            notice: 'Summary generated without analysis (--skip-analysis).',
+          }, null, 2);
         }
 
         // Preview or dry-run mode
@@ -236,12 +270,15 @@ export function createInitCommand(): Command {
           ? `\nFiles:\n  ✅ ${sharedIndexPath} (rebuilt)\n  ✅ ${sharedSummaryPath} (rebuilt)\n  ⏭️  ${customMdPath} (skipped - already exists)`
           : `\nFiles created:\n  ✅ ${sharedIndexPath} (full analysis)\n  ✅ ${sharedSummaryPath} (prompt summary)\n  ✅ ${customMdPath}`;
 
+        const summaryContent = projectInfo
+          ? `Project: ${projectInfo.name} (${projectInfo.projectType})\n` +
+            `Language: ${projectInfo.primaryLanguage}\n` +
+            (projectInfo.techStack.length > 0 ? `Stack: ${projectInfo.techStack.join(', ')}\n` : '') +
+            filesInfo
+          : `Project initialized from ${selectedTemplate ? 'template' : 'defaults'}` + filesInfo;
+
         await prompts.note(
-          `Project: ${projectInfo.name} (${projectInfo.projectType})\n` +
-          `Language: ${projectInfo.primaryLanguage}\n` +
-          (projectInfo.techStack.length > 0 ? `Stack: ${projectInfo.techStack.join(', ')}\n` : '') +
-          (result.duration ? `Analysis time: ${result.duration}ms` : '') +
-          filesInfo,
+          summaryContent,
           willSkipCustomMd ? 'Project Index Rebuilt' : 'Project Summary'
         );
 

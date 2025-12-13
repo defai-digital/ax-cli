@@ -60,6 +60,54 @@ const DEFAULT_PROJECT_SETTINGS: Partial<ProjectSettings> = {
 export class SettingsManager {
   private static instance: SettingsManager;
 
+  /** Public defaults (exposed for tests and external consumers) */
+  public static readonly INPUT_DEFAULTS: RequiredInputSettings = {
+    enterBehavior: 'submit',
+    submitKeys: ['enter'],
+    multilineIndicator: '│ ',
+    smartDetection: {
+      enabled: true,
+      checkBrackets: true,
+      checkOperators: true,
+      checkStatements: true,
+    },
+  };
+
+  public static readonly SHORTCUTS_DEFAULTS: RequiredShortcutsSettings = {
+    showOnStartup: false,
+    hintTimeout: 3000,
+    customBindings: {},
+  };
+
+  public static readonly PASTE_DEFAULTS: RequiredPasteSettings = {
+    autoCollapse: true,
+    collapseThreshold: 20,
+    characterThreshold: 500,
+    maxCollapsedBlocks: 50,
+    showLineCount: true,
+    showPreview: true,
+    previewLines: 2,
+    enableHistory: true,
+    maxHistoryItems: 10,
+    enableBracketedPaste: true,
+    showPasteIndicator: true,
+    maxPasteSize: 100 * 1024 * 1024, // 100MB
+    pasteTimeout: 30000,
+    enableFallback: true,
+  };
+
+  public static readonly AUTO_ACCEPT_DEFAULTS: AutoAcceptSettings = {
+    enabled: false,
+    persistAcrossSessions: false,
+    alwaysConfirm: ['git_push_main', 'mass_delete', 'rm_rf', 'npm_publish'],
+    scope: 'session',
+    auditLog: {
+      enabled: true,
+      maxEntries: 1000,
+      filepath: undefined,
+    },
+  };
+
   // Cache for settings to avoid repeated file I/O
   private userSettingsCache: UserSettings | null = null;
   private projectSettingsCache: ProjectSettings | null = null;
@@ -734,34 +782,27 @@ export class SettingsManager {
    */
   public getInputConfig(): RequiredInputSettings {
     const userSettings = this.loadUserSettings();
+    // Use non-null assertion since we know INPUT_DEFAULTS is always defined
+    const defaults = SettingsManager.INPUT_DEFAULTS!;
 
     // Return schema defaults if no user config exists
-    // FIX: Using 'submit' mode - Enter submits, Shift+Enter inserts newline
-    // This is simpler and more reliable than smart mode
     if (!userSettings.input) {
       return {
-        enterBehavior: 'submit',
-        submitKeys: ['enter'],
-        multilineIndicator: '│ ',
-        smartDetection: {
-          enabled: true,
-          checkBrackets: true,
-          checkOperators: true,
-          checkStatements: true,
-        },
+        ...defaults,
+        smartDetection: { ...defaults.smartDetection },
       };
     }
 
     // Merge user config with defaults
     return {
-      enterBehavior: userSettings.input.enterBehavior || 'submit',
-      submitKeys: userSettings.input.submitKeys || ['enter'],
-      multilineIndicator: userSettings.input.multilineIndicator || '│ ',
+      enterBehavior: userSettings.input.enterBehavior || defaults.enterBehavior,
+      submitKeys: userSettings.input.submitKeys || defaults.submitKeys,
+      multilineIndicator: userSettings.input.multilineIndicator || defaults.multilineIndicator,
       smartDetection: {
-        enabled: userSettings.input.smartDetection?.enabled ?? true,
-        checkBrackets: userSettings.input.smartDetection?.checkBrackets ?? true,
-        checkOperators: userSettings.input.smartDetection?.checkOperators ?? true,
-        checkStatements: userSettings.input.smartDetection?.checkStatements ?? true,
+        enabled: userSettings.input.smartDetection?.enabled ?? defaults.smartDetection.enabled,
+        checkBrackets: userSettings.input.smartDetection?.checkBrackets ?? defaults.smartDetection.checkBrackets,
+        checkOperators: userSettings.input.smartDetection?.checkOperators ?? defaults.smartDetection.checkOperators,
+        checkStatements: userSettings.input.smartDetection?.checkStatements ?? defaults.smartDetection.checkStatements,
       },
     };
   }
@@ -797,20 +838,17 @@ export class SettingsManager {
    */
   public getShortcutsConfig(): RequiredShortcutsSettings {
     const userSettings = this.loadUserSettings();
+    const defaults = SettingsManager.SHORTCUTS_DEFAULTS!;
 
     // Return schema defaults if no user config exists
     if (!userSettings.shortcuts) {
-      return {
-        showOnStartup: false,
-        hintTimeout: 3000,
-        customBindings: {},
-      };
+      return { ...defaults, customBindings: { ...defaults.customBindings } };
     }
 
     // Merge user config with defaults
     return {
-      showOnStartup: userSettings.shortcuts.showOnStartup ?? false,
-      hintTimeout: userSettings.shortcuts.hintTimeout ?? 3000,
+      showOnStartup: userSettings.shortcuts.showOnStartup ?? defaults.showOnStartup,
+      hintTimeout: userSettings.shortcuts.hintTimeout ?? defaults.hintTimeout,
       customBindings: userSettings.shortcuts.customBindings || {},
     };
   }
@@ -846,45 +884,29 @@ export class SettingsManager {
    */
   public getPasteConfig(): RequiredPasteSettings {
     const userSettings = this.loadUserSettings();
+    const defaults = SettingsManager.PASTE_DEFAULTS!;
 
     // Return schema defaults if no user config exists
     if (!userSettings.paste) {
-      return {
-        autoCollapse: true,
-        collapseThreshold: 20,
-        characterThreshold: 500,
-        maxCollapsedBlocks: 50,
-        showLineCount: true,
-        showPreview: true,
-        previewLines: 2,
-        enableHistory: true,
-        maxHistoryItems: 10,
-        // v3.8.0: Bracketed paste mode settings
-        enableBracketedPaste: true,
-        showPasteIndicator: true,
-        maxPasteSize: 100 * 1024 * 1024, // 100MB
-        pasteTimeout: 30000, // 30 seconds
-        enableFallback: true,
-      };
+      return { ...defaults };
     }
 
     // Merge user config with defaults
     return {
-      autoCollapse: userSettings.paste.autoCollapse ?? true,
-      collapseThreshold: userSettings.paste.collapseThreshold ?? 20,
-      characterThreshold: userSettings.paste.characterThreshold ?? 500,
-      maxCollapsedBlocks: userSettings.paste.maxCollapsedBlocks ?? 50,
-      showLineCount: userSettings.paste.showLineCount ?? true,
-      showPreview: userSettings.paste.showPreview ?? true,
-      previewLines: userSettings.paste.previewLines ?? 2,
-      enableHistory: userSettings.paste.enableHistory ?? true,
-      maxHistoryItems: userSettings.paste.maxHistoryItems ?? 10,
-      // v3.8.0: Bracketed paste mode settings
-      enableBracketedPaste: userSettings.paste.enableBracketedPaste ?? true,
-      showPasteIndicator: userSettings.paste.showPasteIndicator ?? true,
-      maxPasteSize: userSettings.paste.maxPasteSize ?? (100 * 1024 * 1024),
-      pasteTimeout: userSettings.paste.pasteTimeout ?? 30000,
-      enableFallback: userSettings.paste.enableFallback ?? true,
+      autoCollapse: userSettings.paste.autoCollapse ?? defaults.autoCollapse,
+      collapseThreshold: userSettings.paste.collapseThreshold ?? defaults.collapseThreshold,
+      characterThreshold: userSettings.paste.characterThreshold ?? defaults.characterThreshold,
+      maxCollapsedBlocks: userSettings.paste.maxCollapsedBlocks ?? defaults.maxCollapsedBlocks,
+      showLineCount: userSettings.paste.showLineCount ?? defaults.showLineCount,
+      showPreview: userSettings.paste.showPreview ?? defaults.showPreview,
+      previewLines: userSettings.paste.previewLines ?? defaults.previewLines,
+      enableHistory: userSettings.paste.enableHistory ?? defaults.enableHistory,
+      maxHistoryItems: userSettings.paste.maxHistoryItems ?? defaults.maxHistoryItems,
+      enableBracketedPaste: userSettings.paste.enableBracketedPaste ?? defaults.enableBracketedPaste,
+      showPasteIndicator: userSettings.paste.showPasteIndicator ?? defaults.showPasteIndicator,
+      maxPasteSize: userSettings.paste.maxPasteSize ?? defaults.maxPasteSize,
+      pasteTimeout: userSettings.paste.pasteTimeout ?? defaults.pasteTimeout,
+      enableFallback: userSettings.paste.enableFallback ?? defaults.enableFallback,
     };
   }
 
@@ -923,6 +945,11 @@ export class SettingsManager {
   public getUIConfig(): Required<UISettings> {
     const userSettings = this.loadUserSettings();
     return getConfigWithDefaults(userSettings.ui, SettingsManager.UI_DEFAULTS);
+  }
+
+  /** Alias for backward compatibility with older callers/tests */
+  public getUISettings(): Required<UISettings> {
+    return this.getUIConfig();
   }
 
   /**
@@ -990,34 +1017,31 @@ export class SettingsManager {
    */
   public getAutoAcceptConfig(): AutoAcceptSettings {
     const userSettings = this.loadUserSettings();
+    const defaults = SettingsManager.AUTO_ACCEPT_DEFAULTS!;
+    const defaultAuditLog = defaults.auditLog!; // We know auditLog is defined in our defaults
 
     // Return schema defaults if no user config exists
     if (!userSettings.autoAccept) {
-      return {
-        enabled: false,
-        persistAcrossSessions: false,
-        alwaysConfirm: ['git_push_main', 'mass_delete', 'rm_rf', 'npm_publish'],
-        scope: 'session',
-        auditLog: {
-          enabled: true,
-          maxEntries: 1000,
-          filepath: undefined,
-        },
-      };
+      return { ...defaults, auditLog: { ...defaultAuditLog } };
     }
 
     // Merge user config with defaults
     return {
-      enabled: userSettings.autoAccept.enabled ?? false,
-      persistAcrossSessions: userSettings.autoAccept.persistAcrossSessions ?? false,
-      alwaysConfirm: userSettings.autoAccept.alwaysConfirm || ['git_push_main', 'mass_delete', 'rm_rf', 'npm_publish'],
-      scope: userSettings.autoAccept.scope ?? 'session',
+      enabled: userSettings.autoAccept.enabled ?? defaults.enabled,
+      persistAcrossSessions: userSettings.autoAccept.persistAcrossSessions ?? defaults.persistAcrossSessions,
+      alwaysConfirm: userSettings.autoAccept.alwaysConfirm || defaults.alwaysConfirm,
+      scope: userSettings.autoAccept.scope ?? defaults.scope,
       auditLog: {
-        enabled: userSettings.autoAccept.auditLog?.enabled ?? true,
-        maxEntries: userSettings.autoAccept.auditLog?.maxEntries ?? 1000,
+        enabled: userSettings.autoAccept.auditLog?.enabled ?? defaultAuditLog.enabled,
+        maxEntries: userSettings.autoAccept.auditLog?.maxEntries ?? defaultAuditLog.maxEntries,
         filepath: userSettings.autoAccept.auditLog?.filepath,
       },
     };
+  }
+
+  /** Alias to maintain compatibility */
+  public getAutoAcceptSettings(): AutoAcceptSettings {
+    return this.getAutoAcceptConfig();
   }
 
   /**
@@ -1212,6 +1236,166 @@ export class SettingsManager {
       });
     } catch {
       // Silently ignore - don't crash CLI if we can't save timestamp
+    }
+  }
+
+  /**
+   * Delete the user settings file (for --force flag in setup)
+   * Returns true if file was deleted or didn't exist
+   */
+  public deleteUserSettings(): boolean {
+    const { unlinkSync } = require('fs');
+    try {
+      if (existsSync(this.userSettingsPath)) {
+        unlinkSync(this.userSettingsPath);
+        // Clear cache after deletion
+        this.userSettingsCache = null;
+        this.cacheTimestamp.user = 0;
+        return true;
+      }
+      return true; // File didn't exist, which is fine
+    } catch (error) {
+      const logger = getLogger();
+      logger.error("Failed to delete user settings", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        path: this.userSettingsPath,
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Migrate/repair user settings by adding missing fields with defaults
+   * This ensures existing configs get updated with new schema fields
+   * @returns Object describing what was migrated
+   */
+  public migrateUserSettings(): { migrated: boolean; addedFields: string[] } {
+    const addedFields: string[] = [];
+
+    try {
+      // Load current settings (will create defaults if file doesn't exist)
+      const currentSettings = this.loadUserSettings();
+
+      // Define all settings that should have defaults
+      const defaultConfigs: Record<string, unknown> = {
+        // UI settings
+        ui: SettingsManager.UI_DEFAULTS,
+        // Input settings
+        input: SettingsManager.INPUT_DEFAULTS,
+        // Shortcuts settings
+        shortcuts: SettingsManager.SHORTCUTS_DEFAULTS,
+        // Paste settings
+        paste: SettingsManager.PASTE_DEFAULTS,
+        // Status bar settings
+        statusBar: SettingsManager.STATUS_BAR_DEFAULTS,
+        // Auto-accept settings
+        autoAccept: SettingsManager.AUTO_ACCEPT_DEFAULTS,
+        // External editor settings
+        externalEditor: SettingsManager.EXTERNAL_EDITOR_DEFAULTS,
+        // Thinking mode settings
+        thinkingMode: SettingsManager.THINKING_MODE_DEFAULTS,
+        // Auto-update settings
+        autoUpdate: SettingsManager.AUTO_UPDATE_DEFAULTS,
+      };
+
+      // Check each default config and add if missing
+      const updatedSettings: Partial<UserSettings> = {};
+
+      for (const [key, defaultValue] of Object.entries(defaultConfigs)) {
+        const typedKey = key as keyof UserSettings;
+        const currentValue = currentSettings[typedKey];
+        if (currentValue === undefined) {
+          // Use type assertion to bypass strict type checking
+          (updatedSettings as Record<string, unknown>)[key] = defaultValue;
+          addedFields.push(key);
+        }
+      }
+
+      // If any fields were added, save the updated settings
+      if (addedFields.length > 0) {
+        this.saveUserSettings(updatedSettings);
+        const logger = getLogger();
+        logger.info("Migrated user settings", { addedFields });
+      }
+
+      return { migrated: addedFields.length > 0, addedFields };
+    } catch (error) {
+      const logger = getLogger();
+      logger.error("Failed to migrate user settings", {
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      return { migrated: false, addedFields: [] };
+    }
+  }
+
+  /**
+   * Check if user settings file exists and has required fields
+   * @returns Object with validation status
+   */
+  public validateUserSettings(): {
+    exists: boolean;
+    isValid: boolean;
+    missingFields: string[];
+    hasApiKey: boolean;
+    hasBaseURL: boolean;
+    hasModel: boolean;
+  } {
+    const missingFields: string[] = [];
+    let hasApiKey = false;
+    let hasBaseURL = false;
+    let hasModel = false;
+
+    if (!existsSync(this.userSettingsPath)) {
+      return {
+        exists: false,
+        isValid: false,
+        missingFields: ['all'],
+        hasApiKey: false,
+        hasBaseURL: false,
+        hasModel: false,
+      };
+    }
+
+    try {
+      const settings = this.loadUserSettings();
+
+      // Check critical fields
+      hasApiKey = !!(settings.apiKey || settings.apiKeyEncrypted);
+      hasBaseURL = !!settings.baseURL;
+      hasModel = !!(settings.defaultModel || settings.currentModel);
+
+      if (!hasApiKey) missingFields.push('apiKey');
+      if (!hasBaseURL) missingFields.push('baseURL');
+      if (!hasModel) missingFields.push('defaultModel');
+
+      // Check optional fields that should have defaults
+      if (!settings.ui) missingFields.push('ui');
+      if (!settings.input) missingFields.push('input');
+      if (!settings.shortcuts) missingFields.push('shortcuts');
+      if (!settings.paste) missingFields.push('paste');
+      if (!settings.statusBar) missingFields.push('statusBar');
+      if (!settings.autoAccept) missingFields.push('autoAccept');
+      if (!settings.externalEditor) missingFields.push('externalEditor');
+      if (!settings.thinkingMode) missingFields.push('thinkingMode');
+      if (!settings.autoUpdate) missingFields.push('autoUpdate');
+
+      return {
+        exists: true,
+        isValid: hasApiKey && hasBaseURL && hasModel,
+        missingFields,
+        hasApiKey,
+        hasBaseURL,
+        hasModel,
+      };
+    } catch (error) {
+      return {
+        exists: true,
+        isValid: false,
+        missingFields: ['parse_error'],
+        hasApiKey: false,
+        hasBaseURL: false,
+        hasModel: false,
+      };
     }
   }
 }

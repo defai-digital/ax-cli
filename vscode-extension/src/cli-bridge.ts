@@ -1,5 +1,19 @@
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, execFileSync } from 'child_process';
 import * as vscode from 'vscode';
+
+/**
+ * Check if a command exists in PATH (cross-platform).
+ * Uses 'where' on Windows and 'which' on Unix-like systems.
+ */
+function findOnPathSync(command: string): string | null {
+  try {
+    const checkCommand = process.platform === 'win32' ? 'where' : 'which';
+    const stdout = execFileSync(checkCommand, [command], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    return stdout.trim().split('\n')[0] || null;
+  } catch {
+    return null;
+  }
+}
 
 export interface CLIRequest {
   id: string;
@@ -40,11 +54,8 @@ export class CLIBridge {
   }
 
   private ensureCLIInstalled(): void {
-    // Check if ax-cli is installed
-    const { execSync } = require('child_process');
-    try {
-      execSync('which ax-cli', { stdio: 'pipe' });
-    } catch {
+    // Check if ax-cli is installed using cross-platform findOnPath
+    if (!findOnPathSync('ax-cli')) {
       vscode.window.showErrorMessage(
         'AX CLI not found. Please install: npm install -g @defai.digital/ax-cli',
         'Install Now'
@@ -117,6 +128,7 @@ export class CLIBridge {
 
       let stdout = '';
       let stderr = '';
+      let timeoutHandle: NodeJS.Timeout | null = null;
 
       cliProcess.stdout?.on('data', (data: Buffer) => {
         stdout += data.toString();
@@ -127,6 +139,12 @@ export class CLIBridge {
       });
 
       cliProcess.on('close', (code) => {
+        // Clear timeout to prevent memory leak
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+          timeoutHandle = null;
+        }
+
         // Clean up process tracking
         this.activeProcesses.delete(request.id);
 
@@ -168,6 +186,12 @@ export class CLIBridge {
       });
 
       cliProcess.on('error', (error) => {
+        // Clear timeout to prevent memory leak
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+          timeoutHandle = null;
+        }
+
         // Clean up process tracking on error
         this.activeProcesses.delete(request.id);
 
@@ -184,7 +208,7 @@ export class CLIBridge {
       });
 
       // Timeout after 5 minutes
-      setTimeout(() => {
+      timeoutHandle = setTimeout(() => {
         if (this.requestCallbacks.has(request.id)) {
           cliProcess.kill();
           this.activeProcesses.delete(request.id);

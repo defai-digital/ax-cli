@@ -9,6 +9,7 @@
 import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { TIMEOUT_CONFIG } from '../constants.js';
+import { findOnPath } from '../utils/path-helpers.js';
 
 /** Default timeout for agent execution (60 minutes) */
 const AGENT_EXECUTION_TIMEOUT_MS = 60 * TIMEOUT_CONFIG.MS_PER_MINUTE;
@@ -247,29 +248,6 @@ export async function executeAgentSync(
  * Check if ax command is available (cross-platform)
  */
 export async function isAxAvailable(): Promise<boolean> {
-  return new Promise((resolve) => {
-    // Use 'where' on Windows, 'which' on Unix-like systems
-    const isWindows = process.platform === 'win32';
-    const command = isWindows ? 'where' : 'which';
-
-    const process_ = spawn(command, ['ax'], {
-      stdio: 'pipe',
-      shell: isWindows, // Windows needs shell for 'where'
-    });
-
-    // Timeout to prevent hanging if spawn process doesn't respond
-    const timeout = setTimeout(() => {
-      process_.kill();
-      resolve(false);
-    }, TIMEOUT_CONFIG.COMMAND_CHECK);
-
-    process_.on('close', (code) => {
-      clearTimeout(timeout);
-      resolve(code === 0);
-    });
-    process_.on('error', () => {
-      clearTimeout(timeout);
-      resolve(false);
-    });
-  });
+  const axPath = await findOnPath('ax');
+  return axPath !== null;
 }

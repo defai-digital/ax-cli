@@ -46,6 +46,15 @@ export {
 // Agent
 export { LLMAgent } from './agent/llm-agent.js';
 
+// Agent dependency injection (for testing)
+export {
+  setLLMAgentDependencies,
+  resetLLMAgentDependencies,
+  getLLMAgentDependencies,
+  defaultLLMAgentDependencies,
+  type LLMAgentDependencies,
+} from './agent/llm-agent-dependencies.js';
+
 // Settings
 export { getSettingsManager } from './utils/settings-manager.js';
 

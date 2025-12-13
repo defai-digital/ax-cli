@@ -1,7 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync, writeFileSync, renameSync, existsSync, unlinkSync, copyFileSync, mkdirSync } from 'fs';
 import { z } from 'zod';
-import { parseJson, parseJsonFile, writeJsonFile } from '../../packages/core/src/utils/json-utils.js';
+import {
+  parseJson,
+  parseJsonFile,
+  writeJsonFile,
+  stringifyJson,
+  parseJsonWithFallback,
+  parseJsonFileWithFallback,
+  sanitizeJson,
+} from '../../packages/core/src/utils/json-utils.js';
 
 // Mock fs module
 vi.mock('fs', () => ({
@@ -330,5 +338,297 @@ describe('json-utils', () => {
     });
 
     // Complex nested data test removed - mock setup issue with writeFileSync
+
+    it('should handle mkdirSync errors', () => {
+      vi.mocked(existsSync).mockReturnValueOnce(false);
+      vi.mocked(mkdirSync).mockImplementation(() => {
+        throw new Error('Cannot create directory');
+      });
+
+      const result = writeJsonFile('/new/path/file.json', { test: 'data' });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('Cannot create directory');
+      }
+    });
+
+    it('should handle rename errors that are not EXDEV', () => {
+      vi.mocked(renameSync).mockImplementation(() => {
+        throw new Error('Permission denied');
+      });
+      vi.mocked(existsSync).mockReturnValue(true);
+
+      const result = writeJsonFile('/path/to/file.json', { test: 'data' });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('Permission denied');
+      }
+    });
+
+    it('should handle copyFileSync errors in cross-filesystem fallback', () => {
+      // Setup: dir exists, temp file doesn't exist
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(renameSync).mockImplementation(() => {
+        const error: any = new Error('Cross-device link');
+        error.code = 'EXDEV';
+        throw error;
+      });
+      vi.mocked(copyFileSync).mockImplementation(() => {
+        throw new Error('Copy failed');
+      });
+
+      const result = writeJsonFile('/path/to/file.json', { test: 'data' });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('Cross-filesystem copy failed');
+      }
+    });
+
+    it('should validate data against schema before writing', () => {
+      const schema = z.object({
+        name: z.string(),
+        value: z.number(),
+      });
+
+      const invalidData = { name: 'test', value: 'not a number' };
+      const result = writeJsonFile('/path/to/file.json', invalidData, schema as any);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('Validation failed');
+      }
+    });
+
+    it('should clean up stale temp file before writing', () => {
+      // Simulate stale temp file exists
+      vi.mocked(existsSync)
+        .mockReturnValueOnce(true)  // dir exists
+        .mockReturnValueOnce(true); // stale temp file exists
+
+      writeJsonFile('/path/to/file.json', { test: 'data' });
+
+      // Should unlink the stale temp file
+      expect(unlinkSync).toHaveBeenCalled();
+    });
+
+    it('should write without pretty formatting when pretty=false', () => {
+      // Setup: dir exists, temp file doesn't exist
+      vi.mocked(existsSync)
+        .mockReturnValueOnce(true)  // dir exists
+        .mockReturnValueOnce(false); // temp file doesn't exist
+
+      const data = { name: 'test', value: 123 };
+      writeJsonFile('/path/to/file.json', data, undefined, false);
+
+      const expected = JSON.stringify(data, null, 0);
+      expect(writeFileSync).toHaveBeenCalledWith(
+        expect.stringMatching(/\.tmp\.\d+\.\d+$/),
+        expected,
+        'utf8'
+      );
+    });
+  });
+
+  describe('stringifyJson', () => {
+    it('should stringify object', () => {
+      const data = { name: 'test', value: 123 };
+      const result = stringifyJson(data);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.json).toBe('{"name":"test","value":123}');
+      }
+    });
+
+    it('should stringify with pretty formatting', () => {
+      const data = { name: 'test', value: 123 };
+      const result = stringifyJson(data, true);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.json).toBe(JSON.stringify(data, null, 2));
+      }
+    });
+
+    it('should handle arrays', () => {
+      const data = [1, 2, 3];
+      const result = stringifyJson(data);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.json).toBe('[1,2,3]');
+      }
+    });
+
+    it('should handle null', () => {
+      const result = stringifyJson(null);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.json).toBe('null');
+      }
+    });
+
+    it('should handle circular references', () => {
+      const circular: any = { name: 'test' };
+      circular.self = circular;
+
+      const result = stringifyJson(circular);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeDefined();
+      }
+    });
+  });
+
+  describe('parseJsonWithFallback', () => {
+    it('should return parsed data on success', () => {
+      const result = parseJsonWithFallback('{"name":"test"}', { default: true });
+      expect(result).toEqual({ name: 'test' });
+    });
+
+    it('should return fallback on invalid JSON', () => {
+      const fallback = { default: true };
+      const result = parseJsonWithFallback('invalid json', fallback);
+      expect(result).toBe(fallback);
+    });
+
+    it('should return fallback on schema validation failure', () => {
+      const schema = z.object({ value: z.number() });
+      const fallback = { value: 0 };
+      const result = parseJsonWithFallback('{"value":"string"}', fallback, schema);
+      expect(result).toBe(fallback);
+    });
+
+    it('should return data when schema validation passes', () => {
+      const schema = z.object({ value: z.number() });
+      const fallback = { value: 0 };
+      const result = parseJsonWithFallback('{"value":42}', fallback, schema);
+      expect(result).toEqual({ value: 42 });
+    });
+  });
+
+  describe('parseJsonFileWithFallback', () => {
+    it('should return parsed file data on success', () => {
+      vi.mocked(readFileSync).mockReturnValue('{"name":"test"}');
+      const result = parseJsonFileWithFallback('/path/to/file.json', { default: true });
+      expect(result).toEqual({ name: 'test' });
+    });
+
+    it('should return fallback when file does not exist', () => {
+      vi.mocked(readFileSync).mockImplementation(() => {
+        throw new Error('ENOENT: no such file');
+      });
+      const fallback = { default: true };
+      const result = parseJsonFileWithFallback('/path/to/nonexistent.json', fallback);
+      expect(result).toBe(fallback);
+    });
+
+    it('should return fallback on invalid JSON in file', () => {
+      vi.mocked(readFileSync).mockReturnValue('invalid json');
+      const fallback = { default: true };
+      const result = parseJsonFileWithFallback('/path/to/file.json', fallback);
+      expect(result).toBe(fallback);
+    });
+
+    it('should validate file content against schema', () => {
+      vi.mocked(readFileSync).mockReturnValue('{"value":"string"}');
+      const schema = z.object({ value: z.number() });
+      const fallback = { value: 0 };
+      const result = parseJsonFileWithFallback('/path/to/file.json', fallback, schema);
+      expect(result).toBe(fallback);
+    });
+  });
+
+  describe('sanitizeJson', () => {
+    it('should remove __proto__ key', () => {
+      const input = { name: 'test', __proto__: { malicious: true } };
+      const result = sanitizeJson(input);
+      expect(result).not.toHaveProperty('__proto__');
+      expect(result).toHaveProperty('name', 'test');
+    });
+
+    it('should remove constructor key', () => {
+      const input = { name: 'test', constructor: { prototype: {} } };
+      const result = sanitizeJson(input);
+      expect(Object.keys(result)).not.toContain('constructor');
+      expect(result).toHaveProperty('name', 'test');
+    });
+
+    it('should remove prototype key', () => {
+      const input = { name: 'test', prototype: { malicious: true } };
+      const result = sanitizeJson(input);
+      expect(Object.keys(result)).not.toContain('prototype');
+      expect(result).toHaveProperty('name', 'test');
+    });
+
+    it('should handle nested objects', () => {
+      const input = {
+        user: {
+          name: 'test',
+          __proto__: { malicious: true },
+        },
+      };
+      const result = sanitizeJson(input);
+      expect(result.user).not.toHaveProperty('__proto__');
+      expect(result.user).toHaveProperty('name', 'test');
+    });
+
+    it('should handle arrays', () => {
+      const input = [
+        { name: 'test', __proto__: { malicious: true } },
+        { value: 123 },
+      ];
+      const result = sanitizeJson(input);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result[0]).not.toHaveProperty('__proto__');
+      expect(result[0]).toHaveProperty('name', 'test');
+    });
+
+    it('should handle arrays within objects', () => {
+      const input = {
+        items: [
+          { __proto__: { bad: true }, name: 'item1' },
+        ],
+      };
+      const result = sanitizeJson(input);
+      expect(result.items[0]).not.toHaveProperty('__proto__');
+      expect(result.items[0]).toHaveProperty('name', 'item1');
+    });
+
+    it('should handle null values', () => {
+      const result = sanitizeJson(null);
+      expect(result).toBeNull();
+    });
+
+    it('should handle primitive values', () => {
+      expect(sanitizeJson('string')).toBe('string');
+      expect(sanitizeJson(123)).toBe(123);
+      expect(sanitizeJson(true)).toBe(true);
+      expect(sanitizeJson(undefined)).toBeUndefined();
+    });
+
+    it('should handle deeply nested dangerous keys', () => {
+      const input = {
+        level1: {
+          level2: {
+            level3: {
+              __proto__: { bad: true },
+              constructor: { bad: true },
+              prototype: { bad: true },
+              safe: 'value',
+            },
+          },
+        },
+      };
+      const result = sanitizeJson(input);
+      const level3 = result.level1.level2.level3;
+      expect(Object.keys(level3)).toEqual(['safe']);
+      expect(level3.safe).toBe('value');
+    });
   });
 });

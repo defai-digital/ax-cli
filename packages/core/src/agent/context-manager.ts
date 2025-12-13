@@ -481,8 +481,11 @@ export class ContextManager extends EventEmitter {
 
   /**
    * Clean up resources and remove all event listeners.
+   * @deprecated Use dispose() instead for complete cleanup.
+   * This method now delegates to dispose() for backwards compatibility.
    */
   destroy(): void {
+    this.dispose();
     this.removeAllListeners();
   }
 }

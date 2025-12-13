@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { exec, execSync, spawnSync } from "child_process";
 import { promisify } from "util";
 import chalk from "chalk";
-import { createInterface } from "readline";
+import { createInterface, Interface } from "readline";
 import { parseJson } from "../utils/json-utils.js";
 import { equalsIgnoreCase } from "../utils/string-utils.js";
 import { getSettingsManager } from "../utils/settings-manager.js";
@@ -13,9 +13,49 @@ const execAsync = promisify(exec);
 export const PACKAGE_NAME = "@defai.digital/ax-cli";
 
 /**
+ * Dependency injection interface for testability
+ */
+export interface UpdateDependencies {
+  createReadlineInterface: () => Interface;
+  spawnSyncFn: typeof spawnSync;
+  execSyncFn: typeof execSync;
+  execAsyncFn: typeof execAsync;
+}
+
+/**
+ * Default dependencies using real implementations
+ */
+export const defaultDependencies: UpdateDependencies = {
+  createReadlineInterface: () => createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  }),
+  spawnSyncFn: spawnSync,
+  execSyncFn: execSync,
+  execAsyncFn: execAsync,
+};
+
+// Module-level dependencies that can be overridden for testing
+let deps: UpdateDependencies = defaultDependencies;
+
+/**
+ * Set dependencies (for testing)
+ */
+export function setUpdateDependencies(newDeps: Partial<UpdateDependencies>): void {
+  deps = { ...defaultDependencies, ...newDeps };
+}
+
+/**
+ * Reset dependencies to defaults
+ */
+export function resetUpdateDependencies(): void {
+  deps = defaultDependencies;
+}
+
+/**
  * Get package name for a provider
  */
-function getProviderPackageName(provider?: ProviderDefinition): string {
+export function getProviderPackageName(provider?: ProviderDefinition): string {
   if (!provider) return PACKAGE_NAME;
 
   switch (provider.name) {
@@ -31,9 +71,9 @@ function getProviderPackageName(provider?: ProviderDefinition): string {
 /**
  * Check if AutomatosX (ax) is installed globally
  */
-function isAutomatosXInstalled(): boolean {
+export function isAutomatosXInstalled(): boolean {
   try {
-    const result = spawnSync('ax', ['--version'], {
+    const result = deps.spawnSyncFn('ax', ['--version'], {
       encoding: 'utf-8',
       timeout: 5000,
       stdio: ['pipe', 'pipe', 'pipe']
@@ -47,9 +87,9 @@ function isAutomatosXInstalled(): boolean {
 /**
  * Update AutomatosX to the latest version
  */
-async function updateAutomatosX(): Promise<boolean> {
+export async function updateAutomatosX(): Promise<boolean> {
   try {
-    execSync('ax update -y', {
+    deps.execSyncFn('ax update -y', {
       stdio: 'inherit',
       timeout: 120000 // 2 minute timeout
     });
@@ -66,7 +106,7 @@ async function updateAutomatosX(): Promise<boolean> {
 export async function getCurrentVersion(packageName: string = PACKAGE_NAME): Promise<string> {
   try {
     // Try to get from npm global installation
-    const { stdout } = await execAsync(
+    const { stdout } = await deps.execAsyncFn(
       `npm list -g ${packageName} --depth=0 --json`,
       { timeout: 10000 } // 10 second timeout
     );
@@ -114,33 +154,50 @@ export async function getCurrentVersion(packageName: string = PACKAGE_NAME): Pro
  * @param packageName - Optional package name (defaults to PACKAGE_NAME)
  */
 export async function getLatestVersion(packageName: string = PACKAGE_NAME): Promise<string> {
-  const { stdout } = await execAsync(`npm view ${packageName} version`, {
-    timeout: 10000, // 10 second timeout
-  });
-  const version = stdout.trim();
-  return version || "unknown";
+  try {
+    const { stdout } = await deps.execAsyncFn(`npm view ${packageName} version`, {
+      timeout: 10000, // 10 second timeout
+    });
+    const version = stdout.trim();
+    return version || "unknown";
+  } catch {
+    // BUG FIX: Handle npm errors gracefully (network issues, package not found)
+    return "unknown";
+  }
 }
 
 /**
  * Check if version a is newer than version b
  * Handles versions like "5.7.0-beta.1" correctly
+ * BUG FIX: Returns false instead of throwing on invalid version formats
  */
 export function isNewer(a: string, b: string): boolean {
-  const parseVersion = (v: string): number[] => {
+  const parseVersion = (v: string): number[] | null => {
+    // Handle "unknown" or empty versions
+    if (!v || v === "unknown") return null;
+
     const version = v.split("-")[0] || v; // Strip prerelease metadata
     const cleanVersion = version.startsWith('v') ? version.substring(1) : version;
     const parts = cleanVersion.split(".").map(Number);
 
-    // Validate all parts are valid numbers
+    // BUG FIX: Return null instead of throwing on invalid format
     if (parts.some(isNaN)) {
-      throw new Error(`Invalid version format: ${v}`);
+      return null;
     }
 
     return parts;
   };
 
-  const [aMajor = 0, aMinor = 0, aPatch = 0] = parseVersion(a);
-  const [bMajor = 0, bMinor = 0, bPatch = 0] = parseVersion(b);
+  const aParts = parseVersion(a);
+  const bParts = parseVersion(b);
+
+  // BUG FIX: If either version is invalid, we can't compare - return false
+  if (!aParts || !bParts) {
+    return false;
+  }
+
+  const [aMajor = 0, aMinor = 0, aPatch = 0] = aParts;
+  const [bMajor = 0, bMinor = 0, bPatch = 0] = bParts;
 
   return aMajor !== bMajor ? aMajor > bMajor
        : aMinor !== bMinor ? aMinor > bMinor
@@ -150,12 +207,12 @@ export function isNewer(a: string, b: string): boolean {
 /**
  * Show changelog from GitHub releases
  */
-async function showChangelog(_from: string, to: string): Promise<void> {
+export async function showChangelog(_from: string, to: string): Promise<void> {
   try {
     console.log(chalk.cyan("\nWhat's new:\n"));
 
     // Fetch changelog from GitHub releases
-    const { stdout } = await execAsync(
+    const { stdout } = await deps.execAsyncFn(
       `curl -s https://api.github.com/repos/defai-digital/ax-cli/releases/tags/v${to}`
     );
 
@@ -203,7 +260,7 @@ async function showChangelog(_from: string, to: string): Promise<void> {
  */
 export async function installUpdate(version: string, packageName: string = PACKAGE_NAME): Promise<void> {
   try {
-    const { stderr } = await execAsync(
+    const { stderr } = await deps.execAsyncFn(
       `npm install -g ${packageName}@${version}`,
       { maxBuffer: 10 * 1024 * 1024 } // Increase buffer for large outputs
     );
@@ -221,11 +278,8 @@ export async function installUpdate(version: string, packageName: string = PACKA
 /**
  * Prompt user for confirmation
  */
-async function promptConfirm(message: string): Promise<boolean> {
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+export async function promptConfirm(message: string): Promise<boolean> {
+  const rl = deps.createReadlineInterface();
 
   try {
     return await new Promise<boolean>((resolve) => {
@@ -452,10 +506,7 @@ export async function promptAndInstallUpdate(
     )
   );
 
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+  const rl = deps.createReadlineInterface();
 
   return new Promise<boolean>((resolve) => {
     // Handle Ctrl+C or stream close

@@ -31,7 +31,7 @@ export const ERROR_REMEDIATION: Record<string, Remediation> = {
       'The MCP server command is not installed or not in PATH',
       'Install the package: npm install -g <package-name>',
       'Or use npx: npx <package-name>',
-      'Verify installation: which <command> or command -v <command>'
+      'Verify installation: which <command> (Unix) or where <command> (Windows)'
     ],
     command: 'npm list -g --depth=0'
   },
@@ -271,7 +271,7 @@ export function getTransportHints(transportType?: string): string[] {
   if (transportType === 'stdio') {
     return [
       'For stdio transport:',
-      '• Verify command is installed: which <command>',
+      '• Verify command is installed: which <command> (Unix) or where <command> (Windows)',
       '• Ensure args include a script path (not just the runtime)',
       '• Example: ["@modelcontextprotocol/server-github"]',
       '• Commands like "node" without args start a REPL and hang'

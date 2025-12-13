@@ -20,7 +20,8 @@ export interface FileSnapshot {
 export interface CheckpointMetadata {
   model: string;
   triggeredBy: string;
-  [key: string]: any;
+  /** Additional metadata fields */
+  [key: string]: unknown;
 }
 
 /**
@@ -76,12 +77,20 @@ export interface CheckpointConfig {
  * Checkpoint filter options
  */
 export interface CheckpointFilter {
+  /** Maximum number of checkpoints to return */
   limit?: number;
+  /** Return checkpoints created before this date */
   beforeDate?: Date;
+  /** Return checkpoints created after this date */
   afterDate?: Date;
-  until?: Date; // Alias for beforeDate
-  since?: Date; // Alias for afterDate
+  /** @deprecated Use beforeDate instead */
+  until?: Date;
+  /** @deprecated Use afterDate instead */
+  since?: Date;
+  /** Filter by files that were changed */
   filesChanged?: string[];
+  /** Include compressed checkpoints (default: true) */
+  includeCompressed?: boolean;
 }
 
 /**

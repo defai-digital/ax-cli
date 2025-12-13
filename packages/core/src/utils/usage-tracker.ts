@@ -156,9 +156,13 @@ export class UsageTracker {
 
   /**
    * Get statistics for a specific model
+   * Returns a copy to prevent external mutation
    */
   getModelStats(model: string): UsageStats | null {
-    return this.sessionStats.byModel.get(model) || null;
+    const stats = this.sessionStats.byModel.get(model);
+    // BUG FIX: Return a copy to prevent external mutation of internal state
+    // This is consistent with getSessionStats() which also returns a deep copy
+    return stats ? { ...stats } : null;
   }
 }
 

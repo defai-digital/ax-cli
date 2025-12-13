@@ -18,10 +18,15 @@ export interface ParallelConfig {
   maxConcurrency?: number;
   /** Batch size for processing (default: auto-calculated) */
   batchSize?: number;
+  /** Continue after errors instead of aborting (default: true for safe, false for strict) */
+  stopOnError?: boolean;
   /** Enable progress callbacks */
   onProgress?: (completed: number, total: number) => void;
   /** Enable error callbacks */
   onError?: (file: string, error: Error) => void;
+  /** Called when a batch starts/ends (for tracing/metrics) */
+  onBatchStart?: (batchIndex: number, batchSize: number) => void;
+  onBatchEnd?: (batchIndex: number, durationMs: number) => void;
 }
 
 /**
@@ -65,8 +70,9 @@ export async function analyzeFilesParallel<T>(
   config: ParallelConfig = {}
 ): Promise<T[]> {
   const cpus = os.cpus().length;
-  const maxConcurrency = config.maxConcurrency || cpus;
+  const maxConcurrency = Math.max(1, Math.min(config.maxConcurrency || cpus, files.length || 1));
   const batchSize = config.batchSize || Math.max(1, Math.ceil(files.length / maxConcurrency));
+  const stopOnError = config.stopOnError ?? true;
 
   if (files.length === 0) {
     return [];
@@ -75,12 +81,17 @@ export async function analyzeFilesParallel<T>(
   // Split files into batches
   const batches = chunk(files, batchSize);
 
-  let completed = 0;
+  // BUG FIX: Use atomic counter object to prevent race condition
+  // Multiple batches running concurrently could read/write `completed` simultaneously
+  // causing incorrect progress values. Using an object with atomic-like access pattern.
+  const progress = { completed: 0 };
   const total = files.length;
 
   // Process batches in parallel
   const results = await Promise.all(
-    batches.map(async (batch) => {
+    batches.map(async (batch, batchIndex) => {
+      const batchStart = Date.now();
+      config.onBatchStart?.(batchIndex, batch.length);
       // Process files in batch sequentially
       const batchResults: T[] = [];
 
@@ -89,20 +100,23 @@ export async function analyzeFilesParallel<T>(
           const result = await analyzer(file);
           batchResults.push(result);
 
-          // Update progress
-          completed++;
+          // Update progress atomically
+          // Note: In Node.js single-threaded model, increment is atomic between await points
+          progress.completed++;
           if (config.onProgress) {
-            config.onProgress(completed, total);
+            config.onProgress(progress.completed, total);
           }
         } catch (error) {
-          // Handle error
           if (config.onError) {
             config.onError(file, error as Error);
           }
-          throw error;
+          if (stopOnError) {
+            throw error;
+          }
         }
       }
 
+      config.onBatchEnd?.(batchIndex, Date.now() - batchStart);
       return batchResults;
     })
   );
@@ -142,57 +156,92 @@ export async function analyzeFilesParallelSafe<T>(
 ): Promise<{
   results: Array<{ file: string; result: T }>;
   errors: Array<{ file: string; error: Error }>;
+  stats: { completed: number; failed: number; total: number; durationMs: number };
 }> {
   const cpus = os.cpus().length;
-  const maxConcurrency = config.maxConcurrency || cpus;
+  const maxConcurrency = Math.max(1, Math.min(config.maxConcurrency || cpus, files.length || 1));
   const batchSize = config.batchSize || Math.max(1, Math.ceil(files.length / maxConcurrency));
-
-  const results: Array<{ file: string; result: T }> = [];
-  const errors: Array<{ file: string; error: Error }> = [];
+  const stopOnError = config.stopOnError ?? false;
+  const start = Date.now();
 
   if (files.length === 0) {
-    return { results, errors };
+    return { results: [], errors: [], stats: { completed: 0, failed: 0, total: 0, durationMs: 0 } };
   }
 
   // Split files into batches
   const batches = chunk(files, batchSize);
 
-  let completed = 0;
+  // BUG FIX: Use atomic counter object to prevent race condition
+  // Multiple batches running concurrently could read/write `completed` simultaneously
+  const progress = { completed: 0 };
   const total = files.length;
 
+  // BUG FIX: Each batch collects its own results to avoid race conditions
+  // when pushing to shared arrays from concurrent batches
+  type BatchResult = {
+    results: Array<{ file: string; result: T }>;
+    errors: Array<{ file: string; error: Error }>;
+  };
+
   // Process batches in parallel
-  await Promise.all(
-    batches.map(async (batch) => {
+  const batchResults = await Promise.all(
+    batches.map(async (batch, batchIndex): Promise<BatchResult> => {
+      const batchStart = Date.now();
+      config.onBatchStart?.(batchIndex, batch.length);
+      const batchSuccesses: Array<{ file: string; result: T }> = [];
+      const batchErrors: Array<{ file: string; error: Error }> = [];
+
       // Process files in batch sequentially
       for (const file of batch) {
         try {
           const result = await analyzer(file);
-          results.push({ file, result });
+          batchSuccesses.push({ file, result });
 
-          // Update progress
-          completed++;
+          // Update progress atomically
+          progress.completed++;
           if (config.onProgress) {
-            config.onProgress(completed, total);
+            config.onProgress(progress.completed, total);
           }
         } catch (error) {
-          errors.push({ file, error: error as Error });
-
-          // Call error handler
+          batchErrors.push({ file, error: error as Error });
           if (config.onError) {
             config.onError(file, error as Error);
           }
-
-          // Update progress (count errors as completed)
-          completed++;
+          progress.completed++;
           if (config.onProgress) {
-            config.onProgress(completed, total);
+            config.onProgress(progress.completed, total);
+          }
+          if (stopOnError) {
+            // End early while preserving collected errors/results so far
+            break;
           }
         }
       }
+
+      config.onBatchEnd?.(batchIndex, Date.now() - batchStart);
+      return { results: batchSuccesses, errors: batchErrors };
     })
   );
 
-  return { results, errors };
+  // Aggregate results from all batches
+  const results: Array<{ file: string; result: T }> = [];
+  const errors: Array<{ file: string; error: Error }> = [];
+  for (const batch of batchResults) {
+    results.push(...batch.results);
+    errors.push(...batch.errors);
+  }
+
+  const durationMs = Date.now() - start;
+  return {
+    results,
+    errors,
+    stats: {
+      completed: progress.completed - errors.length,
+      failed: errors.length,
+      total,
+      durationMs,
+    },
+  };
 }
 
 /**

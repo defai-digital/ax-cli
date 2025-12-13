@@ -6,7 +6,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import * as prompts from "@clack/prompts";
-import { existsSync, accessSync, constants, mkdirSync } from "fs";
+import { existsSync, accessSync, constants } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import { exec } from "child_process";
@@ -29,7 +29,7 @@ import type { ProjectSettings, UserSettings } from "../schemas/settings-schemas.
 
 const execAsync = promisify(exec);
 
-interface CheckResult {
+export interface CheckResult {
   name: string;
   status: "pass" | "warning" | "fail";
   message: string;
@@ -139,9 +139,12 @@ export function createDoctorCommand(): Command {
 /**
  * Check Node.js version
  */
-async function checkNodeVersion(): Promise<CheckResult> {
+export async function checkNodeVersion(): Promise<CheckResult> {
   const currentVersion = process.version;
-  const majorVersion = parseInt(currentVersion.slice(1).split('.')?.[0] || '0', 10);
+  // Use safe parsing - slice(1) removes 'v', split always returns at least ['']
+  const versionPart = currentVersion.slice(1).split('.')[0];
+  const majorVersion = parseInt(versionPart || '0', 10);
+  // Require Node.js 24+ for full ES2024 support and performance
   const requiredVersion = 24;
 
   if (majorVersion >= requiredVersion) {
@@ -164,7 +167,7 @@ async function checkNodeVersion(): Promise<CheckResult> {
 /**
  * Check configuration files
  */
-function checkConfigFiles(): CheckResult[] {
+export function checkConfigFiles(): CheckResult[] {
   const results: CheckResult[] = [];
   const configPaths = getActiveConfigPaths();
   const cliName = getActiveProvider().branding.cliName;
@@ -232,7 +235,7 @@ function checkConfigFiles(): CheckResult[] {
 /**
  * Check API configuration
  */
-async function checkApiConfiguration(): Promise<CheckResult[]> {
+export async function checkApiConfiguration(): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
   const manager = getSettingsManager();
 
@@ -314,7 +317,7 @@ async function checkApiConfiguration(): Promise<CheckResult[]> {
 /**
  * Check model configuration
  */
-function checkModelConfiguration(): CheckResult {
+export function checkModelConfiguration(): CheckResult {
   const manager = getSettingsManager();
   const model = manager.getCurrentModel();
 
@@ -354,7 +357,7 @@ function checkModelConfiguration(): CheckResult {
 /**
  * Check MCP servers
  */
-async function checkMCPServers(): Promise<CheckResult[]> {
+export async function checkMCPServers(): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
   const manager = getSettingsManager();
 
@@ -404,7 +407,7 @@ async function checkMCPServers(): Promise<CheckResult[]> {
       }
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     results.push({
       name: "MCP Servers",
       status: "warning",
@@ -419,7 +422,7 @@ async function checkMCPServers(): Promise<CheckResult[]> {
 /**
  * Check Z.AI MCP integration status
  */
-async function checkZAIMCPStatus(): Promise<CheckResult[]> {
+export async function checkZAIMCPStatus(): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
   const manager = getSettingsManager();
 
@@ -495,7 +498,7 @@ async function checkZAIMCPStatus(): Promise<CheckResult[]> {
       }
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     results.push({
       name: "Z.AI MCP",
       status: "warning",
@@ -510,7 +513,7 @@ async function checkZAIMCPStatus(): Promise<CheckResult[]> {
 /**
  * Check dependencies
  */
-async function checkDependencies(): Promise<CheckResult[]> {
+export async function checkDependencies(): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
 
   // Check ripgrep (for search tool)
@@ -563,7 +566,7 @@ async function checkDependencies(): Promise<CheckResult[]> {
  * Check AutomatosX native module ABI compatibility
  * Native modules like better-sqlite3 are compiled for specific Node.js ABI versions
  */
-async function checkAutomatosXNativeModules(): Promise<CheckResult> {
+export async function checkAutomatosXNativeModules(): Promise<CheckResult> {
   try {
     // Check if AutomatosX is installed
     const axCheck = await checkCommand("ax --version");
@@ -620,7 +623,7 @@ async function checkAutomatosXNativeModules(): Promise<CheckResult> {
 /**
  * Check file system permissions for required directories
  */
-function checkFileSystemPermissions(): CheckResult[] {
+export function checkFileSystemPermissions(): CheckResult[] {
   const results: CheckResult[] = [];
 
   // Directories to check (deduplicated) - use provider-specific paths
@@ -633,26 +636,15 @@ function checkFileSystemPermissions(): CheckResult[] {
 
   for (const { path, name } of dirsToCheck) {
     try {
-      // Check if directory exists
+      // Check if directory exists (doctor should not mutate the filesystem)
       if (!existsSync(path)) {
-        // Try to create it
-        try {
-          mkdirSync(path, { recursive: true });
-          results.push({
-            name: `Permissions: ${name}`,
-            status: "pass",
-            message: "Created successfully",
-            details: [`Path: ${path}`],
-          });
-        } catch (createError) {
-          results.push({
-            name: `Permissions: ${name}`,
-            status: "fail",
-            message: "Cannot create directory",
-            details: [`Path: ${path}`, extractErrorMessage(createError)],
-            suggestion: `Check parent directory permissions or create manually: mkdir -p "${path}"`,
-          });
-        }
+        results.push({
+          name: `Permissions: ${name}`,
+          status: "warning",
+          message: "Directory missing",
+          details: [`Path: ${path}`],
+          suggestion: `Create it manually if needed: mkdir -p "${path}"`,
+        });
         continue;
       }
 
@@ -687,7 +679,7 @@ function checkFileSystemPermissions(): CheckResult[] {
 /**
  * Test endpoint reachability
  */
-async function testEndpointReachability(baseURL: string): Promise<{ success: boolean; error?: string }> {
+export async function testEndpointReachability(baseURL: string): Promise<{ success: boolean; error?: string }> {
   try {
     // For local endpoints, check if service is running
     if (baseURL.includes("localhost") || baseURL.includes("127.0.0.1")) {
@@ -749,7 +741,7 @@ async function testEndpointReachability(baseURL: string): Promise<{ success: boo
 /**
  * Test API connection with minimal request
  */
-async function testApiConnection(
+export async function testApiConnection(
   baseURL: string,
   apiKey: string,
   model: string
@@ -769,17 +761,19 @@ async function testApiConnection(
 
     return { success: true };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     let errorMessage = error instanceof Error ? error.message : "Connection failed";
 
-    if (error?.status === 401) {
+    // Handle API error responses with status codes
+    const apiError = error as { status?: number; error?: { message?: string } };
+    if (apiError?.status === 401) {
       errorMessage = "Invalid or expired API key";
-    } else if (error?.status === 403) {
+    } else if (apiError?.status === 403) {
       errorMessage = "API key lacks required permissions";
-    } else if (error?.status === 404) {
+    } else if (apiError?.status === 404) {
       errorMessage = "Model not found";
-    } else if (error?.error?.message) {
-      errorMessage = error.error.message;
+    } else if (apiError?.error?.message) {
+      errorMessage = apiError.error.message;
     }
 
     return {
@@ -792,7 +786,7 @@ async function testApiConnection(
 /**
  * Check if a command exists
  */
-async function checkCommand(
+export async function checkCommand(
   command: string
 ): Promise<{ found: boolean; version?: string }> {
   try {
@@ -809,7 +803,7 @@ async function checkCommand(
  * Format a single check result for spinner stop message
  * BUG FIX: Handle undefined/null result to prevent crashes
  */
-function formatCheckResult(result: CheckResult | undefined): string {
+export function formatCheckResult(result: CheckResult | undefined): string {
   if (!result) {
     return chalk.yellow("⚠ Check did not produce a result");
   }
@@ -821,7 +815,7 @@ function formatCheckResult(result: CheckResult | undefined): string {
 /**
  * Display results in formatted output using @clack/prompts
  */
-function displayResults(results: CheckResult[], verbose: boolean): void {
+export function displayResults(results: CheckResult[], verbose: boolean): void {
   let passCount = 0;
   let warnCount = 0;
   let failCount = 0;

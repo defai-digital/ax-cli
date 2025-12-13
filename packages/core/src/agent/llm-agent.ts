@@ -1,27 +1,16 @@
 import { LLMClient, LLMMessage, LLMToolCall, LLMTool } from "../llm/client.js";
 import type { SamplingConfig, ChatOptions, ThinkingConfig, MessageContentPart } from "../llm/types.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
-import {
-  getAllTools,
-  getMCPManager,
-  initializeMCPServers,
-} from "../llm/tools.js";
-import { loadMCPConfig } from "../mcp/config.js";
 import { ToolResult } from "../types/index.js";
 import { EventEmitter } from "events";
 import { AGENT_CONFIG, CACHE_CONFIG, TIMEOUT_CONFIG } from "../constants.js";
-import { getTokenCounter, TokenCounter } from "../utils/token-counter.js";
-import { loadCustomInstructions } from "../utils/custom-instructions.js";
-import { getSettingsManager } from "../utils/settings-manager.js";
+import type { TokenCounter } from "../utils/token-counter.js";
 import { ContextManager } from "./context-manager.js";
-import { buildSystemPrompt } from "../utils/prompt-builder.js";
 // Note: getUsageTracker is now used by StreamHandler (Phase 2 refactoring)
 import { extractErrorMessage } from "../utils/error-handler.js";
-import { getCheckpointManager, CheckpointManager } from "../checkpoint/index.js";
+import type { CheckpointManager } from "../checkpoint/index.js";
 import { SubagentOrchestrator } from "./subagent-orchestrator.js";
 import {
-  getTaskPlanner,
-  TaskPlanner,
   TaskPlan,
   PhaseResult,
   PlanResult,
@@ -29,13 +18,14 @@ import {
   shouldUseThinkingMode,
   getComplexityScore,
 } from "../planner/index.js";
+import type { TaskPlanner } from "../planner/index.js";
 // Note: TaskPhase now used by PlanExecutor (Phase 2 refactoring)
 import { PLANNER_CONFIG } from "../constants.js";
-import { resolveMCPReferences, extractMCPReferences } from "../mcp/resources.js";
 import { SDKError, SDKErrorCode } from "../sdk/errors.js";
-import { getStatusReporter } from "./status-reporter.js";
-import { getLoopDetector, resetLoopDetector, LoopDetectionResult } from "./loop-detector.js";
-import { getActiveProvider } from "../provider/config.js";
+import type { LoopDetectionResult } from "./loop-detector.js";
+
+// Import dependency injection system (allows tests to override dependencies)
+import { getLLMAgentDependencies } from "./llm-agent-dependencies.js";
 
 // Import from extracted modules (Phase 2 refactoring)
 import { ToolExecutor } from "./execution/index.js";
@@ -121,7 +111,10 @@ export class LLMAgent extends EventEmitter {
     mcpClientConfig?: { name?: string; version?: string }
   ) {
     super();
-    const manager = getSettingsManager();
+    // Get injectable dependencies (allows tests to override)
+    const deps = getLLMAgentDependencies();
+
+    const manager = deps.getSettingsManager();
     const savedModel = manager.getCurrentModel();
     const modelToUse = model || savedModel;
 
@@ -131,7 +124,9 @@ export class LLMAgent extends EventEmitter {
 
     this.maxToolRounds = maxToolRounds || 400;
     this.mcpClientConfig = mcpClientConfig;
-    this.llmClient = new LLMClient(apiKey, modelToUse, baseURL);
+    this.llmClient = deps.createLLMClient
+      ? deps.createLLMClient(apiKey, modelToUse, baseURL)
+      : new LLMClient(apiKey, modelToUse, baseURL);
 
     // Initialize ToolExecutor with checkpoint callback (Phase 2 refactoring)
     this.toolExecutor = new ToolExecutor({
@@ -166,10 +161,14 @@ export class LLMAgent extends EventEmitter {
       model: modelToUse,
     });
 
-    this.tokenCounter = getTokenCounter(modelToUse);
-    this.contextManager = new ContextManager({ model: modelToUse });
-    this.checkpointManager = getCheckpointManager();
-    this.subagentOrchestrator = new SubagentOrchestrator({ maxConcurrentAgents: 5 });
+    this.tokenCounter = deps.getTokenCounter(modelToUse);
+    this.contextManager = deps.createContextManager
+      ? deps.createContextManager({ model: modelToUse })
+      : new ContextManager({ model: modelToUse });
+    this.checkpointManager = deps.getCheckpointManager();
+    this.subagentOrchestrator = deps.createSubagentOrchestrator
+      ? deps.createSubagentOrchestrator({ maxConcurrentAgents: 5 })
+      : new SubagentOrchestrator({ maxConcurrentAgents: 5 });
 
     // Forward subagent events for UI tracking (orchestrator event -> agent event)
     // BUG FIX: Store listener references for proper cleanup in dispose()
@@ -185,14 +184,14 @@ export class LLMAgent extends EventEmitter {
       this.subagentEventListeners.push({ event: from, listener });
     }
 
-    this.taskPlanner = getTaskPlanner();
+    this.taskPlanner = deps.getTaskPlanner();
 
     // Initialize PlanExecutor with callbacks (Phase 2 refactoring)
     this.planExecutor = new PlanExecutor({
       llmClient: this.llmClient,
       tokenCounter: this.tokenCounter,
       toolExecutor: this.toolExecutor,
-      getTools: () => getAllTools(),
+      getTools: () => deps.getAllTools(),
       executeTool: (toolCall) => this.executeTool(toolCall as LLMToolCall),
       parseToolArgumentsCached: (toolCall) => this.parseToolArgumentsCached(toolCall as LLMToolCall),
       buildChatOptions: (options) => this.buildChatOptions(options),
@@ -208,12 +207,12 @@ export class LLMAgent extends EventEmitter {
     // Initialize checkpoint manager
     this.initializeCheckpointManager();
 
-    // Initialize MCP servers if configured
+    // Initialize MCP servers if configured (uses deps internally)
     this.initializeMCP();
 
     // Build system prompt from YAML configuration
-    const customInstructions = loadCustomInstructions();
-    const systemPrompt = buildSystemPrompt({
+    const customInstructions = deps.loadCustomInstructions();
+    const systemPrompt = deps.buildSystemPrompt({
       customInstructions: customInstructions || undefined,
     });
 
@@ -297,14 +296,15 @@ export class LLMAgent extends EventEmitter {
   }
 
   private async initializeMCP(): Promise<void> {
-    const config = loadMCPConfig();
+    const deps = getLLMAgentDependencies();
+    const config = deps.loadMCPConfig();
     if (config.servers.length === 0) return; // Skip if no servers configured
 
     this.runBackgroundTask(
       'MCP initialization',
       async () => {
         // Pass provider-specific client config (e.g., 'ax-glm', 'ax-grok', 'ax-cli')
-        await initializeMCPServers(this.mcpClientConfig);
+        await deps.initializeMCPServers(this.mcpClientConfig);
         // After MCP servers are initialized, update system prompt to include MCP tools
         this.updateSystemPromptWithMCPTools();
       },
@@ -318,10 +318,11 @@ export class LLMAgent extends EventEmitter {
    * This is separate from MCP tools - native search is built into the API
    */
   private updateSystemPromptWithNativeSearch(): void {
-    const activeProvider = getActiveProvider();
+    const deps = getLLMAgentDependencies();
+    const activeProvider = deps.getActiveProvider();
 
     // Only add instructions for providers that support native search
-    if (!activeProvider.features.supportsSearch) return;
+    if (!activeProvider?.features.supportsSearch) return;
 
     // Find the system message
     const systemMessage = this.messages.find(m => m.role === 'system');
@@ -351,7 +352,8 @@ export class LLMAgent extends EventEmitter {
    * This ensures the LLM knows about available MCP capabilities (web search, etc.)
    */
   private updateSystemPromptWithMCPTools(): void {
-    const mcpManager = getMCPManager();
+    const deps = getLLMAgentDependencies();
+    const mcpManager = deps.getMCPManager();
     const mcpTools = mcpManager?.getTools() || [];
 
     if (mcpTools.length === 0) return; // No MCP tools to add
@@ -375,8 +377,8 @@ export class LLMAgent extends EventEmitter {
     // Provider-aware search instructions
     // Native search instructions are added separately via updateSystemPromptWithNativeSearch()
     // Here we only add MCP-specific instructions
-    const activeProvider = getActiveProvider();
-    const hasNativeSearch = activeProvider.features.supportsSearch;
+    const activeProvider = deps.getActiveProvider();
+    const hasNativeSearch = activeProvider?.features.supportsSearch;
 
     // For providers without native search, tell them to use MCP tools for web access
     // For providers WITH native search, just mention MCP is for specific URL fetching
@@ -429,8 +431,9 @@ export class LLMAgent extends EventEmitter {
     // Enable native search for providers that support it (e.g., Grok)
     // Disable for providers without native search (e.g., GLM) - they use MCP tools instead
     if (!result.searchOptions) {
-      const activeProvider = getActiveProvider();
-      if (activeProvider.features.supportsSearch) {
+      const deps = getLLMAgentDependencies();
+      const activeProvider = deps.getActiveProvider();
+      if (activeProvider?.features.supportsSearch) {
         // Provider supports native search - use auto mode
         result.searchOptions = { search_parameters: { mode: "auto" } };
       } else {
@@ -660,7 +663,8 @@ export class LLMAgent extends EventEmitter {
    */
   private async handleContextOverflow(data: { messageCount: number; tokenCount: number; messages: ChatCompletionMessageParam[] }): Promise<void> {
     try {
-      const reporter = getStatusReporter();
+      const deps = getLLMAgentDependencies();
+      const reporter = deps.getStatusReporter();
       const summary = await reporter.generateContextSummary(
         data.messages,
         this.chatHistory,
@@ -790,7 +794,8 @@ export class LLMAgent extends EventEmitter {
     }
 
     // Use the new intelligent loop detector
-    const detector = getLoopDetector();
+    const deps = getLLMAgentDependencies();
+    const detector = deps.getLoopDetector();
     const result = detector.checkForLoop(toolCall);
 
     // Debug logging
@@ -820,12 +825,13 @@ export class LLMAgent extends EventEmitter {
    * Reset the tool call tracking (called at start of new user message)
    */
   private resetToolCallTracking(): void {
+    const deps = getLLMAgentDependencies();
     if (DEBUG_LOOP) {
-      const stats = getLoopDetector().getStats();
+      const stats = deps.getLoopDetector().getStats();
       debugLoop(`🔄 Resetting tool call tracking (had ${stats.uniqueSignatures} signatures)`);
     }
     // Reset the intelligent loop detector
-    resetLoopDetector();
+    deps.resetLoopDetector();
     // Clear the args cache to prevent memory leak
     this.toolCallArgsCache.clear();
     // Clear last loop result
@@ -1105,7 +1111,8 @@ export class LLMAgent extends EventEmitter {
 
       // Generate status report on plan completion
       try {
-        const reporter = getStatusReporter();
+        const deps = getLLMAgentDependencies();
+        const reporter = deps.getStatusReporter();
         const tokenCount = this.tokenCounter.countMessageTokens(this.messages);
         const statusReport = await reporter.generateStatusReport({
           messages: this.messages,
@@ -1274,12 +1281,12 @@ export class LLMAgent extends EventEmitter {
     this.resetToolCallTracking();
 
     // Resolve MCP resource references (Phase 4)
+    const deps = getLLMAgentDependencies();
     let resolvedMessage = message;
-    const mcpReferences = extractMCPReferences(message);
+    const mcpReferences = deps.extractMCPReferences(message);
     if (mcpReferences.length > 0) {
       try {
-        const mcpManager = getMCPManager();
-        resolvedMessage = await resolveMCPReferences(message, mcpManager);
+        resolvedMessage = await deps.resolveMCPReferences(message);
       } catch (error) {
         // If resolution fails, continue with original message
         console.warn('Failed to resolve MCP references:', error);
@@ -1300,7 +1307,7 @@ export class LLMAgent extends EventEmitter {
     let toolRounds = 0;
 
     try {
-      const tools = await getAllTools();
+      const tools = await deps.getAllTools();
       // Note: searchOptions are automatically set by buildChatOptions based on provider
       let currentResponse = await this.llmClient.chat(
         this.messages,
@@ -1597,7 +1604,8 @@ export class LLMAgent extends EventEmitter {
    */
   private async loadToolsSafely(): Promise<LLMTool[]> {
     try {
-      return await getAllTools();
+      const deps = getLLMAgentDependencies();
+      return await deps.getAllTools();
     } catch (error: unknown) {
       // Log error but don't throw - continue with empty tools
       const errorMsg = extractErrorMessage(error);
@@ -1680,7 +1688,8 @@ export class LLMAgent extends EventEmitter {
       executionDurationMs: number
     ): ChatEntry => {
       // Record tool call with actual success/failure status for intelligent loop detection
-      const detector = getLoopDetector();
+      const deps = getLLMAgentDependencies();
+      const detector = deps.getLoopDetector();
       detector.recordToolCall(toolCall, result.success);
       debugLoop(`📝 Recorded: ${toolCall.function.name}, success=${result.success}`);
 
@@ -2013,7 +2022,8 @@ export class LLMAgent extends EventEmitter {
   setModel(model: string): void {
     this.llmClient.setModel(model);
     // Update token counter for new model (use singleton)
-    this.tokenCounter = getTokenCounter(model);
+    const deps = getLLMAgentDependencies();
+    this.tokenCounter = deps.getTokenCounter(model);
     // Update stream handler model for usage tracking
     this.streamHandler.setModel(model);
   }

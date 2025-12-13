@@ -95,8 +95,11 @@ export class CheckpointStorage {
       const filepath = await this.findCheckpointFile(checkpointId);
       if (!filepath) return null;
 
+      // Detect compression from actual file extension, not index
+      // This handles the case where compression completed but index wasn't updated
+      const isCompressed = filepath.endsWith('.gz');
       let content: string;
-      if (info.compressed) {
+      if (isCompressed) {
         const compressed = await fs.readFile(filepath);
         const decompressed = await gunzip(compressed);
         content = decompressed.toString('utf-8');
@@ -151,18 +154,33 @@ export class CheckpointStorage {
 
   async getStats(): Promise<CheckpointStats> {
     await this.loadIndex();
-    return this.index?.stats || {
-      totalCount: 0,
-      totalSize: 0,
-      compressedCount: 0,
-      oldestDate: null,
-      newestDate: null,
+    const stats = this.index?.stats;
+    if (!stats) {
+      return {
+        totalCount: 0,
+        totalSize: 0,
+        compressedCount: 0,
+        oldestDate: null,
+        newestDate: null,
+      };
+    }
+    // BUG FIX: Return deep copy to prevent callers from mutating internal Date objects
+    return {
+      ...stats,
+      oldestDate: stats.oldestDate ? new Date(stats.oldestDate.getTime()) : null,
+      newestDate: stats.newestDate ? new Date(stats.newestDate.getTime()) : null,
     };
   }
 
   async listInfo(): Promise<CheckpointInfo[]> {
     await this.loadIndex();
-    return this.index?.checkpoints || [];
+    // BUG FIX: Return deep copies to prevent callers from mutating internal state
+    // Previously only copied the array, not the objects inside
+    return (this.index?.checkpoints || []).map(c => ({
+      ...c,
+      timestamp: new Date(c.timestamp.getTime()),
+      filesChanged: [...c.filesChanged],
+    }));
   }
 
   async list(): Promise<string[]> {
@@ -172,7 +190,14 @@ export class CheckpointStorage {
 
   async getCheckpointInfo(checkpointId: string): Promise<CheckpointInfo | null> {
     await this.loadIndex();
-    return this.index?.checkpoints.find(c => c.id === checkpointId) || null;
+    const info = this.index?.checkpoints.find(c => c.id === checkpointId);
+    // BUG FIX: Return deep copy to prevent callers from mutating internal state
+    // Previously only did shallow copy, leaving Date and array as mutable references
+    return info ? {
+      ...info,
+      timestamp: new Date(info.timestamp.getTime()),
+      filesChanged: [...info.filesChanged],
+    } : null;
   }
 
   async getTotalSize(): Promise<number> {

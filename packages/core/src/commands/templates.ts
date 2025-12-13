@@ -171,7 +171,8 @@ export function createTemplatesCommand(): Command {
           name: templateName,
           description: group.description as string,
           projectType: group.projectType as string,
-          tags: group.tags ? (group.tags as string).split(',').map(t => t.trim()) : [],
+          // BUG FIX: Filter empty strings from tags - "".split(',') returns [""] not []
+          tags: group.tags ? (group.tags as string).split(',').map(t => t.trim()).filter(t => t.length > 0) : [],
           author: group.author as string | undefined,
         };
 

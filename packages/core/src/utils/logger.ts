@@ -120,13 +120,17 @@ class Logger {
 
     const formatted = this.formatMessage(entry);
 
-    if (level === LogLevel.ERROR) {
-      console.error(formatted);
-    } else if (level === LogLevel.WARN) {
-      console.warn(formatted);
-    } else {
-      console.log(formatted);
-    }
+    const target =
+      level === LogLevel.ERROR
+        ? console.error
+        : level === LogLevel.WARN
+          ? console.warn
+          : level === LogLevel.INFO
+            ? console.info
+            : console.debug;
+
+    // Fall back to console.log if a level-specific method is missing
+    (target || console.log)(formatted);
   }
 
   /**

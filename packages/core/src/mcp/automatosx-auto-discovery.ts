@@ -17,6 +17,7 @@ import { execSync } from 'child_process';
 import type { MCPServerConfig, MCPTransportConfig } from '../schemas/settings-schemas.js';
 import { getActiveProvider } from '../provider/config.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
+import { findOnPathSync } from '../utils/path-helpers.js';
 
 /**
  * Result of AutomatosX detection
@@ -121,23 +122,10 @@ export function detectAutomatosX(forceRefresh = false): AutomatosXDetectionResul
 }
 
 /**
- * Find a command in PATH
+ * Find a command in PATH (cross-platform)
  */
 function findCommand(command: string): string | undefined {
-  try {
-    // Use 'which' on Unix, 'where' on Windows
-    const whichCmd = process.platform === 'win32' ? 'where' : 'which';
-    const result = execSync(`${whichCmd} ${command}`, {
-      encoding: 'utf-8',
-      timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
-
-    // 'where' on Windows might return multiple lines
-    return result.split('\n')[0]?.trim();
-  } catch {
-    return undefined;
-  }
+  return findOnPathSync(command) ?? undefined;
 }
 
 /**

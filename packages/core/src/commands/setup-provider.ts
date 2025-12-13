@@ -25,16 +25,7 @@ import {
 } from '../mcp/index.js';
 import { addUserMCPServer, removeUserMCPServer } from '../mcp/config.js';
 import { FILE_NAMES } from '../constants.js';
-
-/**
- * Handle user cancellation - exits process if cancelled
- */
-function exitIfCancelled<T>(value: T | symbol): asserts value is T {
-  if (prompts.isCancel(value)) {
-    prompts.cancel('Setup cancelled.');
-    process.exit(0);
-  }
-}
+import { exitIfCancelled } from './utils.js';
 
 /**
  * Check AutomatosX status - returns version if installed, null otherwise

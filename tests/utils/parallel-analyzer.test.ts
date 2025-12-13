@@ -1,5 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { parallelLimit } from '../../packages/core/src/utils/parallel-analyzer.js';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import {
+  parallelLimit,
+  analyzeFilesParallel,
+  analyzeFilesParallelSafe,
+  getOptimalBatchSize,
+  estimateParallelSpeedup,
+} from '../../packages/core/src/utils/parallel-analyzer.js';
 
 describe('parallelLimit', () => {
   // Helper to simulate async operations with controllable delays
@@ -306,7 +312,6 @@ describe('parallelLimit', () => {
     it('should use indexed storage not push (Bug #16 root cause)', async () => {
       // Verify the array is pre-allocated with correct size
       const items = [1, 2, 3];
-      let arrayLength = 0;
 
       const processor = async (n: number) => {
         await delay(5);
@@ -323,5 +328,282 @@ describe('parallelLimit', () => {
         expect(result).toBe(index + 1);
       });
     });
+  });
+});
+
+describe('analyzeFilesParallel', () => {
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should return empty array for empty input', async () => {
+    const analyzer = vi.fn();
+    const result = await analyzeFilesParallel([], analyzer);
+    expect(result).toEqual([]);
+    expect(analyzer).not.toHaveBeenCalled();
+  });
+
+  it('should analyze all files', async () => {
+    const files = ['file1.ts', 'file2.ts', 'file3.ts'];
+    const analyzer = vi.fn().mockImplementation(async (file: string) => `analyzed-${file}`);
+
+    const results = await analyzeFilesParallel(files, analyzer);
+
+    expect(results).toHaveLength(3);
+    expect(results).toContain('analyzed-file1.ts');
+    expect(results).toContain('analyzed-file2.ts');
+    expect(results).toContain('analyzed-file3.ts');
+    expect(analyzer).toHaveBeenCalledTimes(3);
+  });
+
+  it('should call onProgress callback', async () => {
+    const files = ['f1', 'f2', 'f3'];
+    const onProgress = vi.fn();
+    const analyzer = vi.fn().mockResolvedValue('done');
+
+    await analyzeFilesParallel(files, analyzer, { onProgress, batchSize: 1 });
+
+    expect(onProgress).toHaveBeenCalled();
+    expect(onProgress).toHaveBeenCalledWith(expect.any(Number), 3);
+  });
+
+  it('should call onBatchStart and onBatchEnd callbacks', async () => {
+    const files = ['f1', 'f2'];
+    const onBatchStart = vi.fn();
+    const onBatchEnd = vi.fn();
+    const analyzer = vi.fn().mockResolvedValue('done');
+
+    await analyzeFilesParallel(files, analyzer, {
+      batchSize: 1,
+      onBatchStart,
+      onBatchEnd,
+    });
+
+    expect(onBatchStart).toHaveBeenCalled();
+    expect(onBatchEnd).toHaveBeenCalled();
+  });
+
+  it('should stop on error when stopOnError is true', async () => {
+    const files = ['f1', 'f2', 'f3'];
+    const error = new Error('Test error');
+    const onError = vi.fn();
+
+    const analyzer = vi.fn()
+      .mockResolvedValueOnce('ok')
+      .mockRejectedValueOnce(error);
+
+    await expect(
+      analyzeFilesParallel(files, analyzer, { stopOnError: true, batchSize: 1, onError })
+    ).rejects.toThrow('Test error');
+
+    expect(onError).toHaveBeenCalledWith('f2', error);
+  });
+
+  it('should respect batchSize option', async () => {
+    const files = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6'];
+    const onBatchStart = vi.fn();
+    const analyzer = vi.fn().mockResolvedValue('done');
+
+    await analyzeFilesParallel(files, analyzer, { batchSize: 2, onBatchStart });
+
+    // With batch size 2, should have 3 batches
+    expect(onBatchStart).toHaveBeenCalledTimes(3);
+  });
+
+  it('should respect maxConcurrency option', async () => {
+    const files = ['f1', 'f2', 'f3', 'f4'];
+    const analyzer = vi.fn().mockImplementation(async (file: string) => file);
+
+    await analyzeFilesParallel(files, analyzer, { maxConcurrency: 2 });
+
+    expect(analyzer).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('analyzeFilesParallelSafe', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should return empty result for empty input', async () => {
+    const analyzer = vi.fn();
+    const result = await analyzeFilesParallelSafe([], analyzer);
+
+    expect(result.results).toEqual([]);
+    expect(result.errors).toEqual([]);
+    expect(result.stats.total).toBe(0);
+    expect(result.stats.completed).toBe(0);
+    expect(result.stats.failed).toBe(0);
+    expect(result.stats.durationMs).toBe(0);
+  });
+
+  it('should return results and stats for successful analysis', async () => {
+    const files = ['f1', 'f2', 'f3'];
+    const analyzer = vi.fn().mockImplementation(async (file: string) => `result-${file}`);
+
+    const result = await analyzeFilesParallelSafe(files, analyzer, { batchSize: 1 });
+
+    expect(result.results).toHaveLength(3);
+    expect(result.errors).toHaveLength(0);
+    expect(result.stats.total).toBe(3);
+    expect(result.stats.completed).toBe(3);
+    expect(result.stats.failed).toBe(0);
+    expect(result.stats.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should collect errors without stopping by default', async () => {
+    const files = ['f1', 'f2', 'f3'];
+    const error = new Error('Test error');
+
+    const analyzer = vi.fn()
+      .mockResolvedValueOnce('ok1')
+      .mockRejectedValueOnce(error)
+      .mockResolvedValueOnce('ok3');
+
+    const result = await analyzeFilesParallelSafe(files, analyzer, { batchSize: 1 });
+
+    expect(result.results).toHaveLength(2);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].file).toBe('f2');
+    expect(result.errors[0].error).toBe(error);
+    expect(result.stats.failed).toBe(1);
+  });
+
+  it('should call onError callback for errors', async () => {
+    const files = ['f1', 'f2'];
+    const error = new Error('Test error');
+    const onError = vi.fn();
+
+    const analyzer = vi.fn()
+      .mockResolvedValueOnce('ok')
+      .mockRejectedValueOnce(error);
+
+    await analyzeFilesParallelSafe(files, analyzer, { batchSize: 1, onError });
+
+    expect(onError).toHaveBeenCalledWith('f2', error);
+  });
+
+  it('should call onProgress callback for both successes and failures', async () => {
+    const files = ['f1', 'f2'];
+    const onProgress = vi.fn();
+
+    const analyzer = vi.fn()
+      .mockResolvedValueOnce('ok')
+      .mockRejectedValueOnce(new Error('fail'));
+
+    await analyzeFilesParallelSafe(files, analyzer, { batchSize: 1, onProgress });
+
+    // Should be called for both success and failure
+    expect(onProgress).toHaveBeenCalledTimes(2);
+  });
+
+  it('should call onBatchStart and onBatchEnd callbacks', async () => {
+    const files = ['f1', 'f2'];
+    const onBatchStart = vi.fn();
+    const onBatchEnd = vi.fn();
+    const analyzer = vi.fn().mockResolvedValue('done');
+
+    await analyzeFilesParallelSafe(files, analyzer, {
+      batchSize: 1,
+      onBatchStart,
+      onBatchEnd,
+    });
+
+    expect(onBatchStart).toHaveBeenCalled();
+    expect(onBatchEnd).toHaveBeenCalled();
+  });
+
+  it('should stop early when stopOnError is true', async () => {
+    const files = ['f1', 'f2', 'f3'];
+    const error = new Error('Stop error');
+
+    const analyzer = vi.fn()
+      .mockResolvedValueOnce('ok')
+      .mockRejectedValueOnce(error);
+
+    const result = await analyzeFilesParallelSafe(files, analyzer, {
+      batchSize: 1,
+      stopOnError: true,
+    });
+
+    // Should have stopped after error
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].error).toBe(error);
+  });
+});
+
+describe('getOptimalBatchSize', () => {
+  it('should return at least 1', () => {
+    expect(getOptimalBatchSize(0, 4)).toBe(1);
+    expect(getOptimalBatchSize(1, 4)).toBe(1);
+  });
+
+  it('should calculate batch size based on CPU count', () => {
+    // 100 files, 4 CPUs -> target 12 batches -> batch size ~9
+    const batchSize = getOptimalBatchSize(100, 4);
+    expect(batchSize).toBeGreaterThanOrEqual(1);
+    expect(batchSize).toBeLessThanOrEqual(100);
+  });
+
+  it('should scale with file count', () => {
+    const small = getOptimalBatchSize(10, 4);
+    const large = getOptimalBatchSize(1000, 4);
+    expect(large).toBeGreaterThan(small);
+  });
+
+  it('should use auto-detected CPU count when not specified', () => {
+    const batchSize = getOptimalBatchSize(100);
+    expect(batchSize).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('estimateParallelSpeedup', () => {
+  it('should return zero values for empty input', () => {
+    const result = estimateParallelSpeedup(0, 100, 4);
+    expect(result.sequentialTime).toBe(0);
+    expect(result.parallelTime).toBe(0);
+    expect(result.speedup).toBe(0);
+  });
+
+  it('should calculate sequential time correctly', () => {
+    const result = estimateParallelSpeedup(10, 100, 4);
+    expect(result.sequentialTime).toBe(1000); // 10 files * 100ms
+  });
+
+  it('should calculate parallel time correctly', () => {
+    const result = estimateParallelSpeedup(8, 100, 4);
+    expect(result.parallelTime).toBe(200); // ceil(8/4) * 100 = 2 * 100
+  });
+
+  it('should calculate speedup correctly', () => {
+    const result = estimateParallelSpeedup(8, 100, 4);
+    expect(result.speedup).toBe(4); // 800/200 = 4x speedup
+  });
+
+  it('should calculate efficiency correctly', () => {
+    const result = estimateParallelSpeedup(8, 100, 4);
+    expect(result.efficiency).toBe(1); // 4/4 = 100% efficiency
+  });
+
+  it('should handle edge case with negative values', () => {
+    const result = estimateParallelSpeedup(-5, -100, -4);
+    expect(result.sequentialTime).toBe(0);
+    expect(result.parallelTime).toBe(0);
+    expect(result.speedup).toBe(0);
+    expect(result.efficiency).toBe(0);
+  });
+
+  it('should use auto-detected CPU count when not specified', () => {
+    const result = estimateParallelSpeedup(100, 10);
+    expect(result.speedup).toBeGreaterThan(0);
+  });
+
+  it('should have diminishing returns for non-divisible file counts', () => {
+    // 10 files on 4 CPUs = ceil(10/4) = 3 batches
+    const result = estimateParallelSpeedup(10, 100, 4);
+    expect(result.parallelTime).toBe(300); // 3 * 100
+    expect(result.speedup).toBeCloseTo(3.33, 1); // 1000/300
   });
 });

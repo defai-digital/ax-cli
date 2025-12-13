@@ -155,39 +155,42 @@ export async function executeToolsInParallel<T>(
   }
 
   // Use Promise.allSettled with concurrency limiting
-  const results: Array<{ toolCall: LLMToolCall; result?: T; error?: Error }> = [];
-  const pending: Array<Promise<void>> = [];
-  let index = 0;
+  const results: Array<{ toolCall: LLMToolCall; result?: T; error?: Error }> = new Array(toolCalls.length);
+  let nextIndex = 0;
 
-  const executeNext = async (): Promise<void> => {
-    const currentIndex = index++;
-    if (currentIndex >= toolCalls.length) return;
+  // Worker function that processes items from the shared queue
+  const worker = async (): Promise<void> => {
+    while (true) {
+      // Atomically grab the next index BEFORE any async operation
+      // This prevents race conditions where multiple workers could grab the same index
+      const currentIndex = nextIndex;
+      if (currentIndex >= toolCalls.length) {
+        return; // No more work
+      }
+      nextIndex++; // Increment synchronously before any await
 
-    const toolCall = toolCalls[currentIndex];
-    try {
-      const result = await executor(toolCall);
-      results[currentIndex] = { toolCall, result };
-    } catch (error) {
-      results[currentIndex] = {
-        toolCall,
-        result: undefined,
-        error: error instanceof Error ? error : new Error(String(error)),
-      };
-    }
-
-    // Execute next if there are more
-    if (index < toolCalls.length) {
-      await executeNext();
+      const toolCall = toolCalls[currentIndex];
+      try {
+        const result = await executor(toolCall);
+        results[currentIndex] = { toolCall, result };
+      } catch (error) {
+        results[currentIndex] = {
+          toolCall,
+          result: undefined,
+          error: error instanceof Error ? error : new Error(String(error)),
+        };
+      }
     }
   };
 
-  // Start initial batch up to maxConcurrency
-  const initialBatch = Math.min(maxConcurrency, toolCalls.length);
-  for (let i = 0; i < initialBatch; i++) {
-    pending.push(executeNext());
+  // Start workers up to maxConcurrency
+  const workerCount = Math.min(maxConcurrency, toolCalls.length);
+  const workers: Array<Promise<void>> = [];
+  for (let i = 0; i < workerCount; i++) {
+    workers.push(worker());
   }
 
-  await Promise.all(pending);
+  await Promise.all(workers);
 
   return results;
 }

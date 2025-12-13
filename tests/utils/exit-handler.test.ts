@@ -97,9 +97,132 @@ describe('ExitHandler', () => {
     });
   });
 
-  // Note: exitWithError, exitSuccess, exitCancelled, exitConfigError, exitNetworkError
-  // are not tested here because they call process.exit() which interferes with the test runner.
-  // In production, these functions are tested through integration tests.
+  describe('exit functions', () => {
+    // These tests mock process.exit to verify behavior without actually exiting
+    let exitMock: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      exitMock = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    });
+
+    afterEach(() => {
+      exitMock.mockRestore();
+    });
+
+    it('exitWithError should throw Exit requested', async () => {
+      const { exitWithError } = await import('../../packages/core/src/utils/exit-handler.js');
+
+      expect(() => exitWithError('Test error')).toThrow('Exit requested');
+    });
+
+    it('exitWithError should use GENERAL_ERROR code by default', async () => {
+      const { exitWithError, ExitCode } = await import('../../packages/core/src/utils/exit-handler.js');
+
+      try {
+        exitWithError('Test error');
+      } catch {
+        // Expected
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+      expect(exitMock).toHaveBeenCalledWith(ExitCode.GENERAL_ERROR);
+    });
+
+    it('exitWithError should use custom exit code', async () => {
+      const { exitWithError, ExitCode } = await import('../../packages/core/src/utils/exit-handler.js');
+
+      try {
+        exitWithError('Permission denied', ExitCode.PERMISSION_DENIED);
+      } catch {
+        // Expected
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+      expect(exitMock).toHaveBeenCalledWith(ExitCode.PERMISSION_DENIED);
+    });
+
+    it('exitSuccess should throw Exit requested', async () => {
+      const { exitSuccess } = await import('../../packages/core/src/utils/exit-handler.js');
+
+      expect(() => exitSuccess()).toThrow('Exit requested');
+    });
+
+    it('exitSuccess should exit with SUCCESS code', async () => {
+      const { exitSuccess, ExitCode } = await import('../../packages/core/src/utils/exit-handler.js');
+
+      try {
+        exitSuccess('Done');
+      } catch {
+        // Expected
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+      expect(exitMock).toHaveBeenCalledWith(ExitCode.SUCCESS);
+    });
+
+    it('exitCancelled should throw Exit requested', async () => {
+      const { exitCancelled } = await import('../../packages/core/src/utils/exit-handler.js');
+
+      expect(() => exitCancelled()).toThrow('Exit requested');
+    });
+
+    it('exitCancelled should exit with CANCELLED code', async () => {
+      const { exitCancelled, ExitCode } = await import('../../packages/core/src/utils/exit-handler.js');
+
+      try {
+        exitCancelled();
+      } catch {
+        // Expected
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+      expect(exitMock).toHaveBeenCalledWith(ExitCode.CANCELLED);
+    });
+
+    it('exitCancelled should accept custom message', async () => {
+      const { exitCancelled } = await import('../../packages/core/src/utils/exit-handler.js');
+
+      expect(() => exitCancelled('User pressed Ctrl+C')).toThrow('Exit requested');
+    });
+
+    it('exitConfigError should throw Exit requested', async () => {
+      const { exitConfigError } = await import('../../packages/core/src/utils/exit-handler.js');
+
+      expect(() => exitConfigError('Missing config')).toThrow('Exit requested');
+    });
+
+    it('exitConfigError should exit with CONFIG_ERROR code', async () => {
+      const { exitConfigError, ExitCode } = await import('../../packages/core/src/utils/exit-handler.js');
+
+      try {
+        exitConfigError('Missing config');
+      } catch {
+        // Expected
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+      expect(exitMock).toHaveBeenCalledWith(ExitCode.CONFIG_ERROR);
+    });
+
+    it('exitNetworkError should throw Exit requested', async () => {
+      const { exitNetworkError } = await import('../../packages/core/src/utils/exit-handler.js');
+
+      expect(() => exitNetworkError('Connection failed')).toThrow('Exit requested');
+    });
+
+    it('exitNetworkError should exit with NETWORK_ERROR code', async () => {
+      const { exitNetworkError, ExitCode } = await import('../../packages/core/src/utils/exit-handler.js');
+
+      try {
+        exitNetworkError('Connection failed');
+      } catch {
+        // Expected
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+      expect(exitMock).toHaveBeenCalledWith(ExitCode.NETWORK_ERROR);
+    });
+  });
 
   describe('logError', () => {
     it('should log error message without exiting', () => {

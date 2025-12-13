@@ -5,13 +5,10 @@
  * before attempting connection, improving error messages and UX.
  */
 
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import type { MCPServerConfig } from '../schemas/settings-schemas.js';
 import { getTemplate } from './templates.js';
 import { getAuditLogger, AuditCategory } from '../utils/audit-logger.js';
-
-const execFileAsync = promisify(execFile);
+import { findOnPath } from '../utils/path-helpers.js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -331,24 +328,12 @@ function validateRequiredEnvVars(
 }
 
 /**
- * Check if a command exists in PATH
- * Uses execFile to prevent command injection vulnerabilities
+ * Check if a command exists in PATH (cross-platform)
+ * Uses findOnPath which handles Windows/Unix differences
  */
 async function checkCommandExists(command: string): Promise<boolean> {
-  try {
-    // Handle full paths
-    if (command.includes('/') || command.includes('\\')) {
-      return true; // Assume full paths are valid
-    }
-
-    // Check if command exists in PATH using execFile (prevents command injection)
-    const checkCommand = process.platform === 'win32' ? 'where' : 'which';
-
-    await execFileAsync(checkCommand, [command]);
-    return true;
-  } catch {
-    return false;
-  }
+  const cmdPath = await findOnPath(command);
+  return cmdPath !== null;
 }
 
 /**

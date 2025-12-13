@@ -66,9 +66,11 @@ export function resetMCPManager(): void {
 
 /**
  * Get the current MCP client configuration (for debugging/inspection)
+ * Returns a copy to prevent external mutation
  */
 export function getMCPClientConfig(): { name?: string; version?: string } | undefined {
-  return _mcpClientConfig;
+  // BUG FIX: Return a copy to prevent external mutation of internal state
+  return _mcpClientConfig ? { ..._mcpClientConfig } : undefined;
 }
 
 /**
@@ -172,14 +174,18 @@ export async function initializeMCPServers(clientConfig?: { name?: string; versi
  */
 export function convertMCPToolToLLMTool(mcpTool: MCPTool): LLMTool {
   // Build description with optional output schema info
-  let description = mcpTool.description;
+  // BUG FIX: Default to empty string to prevent "undefined" concatenation
+  let description = mcpTool.description ?? '';
 
   // MCP 2025-06-18: Include output schema in description so LLM knows return format
   if (mcpTool.outputSchema) {
     const outputSchemaStr = typeof mcpTool.outputSchema === 'string'
       ? mcpTool.outputSchema
       : JSON.stringify(mcpTool.outputSchema, null, 2);
-    description += `\n\nOutput schema: ${outputSchemaStr}`;
+    // Only add newlines if there's existing description
+    description = description
+      ? `${description}\n\nOutput schema: ${outputSchemaStr}`
+      : `Output schema: ${outputSchemaStr}`;
   }
 
   return {

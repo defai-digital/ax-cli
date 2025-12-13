@@ -9,7 +9,7 @@
  * - tryCatch wrapper
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   createServerName,
   createConfigFilePath,
@@ -17,15 +17,22 @@ import {
   isValidConnectionState,
   handleConnectionState,
   asNonEmpty,
+  getFirstServer,
   Ok,
   Err,
   mapResult,
   andThen,
   toError,
   tryCatch,
+  assertNever,
+  LinearResource,
+  MutexToken,
+  performCriticalOperation,
   type ServerName,
   type ConnectionState,
   type Result,
+  type NonEmptyArray,
+  type Disposable,
 } from '../../packages/core/src/mcp/type-safety.js';
 
 describe('Brand Types', () => {
@@ -448,5 +455,123 @@ describe('NonEmptyArray', () => {
       expect(result).not.toBeNull();
       expect(result![0]).toBe('single');
     });
+  });
+
+  describe('getFirstServer', () => {
+    it('should return first element of non-empty array', () => {
+      const servers: NonEmptyArray<ServerName> = ['server1' as ServerName, 'server2' as ServerName];
+      const first = getFirstServer(servers);
+      expect(first).toBe('server1');
+    });
+
+    it('should work with single element array', () => {
+      const servers: NonEmptyArray<ServerName> = ['only' as ServerName];
+      const first = getFirstServer(servers);
+      expect(first).toBe('only');
+    });
+  });
+});
+
+describe('assertNever', () => {
+  it('should throw error with unexpected value', () => {
+    // This tests the runtime behavior - the value would need to bypass TS
+    const unexpectedValue = 'unknown' as never;
+    expect(() => assertNever(unexpectedValue)).toThrow('Unexpected value');
+  });
+});
+
+describe('LinearResource', () => {
+  it('should allow using resource once', () => {
+    const disposeFn = vi.fn();
+    const mockDisposable: Disposable = {
+      _disposed: false,
+      dispose: disposeFn,
+    };
+
+    const linear = new LinearResource(mockDisposable);
+    const result = linear.use(resource => {
+      expect(resource).toBe(mockDisposable);
+      return 'result';
+    });
+
+    expect(result).toBe('result');
+    expect(disposeFn).toHaveBeenCalled();
+  });
+
+  it('should throw when used twice', () => {
+    const mockDisposable: Disposable = {
+      _disposed: false,
+      dispose: vi.fn(),
+    };
+
+    const linear = new LinearResource(mockDisposable);
+    linear.use(() => 'first');
+
+    expect(() => linear.use(() => 'second')).toThrow('Resource already used');
+  });
+
+  it('should dispose even if function throws', () => {
+    const disposeFn = vi.fn();
+    const mockDisposable: Disposable = {
+      _disposed: false,
+      dispose: disposeFn,
+    };
+
+    const linear = new LinearResource(mockDisposable);
+
+    expect(() => {
+      linear.use(() => {
+        throw new Error('test error');
+      });
+    }).toThrow('test error');
+
+    expect(disposeFn).toHaveBeenCalled();
+  });
+});
+
+describe('MutexToken', () => {
+  it('should create token with server name', () => {
+    const serverName = 'test-server' as ServerName;
+    const token = MutexToken.create(serverName);
+
+    expect(token.serverName).toBe(serverName);
+  });
+});
+
+describe('performCriticalOperation', () => {
+  it('should execute operation when token matches server', () => {
+    const serverName = 'test-server' as ServerName;
+    const token = MutexToken.create(serverName);
+    const operation = vi.fn();
+
+    performCriticalOperation(serverName, token, operation);
+
+    expect(operation).toHaveBeenCalled();
+  });
+
+  it('should throw when token does not match server', () => {
+    const serverName1 = 'server1' as ServerName;
+    const serverName2 = 'server2' as ServerName;
+    const token = MutexToken.create(serverName1);
+    const operation = vi.fn();
+
+    expect(() => {
+      performCriticalOperation(serverName2, token, operation);
+    }).toThrow('Token is for wrong server');
+
+    expect(operation).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleConnectionState disconnecting', () => {
+  it('should handle disconnecting state', () => {
+    const state: ConnectionState = {
+      status: 'disconnecting',
+      serverName: 'test' as ServerName,
+      client: {},
+    };
+    const result = handleConnectionState(state);
+    expect(result).toContain('Disconnecting');
+    expect(result).toContain('test');
   });
 });

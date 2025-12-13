@@ -261,8 +261,8 @@ export function createVSCodeCommand(): Command {
         console.log(chalk.gray('   ax-cli vscode uninstall  - Remove extension'));
         console.log();
 
-      } catch (error: any) {
-        ConsoleMessenger.error('vscode_commands.error_checking_status', { error: error.message });
+      } catch (error: unknown) {
+        ConsoleMessenger.error('vscode_commands.error_checking_status', { error: error instanceof Error ? error.message : 'Unknown error' });
         process.exit(1);
       }
     });
@@ -350,8 +350,8 @@ export function createVSCodeCommand(): Command {
         console.log(chalk.gray('  3. Start chatting with AX CLI!'));
         console.log();
 
-      } catch (error: any) {
-        ConsoleMessenger.error('vscode_commands.error_installing', { error: error.message });
+      } catch (error: unknown) {
+        ConsoleMessenger.error('vscode_commands.error_installing', { error: error instanceof Error ? error.message : 'Unknown error' });
         process.exit(1);
       }
     });
@@ -389,8 +389,8 @@ export function createVSCodeCommand(): Command {
         console.log(chalk.green('✓ Extension uninstalled successfully'));
         console.log();
 
-      } catch (error: any) {
-        ConsoleMessenger.error('vscode_commands.error_uninstalling', { error: error.message });
+      } catch (error: unknown) {
+        ConsoleMessenger.error('vscode_commands.error_uninstalling', { error: error instanceof Error ? error.message : 'Unknown error' });
         process.exit(1);
       }
     });

@@ -1,6 +1,59 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { getActiveConfigPaths } from '../provider/config.js';
+
+const execFileAsync = promisify(execFile);
+
+/**
+ * Check if a command exists in PATH (cross-platform).
+ * Uses 'where' on Windows and 'which' on Unix-like systems.
+ *
+ * @param command - The command name to find
+ * @returns Promise<string | null> - The path to the command if found, null otherwise
+ */
+export async function findOnPath(command: string): Promise<string | null> {
+  try {
+    // Handle full paths - just check if file exists
+    if (command.includes('/') || command.includes('\\')) {
+      return fs.existsSync(command) ? command : null;
+    }
+
+    // Use 'where' on Windows, 'which' on Unix-like systems
+    const checkCommand = process.platform === 'win32' ? 'where' : 'which';
+    const { stdout } = await execFileAsync(checkCommand, [command]);
+    const foundPath = stdout.trim().split('\n')[0]; // Take first result
+    return foundPath || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Synchronous version of findOnPath for contexts where async is not available.
+ * Uses 'where' on Windows and 'which' on Unix-like systems.
+ *
+ * @param command - The command name to find
+ * @returns string | null - The path to the command if found, null otherwise
+ */
+export function findOnPathSync(command: string): string | null {
+  try {
+    // Handle full paths - just check if file exists
+    if (command.includes('/') || command.includes('\\')) {
+      return fs.existsSync(command) ? command : null;
+    }
+
+    // Use 'where' on Windows, 'which' on Unix-like systems
+    const checkCommand = process.platform === 'win32' ? 'where' : 'which';
+    const { execFileSync } = require('child_process');
+    const stdout = execFileSync(checkCommand, [command], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const foundPath = stdout.trim().split('\n')[0]; // Take first result
+    return foundPath || null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Resolve the base directory for AX CLI user data.

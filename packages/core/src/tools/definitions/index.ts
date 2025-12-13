@@ -18,14 +18,6 @@ import { searchTool } from './search.js';
 import { createTodoListTool, updateTodoListTool } from './todo.js';
 import { askUserTool } from './ask-user.js';
 import { axAgentTool, axAgentsParallelTool } from './ax-agent.js';
-import {
-  figmaMapTool,
-  figmaTokensTool,
-  figmaAuditTool,
-  figmaSearchTool,
-  figmaAliasListTool,
-  figmaAliasResolveTool,
-} from './design.js';
 
 // Re-export all tool definitions
 export {
@@ -41,12 +33,6 @@ export {
   askUserTool,
   axAgentTool,
   axAgentsParallelTool,
-  figmaMapTool,
-  figmaTokensTool,
-  figmaAuditTool,
-  figmaSearchTool,
-  figmaAliasListTool,
-  figmaAliasResolveTool,
 };
 
 /**
@@ -82,14 +68,6 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   // Agent delegation
   axAgentTool,
   axAgentsParallelTool,
-
-  // Design tools
-  figmaMapTool,
-  figmaTokensTool,
-  figmaAuditTool,
-  figmaSearchTool,
-  figmaAliasListTool,
-  figmaAliasResolveTool,
 ];
 
 /**

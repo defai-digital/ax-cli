@@ -370,10 +370,20 @@ export type SupportedModel = keyof typeof GLM_MODELS;
 
 /**
  * Get model configuration by name
+ * Always returns a valid config - falls back to glm-4.6 if model not found
  */
 export function getModelConfig(model: string) {
-  // Use the configured default model as fallback, not hardcoded "glm-4.6"
-  return GLM_MODELS[model as SupportedModel] || GLM_MODELS[DEFAULT_MODEL as SupportedModel];
+  // Try the requested model first
+  const modelConfig = GLM_MODELS[model as SupportedModel];
+  if (modelConfig) return modelConfig;
+
+  // Try the configured default model
+  const defaultConfig = GLM_MODELS[DEFAULT_MODEL as SupportedModel];
+  if (defaultConfig) return defaultConfig;
+
+  // BUG FIX: Hardcoded fallback to glm-4.6 to ensure we always return a valid config
+  // This handles edge cases where DEFAULT_MODEL is set to a non-GLM model (e.g., Grok)
+  return GLM_MODELS['glm-4.6'];
 }
 
 /**
@@ -461,11 +471,13 @@ export function createDefaultChatOptions(model?: string): Required<Omit<ChatOpti
 /**
  * Validate sampling configuration
  *
+ * @param sampling - Sampling configuration to validate
+ * @param _temperature - Reserved for future validation (e.g., top_p + temperature conflict detection)
  * @throws Error if sampling parameters are invalid or conflicting
  */
 export function validateSampling(
   sampling: SamplingConfig | undefined,
-  temperature?: number
+  _temperature?: number
 ): void {
   if (!sampling) return;
 
@@ -476,14 +488,8 @@ export function validateSampling(
         `top_p ${sampling.topP} is out of range. Valid range: 0.0 - 1.0`
       );
     }
-
-    // Warn about using both temperature and top_p (not recommended)
-    if (temperature !== undefined && temperature !== 1.0) {
-      console.warn(
-        "Warning: Using both temperature and top_p simultaneously is not recommended. " +
-        "Consider using only one for controlling diversity."
-      );
-    }
+    // Note: Using both temperature and top_p simultaneously is not recommended.
+    // Consider using only one for controlling diversity.
   }
 
   // Validate seed is a positive integer
@@ -494,18 +500,8 @@ export function validateSampling(
       );
     }
   }
-
-  // Log info about deterministic mode
-  if (sampling.doSample === false) {
-    if (sampling.seed !== undefined) {
-      // Fully deterministic mode enabled
-    } else {
-      console.warn(
-        "Note: doSample=false without a seed will produce deterministic output, " +
-        "but results may vary between API calls. Add a seed for full reproducibility."
-      );
-    }
-  }
+  // Note: doSample=false without a seed will produce deterministic output,
+  // but results may vary between API calls. Add a seed for full reproducibility.
 }
 
 /**

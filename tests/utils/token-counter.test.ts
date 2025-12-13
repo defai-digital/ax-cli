@@ -246,4 +246,72 @@ describe('getTokenCounter (singleton)', () => {
     // This would fail with the old bug where cache keys weren't model-prefixed
     expect(count1).toBe(count2); // Both use same encoding (cl100k_base)
   });
+
+  // Tests for array content types
+  it('should count tokens in messages with array text content', () => {
+    const counter = getTokenCounter('gpt-4');
+    const messages = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Hello world' },
+          { type: 'text', text: 'Another message' },
+        ],
+      },
+    ];
+
+    const count = counter.countMessageTokens(messages as any);
+    expect(count).toBeGreaterThan(0);
+  });
+
+  it('should count tokens for image_url content type', () => {
+    const counter = getTokenCounter('gpt-4');
+    const messages = [
+      {
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: 'data:image/png;base64,...' } },
+        ],
+      },
+    ];
+
+    const count = counter.countMessageTokens(messages as any);
+    // Images consume approximately 1000 tokens each
+    expect(count).toBeGreaterThanOrEqual(1000);
+  });
+
+  it('should handle mixed text and image content', () => {
+    const counter = getTokenCounter('gpt-4');
+    const messages = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Describe this image:' },
+          { type: 'image_url', image_url: { url: 'data:image/png;base64,...' } },
+        ],
+      },
+    ];
+
+    const count = counter.countMessageTokens(messages as any);
+    // Should include both text tokens and image tokens
+    expect(count).toBeGreaterThan(1000);
+  });
+});
+
+describe('formatTokenCount edge cases', () => {
+  it('should return "0 tokens" for invalid count with suffix option', async () => {
+    const { formatTokenCount } = await import('../../packages/core/src/utils/token-counter.js');
+
+    expect(formatTokenCount(NaN, { suffix: true })).toBe('0 tokens');
+    expect(formatTokenCount(Infinity, { suffix: true })).toBe('0 tokens');
+    expect(formatTokenCount(-1, { suffix: true })).toBe('0 tokens');
+  });
+
+  it('should return "0" for invalid count without suffix option', async () => {
+    const { formatTokenCount } = await import('../../packages/core/src/utils/token-counter.js');
+
+    expect(formatTokenCount(NaN)).toBe('0');
+    expect(formatTokenCount(Infinity)).toBe('0');
+    expect(formatTokenCount(-5)).toBe('0');
+  });
 });

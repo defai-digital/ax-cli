@@ -72,6 +72,7 @@ import { z } from 'zod';
 import { SDKError, SDKErrorCode } from './errors.js';
 import { GLM_PROVIDER, GROK_PROVIDER, getApiKeyFromEnv, type ProviderDefinition } from '../provider/config.js';
 import { MCP_CONFIG } from '../constants.js';
+// MCPConfig is re-exported below but not used directly in this file
 
 // ============================================================================
 // LLM Client
@@ -369,13 +370,39 @@ const AgentOptionsSchema = z.object({
   // Zod v4: z.function() no longer uses .args()/.returns() - use custom type
   onDispose: z.custom<() => void | Promise<void>>((val) => typeof val === 'function').optional(),
   onError: z.custom<(error: Error) => void>((val) => typeof val === 'function').optional(),
+  // Optional overrides for stateless/serverless usage
+  apiKey: z.string().min(1).optional(),
+  baseURL: z.string().min(1).optional(),
+  model: z.string().min(1).optional(),
+  mcp: z
+    .union([
+      z.literal('auto'),
+      z.literal('off'),
+      z.object({ clientConfig: z.object({ name: z.string().optional(), version: z.string().optional() }).optional() }),
+    ])
+    .optional(),
 }).strict();
+
+/**
+ * Validate and normalize SDK options
+ */
+export function validateSDKOptions(options: AgentOptions = {}): AgentOptions {
+  try {
+    return AgentOptionsSchema.parse(options);
+  } catch (error) {
+    throw new SDKError(
+      SDKErrorCode.VALIDATION_ERROR,
+      `Invalid agent options: ${error instanceof Error ? error.message : 'Unknown validation error'}`,
+      error instanceof Error ? error : undefined
+    );
+  }
+}
 
 /**
  * Agent configuration options for SDK users
  *
- * SECURITY: Credentials (apiKey, baseURL) must be configured via "ax-cli setup"
- * and are NOT exposed through the SDK API to prevent security vulnerabilities.
+ * SECURITY: Credentials (apiKey, baseURL) are typically configured via "ax-cli setup".
+ * For stateless/serverless usage you can pass explicit overrides below.
  */
 export interface AgentOptions {
   /** Maximum number of tool execution rounds (1-1000, default: 400) */
@@ -474,6 +501,21 @@ export interface AgentOptions {
    * ```
    */
   onError?: (error: Error) => void;
+
+  /**
+   * Credential overrides for stateless/serverless use.
+   * If provided, SettingsManager lookups are skipped for those fields.
+   */
+  apiKey?: string;
+  baseURL?: string;
+  model?: string;
+
+  /**
+   * Control MCP initialization. Default 'auto' keeps current behavior.
+   * Set to 'off' to skip MCP init when running in environments without MCP deps.
+   * Set to object with clientConfig to provide MCP client identification.
+   */
+  mcp?: 'auto' | 'off' | { clientConfig?: { name?: string; version?: string } };
 }
 
 /**
@@ -529,34 +571,28 @@ export interface AgentOptions {
  */
 export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent> {
   // Validate input options
-  let validated: AgentOptions;
-  try {
-    validated = AgentOptionsSchema.parse(options);
-  } catch (error) {
-    throw new SDKError(
-      SDKErrorCode.VALIDATION_ERROR,
-      `Invalid agent options: ${error instanceof Error ? error.message : 'Unknown validation error'}`,
-      error instanceof Error ? error : undefined
-    );
-  }
+  const validated = validateSDKOptions(options);
 
   const settingsManager = getSettingsManager();
 
-  // Load settings from ax-cli setup
-  try {
-    settingsManager.loadUserSettings();
-  } catch (error) {
-    throw new SDKError(
-      SDKErrorCode.SETUP_NOT_RUN,
-      'ax-cli setup has not been run. Please run "ax-cli setup" to configure your API key, model, and base URL before using the SDK.',
-      error instanceof Error ? error : undefined
-    );
+  // Load settings from ax-cli setup unless all overrides provided
+  const needsSettings = !(validated.apiKey && validated.baseURL && validated.model);
+  if (needsSettings) {
+    try {
+      settingsManager.loadUserSettings();
+    } catch (error) {
+      throw new SDKError(
+        SDKErrorCode.SETUP_NOT_RUN,
+        'ax-cli setup has not been run. Please run "ax-cli setup" to configure your API key, model, and base URL before using the SDK.',
+        error instanceof Error ? error : undefined
+      );
+    }
   }
 
   // Get configuration ONLY from settings (security requirement)
-  const apiKey = settingsManager.getApiKey();
-  const model = settingsManager.getCurrentModel();
-  const baseURL = settingsManager.getBaseURL();
+  const apiKey = validated.apiKey ?? settingsManager.getApiKey();
+  const model = validated.model ?? settingsManager.getCurrentModel();
+  const baseURL = validated.baseURL ?? settingsManager.getBaseURL();
 
   // Validate required settings exist
   if (!apiKey) {
@@ -571,6 +607,11 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
       SDKErrorCode.BASE_URL_MISSING,
       'No base URL configured. Please run "ax-cli setup" to configure your API provider.'
     );
+  }
+
+  // Optional MCP initialization (skip if explicitly disabled)
+  if (validated.mcp !== 'off') {
+    await initializeMCPServers(validated.mcp && validated.mcp !== 'auto' ? validated.mcp.clientConfig : undefined);
   }
 
   // Apply defaults for optional values
@@ -776,6 +817,22 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
 }
 
 /**
+ * Helper to create and dispose an agent around a callback.
+ * Ensures dispose() is called even when the callback throws.
+ */
+export async function withAgent<T>(
+  options: AgentOptions,
+  fn: (agent: LLMAgent) => Promise<T>
+): Promise<T> {
+  const agent = await createAgent(options);
+  try {
+    return await fn(agent);
+  } finally {
+    agent.dispose();
+  }
+}
+
+/**
  * Create a specialized subagent for specific tasks
  *
  * @param role - The role/specialty of the subagent
@@ -806,8 +863,8 @@ export function createSubagent(
   const clonedConfig = config ? {
     ...config,
     // Deep clone arrays to prevent mutation
-    allowedTools: config.allowedTools ? [...config.allowedTools] : undefined,
-  } : undefined;
+    allowedTools: config.allowedTools ? [...config.allowedTools] : [],
+  } : { allowedTools: [] };
   return new Subagent(role, clonedConfig);
 }
 
@@ -954,37 +1011,31 @@ export async function createProviderAgent(
   options: ProviderAgentOptions = {}
 ): Promise<LLMAgent> {
   // Validate input options
-  let validated: AgentOptions;
-  try {
-    validated = AgentOptionsSchema.parse(options);
-  } catch (error) {
-    throw new SDKError(
-      SDKErrorCode.VALIDATION_ERROR,
-      `Invalid agent options: ${error instanceof Error ? error.message : 'Unknown validation error'}`,
-      error instanceof Error ? error : undefined
-    );
-  }
+  const validated = validateSDKOptions(options);
 
   const settingsManager = getSettingsManager();
   const cliName = provider.branding.cliName;
 
+  const needsSettings = !(validated.apiKey && validated.baseURL && validated.model);
   // Load settings from provider-specific setup
-  try {
-    settingsManager.loadUserSettings();
-  } catch (error) {
-    throw new SDKError(
-      SDKErrorCode.SETUP_NOT_RUN,
-      `${cliName} setup has not been run. Please run "${cliName} setup" to configure your API key, model, and base URL before using the SDK.`,
-      error instanceof Error ? error : undefined
-    );
+  if (needsSettings) {
+    try {
+      settingsManager.loadUserSettings();
+    } catch (error) {
+      throw new SDKError(
+        SDKErrorCode.SETUP_NOT_RUN,
+        `${cliName} setup has not been run. Please run "${cliName} setup" to configure your API key, model, and base URL before using the SDK.`,
+        error instanceof Error ? error : undefined
+      );
+    }
   }
 
   // Get API key: env var > settings
-  let apiKey = getApiKeyFromEnv(provider) || settingsManager.getApiKey();
+  let apiKey = validated.apiKey || getApiKeyFromEnv(provider) || settingsManager.getApiKey();
 
   // Get configuration from settings or provider defaults
-  const baseURL = settingsManager.getBaseURL() || provider.defaultBaseURL;
-  const model = settingsManager.getCurrentModel() || provider.defaultModel;
+  const baseURL = validated.baseURL || settingsManager.getBaseURL() || provider.defaultBaseURL;
+  const model = validated.model || settingsManager.getCurrentModel() || provider.defaultModel;
 
   // Validate required settings
   if (!apiKey) {
@@ -999,6 +1050,10 @@ export async function createProviderAgent(
       SDKErrorCode.BASE_URL_MISSING,
       `No base URL configured. Please run "${cliName} setup" to configure your API provider.`
     );
+  }
+
+  if (validated.mcp !== 'off') {
+    await initializeMCPServers(validated.mcp && validated.mcp !== 'auto' ? validated.mcp.clientConfig : undefined);
   }
 
   // Apply defaults

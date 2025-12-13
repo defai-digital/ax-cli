@@ -148,6 +148,7 @@ function ChatInterfaceWithAgent({
   const [activeAgent, setActiveAgent] = useState<string | null>(forcedAgent || null);
   const [activeAgents, setActiveAgents] = useState<string[]>([]);
   const [currentPlan, setCurrentPlan] = useState<TaskPlan | null>(null);
+  const [terminalWidth, setTerminalWidth] = useState<number>(() => process.stdout?.columns ?? 120);
   // BUG FIX: Removed unused scrollRef - Ink Box doesn't support DOM scroll APIs
   const processingStartTime = useRef<number>(0);
   const lastPercentageRef = useRef<number>(0); // Store last percentage value
@@ -170,6 +171,23 @@ function ChatInterfaceWithAgent({
       setAxEnabled(available);
     };
     checkAx();
+  }, []);
+
+  // Track terminal width for responsive layout (compact status bar on narrow terminals)
+  useEffect(() => {
+    const stdout = process.stdout;
+    if (!stdout) return;
+
+    const handleResize = () => {
+      const width = stdout.columns ?? 120;
+      setTerminalWidth(prev => (prev === width ? prev : width));
+    };
+
+    handleResize();
+    stdout.on('resize', handleResize);
+    return () => {
+      (stdout.off || stdout.removeListener)?.call(stdout, 'resize', handleResize);
+    };
   }, []);
 
   // BUG FIX: Restore agent's conversation state from loaded history
@@ -1184,6 +1202,7 @@ function ChatInterfaceWithAgent({
             isProcessing={isProcessing || isStreaming}
             processingTime={processingTime}
             tokenCount={tokenCount}
+            terminalWidth={terminalWidth}
             flashAutoEdit={flashAutoEdit}
             flashVerbose={flashVerbose}
             flashBackground={flashBackground}

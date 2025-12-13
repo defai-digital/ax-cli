@@ -444,6 +444,15 @@ export function validateRegexPattern(pattern: string): SanitizationResult {
     };
   }
 
+  // Check for alternation groups that are quantified (common combinatorial blowups)
+  const quantifiedAlternation = /\([^()]*\|[^()]*\)[*+?{]/;
+  if (quantifiedAlternation.test(pattern)) {
+    return {
+      valid: false,
+      error: 'Regex alternation is quantified (potential ReDoS risk)',
+    };
+  }
+
   // Check for excessive alternation
   const alternations = pattern.split('|');
   if (alternations.length > 20) {

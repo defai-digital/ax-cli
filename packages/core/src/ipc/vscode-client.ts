@@ -104,7 +104,7 @@ interface PortFileContent {
 interface PendingRequest {
   resolve: (response: IPCResponse) => void;
   reject: (error: Error) => void;
-  timeout: NodeJS.Timeout;
+  timeout: NodeJS.Timeout | undefined;  // undefined until setTimeout is called
   resolved: boolean;  // BUG FIX: Track if promise already resolved to prevent double-resolution
 }
 
@@ -393,7 +393,7 @@ export class VSCodeIPCClient extends EventEmitter {
       const pendingRequest: PendingRequest = {
         resolve,
         reject,
-        timeout: null as unknown as NodeJS.Timeout,  // Will be set below
+        timeout: undefined,  // Will be set below after setTimeout
         resolved: false
       };
 
@@ -629,6 +629,7 @@ export function getVSCodeIPCClient(): VSCodeIPCClient {
 export function disposeVSCodeIPCClient(): void {
   if (instance) {
     instance.disconnect();
+    instance.destroy();
     instance = null;
   }
 }

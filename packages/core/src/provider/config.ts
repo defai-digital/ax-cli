@@ -5,6 +5,9 @@
  * Each provider has its own defaults, model configs, and feature flags.
  */
 
+import { homedir } from 'os';
+import { join } from 'path';
+
 /**
  * Model configuration for a specific model
  */
@@ -638,22 +641,27 @@ export const AX_CLI_PROVIDER: ProviderDefinition = {
 export const DEFAULT_PROVIDER = AX_CLI_PROVIDER;
 
 /**
- * Get provider definition by name
+ * Provider lookup map - created once at module load
+ * Keys are lowercase for case-insensitive lookup
+ */
+const PROVIDERS_MAP: Readonly<Record<string, ProviderDefinition>> = {
+  'ax-cli': AX_CLI_PROVIDER,
+  glm: GLM_PROVIDER,
+  grok: GROK_PROVIDER,
+};
+
+/**
+ * Get provider definition by name (case-insensitive)
  */
 export function getProviderDefinition(name: string): ProviderDefinition | undefined {
-  const providers: Record<string, ProviderDefinition> = {
-    'ax-cli': AX_CLI_PROVIDER,
-    glm: GLM_PROVIDER,
-    grok: GROK_PROVIDER,
-  };
-  return providers[name.toLowerCase()];
+  return PROVIDERS_MAP[name.toLowerCase()];
 }
 
 /**
  * Get all available providers
  */
 export function getAvailableProviders(): ProviderDefinition[] {
-  return [AX_CLI_PROVIDER, GLM_PROVIDER, GROK_PROVIDER];
+  return Object.values(PROVIDERS_MAP);
 }
 
 /**
@@ -683,9 +691,6 @@ export function getApiKeyFromEnv(provider: ProviderDefinition): string | undefin
 
   return apiKey;
 }
-
-import { homedir } from 'os';
-import { join } from 'path';
 
 /**
  * File names for config files
@@ -775,47 +780,54 @@ let activeProvider: ProviderDefinition | null = null;
 // Cache the priority registry update function to avoid repeated dynamic imports
 let _updatePriorityRegistryProvider: ((provider: ProviderDefinition) => void) | null = null;
 
+// Flag to track if priority registry initialization is pending
+let _priorityRegistryInitPending = false;
+
 /**
  * Set the active provider (called by cli-factory on startup)
- * Also updates the priority registry to use the correct provider
  *
- * NOTE: We only cache activeProvider, not config paths.
- * getActiveConfigPaths() computes paths dynamically to handle cwd changes.
+ * NOTE: This function is synchronous and does not update the priority registry.
+ * Call initializePriorityRegistry() after this to update the priority registry.
+ * This avoids race conditions from async imports in a sync function.
  */
 export function setActiveProviderConfigPaths(provider: ProviderDefinition): void {
   activeProvider = provider;
 
-  // Update priority registry with the new provider synchronously if available
-  // This avoids the race condition where getPriorityRegistry() is called before the update
+  // If priority registry is already loaded, update it synchronously
   if (_updatePriorityRegistryProvider) {
     _updatePriorityRegistryProvider(provider);
   } else {
-    // First call - load the module and cache the function
-    // Use synchronous require-style import pattern for reliability
-    import('../tools/priority-registry.js').then(({ updatePriorityRegistryProvider }) => {
-      _updatePriorityRegistryProvider = updatePriorityRegistryProvider;
-      updatePriorityRegistryProvider(provider);
-    }).catch(() => {
-      // Silent fail - priority registry not critical for startup
-    });
+    // Mark that we need to update when initialized
+    _priorityRegistryInitPending = true;
   }
 }
 
 /**
- * Initialize the priority registry synchronously
- * Call this early in the startup sequence to ensure the registry is ready
+ * Initialize the priority registry
+ * Call this early in the startup sequence to ensure the registry is ready.
+ * Safe to call multiple times - only loads the module once.
  */
 export async function initializePriorityRegistry(): Promise<void> {
-  if (!_updatePriorityRegistryProvider) {
-    try {
-      const { updatePriorityRegistryProvider } = await import('../tools/priority-registry.js');
-      _updatePriorityRegistryProvider = updatePriorityRegistryProvider;
-      if (activeProvider) {
-        updatePriorityRegistryProvider(activeProvider);
-      }
-    } catch {
-      // Silent fail
+  if (_updatePriorityRegistryProvider) {
+    // Already loaded - just update if pending
+    if (_priorityRegistryInitPending && activeProvider) {
+      _updatePriorityRegistryProvider(activeProvider);
+      _priorityRegistryInitPending = false;
     }
+    return;
+  }
+
+  try {
+    const { updatePriorityRegistryProvider } = await import('../tools/priority-registry.js');
+    _updatePriorityRegistryProvider = updatePriorityRegistryProvider;
+
+    // Apply pending update
+    if (activeProvider) {
+      updatePriorityRegistryProvider(activeProvider);
+    }
+    _priorityRegistryInitPending = false;
+  } catch {
+    // Silent fail - priority registry is not critical for basic operation
   }
 }
 

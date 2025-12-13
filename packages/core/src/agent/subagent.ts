@@ -274,7 +274,9 @@ export class Subagent extends EventEmitter {
       let toolRounds = 0;
       let isComplete = false;
 
-      while (toolRounds < this.config.maxToolRounds && !isComplete) {
+      // BUG FIX: Check this.isActive so abort() actually stops the loop
+      // Previously, abort() set isActive=false but the loop didn't check it
+      while (toolRounds < this.config.maxToolRounds && !isComplete && this.isActive) {
         const response = await this.llmClient.chat(
           this.messages,
           this.getToolDefinitions(),
@@ -405,20 +407,34 @@ export class Subagent extends EventEmitter {
         }
       }
 
-      // If we exited the loop without completion, treat as failure instead of silently succeeding
-      if (!isComplete) {
+      // BUG FIX: Check WHY we exited the loop to emit the correct event
+      // - If !isActive: task was cancelled via abort(), 'cancel' already emitted, don't emit again
+      // - If !isComplete && isActive: tool round limit reached, this is a failure
+      // - If isComplete: task completed successfully
+      if (!this.isActive) {
+        // Task was cancelled - abort() already emitted 'cancel' and set status
+        // Don't emit task-failed to avoid duplicate events/double activeCount decrement
+        result.success = false;
+        result.error = 'Task was cancelled';
+        result.executionTime = Date.now() - startTime;
+        // Status was already set by abort(), just copy it
+        result.status = { ...this.status };
+        // Note: 'cancel' event was already emitted by abort()
+      } else if (!isComplete) {
+        // Tool round limit reached - this is a failure
         throw new Error(
           `Tool round limit (${this.config.maxToolRounds}) reached before task completion`
         );
+      } else {
+        // Task completed successfully
+        result.success = true;
+        result.executionTime = Date.now() - startTime;
+        this.status.state = SubagentState.COMPLETED;
+        this.status.endTime = new Date();
+        this.status.progress = 100;
+        result.status = { ...this.status };
+        this.emit('task-completed', { taskId: task.id, result });
       }
-
-      result.success = true;
-      result.executionTime = Date.now() - startTime;
-      this.status.state = SubagentState.COMPLETED;
-      this.status.endTime = new Date();
-      this.status.progress = 100;
-      result.status = { ...this.status };
-      this.emit('task-completed', { taskId: task.id, result });
 
     } catch (error: unknown) {
       const errorMessage = extractErrorMessage(error);
@@ -531,13 +547,15 @@ export class Subagent extends EventEmitter {
 
   /**
    * Terminate subagent
+   * BUG FIX: Now calls destroy() to properly clean up tools and caches
    */
   async terminate(): Promise<void> {
     this.isActive = false;
     this.currentTaskId = null;
     // Emit terminated event BEFORE removing listeners so they can receive it
     this.emit('terminated', { role: this.role });
-    this.removeAllListeners();
+    // Clean up tools and caches
+    this.destroy();
   }
 
   /**
@@ -576,6 +594,21 @@ export class Subagent extends EventEmitter {
    * Clean up resources and remove all event listeners.
    */
   destroy(): void {
+    // Dispose all tools to prevent resource leaks
+    for (const tool of this.tools.values()) {
+      if (typeof tool.dispose === 'function') {
+        try {
+          tool.dispose();
+        } catch {
+          // Ignore errors during cleanup
+        }
+      }
+    }
+    this.tools.clear();
+
+    // Clear cache
+    this.toolCallArgsCache.clear();
+
     this.removeAllListeners();
   }
 }

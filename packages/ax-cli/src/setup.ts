@@ -211,6 +211,21 @@ function saveConfig(config: AxCliConfig): void {
 }
 
 /**
+ * Delete ax-cli config (for --force flag)
+ */
+function deleteConfig(): boolean {
+  const { unlinkSync } = require('fs');
+  try {
+    if (existsSync(AX_CLI_CONFIG_FILE)) {
+      unlinkSync(AX_CLI_CONFIG_FILE);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Check AutomatosX status - returns version if installed, null otherwise
  */
 function getAutomatosXStatus(): { installed: boolean; version: string | null } {
@@ -261,55 +276,62 @@ async function runAutomatosXSetup(): Promise<boolean> {
 }
 
 /**
+ * Fetch with timeout - reduces duplication in network calls
+ */
+async function fetchWithTimeout<T>(
+  url: string,
+  timeoutMs: number,
+  options: RequestInit = {}
+): Promise<{ ok: boolean; data?: T }> {
+  try {
+    const controller = new AbortController();
+    const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', ...options.headers },
+    });
+
+    clearTimeout(timeoutHandle);
+
+    if (!response.ok) {
+      return { ok: false };
+    }
+
+    const data = await response.json() as T;
+    return { ok: true, data };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/**
  * Check if a local server is running on a given port
  */
 async function checkLocalServer(url: string): Promise<boolean> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
-
-    const response = await fetch(`${url}/models`, {
-      signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    clearTimeout(timeout);
-    return response.ok;
-  } catch {
-    return false;
-  }
+  const result = await fetchWithTimeout(`${url}/models`, 2000);
+  return result.ok;
 }
 
 /**
  * Fetch models from a local server
  */
 async function fetchLocalModels(baseURL: string): Promise<ModelInfo[]> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+  const result = await fetchWithTimeout<{ data?: Array<{ id: string; owned_by?: string }> }>(
+    `${baseURL}/models`,
+    5000
+  );
 
-    const response = await fetch(`${baseURL}/models`, {
-      signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const data = await response.json() as { data?: Array<{ id: string; owned_by?: string }> };
-    const models = data.data || [];
-
-    return models.map((m: { id: string; owned_by?: string }) => ({
-      id: m.id,
-      name: m.id,
-      description: m.owned_by ? `Provided by ${m.owned_by}` : 'Local model',
-    }));
-  } catch {
+  if (!result.ok || !result.data?.data) {
     return [];
   }
+
+  return result.data.data.map((m) => ({
+    id: m.id,
+    name: m.id,
+    description: m.owned_by ? `Provided by ${m.owned_by}` : 'Local model',
+  }));
 }
 
 /**
@@ -326,9 +348,107 @@ async function detectLocalServers(): Promise<Array<{ name: string; url: string; 
 }
 
 /**
+ * URL validator for input prompts
+ */
+function validateURL(value: string): boolean | string {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return 'Please enter a valid URL';
+  }
+}
+
+/**
+ * Categorize model by tier (2025 rankings)
+ */
+function categorizeModel(id: string): { tier: string; label: string } {
+  const lower = id.toLowerCase();
+  if (lower.includes('qwen')) return { tier: 'T1', label: 'T1-Qwen' };
+  if (lower.includes('glm') || lower.includes('codegeex') || lower.includes('chatglm')) return { tier: 'T2', label: 'T2-GLM' };
+  if (lower.includes('deepseek')) return { tier: 'T3', label: 'T3-DeepSeek' };
+  if (lower.includes('codestral') || lower.includes('mistral')) return { tier: 'T4', label: 'T4-Codestral' };
+  if (lower.includes('llama') || lower.includes('codellama')) return { tier: 'T5', label: 'T5-Llama' };
+  return { tier: 'T6', label: 'Other' };
+}
+
+/**
+ * Sort models by tier priority
+ */
+function sortModelsByTier(models: ModelInfo[]): ModelInfo[] {
+  const tierOrder = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
+  return [...models].sort((a, b) => {
+    const catA = tierOrder.indexOf(categorizeModel(a.id).tier);
+    const catB = tierOrder.indexOf(categorizeModel(b.id).tier);
+    return catA - catB;
+  });
+}
+
+/**
+ * Build model choices for select prompt
+ */
+function buildModelChoices(models: ModelInfo[], addTierPrefix: boolean = true): Array<{ name: string; value: string }> {
+  const choices = models.map(m => {
+    const { label } = categorizeModel(m.id);
+    const prefix = addTierPrefix && label !== 'Other' ? `[${label}] ` : '';
+    return {
+      name: `${prefix}${m.name} - ${m.description}`,
+      value: m.id,
+    };
+  });
+  choices.push({
+    name: chalk.dim('Enter custom model name...'),
+    value: '__custom__',
+  });
+  return choices;
+}
+
+/**
+ * Handle model selection with custom option
+ */
+async function selectModelWithCustom(
+  choices: Array<{ name: string; value: string }>,
+  defaultValue: string,
+  customDefault: string
+): Promise<string> {
+  const selection = await select({
+    message: 'Select model:',
+    choices,
+    default: defaultValue,
+  });
+
+  if (selection === '__custom__') {
+    return input({
+      message: 'Enter model name:',
+      default: customDefault,
+    });
+  }
+  return selection;
+}
+
+/**
+ * Print a styled box header
+ */
+function printBoxHeader(title: string, width: number = 50): void {
+  const padding = Math.max(0, width - title.length - 4);
+  const leftPad = Math.floor(padding / 2);
+  const rightPad = padding - leftPad;
+  console.log(chalk.cyan(`  ┌${'─'.repeat(width)}┐`));
+  console.log(chalk.cyan(`  │${' '.repeat(leftPad)} ${title} ${' '.repeat(rightPad)}│`));
+  console.log(chalk.cyan(`  └${'─'.repeat(width)}┘\n`));
+}
+
+/**
+ * Setup options
+ */
+export interface SetupOptions {
+  force?: boolean;
+}
+
+/**
  * Run the setup wizard
  */
-export async function runSetup(): Promise<void> {
+export async function runSetup(options: SetupOptions = {}): Promise<void> {
   console.log(chalk.cyan('\n  ╔════════════════════════════════════════════════╗'));
   console.log(chalk.cyan('  ║       Welcome to ax-cli Setup Wizard           ║'));
   console.log(chalk.cyan('  ║         LOCAL/OFFLINE AI Assistant             ║'));
@@ -342,12 +462,23 @@ export async function runSetup(): Promise<void> {
   console.log(chalk.dim('  • Grok (xAI):     npm install -g @defai.digital/ax-grok'));
   console.log(chalk.dim('  • DeepSeek:       (coming soon) @defai.digital/ax-deepseek\n'));
 
+  // Handle --force flag: delete existing config
+  if (options.force && existsSync(AX_CLI_CONFIG_FILE)) {
+    console.log(chalk.yellow('  ⚠ Force flag detected - deleting existing configuration...'));
+    const deleted = deleteConfig();
+    if (deleted) {
+      console.log(chalk.green('  ✓ Existing configuration deleted\n'));
+    } else {
+      console.log(chalk.red('  ✗ Failed to delete existing configuration\n'));
+      process.exit(1);
+    }
+  }
+
   // Load existing config
   const existingConfig = loadConfig();
 
-  console.log(chalk.cyan('\n  ┌─────────────────────────────────────────────────────┐'));
-  console.log(chalk.cyan('  │  Local/Offline Setup (Ollama, LMStudio, vLLM)       │'));
-  console.log(chalk.cyan('  └─────────────────────────────────────────────────────┘\n'));
+  console.log();
+  printBoxHeader('Local/Offline Setup (Ollama, LMStudio, vLLM)', 53);
 
   console.log('  Run AI models locally without an API key.\n');
   console.log(chalk.bold('  2025 Offline Coding LLM Rankings (Updated Dec 2025):'));
@@ -393,14 +524,7 @@ export async function runSetup(): Promise<void> {
       selectedBaseURL = await input({
         message: 'Enter server URL:',
         default: 'http://localhost:11434/v1',
-        validate: (value) => {
-          try {
-            new URL(value);
-            return true;
-          } catch {
-            return 'Please enter a valid URL';
-          }
-        },
+        validate: validateURL,
       });
     } else {
       selectedBaseURL = serverSelection;
@@ -418,14 +542,7 @@ export async function runSetup(): Promise<void> {
     selectedBaseURL = await input({
       message: 'Enter your server URL:',
       default: existingConfig.baseURL || 'http://localhost:11434/v1',
-      validate: (value) => {
-        try {
-          new URL(value);
-          return true;
-        } catch {
-          return 'Please enter a valid URL';
-        }
-      },
+      validate: validateURL,
     });
   }
 
@@ -443,59 +560,14 @@ export async function runSetup(): Promise<void> {
   if (availableModels.length > 0) {
     console.log(chalk.green(`  ✓ Found ${availableModels.length} model(s) on server\n`));
 
-    // Categorize models by tier (2025 rankings - Updated Dec 2025)
-    const categorizeModel = (id: string): { tier: string; label: string } => {
-      const lower = id.toLowerCase();
-      // Tier 1: Qwen (9.6/10) - Best overall, PRIMARY
-      if (lower.includes('qwen')) return { tier: 'T1', label: 'T1-Qwen' };
-      // Tier 2: GLM-4.6 (9.4/10) - Best refactor + docs (UPGRADED!)
-      if (lower.includes('glm') || lower.includes('codegeex') || lower.includes('chatglm')) return { tier: 'T2', label: 'T2-GLM' };
-      // Tier 3: DeepSeek (9.3/10) - Best speed
-      if (lower.includes('deepseek')) return { tier: 'T3', label: 'T3-DeepSeek' };
-      // Tier 4: Codestral/Mistral (8.4/10) - C/C++/Rust
-      if (lower.includes('codestral') || lower.includes('mistral')) return { tier: 'T4', label: 'T4-Codestral' };
-      // Tier 5: Llama (8.1/10) - Fallback
-      if (lower.includes('llama') || lower.includes('codellama')) return { tier: 'T5', label: 'T5-Llama' };
-      return { tier: 'T6', label: 'Other' };
-    };
+    const sortedModels = sortModelsByTier(availableModels);
+    const modelChoices = buildModelChoices(sortedModels, true);
 
-    // Sort by tier priority (T1 Qwen first, then T2 GLM, etc.)
-    const tierOrder = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
-    const sortedModels = [...availableModels].sort((a, b) => {
-      const catA = tierOrder.indexOf(categorizeModel(a.id).tier);
-      const catB = tierOrder.indexOf(categorizeModel(b.id).tier);
-      return catA - catB;
-    });
-
-    const modelChoices = [
-      ...sortedModels.map(m => {
-        const { label } = categorizeModel(m.id);
-        const prefix = label !== 'Other' ? `[${label}] ` : '';
-        return {
-          name: `${prefix}${m.name} - ${m.description}`,
-          value: m.id,
-        };
-      }),
-      {
-        name: chalk.dim('Enter custom model name...'),
-        value: '__custom__',
-      },
-    ];
-
-    const modelSelection = await select({
-      message: 'Select model:',
-      choices: modelChoices,
-      default: existingConfig.defaultModel || sortedModels[0]?.id,
-    });
-
-    if (modelSelection === '__custom__') {
-      selectedModel = await input({
-        message: 'Enter model name:',
-        default: PROVIDER_INFO.defaultModel,
-      });
-    } else {
-      selectedModel = modelSelection;
-    }
+    selectedModel = await selectModelWithCustom(
+      modelChoices,
+      existingConfig.defaultModel || sortedModels[0]?.id,
+      PROVIDER_INFO.defaultModel
+    );
   } else {
     console.log(chalk.yellow('  Could not fetch models from server.\n'));
     console.log('  Recommended models by tier (Updated Dec 2025):\n');
@@ -517,31 +589,14 @@ export async function runSetup(): Promise<void> {
     });
     console.log();
 
-    const modelChoices = [
-      ...ALL_LOCAL_MODELS.map(m => ({
-        name: `${m.name} - ${m.description}`,
-        value: m.id,
-      })),
-      {
-        name: chalk.dim('Enter custom model name...'),
-        value: '__custom__',
-      },
-    ];
+    // ALL_LOCAL_MODELS already has tier prefixes from mapping, so don't add again
+    const modelChoices = buildModelChoices(ALL_LOCAL_MODELS, false);
 
-    const modelSelection = await select({
-      message: 'Select model:',
-      choices: modelChoices,
-      default: existingConfig.defaultModel || PROVIDER_INFO.defaultModel,
-    });
-
-    if (modelSelection === '__custom__') {
-      selectedModel = await input({
-        message: 'Enter model name:',
-        default: PROVIDER_INFO.defaultModel,
-      });
-    } else {
-      selectedModel = modelSelection;
-    }
+    selectedModel = await selectModelWithCustom(
+      modelChoices,
+      existingConfig.defaultModel || PROVIDER_INFO.defaultModel,
+      PROVIDER_INFO.defaultModel
+    );
 
     availableModels = PROVIDER_INFO.models; // Fallback to predefined local models
   }
@@ -582,7 +637,8 @@ export async function runSetup(): Promise<void> {
     currentModel: selectedModel,
     maxTokens: existingConfig.maxTokens ?? 8192,
     temperature: existingConfig.temperature ?? 0.7,
-    models: availableModels.map(m => m.id),
+    // Ensure the selected model is always persisted, even if it wasn't in the fetched list
+    models: Array.from(new Set([...availableModels.map(m => m.id), selectedModel])),
     _provider: PROVIDER_INFO.name,
     _website: PROVIDER_INFO.website,
     _isLocalServer: true,
@@ -638,9 +694,7 @@ export async function runSetup(): Promise<void> {
   }
 
   // Show summary
-  console.log(chalk.cyan('  ┌─────────────────────────────────────────┐'));
-  console.log(chalk.cyan('  │          Configuration Summary          │'));
-  console.log(chalk.cyan('  └─────────────────────────────────────────┘\n'));
+  printBoxHeader('Configuration Summary', 41);
   console.log(`  Provider:    ${newConfig._provider}`);
   console.log(`  Server:      ${newConfig.baseURL}`);
   console.log(`  Model:       ${newConfig.defaultModel}`);
@@ -648,9 +702,8 @@ export async function runSetup(): Promise<void> {
   console.log();
 
   // Show next steps
-  console.log(chalk.cyan('\n  ┌─────────────────────────────────────────┐'));
-  console.log(chalk.cyan('  │              Next Steps                 │'));
-  console.log(chalk.cyan('  └─────────────────────────────────────────┘\n'));
+  console.log();
+  printBoxHeader('Next Steps', 41);
   console.log(`  1. Run ${chalk.bold('ax-cli')} to start`);
   console.log(`  2. Run ${chalk.bold('ax-cli --help')} for all options`);
   console.log();

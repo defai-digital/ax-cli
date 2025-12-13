@@ -204,7 +204,8 @@ function detectProvider(baseURL: string): string {
     const hostname = urlObj.hostname.toLowerCase();
 
     // xAI/Grok detection (api.x.ai)
-    if (hostname === 'api.x.ai' || hostname.endsWith('.x.ai') || hostname.includes('xai.')) {
+    // BUG FIX: Use exact match instead of includes() to prevent false positives
+    if (hostname === 'api.x.ai' || hostname.endsWith('.x.ai')) {
       return 'xai';
     }
 

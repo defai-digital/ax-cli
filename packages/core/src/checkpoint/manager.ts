@@ -101,9 +101,10 @@ export class CheckpointManager {
       files: fileSnapshots,
       conversationState,
       metadata: {
+        ...options.metadata,
+        // Apply defaults AFTER spread so they're not overwritten by undefined
         model: options.metadata?.model || 'unknown',
         triggeredBy: options.metadata?.triggeredBy || 'manual',
-        ...options.metadata,
       },
     };
 
@@ -212,6 +213,11 @@ export class CheckpointManager {
       );
     }
 
+    // Filter by compression status (default: include all)
+    if (filter?.includeCompressed === false) {
+      checkpoints = checkpoints.filter(c => !c.compressed);
+    }
+
     // Apply limit
     if (filter?.limit) {
       checkpoints = checkpoints.slice(0, filter.limit);
@@ -290,10 +296,16 @@ export class CheckpointManager {
     const checkpoints = await this.storage.listInfo();
     let compressed = 0;
 
+    // BUG FIX: Catch individual compression errors to continue with remaining checkpoints
     for (const checkpoint of checkpoints) {
       if (checkpoint.timestamp < compressDate && !checkpoint.compressed) {
-        await this.storage.compress(checkpoint.id);
-        compressed++;
+        try {
+          await this.storage.compress(checkpoint.id);
+          compressed++;
+        } catch (error: unknown) {
+          const msg = extractErrorMessage(error);
+          console.error(`Failed to compress checkpoint ${checkpoint.id}: ${msg}`);
+        }
       }
     }
 
@@ -377,8 +389,14 @@ export class CheckpointManager {
         .slice(limit)
         .map(c => c.id);
 
+      // BUG FIX: Catch individual delete errors to continue with remaining checkpoints
       for (const id of toDelete) {
-        await this.storage.delete(id);
+        try {
+          await this.storage.delete(id);
+        } catch (error: unknown) {
+          const msg = extractErrorMessage(error);
+          console.error(`Failed to delete checkpoint ${id} during limit enforcement: ${msg}`);
+        }
       }
     }
   }
@@ -459,16 +477,29 @@ export class CheckpointManager {
       console.warn(`Cannot change storageDir at runtime. Current: ${this.config.storageDir}, requested: ${config.storageDir}. Use initCheckpointManager() to change storage location.`);
       const { storageDir: _ignored, ...safeConfig } = config;
       this.config = { ...this.config, ...safeConfig };
+      // BUG FIX: Deep copy array to prevent external mutation
+      if (safeConfig.createBeforeOperations) {
+        this.config.createBeforeOperations = [...safeConfig.createBeforeOperations];
+      }
       return;
     }
     this.config = { ...this.config, ...config };
+    // BUG FIX: Deep copy array to prevent external mutation
+    if (config.createBeforeOperations) {
+      this.config.createBeforeOperations = [...config.createBeforeOperations];
+    }
   }
 
   /**
    * Get current configuration
+   * Returns a deep copy to prevent external mutation
    */
   getConfig(): CheckpointConfig {
-    return { ...this.config };
+    // BUG FIX: Deep copy to prevent mutation of createBeforeOperations array
+    return {
+      ...this.config,
+      createBeforeOperations: [...this.config.createBeforeOperations],
+    };
   }
 }
 
@@ -477,6 +508,9 @@ let checkpointManagerInstance: CheckpointManager | null = null;
 
 /**
  * Get the singleton checkpoint manager instance
+ *
+ * Note: If instance already exists, config and baseDir are ignored.
+ * Use initCheckpointManager() to create a new instance with different config.
  */
 export function getCheckpointManager(
   config?: Partial<CheckpointConfig>,
@@ -484,6 +518,9 @@ export function getCheckpointManager(
 ): CheckpointManager {
   if (!checkpointManagerInstance) {
     checkpointManagerInstance = new CheckpointManager(config, baseDir);
+  } else if (config || baseDir) {
+    // Warn if caller passes config to existing singleton (it will be ignored)
+    console.warn('CheckpointManager singleton already exists; config/baseDir ignored. Use initCheckpointManager() to recreate.');
   }
   return checkpointManagerInstance;
 }

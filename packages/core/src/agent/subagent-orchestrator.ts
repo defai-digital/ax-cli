@@ -15,6 +15,7 @@ import type {
 } from './subagent-types.js';
 import { SubagentRole, SubagentState } from './subagent-types.js';
 import { DependencyResolver } from './dependency-resolver.js';
+import { extractErrorMessage } from '../utils/error-handler.js';
 
 // Import specialized agents
 import { TestingAgent } from './specialized/testing-agent.js';
@@ -228,6 +229,17 @@ export class SubagentOrchestrator extends EventEmitter {
     handlers.set('tool-result', toolResultHandler as (...args: unknown[]) => void);
     subagent.on('tool-result', toolResultHandler);
 
+    // BUG FIX: Handle 'cancel' event to properly decrement activeCount
+    // When abort() is called on a subagent, it emits 'cancel' but NOT 'task-completed'
+    // or 'task-failed'. Without this handler, activeCount would never decrement for
+    // cancelled tasks, causing the orchestrator to report incorrect active counts.
+    const cancelHandler = (data: { role: SubagentRole; taskId: string | null }) => {
+      this.activeCount--;
+      this.emit('subagent-cancelled', { subagentId: id, ...data });
+    };
+    handlers.set('cancel', cancelHandler as (...args: unknown[]) => void);
+    subagent.on('cancel', cancelHandler);
+
     // Store handlers for cleanup
     this.subagentListeners.set(id, handlers);
   }
@@ -301,76 +313,62 @@ export class SubagentOrchestrator extends EventEmitter {
    * Execute a batch of tasks in parallel
    */
   private async executeBatch(tasks: SubagentTask[]): Promise<SubagentResult[]> {
-    const promises = tasks.map(async (task) => {
-      // Infer role from task
-      const role = this.inferRoleFromTask(task);
+    const maxConcurrent = Math.max(1, this.config.maxConcurrentAgents ?? 5);
+    const results: SubagentResult[] = new Array(tasks.length);
+    let nextIndex = 0;
 
-      // Spawn and execute
-      const subagent = await this.spawnSubagent(role);
-
-      try {
-        const result = await subagent.executeTask(task);
-        this.results.set(task.id, result);
-        return result;
-      } finally {
-        await this.terminateSubagent(subagent.id);
-      }
-    });
-
-    // Execute all in parallel with fail-safe
-    const results = await Promise.allSettled(promises);
-
-    return results.map((r, i) => {
-      if (r.status === 'fulfilled') {
-        return r.value;
-      } else {
-        // Task failed - create a proper SubagentResult
-        // BUG FIX: Add safety check for array bounds in case of misalignment
-        const task = tasks[i];
-        if (!task) {
-          // Fallback for edge case where arrays are misaligned
-          return {
-            id: `failed-unknown-${i}`,
-            taskId: `unknown-${i}`,
-            role: 'researcher' as SubagentRole,
-            success: false,
-            output: '',
-            error: r.reason?.message || 'Unknown error (task not found)',
-            executionTime: 0,
-            status: {
-              id: `status-unknown-${i}`,
-              taskId: `unknown-${i}`,
-              role: 'researcher' as SubagentRole,
-              state: SubagentState.FAILED,
-              progress: 0,
-              startTime: new Date(),
-              endTime: new Date(),
-              error: r.reason?.message || 'Unknown error',
-            },
-          };
+    const worker = async (): Promise<void> => {
+      while (true) {
+        const currentIndex = nextIndex;
+        if (currentIndex >= tasks.length) {
+          return;
         }
-        const failedResult: SubagentResult = {
-          id: `failed-${task.id}`,
-          taskId: task.id,
-          role: task.role,
-          success: false,
-          output: '',
-          error: r.reason?.message || 'Unknown error',
-          executionTime: 0,
-          status: {
-            id: `status-${task.id}`,
+        nextIndex++;
+
+        const task = tasks[currentIndex];
+        const role = this.inferRoleFromTask(task);
+        let subagent: Subagent | null = null;
+        const startedAt = Date.now();
+
+        try {
+          subagent = await this.spawnSubagent(role);
+          const result = await subagent.executeTask(task);
+          this.results.set(task.id, result);
+          results[currentIndex] = result;
+        } catch (error) {
+          const message = extractErrorMessage(error);
+          results[currentIndex] = {
+            id: `failed-${task.id}`,
             taskId: task.id,
             role: task.role,
-            state: SubagentState.FAILED,
-            progress: 0,
-            startTime: new Date(),
-            endTime: new Date(),
-            error: r.reason?.message || 'Unknown error',
-          },
-        };
-        return failedResult;
+            success: false,
+            output: '',
+            error: message,
+            executionTime: Date.now() - startedAt,
+            status: {
+              id: `status-${task.id}`,
+              taskId: task.id,
+              role: task.role,
+              state: SubagentState.FAILED,
+              progress: 0,
+              startTime: new Date(startedAt),
+              endTime: new Date(),
+              error: message,
+            },
+          };
+        } finally {
+          if (subagent) {
+            await this.terminateSubagent(subagent.id);
+          }
+        }
       }
-    });
+    };
+
+    const workerCount = Math.min(maxConcurrent, tasks.length);
+    const workers = Array.from({ length: workerCount }, () => worker());
+    await Promise.all(workers);
+
+    return results;
   }
 
   /**

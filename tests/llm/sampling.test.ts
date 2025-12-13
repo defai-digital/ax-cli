@@ -66,36 +66,22 @@ describe("SamplingConfig", () => {
       );
     });
 
-    it("should warn when using topP with non-default temperature", () => {
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-      validateSampling({ topP: 0.9 }, 0.7); // temperature = 0.7
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining("not recommended")
-      );
-      consoleSpy.mockRestore();
+    it("should accept topP with non-default temperature without warning", () => {
+      // Library code should not log warnings - validates silently
+      expect(() => validateSampling({ topP: 0.9 }, 0.7)).not.toThrow();
     });
 
-    it("should not warn when using topP with default temperature", () => {
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-      validateSampling({ topP: 0.9 }, 1.0); // temperature = 1.0 (default)
-      expect(consoleSpy).not.toHaveBeenCalled();
-      consoleSpy.mockRestore();
+    it("should accept topP with default temperature", () => {
+      expect(() => validateSampling({ topP: 0.9 }, 1.0)).not.toThrow();
     });
 
-    it("should warn about doSample=false without seed", () => {
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-      validateSampling({ doSample: false });
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining("without a seed")
-      );
-      consoleSpy.mockRestore();
+    it("should accept doSample=false without seed", () => {
+      // Library code should not log warnings - validates silently
+      expect(() => validateSampling({ doSample: false })).not.toThrow();
     });
 
-    it("should not warn about doSample=false with seed", () => {
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-      validateSampling({ doSample: false, seed: 42 });
-      expect(consoleSpy).not.toHaveBeenCalled();
-      consoleSpy.mockRestore();
+    it("should accept doSample=false with seed", () => {
+      expect(() => validateSampling({ doSample: false, seed: 42 })).not.toThrow();
     });
 
     it("should accept full deterministic config", () => {

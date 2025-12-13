@@ -9,6 +9,11 @@
  * - notify: Show notification, continue (bash safe commands, create_file)
  * - confirm: Require explicit approval (bash dangerous, str_replace_editor)
  * - block: Never allow (dangerous patterns)
+ *
+ * Architecture:
+ * - Uses safety-rules.ts as single source of truth for command/file patterns
+ * - Uses session-state.ts for centralized session approval management
+ * - This module focuses on permission checking logic
  */
 
 import { EventEmitter } from 'events';
@@ -17,6 +22,14 @@ import { homedir } from 'os';
 import { join, dirname } from 'path';
 import * as yaml from 'js-yaml';
 import { CONFIG_DIR_NAME, TIMEOUT_CONFIG } from '../constants.js';
+import {
+  getCommandTier,
+  isSensitiveFile,
+  assessCommandRisk,
+  assessFileRisk,
+  type CommandTier,
+} from '../utils/safety-rules.js';
+import { getSessionState, SessionStateManager } from './session-state.js';
 
 /**
  * Permission tiers from most to least restrictive
@@ -35,16 +48,43 @@ export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 
 /**
  * Permission request for a tool operation
+ *
+ * Context fields:
+ * - command: Required for bash/execute_bash tools
+ * - filePath: Required for file operation tools
+ * - riskLevel: Always required
  */
 export interface PermissionRequest {
   tool: string;
   args: Record<string, unknown>;
   context: {
+    /** File path for file operations */
     filePath?: string;
+    /** Command string for bash operations */
     command?: string;
+    /** Risk level assessment */
     riskLevel: RiskLevel;
+    /** Human-readable description */
     description?: string;
   };
+}
+
+// ============================================================================
+// Type Guards for more precise typing when needed
+// ============================================================================
+
+/**
+ * Type guard: Check if request is for a bash command
+ */
+export function isBashRequest(request: PermissionRequest): request is PermissionRequest & { context: { command: string } } {
+  return (request.tool === 'bash' || request.tool === 'execute_bash') && typeof request.context.command === 'string';
+}
+
+/**
+ * Type guard: Check if request is for a file operation
+ */
+export function isFileRequest(request: PermissionRequest): request is PermissionRequest & { context: { filePath: string } } {
+  return typeof request.context.filePath === 'string';
 }
 
 /**
@@ -123,26 +163,9 @@ const DEFAULT_CONFIG: PermissionConfig = {
         },
       },
 
-      // Bash - tier depends on command
+      // Bash - tier depends on command (patterns are in safety-rules.ts)
       bash: {
-        tier: PermissionTier.Confirm,
-        patterns: [
-          // Safe commands - auto approve
-          { pattern: '^(ls|cat|echo|pwd|date|whoami|which|type|file)\\b', tier: PermissionTier.AutoApprove },
-          { pattern: '^(npm (test|run|list|ls)|npx|node|pnpm|yarn)\\b', tier: PermissionTier.Notify },
-          { pattern: '^(git (status|log|diff|branch|show))\\b', tier: PermissionTier.AutoApprove },
-          { pattern: '^(git (add|commit|push|pull|checkout|merge))\\b', tier: PermissionTier.Notify },
-
-          // Dangerous commands - confirm
-          { pattern: '^(rm|sudo|chmod|chown|mv|cp)\\b', tier: PermissionTier.Confirm, description: 'File system modification' },
-          { pattern: '\\|\\s*(sh|bash|zsh)\\b', tier: PermissionTier.Confirm, description: 'Pipe to shell' },
-          { pattern: '(&&|;|\\|).*rm\\b', tier: PermissionTier.Confirm, description: 'Chained delete command' },
-
-          // Block dangerous patterns
-          { pattern: 'rm\\s+-rf\\s+/', tier: PermissionTier.Block, description: 'Recursive delete from root' },
-          { pattern: ':(){ :|:& };:', tier: PermissionTier.Block, description: 'Fork bomb' },
-          { pattern: '\\bdd\\b.*of=/dev/', tier: PermissionTier.Block, description: 'Direct disk write' },
-        ],
+        tier: PermissionTier.Confirm, // Default tier; safety-rules.ts has specific patterns
       },
 
       // MCP tools - confirm by default
@@ -159,13 +182,14 @@ const DEFAULT_CONFIG: PermissionConfig = {
  * Permission Manager
  *
  * Manages permission checks for tool execution with configurable tiers.
+ * Delegates to:
+ * - safety-rules.ts for command/file pattern matching
+ * - session-state.ts for session approval management
  */
 export class PermissionManager extends EventEmitter {
   private config: PermissionConfig;
   private configPath: string;
-
-  /** Session-level approvals (cleared on session end) */
-  private sessionApprovals: Set<string> = new Set();
+  private sessionState: SessionStateManager;
 
   /** Pending approval requests */
   private pendingApprovals: Map<string, {
@@ -177,7 +201,15 @@ export class PermissionManager extends EventEmitter {
   constructor() {
     super();
     this.configPath = join(homedir(), CONFIG_DIR_NAME, 'permissions.yaml');
-    this.config = DEFAULT_CONFIG;
+    // Create a copy to avoid mutating the shared DEFAULT_CONFIG
+    this.config = {
+      permissions: {
+        ...DEFAULT_CONFIG.permissions,
+        tools: { ...DEFAULT_CONFIG.permissions.tools },
+        session_approvals: { ...DEFAULT_CONFIG.permissions.session_approvals },
+      },
+    };
+    this.sessionState = getSessionState();
   }
 
   /**
@@ -194,35 +226,65 @@ export class PermissionManager extends EventEmitter {
 
   /**
    * Check permission for a tool operation
+   * Uses safety-rules.ts for pattern matching (single source of truth)
    */
   async checkPermission(request: PermissionRequest): Promise<PermissionResult> {
     const toolConfig = this.getToolConfig(request.tool);
     let tier = toolConfig?.tier || this.config.permissions.default_tier;
 
-    // Check patterns for bash commands
+    // Check patterns for bash commands using consolidated safety-rules
     if ((request.tool === 'bash' || request.tool === 'execute_bash') && request.context.command) {
-      const patternTier = this.checkPatterns(toolConfig?.patterns, request.context.command);
-      if (patternTier) {
-        tier = patternTier;
+      // Use safety-rules.ts as single source of truth
+      const commandTier = getCommandTier(request.context.command);
+      if (commandTier) {
+        tier = this.commandTierToPermissionTier(commandTier);
+      } else {
+        // Fall back to config-based patterns if no match in safety-rules
+        const patternTier = this.checkPatterns(toolConfig?.patterns, request.context.command);
+        if (patternTier) {
+          tier = patternTier;
+        }
       }
     }
 
-    // Check file-specific confirmations
-    if (request.context.filePath && toolConfig?.confirmFor?.files) {
-      if (this.matchesFilePatterns(request.context.filePath, toolConfig.confirmFor.files)) {
+    // Check file-specific confirmations using consolidated safety-rules
+    // Only upgrade tier (never downgrade from Block/Confirm to less restrictive)
+    if (request.context.filePath && tier !== PermissionTier.Block && tier !== PermissionTier.Confirm) {
+      // First check using safety-rules (preferred)
+      if (isSensitiveFile(request.context.filePath)) {
         tier = PermissionTier.Confirm;
       }
+      // Also check legacy config-based patterns
+      else if (toolConfig?.confirmFor?.files) {
+        if (this.matchesFilePatterns(request.context.filePath, toolConfig.confirmFor.files)) {
+          tier = PermissionTier.Confirm;
+        }
+      }
     }
 
-    // Check session approvals
-    const signature = this.getApprovalSignature(request);
-    if (this.sessionApprovals.has(signature)) {
-      return {
-        allowed: true,
-        tier,
-        reason: 'Session approval granted',
-        userApproved: true,
-      };
+    // Block tier is NEVER auto-approved, even with session flags
+    if (tier !== PermissionTier.Block) {
+      // Check session-wide auto-approval flags
+      const operationType = this.getOperationType(request);
+      if (operationType && this.sessionState.isAutoApproved(operationType)) {
+        return {
+          allowed: true,
+          tier,
+          reason: 'Session auto-approval enabled',
+          userApproved: true,
+        };
+      }
+
+      // Check fine-grained session approvals
+      const signature = this.getApprovalSignature(request);
+      if (this.sessionState.hasApproval(signature)) {
+        return {
+          allowed: true,
+          tier,
+          reason: 'Session approval granted',
+          userApproved: true,
+        };
+      }
     }
 
     // Handle based on tier
@@ -269,6 +331,22 @@ export class PermissionManager extends EventEmitter {
   }
 
   /**
+   * Convert CommandTier from safety-rules to PermissionTier
+   */
+  private commandTierToPermissionTier(commandTier: CommandTier): PermissionTier {
+    switch (commandTier) {
+      case 'auto_approve':
+        return PermissionTier.AutoApprove;
+      case 'notify':
+        return PermissionTier.Notify;
+      case 'confirm':
+        return PermissionTier.Confirm;
+      case 'block':
+        return PermissionTier.Block;
+    }
+  }
+
+  /**
    * Request user approval for an operation
    * Returns a promise that resolves when user responds
    */
@@ -310,9 +388,10 @@ export class PermissionManager extends EventEmitter {
     this.pendingApprovals.delete(requestId);
 
     // Grant session approval if requested
+    // BUG FIX: Use sessionState.grantApproval() instead of deprecated sessionApprovals.add()
     if (approved && grantSession) {
       const signature = this.getApprovalSignature(pending.request);
-      this.sessionApprovals.add(signature);
+      this.sessionState.grantApproval(signature);
     }
 
     pending.resolve(approved);
@@ -320,74 +399,92 @@ export class PermissionManager extends EventEmitter {
 
   /**
    * Grant session-level approval for a pattern
+   * Delegates to shared session state
    */
   grantSessionApproval(pattern: string): void {
-    this.sessionApprovals.add(pattern);
+    this.sessionState.grantApproval(pattern);
     this.emit('permission:session_granted', pattern);
   }
 
   /**
    * Revoke session-level approval for a pattern
+   * Delegates to shared session state
    */
   revokeSessionApproval(pattern: string): void {
-    this.sessionApprovals.delete(pattern);
+    this.sessionState.revokeApproval(pattern);
     this.emit('permission:session_revoked', pattern);
   }
 
   /**
    * Clear all session approvals
+   * Delegates to shared session state
    */
   clearSessionApprovals(): void {
-    this.sessionApprovals.clear();
+    this.sessionState.clearApprovals();
     this.emit('permission:session_cleared');
   }
 
   /**
    * Get current permission configuration
+   * Returns a deep copy to prevent external mutation
    */
   getConfig(): PermissionConfig {
-    return { ...this.config };
+    // Deep copy tools - each tool config and nested objects must be copied
+    const toolsCopy: Record<string, ToolPermissionConfig> = {};
+    for (const [key, value] of Object.entries(this.config.permissions.tools)) {
+      toolsCopy[key] = {
+        ...value,
+        // Deep copy each pattern object, not just the array
+        patterns: value.patterns ? value.patterns.map(p => ({ ...p })) : undefined,
+        confirmFor: value.confirmFor ? {
+          files: value.confirmFor.files ? [...value.confirmFor.files] : undefined,
+          commands: value.confirmFor.commands ? [...value.confirmFor.commands] : undefined,
+        } : undefined,
+      };
+    }
+
+    return {
+      permissions: {
+        ...this.config.permissions,
+        tools: toolsCopy,
+        session_approvals: { ...this.config.permissions.session_approvals },
+      },
+    };
   }
 
   /**
    * Update permission configuration
+   * Merges tools and session_approvals instead of replacing them
    */
   async updateConfig(updates: Partial<PermissionConfig['permissions']>): Promise<void> {
     this.config.permissions = {
       ...this.config.permissions,
       ...updates,
+      // Deep merge tools if provided (don't replace entire object)
+      tools: updates.tools
+        ? { ...this.config.permissions.tools, ...updates.tools }
+        : this.config.permissions.tools,
+      // Deep merge session_approvals if provided
+      session_approvals: updates.session_approvals
+        ? { ...this.config.permissions.session_approvals, ...updates.session_approvals }
+        : this.config.permissions.session_approvals,
     };
     await this.saveConfig();
   }
 
   /**
    * Assess risk level for a request
+   * Uses consolidated risk assessment from safety-rules.ts
    */
   assessRisk(request: PermissionRequest): RiskLevel {
-    // Check for dangerous bash patterns
+    // Check for dangerous bash patterns using consolidated function
     if ((request.tool === 'bash' || request.tool === 'execute_bash') && request.context.command) {
-      const cmd = request.context.command.toLowerCase();
-
-      if (cmd.includes('rm -rf') || cmd.includes('sudo')) {
-        return 'critical';
-      }
-      if (cmd.includes('rm ') || cmd.includes('mv ') || cmd.includes('chmod')) {
-        return 'high';
-      }
-      if (cmd.includes('git push') || cmd.includes('npm publish')) {
-        return 'medium';
-      }
+      return assessCommandRisk(request.context.command);
     }
 
-    // Check for sensitive file operations
+    // Check for sensitive file operations using consolidated function
     if (request.context.filePath) {
-      const path = request.context.filePath.toLowerCase();
-      if (path.includes('.env') || path.includes('secret') || path.includes('credential')) {
-        return 'high';
-      }
-      if (path.includes('config') || path.includes('package.json')) {
-        return 'medium';
-      }
+      return assessFileRisk(request.context.filePath);
     }
 
     return request.context.riskLevel || 'low';
@@ -396,6 +493,19 @@ export class PermissionManager extends EventEmitter {
   // ============================================================================
   // Private Methods
   // ============================================================================
+
+  /**
+   * Determine the operation type for session flag checking
+   */
+  private getOperationType(request: PermissionRequest): 'file' | 'bash' | null {
+    if (request.tool === 'bash' || request.tool === 'execute_bash') {
+      return 'bash';
+    }
+    if (request.context.filePath) {
+      return 'file';
+    }
+    return null;
+  }
 
   private getToolConfig(tool: string): ToolPermissionConfig | undefined {
     // Direct match
@@ -489,8 +599,15 @@ export class PermissionManager extends EventEmitter {
         },
       };
     } catch {
-      // File doesn't exist or is invalid, use defaults
-      this.config = DEFAULT_CONFIG;
+      // File doesn't exist or is invalid, use a copy of defaults
+      // (Don't assign DEFAULT_CONFIG directly to avoid mutation risk)
+      this.config = {
+        permissions: {
+          ...DEFAULT_CONFIG.permissions,
+          tools: { ...DEFAULT_CONFIG.permissions.tools },
+          session_approvals: { ...DEFAULT_CONFIG.permissions.session_approvals },
+        },
+      };
     }
   }
 
@@ -505,30 +622,25 @@ export class PermissionManager extends EventEmitter {
   }
 
   /**
-   * BUG FIX: Dispose method to clean up pending approvals and prevent memory leaks
-   * Clears all timeouts and rejects pending approval requests
+   * Clean up this instance's resources (pending approvals, event listeners).
+   * Does NOT affect shared session state - use for instance cleanup without side effects.
    */
-  dispose(): void {
-    // Clear all pending approval timeouts to prevent memory leaks
-    for (const [_requestId, pending] of this.pendingApprovals) {
+  destroy(): void {
+    for (const [, pending] of this.pendingApprovals) {
       clearTimeout(pending.timeout);
-      // Reject the pending request (auto-deny on dispose)
       pending.resolve(false);
     }
     this.pendingApprovals.clear();
-
-    // Clear session approvals
-    this.sessionApprovals.clear();
-
-    // Remove all event listeners
     this.removeAllListeners();
   }
 
   /**
-   * Clean up resources and remove all event listeners.
+   * Full cleanup including session approvals.
+   * Use when completely resetting the permission system (e.g., singleton reset).
    */
-  destroy(): void {
-    this.removeAllListeners();
+  dispose(): void {
+    this.destroy();
+    this.sessionState.clearApprovals();
   }
 }
 
@@ -548,4 +660,15 @@ export async function initializePermissionManager(): Promise<PermissionManager> 
   const manager = getPermissionManager();
   await manager.initialize();
   return manager;
+}
+
+/**
+ * Reset the permission manager singleton (for testing)
+ * Disposes the current instance and clears the reference
+ */
+export function resetPermissionManager(): void {
+  if (permissionManagerInstance) {
+    permissionManagerInstance.dispose();
+    permissionManagerInstance = null;
+  }
 }
