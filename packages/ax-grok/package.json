@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-grok",
-  "version": "4.4.15",
+  "version": "4.4.16",
   "description": "Grok AI Coding Assistant CLI powered by xAI - Terminal-based vibe coding with Grok 4 thinking mode, vision, live web search, and MCP integration. Part of the AX CLI ecosystem.",
   "repository": {
     "type": "git",
@@ -52,20 +52,21 @@
   },
   "license": "MIT",
   "keywords": [
-    "ai-coding-assistant",
-    "cli",
-    "terminal",
-    "vibe-coding",
-    "grok",
-    "grok-4",
-    "xai",
-    "thinking-mode",
-    "vision",
-    "web-search",
-    "live-search",
+    "antigravity",
+    "sdk",
     "mcp",
-    "model-context-protocol",
+    "ide",
+    "coding",
+    "developer-tools",
     "code-generation",
-    "developer-tools"
+    "glm",
+    "grok",
+    "xai",
+    "z-ai",
+    "qwen",
+    "deepseek",
+    "ai-coding",
+    "vibe-coding",
+    "automatosx"
   ]
 }

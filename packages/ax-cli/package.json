@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-cli",
-  "version": "4.4.15",
+  "version": "4.4.16",
   "description": "Enterprise-Class AI Command Line Interface with cool theme (blue, purple, green)",
   "repository": {
     "type": "git",
@@ -48,10 +48,21 @@
   },
   "license": "MIT",
   "keywords": [
-    "ai",
-    "cli",
-    "coding-assistant",
+    "antigravity",
+    "sdk",
+    "mcp",
+    "ide",
+    "coding",
+    "developer-tools",
+    "code-generation",
     "glm",
-    "grok"
+    "grok",
+    "xai",
+    "z-ai",
+    "qwen",
+    "deepseek",
+    "ai-coding",
+    "vibe-coding",
+    "automatosx"
   ]
 }

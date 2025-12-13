@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-core",
-  "version": "4.4.15",
+  "version": "4.4.16",
   "description": "Core library for AX CLI ecosystem - Shared tools, React UI components, MCP client, LLM agent infrastructure, and AutomatosX integration for ax-cli, ax-glm, and ax-grok.",
   "repository": {
     "type": "git",
@@ -120,5 +120,23 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "keywords": [
+    "antigravity",
+    "sdk",
+    "mcp",
+    "ide",
+    "coding",
+    "developer-tools",
+    "code-generation",
+    "glm",
+    "grok",
+    "xai",
+    "z-ai",
+    "qwen",
+    "deepseek",
+    "ai-coding",
+    "vibe-coding",
+    "automatosx"
+  ]
 }
