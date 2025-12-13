@@ -10,13 +10,14 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { DeepAnalyzer } from '../../packages/core/src/utils/deep-analyzer.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 
 describe('DeepAnalyzer', () => {
   let testDir: string;
   let analyzer: DeepAnalyzer;
 
   beforeEach(async () => {
-    testDir = '/tmp/ax-cli-deep-analyzer-test-' + Date.now();
+    testDir = path.join(os.tmpdir(), 'ax-cli-deep-analyzer-test-' + Date.now());
     await setupTestProject(testDir);
     analyzer = new DeepAnalyzer({ projectRoot: testDir });
   });
@@ -89,7 +90,7 @@ describe('DeepAnalyzer', () => {
     });
 
     it('should handle empty source directory', async () => {
-      const emptyDir = '/tmp/ax-cli-empty-' + Date.now();
+      const emptyDir = path.join(os.tmpdir(), 'ax-cli-empty-' + Date.now());
       fs.mkdirSync(emptyDir, { recursive: true });
 
       const emptyAnalyzer = new DeepAnalyzer({ projectRoot: emptyDir });
@@ -139,7 +140,7 @@ describe('DeepAnalyzer', () => {
     });
 
     it('should detect jest framework', async () => {
-      const jestDir = '/tmp/ax-cli-jest-' + Date.now();
+      const jestDir = path.join(os.tmpdir(), 'ax-cli-jest-' + Date.now());
       fs.mkdirSync(path.join(jestDir, 'src'), { recursive: true });
       fs.mkdirSync(path.join(jestDir, 'tests'), { recursive: true });
       fs.writeFileSync(
@@ -157,7 +158,7 @@ describe('DeepAnalyzer', () => {
     });
 
     it('should detect mocha framework', async () => {
-      const mochaDir = '/tmp/ax-cli-mocha-' + Date.now();
+      const mochaDir = path.join(os.tmpdir(), 'ax-cli-mocha-' + Date.now());
       fs.mkdirSync(path.join(mochaDir, 'src'), { recursive: true });
       fs.writeFileSync(
         path.join(mochaDir, 'package.json'),
@@ -214,7 +215,7 @@ describe('DeepAnalyzer', () => {
     });
 
     it('should handle missing README', async () => {
-      const noReadmeDir = '/tmp/ax-cli-no-readme-' + Date.now();
+      const noReadmeDir = path.join(os.tmpdir(), 'ax-cli-no-readme-' + Date.now());
       fs.mkdirSync(path.join(noReadmeDir, 'src'), { recursive: true });
       fs.writeFileSync(path.join(noReadmeDir, 'src', 'index.ts'), 'export const x = 1;');
 
@@ -486,7 +487,7 @@ describe('DeepAnalyzer', () => {
     });
 
     it('should handle missing source directory', async () => {
-      const noSrcDir = '/tmp/ax-cli-no-src-' + Date.now();
+      const noSrcDir = path.join(os.tmpdir(), 'ax-cli-no-src-' + Date.now());
       fs.mkdirSync(noSrcDir, { recursive: true });
 
       const noSrcAnalyzer = new DeepAnalyzer({ projectRoot: noSrcDir });
@@ -572,7 +573,7 @@ describe('DeepAnalyzer', () => {
     });
 
     it('should detect CommonJS style', async () => {
-      const cjsDir = '/tmp/ax-cli-cjs-' + Date.now();
+      const cjsDir = path.join(os.tmpdir(), 'ax-cli-cjs-' + Date.now());
       fs.mkdirSync(path.join(cjsDir, 'src'), { recursive: true });
       fs.writeFileSync(
         path.join(cjsDir, 'src', 'index.js'),
@@ -1143,7 +1144,8 @@ describe('DeepAnalyzer', () => {
       const newAnalyzer = new DeepAnalyzer({ projectRoot: testDir });
       const arch = await newAnalyzer.analyzeArchitecture();
 
-      const typeModule = arch.modules.find(m => m.path.includes('types/user'));
+      // Use path.sep for cross-platform compatibility (Windows uses \, Unix uses /)
+      const typeModule = arch.modules.find(m => m.path.includes(`types${path.sep}user`) || m.path.includes('types/user'));
       expect(typeModule?.kind).toBe('type');
     });
 
@@ -1433,7 +1435,7 @@ describe('DeepAnalyzer', () => {
     });
 
     it('should detect ava test framework', async () => {
-      const avaDir = '/tmp/ax-cli-ava-' + Date.now();
+      const avaDir = path.join(os.tmpdir(), 'ax-cli-ava-' + Date.now());
       fs.mkdirSync(path.join(avaDir, 'src'), { recursive: true });
       fs.writeFileSync(
         path.join(avaDir, 'package.json'),
@@ -1450,7 +1452,7 @@ describe('DeepAnalyzer', () => {
     });
 
     it('should detect tap test framework', async () => {
-      const tapDir = '/tmp/ax-cli-tap-' + Date.now();
+      const tapDir = path.join(os.tmpdir(), 'ax-cli-tap-' + Date.now());
       fs.mkdirSync(path.join(tapDir, 'src'), { recursive: true });
       fs.writeFileSync(
         path.join(tapDir, 'package.json'),
