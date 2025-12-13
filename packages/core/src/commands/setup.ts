@@ -179,7 +179,7 @@ export function createSetupCommand(): Command {
 
   setupCommand
     .description('Initialize AX CLI configuration with AI provider selection')
-    .option('--force', 'Overwrite existing configuration')
+    .option('--force', 'Delete existing configuration and start fresh')
     .option('--no-validate', 'Skip validation of API endpoint and credentials')
     .action(async (options: {
       force?: boolean;
