@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
+import os from 'os';
 import {
   BackgroundTaskManager,
   getBackgroundTaskManager,
@@ -94,7 +95,7 @@ describe('BackgroundTaskManager', () => {
     });
 
     it('should use provided working directory', () => {
-      const cwd = '/tmp';
+      const cwd = os.tmpdir();
       const taskId = manager.spawn('pwd', cwd);
 
       const task = manager.getTaskInfo(taskId);
