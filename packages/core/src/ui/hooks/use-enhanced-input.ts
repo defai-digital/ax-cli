@@ -198,32 +198,151 @@ export interface Key {
 }
 
 // Normalize Shift+Enter detection across terminals (Ink, CSI-u, xterm modifiers)
-export function isShiftEnterKey(_inputChar: string, key: Key): boolean {
+// See: https://github.com/anthropics/claude-code/issues/1259
+// Many terminals send escape sequences for Shift+Enter that need special handling
+export function isShiftEnterKey(inputChar: string, key: Key): boolean {
+  // Method 1: Ink's built-in shift+return detection (works in some terminals)
   if (key.shift && key.return) {
     return true;
   }
 
-  const sequence = key.sequence;
-  if (!sequence) {
-    return false;
-  }
-
-  const shiftEnterPatterns = [
-    /\u001b\[13;2u/, // Kitty/WezTerm CSI-u
-    /\u001b\[13;2~/, // xterm modifyOtherKeys
-    /\u001bO2M/,     // SS3 modifier form some terminals emit
+  // Escape sequence patterns for Shift+Enter from various terminals
+  // Full patterns (with ESC prefix)
+  const fullPatterns = [
+    /\u001b\[13;2u/,    // Kitty/WezTerm CSI-u format
+    /\u001b\[13;2~/,    // xterm modifyOtherKeys
+    /\u001bO2M/,        // SS3 modifier format
+    /\u001b\[27;2;13~/, // xterm extended format
+    /\x1b\[13;2u/,      // Alternative ESC notation
+    /\x1b\[13;2~/,      // Alternative ESC notation
+    /\x1bO2M/,          // Alternative ESC notation
   ];
 
-  if (shiftEnterPatterns.some(pattern => pattern.test(sequence))) {
-    return true;
+  // Stripped patterns (ESC prefix removed by Ink/readline)
+  const strippedPatterns = [
+    /^\[13;2u$/,        // CSI-u without ESC
+    /^\[13;2~$/,        // xterm without ESC
+    /^O2M$/,            // SS3 without ESC
+    /^\[27;2;13~$/,     // xterm extended without ESC
+    /^\[1;2M$/,         // Some terminals
+  ];
+
+  // Method 2: Check key.sequence if available
+  const sequence = key.sequence;
+  if (sequence) {
+    if (fullPatterns.some(pattern => pattern.test(sequence))) {
+      return true;
+    }
+    if (strippedPatterns.some(pattern => pattern.test(sequence))) {
+      return true;
+    }
+    // Partial match for CSI-u variants
+    if (sequence.startsWith('[13;2') && (sequence.endsWith('u') || sequence.endsWith('~'))) {
+      return true;
+    }
+    // Partial match for SS3 variants with Shift modifier (O + modifier 2-9 + M)
+    // Note: OM (without digit) is plain Enter, O2M is Shift+Enter
+    // Modifier 2 = Shift, 3 = Alt, 4 = Shift+Alt, 5 = Ctrl, etc.
+    if (/^O[2-9]M$/.test(sequence)) {
+      return true;
+    }
   }
 
-  // Some environments drop the leading ESC in key.sequence
-  if (sequence.startsWith('[13;2') && (sequence.endsWith('u') || sequence.endsWith('~'))) {
-    return true;
+  // Method 3: Check inputChar for escape sequences
+  // Ink passes the keypress.sequence as inputChar, which may contain the raw sequence
+  if (inputChar) {
+    if (fullPatterns.some(pattern => pattern.test(inputChar))) {
+      return true;
+    }
+    if (strippedPatterns.some(pattern => pattern.test(inputChar))) {
+      return true;
+    }
+    // Partial match for CSI-u variants
+    if (inputChar.startsWith('[13;2') && (inputChar.endsWith('u') || inputChar.endsWith('~'))) {
+      return true;
+    }
+    // Partial match for SS3 variants with Shift modifier
+    // Note: OM (without digit) is plain Enter, O2M is Shift+Enter
+    if (/^O[2-9]M$/.test(inputChar)) {
+      return true;
+    }
   }
 
   return false;
+}
+
+// Detect Option/Alt+Enter for newline insertion (Claude Code compatible)
+// See: https://code.claude.com/docs/en/terminal-config
+// Option+Enter is the default newline method on macOS after terminal configuration
+export function isOptionEnterKey(inputChar: string, key: Key): boolean {
+  // Method 1: Ink's built-in meta+return detection
+  // Works when "Use Option as Meta Key" is enabled in Terminal.app/iTerm2
+  if (key.meta && key.return) {
+    return true;
+  }
+
+  // Method 2: ESC followed by Enter (when Option sends Esc+)
+  // iTerm2 with "Left/Right Option key: Esc+" sends ESC then the character
+  // ESC + CR = \x1b\r, ESC + LF = \x1b\n
+  if (inputChar === '\x1b\r' || inputChar === '\x1b\n') {
+    return true;
+  }
+
+  // Method 3: CSI-u format with Alt modifier (modifier 3 or higher odd numbers)
+  // Modifier 3 = Alt, 5 = Ctrl, 7 = Ctrl+Alt, etc.
+  const sequence = key.sequence;
+
+  // Alt+Enter patterns
+  const altPatterns = [
+    /\u001b\[13;3u/,    // CSI-u Alt+Enter
+    /\u001b\[13;3~/,    // xterm Alt+Enter
+    /\u001bO3M/,        // SS3 Alt+Enter
+    /\x1b\[13;3u/,      // Alternative notation
+    /\x1b\[13;3~/,      // Alternative notation
+  ];
+
+  const strippedAltPatterns = [
+    /^\[13;3u$/,        // CSI-u without ESC
+    /^\[13;3~$/,        // xterm without ESC
+    /^O3M$/,            // SS3 without ESC
+  ];
+
+  if (sequence) {
+    if (altPatterns.some(pattern => pattern.test(sequence))) {
+      return true;
+    }
+    if (strippedAltPatterns.some(pattern => pattern.test(sequence))) {
+      return true;
+    }
+    // Partial match for CSI-u Alt variants
+    if (sequence.startsWith('[13;3') && (sequence.endsWith('u') || sequence.endsWith('~'))) {
+      return true;
+    }
+  }
+
+  if (inputChar) {
+    if (altPatterns.some(pattern => pattern.test(inputChar))) {
+      return true;
+    }
+    if (strippedAltPatterns.some(pattern => pattern.test(inputChar))) {
+      return true;
+    }
+    if (inputChar.startsWith('[13;3') && (inputChar.endsWith('u') || inputChar.endsWith('~'))) {
+      return true;
+    }
+    // SS3 Alt+Enter
+    if (inputChar === 'O3M') {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Combined check for any modifier+Enter that should insert newline
+// This is the primary function to use for newline detection
+export function isNewlineModifierKey(inputChar: string, key: Key): boolean {
+  return isShiftEnterKey(inputChar, key) || isOptionEnterKey(inputChar, key);
 }
 
 export interface EnhancedInputHook {
@@ -644,14 +763,17 @@ export function useEnhancedInput({
   const handleInput = useCallback((inputChar: string, key: Key) => {
     if (disabled) return;
 
-    const shiftEnterDetected = isShiftEnterKey(inputChar, key);
+    // Detect modifier+Enter (Shift+Enter or Option/Alt+Enter) for newline insertion
+    // This matches Claude Code's behavior: https://code.claude.com/docs/en/terminal-config
+    const newlineModifierDetected = isNewlineModifierKey(inputChar, key);
     // BUG FIX: Detect Enter from multiple sources:
     // 1. key.return (standard Ink detection)
     // 2. inputChar === '\r' (carriage return - some terminals send this for Enter)
     // 3. inputChar === '\n' without Ctrl modifier (newline - other terminals send this for Enter)
     // Note: Ctrl+J sends '\n' but should insert newline, not submit, so we exclude Ctrl modifier
-    const isPlainEnter = inputChar === '\r' || (inputChar === '\n' && !key.ctrl);
-    const enterPressed = key.return || shiftEnterDetected || isPlainEnter;
+    // Note: Also exclude meta modifier to avoid treating Option+Enter as plain Enter
+    const isPlainEnter = (inputChar === '\r' || (inputChar === '\n' && !key.ctrl)) && !key.meta;
+    const enterPressed = key.return || newlineModifierDetected || isPlainEnter;
 
     // Handle Ctrl+C - check multiple ways it could be detected
     if ((key.ctrl && inputChar === "c") || inputChar === "\x03") {
@@ -737,8 +859,9 @@ export function useEnhancedInput({
     if (enterPressed) {
       const enterBehavior = inputConfig?.enterBehavior || 'submit';
 
-      // Check if user pressed Shift+Enter (submit key in newline mode)
-      const isShiftEnter = shiftEnterDetected;
+      // Check if user pressed modifier+Enter (Shift+Enter or Option/Alt+Enter)
+      // Both are treated as newline triggers in 'submit' mode (Claude Code compatible)
+      const isModifierEnter = newlineModifierDetected;
 
       // BUG FIX: Use refs to get CURRENT values, avoiding stale closures
       const currentInput = inputRef.current;
@@ -746,7 +869,7 @@ export function useEnhancedInput({
 
       // FIX: Backslash escape for newline - universal shell convention
       // If there's a backslash immediately before cursor, remove it and insert newline
-      // This works in all terminals regardless of Shift+Enter support
+      // This works in all terminals regardless of Shift+Enter/Option+Enter support
       if (currentCursor > 0 && currentInput[currentCursor - 1] === '\\') {
         // Remove the backslash and insert newline instead
         const beforeBackslash = currentInput.slice(0, currentCursor - 1);
@@ -762,8 +885,8 @@ export function useEnhancedInput({
       }
 
       if (enterBehavior === 'newline') {
-        // Newline mode: Enter inserts newline, Shift+Enter submits
-        if (isShiftEnter) {
+        // Newline mode: Enter inserts newline, modifier+Enter submits
+        if (isModifierEnter) {
           handleSubmit();
         } else {
           const result = insertText(currentInput, currentCursor, "\n");
@@ -775,8 +898,9 @@ export function useEnhancedInput({
           cursorPositionRef.current = result.position;
         }
       } else if (enterBehavior === 'submit') {
-        // Submit mode (legacy): Enter submits, Shift+Enter inserts newline
-        if (isShiftEnter) {
+        // Submit mode (default): Enter submits, modifier+Enter inserts newline
+        // Supports both Shift+Enter and Option/Alt+Enter (Claude Code compatible)
+        if (isModifierEnter) {
           const result = insertText(currentInput, currentCursor, "\n");
           setInputState(result.text);
           setCursorPositionState(result.position);
@@ -789,9 +913,9 @@ export function useEnhancedInput({
         }
       } else if (enterBehavior === 'smart') {
         // Smart mode: Auto-detect incomplete input
-        // Shift+Enter always submits, otherwise check if input is incomplete
-        if (isShiftEnter) {
-          // Explicit submit with Shift+Enter
+        // Modifier+Enter always submits, otherwise check if input is incomplete
+        if (isModifierEnter) {
+          // Explicit submit with modifier+Enter
           handleSubmit();
         } else if (isIncompleteInput(currentInput, inputConfig?.smartDetection)) {
           // Input appears incomplete, insert newline

@@ -1,6 +1,8 @@
 import { LLMTool } from "./client.js";
 import { MCPManager, MCPTool } from "../mcp/client.js";
 import { loadMCPConfig } from "../mcp/config.js";
+import { isZAIServer } from "../mcp/zai-templates.js";
+import { getZAIApiKey } from "../mcp/zai-detector.js";
 import { extractErrorMessage } from "../utils/error-handler.js";
 import { TIMEOUT_CONFIG } from "../constants.js";
 import { TOOL_DEFINITIONS } from "../tools/definitions/index.js";
@@ -32,6 +34,8 @@ export const LLM_TOOLS: LLMTool[] = TOOL_DEFINITIONS.map(toOpenAIFormat);
 let mcpManager: MCPManager | null = null;
 // Store the client config used to create the manager (for debugging/inspection)
 let _mcpClientConfig: { name?: string; version?: string } | undefined = undefined;
+// Avoid spamming the console with repeated missing-key warnings
+let warnedMissingZaiApiKey = false;
 
 /**
  * Get or create the MCP manager singleton
@@ -134,6 +138,24 @@ function disableStderrSuppression(): void {
 export async function initializeMCPServers(clientConfig?: { name?: string; version?: string }): Promise<void> {
   const manager = getMCPManager(clientConfig);
   const config = loadMCPConfig();
+  const zaiApiKey = getZAIApiKey();
+
+  // Skip Z.AI servers when no API key is configured to avoid noisy network failures
+  const servers = (config.servers ?? []).filter(server => {
+    if (!isZAIServer(server.name)) {
+      return true;
+    }
+
+    if (zaiApiKey) {
+      return true;
+    }
+
+    if (!warnedMissingZaiApiKey) {
+      console.warn('Skipping Z.AI MCP servers because Z_AI_API_KEY is not configured.');
+      warnedMissingZaiApiKey = true;
+    }
+    return false;
+  });
 
   // Temporarily suppress verbose MCP connection logs (reference counted)
   enableStderrSuppression();
@@ -141,12 +163,12 @@ export async function initializeMCPServers(clientConfig?: { name?: string; versi
   try {
     // Initialize all servers in parallel for better performance
     // Failed servers are logged but don't block other servers
-    const results = await Promise.allSettled(
-      config.servers.map(async (serverConfig) => {
-        try {
-          await manager.addServer(serverConfig);
-          return { name: serverConfig.name, success: true };
-        } catch (error) {
+      const results = await Promise.allSettled(
+        servers.map(async (serverConfig) => {
+          try {
+            await manager.addServer(serverConfig);
+            return { name: serverConfig.name, success: true };
+          } catch (error) {
           console.warn(`Failed to initialize MCP server ${serverConfig.name}:`, error);
           return { name: serverConfig.name, success: false, error };
         }

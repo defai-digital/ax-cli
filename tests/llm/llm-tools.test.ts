@@ -43,6 +43,14 @@ vi.mock('../../packages/core/src/mcp/config.js', () => ({
   loadMCPConfig: vi.fn().mockReturnValue({ servers: [] }),
 }));
 
+vi.mock('../../packages/core/src/mcp/zai-detector.js', () => ({
+  getZAIApiKey: vi.fn().mockReturnValue(null),
+}));
+
+vi.mock('../../packages/core/src/mcp/zai-templates.js', () => ({
+  isZAIServer: vi.fn(() => false),
+}));
+
 vi.mock('../../packages/core/src/tools/definitions/index.js', () => ({
   TOOL_DEFINITIONS: [],
 }));
@@ -86,6 +94,8 @@ import {
 
 import { loadMCPConfig } from '../../packages/core/src/mcp/config.js';
 import { getPriorityRegistry } from '../../packages/core/src/tools/priority-registry.js';
+import * as zaiDetector from '../../packages/core/src/mcp/zai-detector.js';
+import * as zaiTemplates from '../../packages/core/src/mcp/zai-templates.js';
 
 // Access mocks
 import * as mcpClientMock from '../../packages/core/src/mcp/client.js';
@@ -96,6 +106,8 @@ const mockGetConnectionStatus = (mcpClientMock as unknown as { mockGetConnection
 const mockGetPrompts = (mcpClientMock as unknown as { mockGetPrompts: ReturnType<typeof vi.fn> }).mockGetPrompts;
 const mockDiscoverPrompts = (mcpClientMock as unknown as { mockDiscoverPrompts: ReturnType<typeof vi.fn> }).mockDiscoverPrompts;
 const mockEnsureServersInitialized = (mcpClientMock as unknown as { mockEnsureServersInitialized: ReturnType<typeof vi.fn> }).mockEnsureServersInitialized;
+const mockGetZAIApiKey = (zaiDetector as unknown as { getZAIApiKey: ReturnType<typeof vi.fn> }).getZAIApiKey;
+const mockIsZAIServer = (zaiTemplates as unknown as { isZAIServer: ReturnType<typeof vi.fn> }).isZAIServer;
 
 describe('MCP Manager Singleton', () => {
   beforeEach(() => {
@@ -232,6 +244,28 @@ describe('initializeMCPServers', () => {
 
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('All 2 MCP server(s) failed to initialize')
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('should skip Z.AI servers when API key is missing', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    vi.mocked(loadMCPConfig).mockReturnValue({
+      servers: [
+        { name: 'zai-web-search', transport: { type: 'http', url: 'https://api.z.ai', headers: {} } },
+      ],
+    });
+
+    mockIsZAIServer.mockReturnValue(true);
+    mockGetZAIApiKey.mockReturnValue(null);
+
+    await initializeMCPServers();
+
+    expect(mockAddServer).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Z.AI MCP servers because Z_AI_API_KEY is not configured.')
     );
 
     warnSpy.mockRestore();

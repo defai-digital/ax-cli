@@ -476,6 +476,7 @@ export function useInputHandler({
     const builtIn: CommandSuggestion[] = [
       { command: "/help", description: "Show help information" },
       { command: "/shortcuts", description: "Show keyboard shortcuts guide" },
+      { command: "/terminal-setup", description: "Configure Shift+Enter for multi-line input" },
       { command: "/continue", description: "Continue incomplete response" },
       { command: "/retry", description: "Re-send the last message" },
       { command: "/clear", description: "Clear chat history" },
@@ -1033,6 +1034,72 @@ Examples:
         timestamp: new Date(),
       };
       setChatHistory((prev) => [...prev, shortcutsEntry]);
+      clearInput();
+      return true;
+    }
+
+    if (trimmedInput === "/terminal-setup") {
+      const terminalSetupContent = `🔧 **Terminal Setup for Shift+Enter**
+
+Shift+Enter allows you to create multi-line input. If it's not working in your terminal, configure it below:
+
+**VS Code Integrated Terminal:**
+Add to \`settings.json\`:
+\`\`\`json
+{
+  "terminal.integrated.sendKeybindingsToShell": true
+}
+\`\`\`
+
+**iTerm2 (macOS):**
+1. Open Preferences → Profiles → Keys → Key Mappings
+2. Click "+" to add a new mapping
+3. Set: Keyboard Shortcut: ⇧↩ (Shift+Enter)
+4. Action: "Send Escape Sequence"
+5. Esc+: \`[13;2u\`
+
+**Kitty:**
+Add to \`~/.config/kitty/kitty.conf\`:
+\`\`\`
+map shift+enter send_text all \\x1b[13;2u
+\`\`\`
+
+**WezTerm:**
+Add to \`~/.wezterm.lua\`:
+\`\`\`lua
+config.keys = {
+  { key = "Enter", mods = "SHIFT", action = wezterm.action.SendString("\\x1b[13;2u") },
+}
+\`\`\`
+
+**Alacritty:**
+Add to \`~/.config/alacritty/alacritty.yml\`:
+\`\`\`yaml
+key_bindings:
+  - { key: Return, mods: Shift, chars: "\\x1b[13;2u" }
+\`\`\`
+
+**Hyper:**
+Add to \`~/.hyper.js\` config:
+\`\`\`js
+keymaps: {
+  'shift+enter': 'pane:send-escape-sequence:\\x1b[13;2u'
+}
+\`\`\`
+
+**Alternative Methods (work in all terminals):**
+• \`Ctrl+J\` - Insert newline (vi/Unix convention)
+• \`\\Enter\` - Backslash followed by Enter inserts newline
+• Paste multi-line content - Auto-detected and preserved
+
+**Test:** After configuration, press Shift+Enter here. If it inserts a newline, setup is complete!`;
+
+      const terminalSetupEntry: ChatEntry = {
+        type: "assistant",
+        content: terminalSetupContent,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, terminalSetupEntry]);
       clearInput();
       return true;
     }

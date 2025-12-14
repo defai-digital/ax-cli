@@ -63,8 +63,8 @@ export function detectAutomatosX(forceRefresh = false): AutomatosXDetectionResul
   }
 
   try {
-    // Try to find automatosx in PATH
-    const commandPath = findCommand('automatosx');
+    // Try to find AutomatosX CLI in PATH. Package installs `ax` (primary) and may also expose `automatosx`.
+    const commandPath = findCommand();
 
     if (!commandPath) {
       cachedDetection = {
@@ -78,7 +78,7 @@ export function detectAutomatosX(forceRefresh = false): AutomatosXDetectionResul
     // Check version
     let version: string | undefined;
     try {
-      const versionOutput = execSync('automatosx --version', {
+      const versionOutput = execSync(`${commandPath} --version`, {
         encoding: 'utf-8',
         timeout: 5000,
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -91,7 +91,7 @@ export function detectAutomatosX(forceRefresh = false): AutomatosXDetectionResul
     // Check if MCP server capability exists
     let hasMCPServer = false;
     try {
-      const helpOutput = execSync('automatosx mcp --help', {
+      const helpOutput = execSync(`${commandPath} mcp --help`, {
         encoding: 'utf-8',
         timeout: 5000,
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -122,10 +122,11 @@ export function detectAutomatosX(forceRefresh = false): AutomatosXDetectionResul
 }
 
 /**
- * Find a command in PATH (cross-platform)
+ * Find the AutomatosX CLI in PATH (cross-platform)
+ * Prefers `ax` (primary binary) but falls back to `automatosx` for older installs.
  */
-function findCommand(command: string): string | undefined {
-  return findOnPathSync(command) ?? undefined;
+function findCommand(): string | undefined {
+  return findOnPathSync('ax') ?? findOnPathSync('automatosx') ?? undefined;
 }
 
 /**
@@ -144,7 +145,7 @@ export function generateAutoDiscoveryConfig(options?: AutoDiscoveryOptions): MCP
 
   const provider = getActiveProvider();
   const serverName = `automatosx-${provider.name}`;
-  const command = options?.customCommandPath || detection.commandPath || 'automatosx';
+  const command = options?.customCommandPath || detection.commandPath || 'ax';
 
   // Build environment variables
   const env: Record<string, string> = {

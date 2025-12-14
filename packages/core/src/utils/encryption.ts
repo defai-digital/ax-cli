@@ -48,6 +48,12 @@ const ENCRYPTION_CONFIG = {
 };
 
 /**
+ * Legacy PBKDF2 iteration count for backward compatibility.
+ * Used to decrypt API keys encrypted with older versions.
+ */
+const LEGACY_PBKDF2_ITERATIONS = 100000;
+
+/**
  * Validate and decode a base64 string to Buffer.
  * Fails closed: returns null for invalid/malformed input.
  *
@@ -137,15 +143,16 @@ function getMachineIdentifier(): string {
  * Derive an encryption key from machine identifier and salt using PBKDF2.
  *
  * @param salt - Salt for key derivation
+ * @param iterations - Optional iteration count (defaults to current config)
  * @returns Derived encryption key
  */
-function deriveKey(salt: Buffer): Buffer {
+function deriveKey(salt: Buffer, iterations?: number): Buffer {
   const machineId = getMachineIdentifier();
 
   return crypto.pbkdf2Sync(
     machineId,
     salt,
-    ENCRYPTION_CONFIG.pbkdf2Iterations,
+    iterations ?? ENCRYPTION_CONFIG.pbkdf2Iterations,
     ENCRYPTION_CONFIG.keyLength,
     'sha256'
   );
@@ -191,104 +198,136 @@ export function encrypt(plaintext: string): EncryptedValue {
 }
 
 /**
+ * Internal decryption helper that performs the actual decryption.
+ * Separated to allow retrying with different PBKDF2 iteration counts.
+ *
+ * @param encryptedValue - The encrypted value object
+ * @param iterations - PBKDF2 iteration count to use
+ * @returns Decrypted plaintext
+ * @throws Error if decryption fails
+ */
+function decryptWithIterations(encryptedValue: EncryptedValue, iterations: number): string {
+  // Check version
+  if (encryptedValue.version !== ENCRYPTION_CONFIG.version) {
+    throw new Error(
+      `Unsupported encryption version: ${encryptedValue.version}`
+    );
+  }
+
+  // SECURITY FIX: Validate all base64 fields before processing
+  // Prevents crashes from tampered config files with malformed buffers
+
+  // Validate authentication tag first (fastest check)
+  const tag = validateBase64Field(
+    encryptedValue.tag,
+    ENCRYPTION_CONFIG.tagLength,
+    'tag'
+  );
+  if (!tag) {
+    throw new Error('Invalid encrypted data: malformed tag');
+  }
+
+  // SECURITY FIX: Support both old format (salt+IV concatenated) and new format (separate fields)
+  // This maintains backward compatibility while improving security
+  let salt: Buffer;
+  let iv: Buffer;
+
+  if ('salt' in encryptedValue && encryptedValue.salt) {
+    // New format: salt stored separately (more secure)
+    const validatedSalt = validateBase64Field(
+      encryptedValue.salt,
+      ENCRYPTION_CONFIG.saltLength,
+      'salt'
+    );
+    const validatedIv = validateBase64Field(
+      encryptedValue.iv,
+      ENCRYPTION_CONFIG.ivLength,
+      'iv'
+    );
+
+    if (!validatedSalt || !validatedIv) {
+      throw new Error('Invalid encrypted data: malformed salt or iv');
+    }
+
+    salt = validatedSalt;
+    iv = validatedIv;
+  } else {
+    // Old format: salt and IV concatenated (legacy support)
+    const saltAndIv = validateBase64Field(
+      encryptedValue.iv,
+      ENCRYPTION_CONFIG.saltLength + ENCRYPTION_CONFIG.ivLength,
+      'salt+iv'
+    );
+
+    if (!saltAndIv) {
+      throw new Error('Invalid encrypted data: malformed salt/iv');
+    }
+
+    salt = saltAndIv.subarray(0, ENCRYPTION_CONFIG.saltLength);
+    iv = saltAndIv.subarray(ENCRYPTION_CONFIG.saltLength);
+  }
+
+  // Derive key from machine identifier with specified iteration count
+  const key = deriveKey(salt, iterations);
+
+  // Create decipher
+  const decipher = crypto.createDecipheriv(
+    ENCRYPTION_CONFIG.algorithm,
+    key,
+    iv
+  );
+
+  // Set authentication tag
+  decipher.setAuthTag(tag);
+
+  // Decrypt
+  let decrypted = decipher.update(encryptedValue.encrypted, 'base64', 'utf8');
+  decrypted += decipher.final('utf8');
+
+  return decrypted;
+}
+
+/**
  * Decrypt an encrypted value.
+ *
+ * Supports backward compatibility with API keys encrypted using older
+ * PBKDF2 iteration counts (100000 → 600000 migration).
  *
  * @param encryptedValue - The encrypted value object
  * @returns Decrypted plaintext
  * @throws Error if decryption fails (wrong machine, corrupted data, etc.)
  */
 export function decrypt(encryptedValue: EncryptedValue): string {
+  // Try current iteration count first (600000)
   try {
-    // Check version
-    if (encryptedValue.version !== ENCRYPTION_CONFIG.version) {
-      throw new Error(
-        `Unsupported encryption version: ${encryptedValue.version}`
-      );
-    }
-
-    // SECURITY FIX: Validate all base64 fields before processing
-    // Prevents crashes from tampered config files with malformed buffers
-
-    // Validate authentication tag first (fastest check)
-    const tag = validateBase64Field(
-      encryptedValue.tag,
-      ENCRYPTION_CONFIG.tagLength,
-      'tag'
-    );
-    if (!tag) {
-      throw new Error('Invalid encrypted data: malformed tag');
-    }
-
-    // SECURITY FIX: Support both old format (salt+IV concatenated) and new format (separate fields)
-    // This maintains backward compatibility while improving security
-    let salt: Buffer;
-    let iv: Buffer;
-
-    if ('salt' in encryptedValue && encryptedValue.salt) {
-      // New format: salt stored separately (more secure)
-      const validatedSalt = validateBase64Field(
-        encryptedValue.salt,
-        ENCRYPTION_CONFIG.saltLength,
-        'salt'
-      );
-      const validatedIv = validateBase64Field(
-        encryptedValue.iv,
-        ENCRYPTION_CONFIG.ivLength,
-        'iv'
-      );
-
-      if (!validatedSalt || !validatedIv) {
-        throw new Error('Invalid encrypted data: malformed salt or iv');
-      }
-
-      salt = validatedSalt;
-      iv = validatedIv;
-    } else {
-      // Old format: salt and IV concatenated (legacy support)
-      const saltAndIv = validateBase64Field(
-        encryptedValue.iv,
-        ENCRYPTION_CONFIG.saltLength + ENCRYPTION_CONFIG.ivLength,
-        'salt+iv'
-      );
-
-      if (!saltAndIv) {
-        throw new Error('Invalid encrypted data: malformed salt/iv');
-      }
-
-      salt = saltAndIv.subarray(0, ENCRYPTION_CONFIG.saltLength);
-      iv = saltAndIv.subarray(ENCRYPTION_CONFIG.saltLength);
-    }
-
-    // Derive key from machine identifier
-    const key = deriveKey(salt);
-
-    // Create decipher
-    const decipher = crypto.createDecipheriv(
-      ENCRYPTION_CONFIG.algorithm,
-      key,
-      iv
-    );
-
-    // Set authentication tag
-    decipher.setAuthTag(tag);
-
-    // Decrypt
-    let decrypted = decipher.update(encryptedValue.encrypted, 'base64', 'utf8');
-    decrypted += decipher.final('utf8');
-
-    return decrypted;
-  } catch (error) {
-    // SECURITY FIX: Avoid information leakage in error messages
-    // Only log detailed errors when DEBUG env var is set to prevent leaking crypto details
+    return decryptWithIterations(encryptedValue, ENCRYPTION_CONFIG.pbkdf2Iterations);
+  } catch (currentError) {
     if (process.env.DEBUG || process.env.AX_DEBUG) {
-      console.error('[DEBUG] Decryption error:', error);
+      console.error('[DEBUG] Decryption with current iterations failed, trying legacy...');
     }
 
-    // Generic error message without revealing encryption implementation details
-    throw new Error(
-      'Failed to decrypt API key. ' +
-      'Please check your configuration or re-enter your API key.'
-    );
+    // Try legacy iteration count (100000) for backward compatibility
+    try {
+      const decrypted = decryptWithIterations(encryptedValue, LEGACY_PBKDF2_ITERATIONS);
+
+      if (process.env.DEBUG || process.env.AX_DEBUG) {
+        console.error('[DEBUG] Decryption succeeded with legacy iterations');
+      }
+
+      return decrypted;
+    } catch (legacyError) {
+      // Both attempts failed - log detailed error only in debug mode
+      if (process.env.DEBUG || process.env.AX_DEBUG) {
+        console.error('[DEBUG] Decryption error (current):', currentError);
+        console.error('[DEBUG] Decryption error (legacy):', legacyError);
+      }
+
+      // Generic error message without revealing encryption implementation details
+      throw new Error(
+        'Failed to decrypt API key. ' +
+        'Please check your configuration or re-enter your API key.'
+      );
+    }
   }
 }
 

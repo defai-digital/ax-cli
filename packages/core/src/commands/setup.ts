@@ -99,6 +99,8 @@ interface ProviderConfig {
   description: string;
 }
 
+const HIGH_TOKEN_PROVIDERS = new Set(['z.ai', 'z.ai-free', 'x.ai']);
+
 const PROVIDERS: Record<string, ProviderConfig> = {
   'z.ai': {
     name: 'z.ai',
@@ -117,6 +119,15 @@ const PROVIDERS: Record<string, ProviderConfig> = {
     requiresApiKey: true,
     website: 'https://z.ai',
     description: 'Z.AI Free Plan - Standard API endpoint for non-coding-plan users'
+  },
+  'x.ai': {
+    name: 'x.ai',
+    displayName: 'xAI Grok (Recommended)',
+    baseURL: 'https://api.x.ai/v1',
+    defaultModel: 'grok-4',
+    requiresApiKey: true,
+    website: 'https://console.x.ai',
+    description: 'xAI Grok 4.1 family with search, vision, and code execution',
   },
   'openai': {
     name: 'openai',
@@ -157,6 +168,10 @@ function getProviderFromBaseURL(baseURL: string): string | null {
     }
   }
   return null;
+}
+
+function getDefaultProviderKey(existingProviderKey: string | null, defaultBaseURL: string): string {
+  return existingProviderKey || getProviderFromBaseURL(defaultBaseURL) || 'z.ai';
 }
 
 /**
@@ -223,10 +238,11 @@ export function createSetupCommand(): Command {
           hint: provider.description,
         }));
 
+        const defaultProviderKey = getDefaultProviderKey(existingProviderKey, provider.defaultBaseURL);
         const providerKey = await prompts.select({
           message: 'Select your AI provider:',
           options: providerChoices,
-          initialValue: existingProviderKey || 'z.ai',
+          initialValue: defaultProviderKey,
         });
         exitIfCancelled(providerKey);
 
@@ -384,7 +400,7 @@ export function createSetupCommand(): Command {
         // ═══════════════════════════════════════════════════════════════════
         prompts.log.step(chalk.bold(`Step ${activeProvider.features.supportsVision ? '5/6' : '4/5'} — Quick Setup`));
 
-        const maxTokens = (selectedProvider.name === 'z.ai' || selectedProvider.name === 'z.ai-free') ? 32768 : 8192;
+        const maxTokens = HIGH_TOKEN_PROVIDERS.has(selectedProvider.name) ? 32768 : 8192;
 
         // Ask if user wants to use defaults for remaining settings
         const useDefaults = await prompts.confirm({

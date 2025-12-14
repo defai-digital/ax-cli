@@ -66,12 +66,20 @@ export { ContextManager } from '../agent/context-manager.js';
 // Internal imports for SDK functions
 import { LLMAgent } from '../agent/llm-agent.js';
 import { Subagent } from '../agent/subagent.js';
-import { getSettingsManager } from '../utils/settings-manager.js';
+import { getSettingsManager, SettingsManager } from '../utils/settings-manager.js';
 import { initializeMCPServers } from '../llm/tools.js';
 import { z } from 'zod';
 import { SDKError, SDKErrorCode } from './errors.js';
-import { GLM_PROVIDER, GROK_PROVIDER, getApiKeyFromEnv, type ProviderDefinition } from '../provider/config.js';
+import {
+  GLM_PROVIDER,
+  GROK_PROVIDER,
+  getActiveProvider,
+  getApiKeyFromEnv,
+  setActiveProviderConfigPaths,
+  type ProviderDefinition,
+} from '../provider/config.js';
 import { MCP_CONFIG } from '../constants.js';
+import { createConfigFromFlags } from '../agent/config/agentic-config.js';
 // MCPConfig is re-exported below but not used directly in this file
 
 // ============================================================================
@@ -356,6 +364,97 @@ export {
 export type { MockMCPServerOptions } from './testing.js';
 
 // ============================================================================
+// Agentic Behaviors (Phase 2 - GLM/Grok Optimization)
+// ============================================================================
+
+// Agentic Configuration Types
+export type {
+  AgenticConfig,
+  ReActConfig,
+  SelfCorrectionConfig,
+  VerificationConfig,
+  VerificationCallbackType,
+  VerificationCallbackConfig,
+  ParallelExecutionConfig,
+} from '../agent/config/agentic-config.js';
+
+export {
+  mergeAgenticConfig,
+  createConfigFromFlags,
+  DEFAULT_REACT_CONFIG,
+  DEFAULT_CORRECTION_CONFIG,
+  DEFAULT_VERIFICATION_CONFIG,
+  DEFAULT_PARALLEL_CONFIG,
+  DEFAULT_AGENTIC_CONFIG,
+} from '../agent/config/agentic-config.js';
+
+// ReAct Loop Module
+export {
+  createReActLoop,
+  ReActScratchpad,
+  createScratchpad,
+} from '../agent/react/index.js';
+
+export type {
+  ReActStep,
+  ReActLoopResult,
+  ReActStreamChunk,
+  ReActStopReason,
+  ReActActionType,
+  ReActStepStatus,
+  ReActScratchpadState,
+} from '../agent/react/types.js';
+
+// Self-Correction Module
+export {
+  SelfCorrectionEngine,
+  createSelfCorrectionEngine,
+  FailureDetector,
+} from '../agent/correction/index.js';
+
+export type {
+  FailureSignal,
+  FailureType,
+  CorrectionResult,
+  FailureRecord,
+  FailureSeverity,
+  CorrectionStatus,
+} from '../agent/correction/types.js';
+
+// Verification Module
+export {
+  PlanVerifier,
+  createPlanVerifier,
+  createTypeScriptVerifier,
+  runCallback,
+  runTypecheck,
+} from '../planner/verification/index.js';
+
+export type {
+  VerificationCallbackResult,
+  PhaseVerificationResult,
+  VerificationIssue,
+  VerificationStatus,
+  VerificationRunOptions,
+} from '../planner/verification/types.js';
+
+// Parallel Tool Optimization
+export {
+  isParallelSafe,
+  partitionToolCalls,
+  partitionToolCallsWithDependencies,
+  detectToolDependencies,
+  executeToolsInParallel,
+  TOOL_CLASSIFICATION,
+} from '../agent/parallel-tools.js';
+
+export type {
+  ToolExecutionMode,
+  ToolDependency,
+  ToolBatch,
+} from '../agent/parallel-tools.js';
+
+// ============================================================================
 // SDK Helper Functions
 // ============================================================================
 
@@ -381,6 +480,13 @@ const AgentOptionsSchema = z.object({
       z.object({ clientConfig: z.object({ name: z.string().optional(), version: z.string().optional() }).optional() }),
     ])
     .optional(),
+  // Agentic behaviors (Phase 2 - GLM/Grok Optimization)
+  enableReAct: z.boolean().optional(),
+  enableVerification: z.boolean().optional(),
+  disableCorrection: z.boolean().optional(),
+  // Provider-aware options (ignored by createAgent but accepted for validation)
+  enableThinking: z.boolean().optional(),
+  provider: z.custom<ProviderDefinition>((val) => typeof val === 'object' || typeof val === 'undefined').optional(),
 }).strict();
 
 /**
@@ -516,6 +622,67 @@ export interface AgentOptions {
    * Set to object with clientConfig to provide MCP client identification.
    */
   mcp?: 'auto' | 'off' | { clientConfig?: { name?: string; version?: string } };
+
+  // =========================================================================
+  // Agentic Behaviors (Phase 2 - GLM/Grok Optimization)
+  // =========================================================================
+
+  /**
+   * Enable ReAct (Reason + Act) loop mode
+   *
+   * When enabled, the agent uses explicit Thought → Action → Observation
+   * reasoning cycles for complex tasks. This provides more transparent
+   * reasoning traces and better handling of multi-step problems.
+   *
+   * Optimized for GLM-4.6 with thinking mode support.
+   *
+   * @default false
+   *
+   * @example
+   * ```typescript
+   * const agent = await createAgent({ enableReAct: true });
+   * // Agent will now use explicit reasoning cycles
+   * ```
+   */
+  enableReAct?: boolean;
+
+  /**
+   * Enable verification after plan phases
+   *
+   * When enabled, the agent runs TypeScript type checking (tsc --noEmit)
+   * after each phase of a multi-step plan completes. This catches type
+   * errors early and ensures code quality.
+   *
+   * Only affects multi-phase planning mode.
+   *
+   * @default false
+   *
+   * @example
+   * ```typescript
+   * const agent = await createAgent({ enableVerification: true });
+   * // TypeScript check runs after each plan phase
+   * ```
+   */
+  enableVerification?: boolean;
+
+  /**
+   * Disable self-correction on failures
+   *
+   * By default, the agent automatically detects failures (tool errors,
+   * repeated failures, loops) and attempts to self-correct by reflecting
+   * on the error and retrying with a different approach.
+   *
+   * Set to true to disable this behavior.
+   *
+   * @default false (self-correction is ON by default)
+   *
+   * @example
+   * ```typescript
+   * const agent = await createAgent({ disableCorrection: true });
+   * // Agent will not attempt self-correction on failures
+   * ```
+   */
+  disableCorrection?: boolean;
 }
 
 /**
@@ -573,13 +740,14 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
   // Validate input options
   const validated = validateSDKOptions(options);
 
+  const provider = getActiveProvider();
   const settingsManager = getSettingsManager();
-
-  // Load settings from ax-cli setup unless all overrides provided
-  const needsSettings = !(validated.apiKey && validated.baseURL && validated.model);
-  if (needsSettings) {
+  let settingsLoaded = false;
+  const ensureSettings = () => {
+    if (settingsLoaded) return;
     try {
       settingsManager.loadUserSettings();
+      settingsLoaded = true;
     } catch (error) {
       throw new SDKError(
         SDKErrorCode.SETUP_NOT_RUN,
@@ -587,12 +755,35 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
         error instanceof Error ? error : undefined
       );
     }
-  }
+  };
 
-  // Get configuration ONLY from settings (security requirement)
-  const apiKey = validated.apiKey ?? settingsManager.getApiKey();
-  const model = validated.model ?? settingsManager.getCurrentModel();
-  const baseURL = validated.baseURL ?? settingsManager.getBaseURL();
+  // Load settings from ax-cli setup unless all overrides provided
+  const envApiKey = getApiKeyFromEnv(provider);
+
+  // Resolve configuration from overrides, environment, settings, then provider defaults
+  const apiKey =
+    validated.apiKey ??
+    envApiKey ??
+    (() => {
+      ensureSettings();
+      return settingsManager.getApiKey();
+    })();
+
+  const baseURL =
+    validated.baseURL ??
+    (() => {
+      ensureSettings();
+      return settingsManager.getBaseURL();
+    })() ??
+    provider.defaultBaseURL;
+
+  const model =
+    validated.model ??
+    (() => {
+      ensureSettings();
+      return settingsManager.getCurrentModel();
+    })() ??
+    provider.defaultModel;
 
   // Validate required settings exist
   if (!apiKey) {
@@ -642,6 +833,24 @@ export async function createAgent(options: AgentOptions = {}): Promise<LLMAgent>
     model,
     maxToolRounds
   );
+
+  // Configure agentic behaviors (Phase 2 - GLM/Grok Optimization)
+  const { enableReAct, enableVerification, disableCorrection } = validated;
+  if (enableReAct || enableVerification || disableCorrection) {
+    const agenticConfig = createConfigFromFlags({
+      react: enableReAct,
+      verify: enableVerification,
+      noCorrection: disableCorrection,
+    });
+    agent.updateAgenticConfig(agenticConfig);
+
+    if (debug) {
+      console.error('[AX SDK DEBUG] Agentic behaviors configured:');
+      console.error('[AX SDK DEBUG]   ReAct:', enableReAct ?? false);
+      console.error('[AX SDK DEBUG]   Verification:', enableVerification ?? false);
+      console.error('[AX SDK DEBUG]   Self-correction:', !disableCorrection);
+    }
+  }
 
   // Store lifecycle hooks on agent
   (agent as any)._sdkLifecycleHooks = {
@@ -1013,6 +1222,18 @@ export async function createProviderAgent(
   // Validate input options
   const validated = validateSDKOptions(options);
 
+  // Ensure settings manager reads the correct provider-specific config paths.
+  // If the active provider differs, reset the singleton caches so we don't reuse
+  // stale settings from another CLI (e.g., GLM settings while creating a Grok agent).
+  const activeProvider = getActiveProvider();
+  if (!activeProvider || activeProvider.name !== provider.name) {
+    setActiveProviderConfigPaths(provider);
+    SettingsManager.resetInstance();
+  } else {
+    // Still set paths to handle cwd changes for project-level configs
+    setActiveProviderConfigPaths(provider);
+  }
+
   const settingsManager = getSettingsManager();
   const cliName = provider.branding.cliName;
 
@@ -1087,6 +1308,24 @@ export async function createProviderAgent(
       agent.setThinkingConfig({ type: 'enabled' });
     } else {
       agent.setThinkingConfig({ type: 'disabled' });
+    }
+  }
+
+  // Configure agentic behaviors (Phase 2 - GLM/Grok Optimization)
+  const { enableReAct, enableVerification, disableCorrection } = validated;
+  if (enableReAct || enableVerification || disableCorrection) {
+    const agenticConfig = createConfigFromFlags({
+      react: enableReAct,
+      verify: enableVerification,
+      noCorrection: disableCorrection,
+    });
+    agent.updateAgenticConfig(agenticConfig);
+
+    if (debug) {
+      console.error(`[${cliName.toUpperCase()} SDK DEBUG] Agentic behaviors configured:`);
+      console.error(`[${cliName.toUpperCase()} SDK DEBUG]   ReAct: ${enableReAct ?? false}`);
+      console.error(`[${cliName.toUpperCase()} SDK DEBUG]   Verification: ${enableVerification ?? false}`);
+      console.error(`[${cliName.toUpperCase()} SDK DEBUG]   Self-correction: ${!disableCorrection}`);
     }
   }
 

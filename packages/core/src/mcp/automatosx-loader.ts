@@ -8,6 +8,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { homedir } from 'os';
 import type { MCPServerConfig } from '../schemas/settings-schemas.js';
 import { migrateConfig, type MigrationResult } from './config-migrator.js';
 import { detectConfigFormat } from './config-detector.js';
@@ -57,7 +58,9 @@ export interface MergedConfigResult {
  * Get AutomatosX config directory path
  */
 export function getAutomatosXConfigDir(projectRoot?: string): string {
-  const root = projectRoot || process.cwd();
+  // AutomatosX stores its config under the user home by default.
+  // Allow overriding via projectRoot for tests or custom layouts, but prefer user-level config.
+  const root = projectRoot || homedir();
   return path.join(root, '.automatosx');
 }
 
