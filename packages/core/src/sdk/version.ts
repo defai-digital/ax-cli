@@ -27,7 +27,7 @@
  * - Checking CLI compatibility
  * - Debugging CLI-specific issues
  */
-export const CLI_VERSION = '4.0.5';
+export const CLI_VERSION = '4.5.0';
 
 /**
  * SDK library version (semantic versioning for API stability)
@@ -50,8 +50,9 @@ export const CLI_VERSION = '4.0.5';
  * - 1.1.0: Progress reporting, unified logging
  * - 1.2.0: MCP v2 API, lifecycle hooks, tool registry
  * - 1.3.0: Z.AI MCP integration (web search, web reader, vision)
+ * - 1.4.0: Agentic behaviors (ReAct loop, self-correction, verification, parallel tools)
  */
-export const SDK_VERSION = '1.3.0';
+export const SDK_VERSION = '1.4.0';
 
 /**
  * SDK API version (integer for major version tracking)

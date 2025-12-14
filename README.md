@@ -1,7 +1,7 @@
 # AX CLI - Enterprise-Class Vibe Coding
 
 [![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
-[![Tests](https://img.shields.io/badge/tests-6,030+%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-6,084+%20passing-brightgreen.svg)](#)
 [![macOS](https://img.shields.io/badge/macOS-26.0-blue.svg)](https://www.apple.com/macos)
 [![Windows](https://img.shields.io/badge/Windows-10+-blue.svg)](https://www.microsoft.com/windows)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-blue.svg)](https://ubuntu.com)
@@ -85,13 +85,14 @@ Run `/init` inside the CLI to initialize your project context.
 |---------|-------------|
 | **Provider Optimized** | First-class support for GLM (Z.AI) and Grok (xAI) with provider-specific parameters |
 | **17 Built-in Tools** | File editing, bash execution, search, todos, and more |
+| **Agentic Behaviors** | ReAct reasoning loops, self-correction on failures, TypeScript verification |
 | **AutomatosX Agents** | 20+ specialized AI agents for backend, frontend, security, DevOps, and more |
 | **Autonomous Bug Fixing** | Scan and auto-fix timer leaks, resource issues, type errors with rollback safety |
 | **Intelligent Refactoring** | Dead code removal, type safety fixes, complexity reduction with verification |
 | **MCP Integration** | Model Context Protocol with 12+ production-ready templates |
 | **Project Memory** | Intelligent context caching with 50% token savings |
 | **Enterprise Security** | AES-256-GCM encryption, no telemetry, CVSS-rated protections |
-| **60% Test Coverage** | 6,030+ tests with strict TypeScript |
+| **65% Test Coverage** | 6,084+ tests with strict TypeScript |
 
 ---
 
@@ -195,6 +196,21 @@ ax-glm -c           # Short form
 ax-glm -p "analyze this codebase"
 ax-glm -p "fix TypeScript errors" -d /path/to/project
 ```
+
+### Agentic Behavior Flags
+
+```bash
+# Enable ReAct reasoning mode (Thought → Action → Observation cycles)
+ax-glm --react
+
+# Enable TypeScript verification after plan phases
+ax-glm --verify
+
+# Disable self-correction on failures
+ax-glm --no-correction
+```
+
+By default, self-correction is ON (agent automatically retries on failures with reflection). ReAct and verification are OFF by default but can be enabled for more structured reasoning and quality checks.
 
 ### Essential Commands
 
@@ -362,11 +378,13 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
-*   **v4.4.18**: Bug Fixes & Stability - Fixed MCP Client v1 wrapper event listener memory leak (added handler tracking for proper cleanup). Fixed negative activeCount bug in SubagentOrchestrator (cancel handler now checks if task was started). Fixed missing spawn error handler in hooks manager (prevents crashes from command not found errors). Refactored BackgroundTaskManager with consolidated appendLinesWithLimit method. Enhanced exitIfCancelled utility with proper terminal cleanup. Total test count: 6,030+ passing.
+*   **v4.5.0**: Stability & Performance Release - Prevented infinite loops and reduced latency in agent execution. Added Design Stabilizer for design system enforcement. Integrated Grok 4.1 advanced features with server-side agent tools (web_search, x_search, code_execution). Improved agent reliability with better error handling and cleanup. Enhanced test coverage with 6,084+ passing tests.
+*   **v4.4.21**: Agentic Behaviors (Phase 2) - New intelligent agent behaviors for improved reliability and transparency. **ReAct Loop**: Explicit Thought → Action → Observation reasoning cycles for complex tasks (`--react` flag). **Self-Correction**: Automatic failure detection with reflective retry (ON by default, `--no-correction` to disable). **Verification**: TypeScript checking after plan phases (`--verify` flag). **Parallel Tool Optimization**: Dependency detection for safe concurrent execution. SDK updated to v1.4.0 with new `enableReAct`, `enableVerification`, `disableCorrection` options for programmatic usage.
+*   **v4.4.18**: Bug Fixes & Stability - Fixed MCP Client v1 wrapper event listener memory leak (added handler tracking for proper cleanup). Fixed negative activeCount bug in SubagentOrchestrator (cancel handler now checks if task was started). Fixed missing spawn error handler in hooks manager (prevents crashes from command not found errors). Refactored BackgroundTaskManager with consolidated appendLinesWithLimit method. Enhanced exitIfCancelled utility with proper terminal cleanup. Total test count: 6,084+ passing.
 *   **v4.4.17**: README Fix - Added README.md files to all npm packages (ax-grok, ax-glm, ax-cli, ax-core) for proper documentation display on npmjs.com.
 *   **v4.4.16**: Keywords & Bug Fixes - Updated package keywords (antigravity, sdk, mcp, ide, coding, developer-tools, code-generation, glm, grok, xai, z-ai, qwen, deepseek, ai-coding, vibe-coding, automatosx). Verified timeout leak fixes in tool-approval-manager, llm-agent, permission-manager, and process-pool modules - all properly clean up resources in dispose/destroy methods.
 *   **v4.4.15**: NPM Publishing & CI/CD Fixes - Fixed cross-platform path issues in tests (Windows backslash vs Unix forward slash). Fixed confirmation-service test timeout. Successfully published all packages to npm.
-*   **v4.4.13**: Test Coverage & Bug Fixes - Improved DeepAnalyzer test coverage to 85%+ (Statements: 94.82%, Branches: 85.89%, Functions: 94.5%, Lines: 96.13%) with 179 comprehensive tests covering architecture analysis, security scanning, module mapping, and code statistics. Fixed indentation bug in process-pool.ts. Fixed broken context memory tests with unrealistic expectations. Total test count: 5,836+ passing.
+*   **v4.4.13**: Test Coverage & Bug Fixes - Improved DeepAnalyzer test coverage to 85%+ (Statements: 94.82%, Branches: 85.89%, Functions: 94.5%, Lines: 96.13%) with 179 comprehensive tests covering architecture analysis, security scanning, module mapping, and code statistics. Fixed indentation bug in process-pool.ts. Fixed broken context memory tests with unrealistic expectations. Total test count: 5,836+ passing (now 6,084+).
 *   **v4.4.12**: NPM Publishing Fix - Fixed `workspace:*` dependency protocol causing "Unsupported URL Type" error on npm install. Replaced pnpm workspace protocol with versioned dependencies for all published packages. Fixed ax-cli package name from `@ax-cli/cli` to `@defai.digital/ax-cli` to match npm registry. All CI/CD tests now passing on all platforms (ubuntu, macos, windows).
 *   **v4.4.10**: Status Bar Bug Fixes - Fixed MCP server count and background task count always showing 0 in status bar. MCP status now properly updates when servers connect/disconnect (changed from static useMemo to reactive state with event listeners). Added taskError event handler for background tasks. Fixed update message to show correct CLI name (ax-glm/ax-grok) instead of hardcoded "ax-cli".
 *   **v4.4.9**: CI/CD Test Fixes - Fixed all failing GitHub Actions tests. Corrected mock paths for monorepo structure (../../src/ → ../../packages/core/src/), added missing deleteByPrefix method to ResponseCache, fixed test assertions to match implementation behavior, improved Windows path compatibility in tests.
