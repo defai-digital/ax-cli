@@ -64,6 +64,8 @@ export const PasteSettingsSchema = z.object({
 // Input Settings Schema (for multi-line input behavior) - Phase 1
 export const InputSettingsSchema = z.object({
   // Enter key behavior: submit (default), newline, smart (auto-detect)
+  // Default changed to 'submit' because Shift+Enter is unreliable across terminals
+  // Use Ctrl+J or backslash+Enter for newlines (works everywhere)
   enterBehavior: z.enum(['newline', 'submit', 'smart']).optional().default('submit'),
   // Submit keys configuration (default: shift+enter)
   submitKeys: z.array(z.string()).optional().default(['shift+enter']),

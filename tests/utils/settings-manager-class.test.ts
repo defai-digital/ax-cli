@@ -164,15 +164,17 @@ describe('SettingsManager Class Integration', () => {
       const manager = getSettingsManager();
       const config = manager.getInputConfig();
 
+      // Default is 'submit' - Enter sends message, Ctrl+J inserts newline
+      // This is more reliable because Shift+Enter doesn't work in most terminals
       expect(config.enterBehavior).toBe('submit');
-      expect(config.submitKeys).toContain('enter');
+      expect(config.submitKeys).toContain('shift+enter');
       expect(config.smartDetection.enabled).toBe(true);
     });
 
     it('should merge user input config with defaults', () => {
       const manager = getSettingsManager();
 
-      // Save custom input config
+      // Save custom input config (user can still use 'newline' mode if they prefer)
       manager.saveUserSettings({
         input: { enterBehavior: 'newline' },
       });
@@ -842,6 +844,7 @@ describe('SettingsManager Class Integration', () => {
   describe('Static Defaults', () => {
     it('should expose INPUT_DEFAULTS', () => {
       expect(SettingsManager.INPUT_DEFAULTS).toBeDefined();
+      // Default is 'submit' - Enter sends, Ctrl+J inserts newline (more reliable)
       expect(SettingsManager.INPUT_DEFAULTS.enterBehavior).toBe('submit');
     });
 

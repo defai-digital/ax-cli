@@ -1041,58 +1041,64 @@ Examples:
     if (trimmedInput === "/terminal-setup") {
       const terminalSetupContent = `🔧 **Terminal Setup for Shift+Enter**
 
-Shift+Enter allows you to create multi-line input. If it's not working in your terminal, configure it below:
+Shift+Enter allows you to create multi-line input. Configure your terminal below:
 
-**VS Code Integrated Terminal:**
-Add to \`settings.json\`:
+**VS Code Integrated Terminal (Recommended):**
+Add to \`keybindings.json\` (Cmd+Shift+P → "Open Keyboard Shortcuts JSON"):
 \`\`\`json
-{
-  "terminal.integrated.sendKeybindingsToShell": true
-}
+[
+  {
+    "key": "shift+enter",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": { "text": "\\u001b\\r" },
+    "when": "terminalFocus"
+  }
+]
 \`\`\`
 
 **iTerm2 (macOS):**
-1. Open Preferences → Profiles → Keys → Key Mappings
-2. Click "+" to add a new mapping
-3. Set: Keyboard Shortcut: ⇧↩ (Shift+Enter)
-4. Action: "Send Escape Sequence"
-5. Esc+: \`[13;2u\`
+1. Preferences → Profiles → Keys → Key Mappings
+2. Click "+" → Keyboard Shortcut: ⇧↩ (Shift+Enter)
+3. Action: "Send Escape Sequence" → Esc+: \`\\r\`
+
+**Mac Terminal.app:**
+1. Settings → Profiles → Keyboard
+2. Check "Use Option as Meta Key"
+3. Use Option+Enter for newlines
 
 **Kitty:**
 Add to \`~/.config/kitty/kitty.conf\`:
 \`\`\`
-map shift+enter send_text all \\x1b[13;2u
+map shift+enter send_text all \\x1b\\r
 \`\`\`
 
 **WezTerm:**
 Add to \`~/.wezterm.lua\`:
 \`\`\`lua
 config.keys = {
-  { key = "Enter", mods = "SHIFT", action = wezterm.action.SendString("\\x1b[13;2u") },
+  { key = "Enter", mods = "SHIFT", action = wezterm.action.SendString("\\x1b\\r") },
 }
 \`\`\`
 
 **Alacritty:**
-Add to \`~/.config/alacritty/alacritty.yml\`:
-\`\`\`yaml
-key_bindings:
-  - { key: Return, mods: Shift, chars: "\\x1b[13;2u" }
+Add to \`~/.config/alacritty/alacritty.toml\`:
+\`\`\`toml
+[keyboard]
+bindings = [
+  { key = "Return", mods = "Shift", chars = "\\u001b\\r" }
+]
 \`\`\`
 
 **Hyper:**
-Add to \`~/.hyper.js\` config:
+Add to \`~/.hyper.js\`:
 \`\`\`js
-keymaps: {
-  'shift+enter': 'pane:send-escape-sequence:\\x1b[13;2u'
-}
+keymaps: { 'shift+enter': 'pane:send-escape-sequence:\\x1b\\r' }
 \`\`\`
 
-**Alternative Methods (work in all terminals):**
-• \`Ctrl+J\` - Insert newline (vi/Unix convention)
-• \`\\Enter\` - Backslash followed by Enter inserts newline
-• Paste multi-line content - Auto-detected and preserved
+**Fallback (works everywhere):**
+• Type \`\\\` then Enter - backslash escape for newline
 
-**Test:** After configuration, press Shift+Enter here. If it inserts a newline, setup is complete!`;
+**Test:** After setup, press Shift+Enter here. If it creates a newline, you're done!`;
 
       const terminalSetupEntry: ChatEntry = {
         type: "assistant",

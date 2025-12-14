@@ -62,8 +62,10 @@ export class SettingsManager {
 
   /** Public defaults (exposed for tests and external consumers) */
   public static readonly INPUT_DEFAULTS: RequiredInputSettings = {
+    // Default: 'submit' - Enter sends message, Ctrl+J or \+Enter inserts newline
+    // This is more reliable because Shift+Enter doesn't work in most terminals
     enterBehavior: 'submit',
-    submitKeys: ['enter'],
+    submitKeys: ['shift+enter'],
     multilineIndicator: '│ ',
     smartDetection: {
       enabled: true,

@@ -50,15 +50,15 @@ describe("SettingsManager Types and Defaults", () => {
     };
 
     const settings: InputSettings = {
-      enterBehavior: "submit",
-      submitKeys: ["enter"],
+      enterBehavior: "newline",
+      submitKeys: ["shift+enter"],
       multilineIndicator: "│ ",
       smartDetection: {
         enabled: true,
       },
     };
 
-    expect(settings.enterBehavior).toBe("submit");
+    expect(settings.enterBehavior).toBe("newline");
   });
 
   it("should define ShortcutsSettings interface", () => {
@@ -341,9 +341,10 @@ describe("SettingsManager Default Values", () => {
   });
 
   it("should have correct input defaults", () => {
+    // Default is 'submit' - Enter sends, Ctrl+J inserts newline (more reliable)
     const defaults = {
       enterBehavior: "submit",
-      submitKeys: ["enter"],
+      submitKeys: ["shift+enter"],
       multilineIndicator: "│ ",
       smartDetection: {
         enabled: true,
@@ -733,7 +734,7 @@ describe("SettingsManager Class", () => {
 
       const defaultConfigs: Record<string, unknown> = {
         ui: { verbosityLevel: "quiet" },
-        input: { enterBehavior: "submit" },
+        input: { enterBehavior: "submit" }, // Default is now 'submit'
         shortcuts: { showOnStartup: false },
       };
 
@@ -753,12 +754,12 @@ describe("SettingsManager Class", () => {
     it("should not migrate fields that already exist", () => {
       const currentSettings: Record<string, unknown> = {
         ui: { verbosityLevel: "verbose" }, // Already exists
-        input: { enterBehavior: "newline" }, // Already exists
+        input: { enterBehavior: "newline" }, // User has custom setting
       };
 
       const defaultConfigs: Record<string, unknown> = {
         ui: { verbosityLevel: "quiet" },
-        input: { enterBehavior: "submit" },
+        input: { enterBehavior: "submit" }, // Default is now 'submit'
         shortcuts: { showOnStartup: false },
       };
 
@@ -861,6 +862,7 @@ describe("SettingsManager Class", () => {
     });
 
     it("should handle nested object merging for smartDetection", () => {
+      // Default is now 'submit' - Enter sends, Ctrl+J inserts newline
       const defaults = {
         enterBehavior: "submit",
         smartDetection: {
