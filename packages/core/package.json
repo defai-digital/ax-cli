@@ -87,7 +87,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
-    "@defai.digital/ax-schemas": "4.5.0",
+    "@defai.digital/ax-schemas": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@types/ws": "^8.18.1",
     "axios": "^1.13.2",

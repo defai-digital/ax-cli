@@ -163,8 +163,8 @@ importers:
   packages/ax-cli:
     dependencies:
       '@defai.digital/ax-core':
-        specifier: 4.4.19
-        version: 4.4.19(@types/react@19.2.7)
+        specifier: workspace:*
+        version: link:../core
       '@inquirer/prompts':
         specifier: ^7.2.0
         version: 7.10.1(@types/node@22.19.1)
@@ -194,8 +194,8 @@ importers:
   packages/ax-glm:
     dependencies:
       '@defai.digital/ax-core':
-        specifier: 4.4.19
-        version: 4.4.19(@types/react@19.2.7)
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@types/node':
         specifier: ^22.10.1
@@ -207,8 +207,8 @@ importers:
   packages/ax-grok:
     dependencies:
       '@defai.digital/ax-core':
-        specifier: 4.4.19
-        version: 4.4.19(@types/react@19.2.7)
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@types/node':
         specifier: ^22.10.1
@@ -223,8 +223,8 @@ importers:
         specifier: ^0.11.0
         version: 0.11.0
       '@defai.digital/ax-schemas':
-        specifier: 4.4.19
-        version: 4.4.19
+        specifier: workspace:*
+        version: link:../schemas
       '@modelcontextprotocol/sdk':
         specifier: ^1.24.3
         version: 1.24.3(zod@4.1.13)
@@ -445,16 +445,8 @@ packages:
     resolution: {integrity: sha512-Vd/9EVDiu6PPJt9yAh6roZP6El1xHrdvIVGjyBsHR0RYwNHgL7FJPyIIW4fANJNG6FtyZfvlRPpFI4ZM/lubvw==}
     engines: {node: '>=18'}
 
-  '@defai.digital/ax-core@4.4.19':
-    resolution: {integrity: sha512-SVJkmC1TinFTqI+dAb/89azXeRvjwKD9bY9wj4Z53xv0RVE/RXSH1RcoDMK3t7X9uaOMcrfNunEcK+QV4R0ybw==}
-    engines: {node: '>=20.0.0'}
-
   '@defai.digital/ax-schemas@1.1.0':
     resolution: {integrity: sha512-wzC8YRVU/SYICR2OUh21HGShHsIQksclr65YD27CIyBuoBvmEvvHtTUw0C31V+efSl4cIRy3XuTyM0lmi5qsuA==}
-    engines: {node: '>=24.0.0'}
-
-  '@defai.digital/ax-schemas@4.4.19':
-    resolution: {integrity: sha512-dHdKQ8QiSP+6czkP4Var9byI7NGn79w92Rm0E/mvFtfnXBy+7Y8CTKkxd34nIbyRL8UGUNFiHyXCwAwklvEtxw==}
     engines: {node: '>=24.0.0'}
 
   '@esbuild/aix-ppc64@0.25.12':
@@ -3449,48 +3441,7 @@ snapshots:
 
   '@csstools/css-tokenizer@3.0.4': {}
 
-  '@defai.digital/ax-core@4.4.19(@types/react@19.2.7)':
-    dependencies:
-      '@clack/prompts': 0.11.0
-      '@defai.digital/ax-schemas': 4.4.19
-      '@modelcontextprotocol/sdk': 1.24.3(zod@4.1.13)
-      '@types/ws': 8.18.1
-      axios: 1.13.2
-      chalk: 5.6.2
-      clipboardy: 5.0.1
-      commander: 14.0.2
-      dotenv: 17.2.3
-      enquirer: 2.4.1
-      fs-extra: 11.3.2
-      glob: 13.0.0
-      ink: 6.5.1(@types/react@19.2.7)(react@19.2.1)
-      ink-spinner: 5.0.0(ink@6.5.1(@types/react@19.2.7)(react@19.2.1))(react@19.2.1)
-      js-yaml: 4.1.1
-      marked: 15.0.12
-      marked-terminal: 7.3.0(marked@15.0.12)
-      node-cache: 5.1.2
-      openai: 6.10.0(ws@8.18.3)(zod@4.1.13)
-      react: 19.2.1
-      ripgrep-node: 1.0.0
-      simple-git: 3.30.0
-      tiktoken: 1.0.22
-      ts-morph: 27.0.2
-      ws: 8.18.3
-      zod: 4.1.13
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - '@types/react'
-      - bufferutil
-      - debug
-      - react-devtools-core
-      - supports-color
-      - utf-8-validate
-
   '@defai.digital/ax-schemas@1.1.0':
-    dependencies:
-      zod: 4.1.13
-
-  '@defai.digital/ax-schemas@4.4.19':
     dependencies:
       zod: 4.1.13
 
