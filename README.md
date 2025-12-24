@@ -375,64 +375,15 @@ AX CLI uses a modular architecture with provider-specific CLIs built on a shared
 
 ## Changelog
 
-Stay up-to-date with the latest improvements and features.
+| Version | Highlights |
+|---------|------------|
+| **v5.0.1** | Documentation updates, GLM 4.7 model table |
+| **v5.0.0** | GLM 4.7 support, Command Registry architecture, bug fixes |
+| **v4.5.x** | Shift+Enter newlines, stability & performance improvements |
+| **v4.4.x** | Agentic behaviors (ReAct, self-correction), 6,084+ tests |
+| **v4.3.x** | Grok 4 support, MCP V2 client, deep project analysis |
 
-### Recent Highlights:
-
-*   **v5.0.1**: Documentation & Model Updates - Updated README with GLM 4.7 model table, improved provider highlights, and refined changelog formatting.
-*   **v5.0.0**: Major Release - GLM 4.7 Support & Command Registry Architecture
-    - **GLM 4.7 Support**: Full support for the latest GLM-4.7 model with enhanced reasoning and improved coding capabilities
-    - **New Command Registry System**: Extracted 20+ slash command handlers from monolithic use-input-handler.ts into modular registry pattern
-    - **Bug Fixes**:
-      - Fixed race condition in async command processing (setProcessing called after asyncAction)
-      - Fixed missing processing indicator in `/doctor` command
-      - Fixed unknown slash commands silently sent to AI instead of showing error
-      - Fixed command suggestions missing aliases
-    - **Improved UX**: Unknown commands like `/foobar` now show clear error message with `/help` hint
-    - **Better autocomplete**: Command suggestions now include aliases (e.g., `/q` shows as "Exit the application (alias for /exit)")
-    - **Code Quality**: Reduced use-input-handler.ts from 2,780 to ~1,800 lines, improved testability
-*   **v4.5.1**: Shift+Enter for Newlines - Changed default input behavior to industry standard: Enter sends message, Shift+Enter inserts newline. Updated `/terminal-setup` command with proper configurations for VS Code, iTerm2, Kitty, WezTerm, Alacritty, and more. Uses same escape sequence as Claude Code (`\u001b\r`) for maximum compatibility. Backslash+Enter (`\`+Enter) works as universal fallback.
-*   **v4.5.0**: Stability & Performance Release - Prevented infinite loops and reduced latency in agent execution. Added Design Stabilizer for design system enforcement. Integrated Grok 4.1 advanced features with server-side agent tools (web_search, x_search, code_execution). Improved agent reliability with better error handling and cleanup. Enhanced test coverage with 6,084+ passing tests.
-*   **v4.4.21**: Agentic Behaviors (Phase 2) - New intelligent agent behaviors for improved reliability and transparency. **ReAct Loop**: Explicit Thought → Action → Observation reasoning cycles for complex tasks (`--react` flag). **Self-Correction**: Automatic failure detection with reflective retry (ON by default, `--no-correction` to disable). **Verification**: TypeScript checking after plan phases (`--verify` flag). **Parallel Tool Optimization**: Dependency detection for safe concurrent execution. SDK updated to v1.4.0 with new `enableReAct`, `enableVerification`, `disableCorrection` options for programmatic usage.
-*   **v4.4.18**: Bug Fixes & Stability - Fixed MCP Client v1 wrapper event listener memory leak (added handler tracking for proper cleanup). Fixed negative activeCount bug in SubagentOrchestrator (cancel handler now checks if task was started). Fixed missing spawn error handler in hooks manager (prevents crashes from command not found errors). Refactored BackgroundTaskManager with consolidated appendLinesWithLimit method. Enhanced exitIfCancelled utility with proper terminal cleanup. Total test count: 6,084+ passing.
-*   **v4.4.17**: README Fix - Added README.md files to all npm packages (ax-grok, ax-glm, ax-cli, ax-core) for proper documentation display on npmjs.com.
-*   **v4.4.16**: Keywords & Bug Fixes - Updated package keywords (antigravity, sdk, mcp, ide, coding, developer-tools, code-generation, glm, grok, xai, z-ai, qwen, deepseek, ai-coding, vibe-coding, automatosx). Verified timeout leak fixes in tool-approval-manager, llm-agent, permission-manager, and process-pool modules - all properly clean up resources in dispose/destroy methods.
-*   **v4.4.15**: NPM Publishing & CI/CD Fixes - Fixed cross-platform path issues in tests (Windows backslash vs Unix forward slash). Fixed confirmation-service test timeout. Successfully published all packages to npm.
-*   **v4.4.13**: Test Coverage & Bug Fixes - Improved DeepAnalyzer test coverage to 85%+ (Statements: 94.82%, Branches: 85.89%, Functions: 94.5%, Lines: 96.13%) with 179 comprehensive tests covering architecture analysis, security scanning, module mapping, and code statistics. Fixed indentation bug in process-pool.ts. Fixed broken context memory tests with unrealistic expectations. Total test count: 5,836+ passing (now 6,084+).
-*   **v4.4.12**: NPM Publishing Fix - Fixed `workspace:*` dependency protocol causing "Unsupported URL Type" error on npm install. Replaced pnpm workspace protocol with versioned dependencies for all published packages. Fixed ax-cli package name from `@ax-cli/cli` to `@defai.digital/ax-cli` to match npm registry. All CI/CD tests now passing on all platforms (ubuntu, macos, windows).
-*   **v4.4.10**: Status Bar Bug Fixes - Fixed MCP server count and background task count always showing 0 in status bar. MCP status now properly updates when servers connect/disconnect (changed from static useMemo to reactive state with event listeners). Added taskError event handler for background tasks. Fixed update message to show correct CLI name (ax-glm/ax-grok) instead of hardcoded "ax-cli".
-*   **v4.4.9**: CI/CD Test Fixes - Fixed all failing GitHub Actions tests. Corrected mock paths for monorepo structure (../../src/ → ../../packages/core/src/), added missing deleteByPrefix method to ResponseCache, fixed test assertions to match implementation behavior, improved Windows path compatibility in tests.
-*   **v4.4.8**: Maintenance release - Version bump and package updates.
-*   **v4.4.7**: Security & Documentation - Added AutomatosX integration guide to README with bug fixing, refactoring, and multi-agent examples. Fixed ESLint configuration for legacy src/ directory. Resolved all CodeQL security alerts (false positives dismissed with annotations).
-*   **v4.4.6**: Documentation update - Updated and refreshed documentation across the project.
-*   **v4.4.5**: Package metadata update - Updated descriptions and keywords for all packages to better reflect current features: vibe coding, thinking mode, vision, web search, MCP integration, and AutomatosX agent system. Added ax.summary.json for faster prompt context loading.
-*   **v4.4.4**: ax-grok setup fix - Fixed xAI model validation during setup. The `/models` endpoint returns only actual model IDs (e.g., `grok-4-0709`) but not aliases (e.g., `grok-4`). Setup now correctly recognizes model aliases and validates them against available versioned models.
-*   **v4.4.3**: Context optimization fix - Fixed project context injection that was consuming 65% of context at startup. Reduced from 69,000 tokens to 145 tokens (99.8% reduction). AI can still read full ax.index.json via view_file when needed.
-*   **v4.4.1**: Production-level system prompt - Complete rewrite of AI assistant prompts following Claude Code best practices. New 11-section structure: Thinking Loop (understand→plan→execute→verify→summarize), Autonomy (proactive behaviors, ask-with-default pattern), Context Management, Tools & Execution with fallbacks, Verification Protocol, Safety (prompt injection defense, banned commands, secrets), Code Quality, 11 Scenario Playbooks, Communication templates, AI Agents orchestration, and When Uncertain decision path. Scored 8/10 by architecture, security, and quality agents for production parity.
-*   **v4.4.0**: ax-grok connection fix - Fixed xAI API authentication validation to properly handle xAI's unique error responses (400 for invalid keys vs 401 for missing auth). Restored legacy Grok models (grok-3, grok-3-mini, grok-2-1212, grok-2-vision-1212, grok-beta, grok-vision-beta) for backward compatibility with existing user configurations.
-*   **v4.3.19**: /init always rebuilds ax.index.json - Running `/init` (without --force) now always rebuilds the `ax.index.json` project index. Only CUSTOM.md requires `--force` to overwrite. This ensures the project index stays up-to-date with project changes.
-*   **v4.3.18**: Enhanced Project Context - `/init` now generates high-value contextual information for AI assistants: module map (directory purposes, patterns, examples), key abstractions (interfaces, classes, design patterns), import conventions with examples, how-to guides for common tasks (build, test, add commands/tools), and configuration patterns. This provides actionable context rather than just metrics.
-*   **v4.3.17**: Deep Project Analysis - New tiered analysis system for `/init` command. Default Tier 3 provides comprehensive architecture analysis including dependency graphs, circular dependency detection, module fan-in/fan-out metrics, hotspot detection, and code quality metrics. Shared `ax.index.json` at project root used by all CLIs (ax-cli, ax-glm, ax-grok). Optional Tier 4 security analysis available via settings.
-*   **v4.3.16**: Grok 4 exclusive - ax-grok now exclusively supports Grok 4 models (grok-4-0709, grok-4.1-fast) which have all capabilities built-in: vision, extended thinking (reasoning_effort), and live web search. Legacy Grok 3/2 models removed. Updated default model from grok-3 to grok-4-0709.
-*   **v4.3.15**: Streamlined setup flow - New quick setup option reduces setup questions from 5-7 to just 4 (server → API key → model → "use defaults?"). Quick setup automatically installs AutomatosX and runs `ax setup -f`. Added separate vision model selection step for providers with vision support. Users can still access detailed configuration by declining quick setup.
-*   **v4.3.14**: CLI architecture refinement - Separated ax-cli as standalone base CLI without GLM/Grok-specific features. ax-glm and ax-grok remain as dedicated CLIs with full provider-specific features (web search, vision, image generation). Users should install ax-glm or ax-grok directly for advanced features.
-*   **v4.3.13**: UI refresh and bug fixes - Updated ASCII branding for AX-GLM and AX-GROK, fixed parseInt validation in design commands to prevent NaN errors, improved retry-helper documentation, refined welcome panel avatar animations.
-*   **v4.3.12**: Transport cleanup improvements - Added `destroy()` methods to SSETransport and StreamableHttpTransport classes for complete EventEmitter cleanup coverage.
-*   **v4.3.11**: Code quality improvements - Added `destroy()` methods to all EventEmitter classes to prevent memory leaks, fixed duplicate function implementations, improved resource cleanup across MCP, agent, and SDK modules.
-*   **v4.3.10**: Bug fixes - Fixed `mcp remove` command failing when server not connected, added `.unref()` to timer intervals to prevent process exit blocking, fixed TypeScript `any` type errors in doctor.ts and mcp-migrate.ts.
-*   **v4.3.9**: Fixed `/usage` slash command to show xAI/Grok info instead of GLM when using ax-grok.
-*   **v4.3.8**: New models and features - Added Grok 4 (`grok-4-0709`, `grok-4.1-fast`) and GLM 4.6V models, model alias system (`grok-latest`, `glm-fast`), fixed `/usage` CLI command for xAI with accurate Grok pricing, fixed reasoning_effort for Grok 4 models.
-*   **v4.3.7**: Bug fixes - Fixed ax-grok web search (native search instructions now added regardless of MCP tools), fixed temp file cleanup in history manager.
-*   **v4.3.6**: Code quality improvements - ESLint configuration updates, TypeScript strict mode fixes, and dependency updates.
-*   **v4.3.5**: Tool Priority System refactoring - improved code quality, reduced duplication, performance optimizations, and bug fixes.
-*   **v4.3.4**: Improved AutomatosX MCP agent output formatting (clean, readable results instead of raw NDJSON).
-*   **v4.3.3**: Stability improvements and code cleanup.
-*   **v4.3.2**: Fixed Enter key not working in certain terminal environments.
-*   **v4.3.1**: Minor stability improvements and bug fixes.
-*   **v4.3.0**: Major upgrade to MCP client (V2) with enhanced resource handling and connection reliability.
-*   **v4.2.0**: Introduced provider-specific MCP configurations, allowing `ax-glm` and `ax-grok` to run simultaneously without conflicts.
-
-For a complete history of changes, please refer to the [full release notes on GitHub](https://github.com/defai-digital/ax-cli/releases).
+[View full changelog on GitHub →](https://github.com/defai-digital/ax-cli/releases)
 
 ---
 
