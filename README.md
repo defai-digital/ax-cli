@@ -379,6 +379,7 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v5.0.1**: Documentation & Model Updates - Updated README with GLM 4.7 model table, improved provider highlights, and refined changelog formatting.
 *   **v5.0.0**: Major Release - GLM 4.7 Support & Command Registry Architecture
     - **GLM 4.7 Support**: Full support for the latest GLM-4.7 model with enhanced reasoning and improved coding capabilities
     - **New Command Registry System**: Extracted 20+ slash command handlers from monolithic use-input-handler.ts into modular registry pattern
