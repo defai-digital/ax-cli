@@ -676,7 +676,7 @@ export function createFrontendCommand(): Command {
     .command('compare-design <figma-url>')
     .description('Compare implementation with Figma design using visual AI')
     .option('--file <path>', 'Implementation file(s) to compare (comma-separated)', 'src/components')
-    .option('--model <name>', 'Vision model to use', 'glm-4.6v')
+    .option('--model <name>', 'Vision model to use', getActiveProvider().defaultVisionModel || 'glm-4.6v')
     .option('--export-screenshot', 'Export screenshot from Figma', true)
     .option('--format <type>', 'Output format (markdown, html, json)', 'markdown')
     .action(async (figmaUrl: string, options) => {

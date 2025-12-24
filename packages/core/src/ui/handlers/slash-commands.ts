@@ -28,13 +28,41 @@ export interface CommandResult {
 }
 
 /**
+ * Model info for display
+ */
+export interface ModelDisplayInfo {
+  id: string;
+  name: string;
+  description: string;
+  isDefault: boolean;
+  isCurrent: boolean;
+}
+
+/**
  * Dependencies for command handlers
  */
 export interface CommandHandlerDeps {
   /** Get settings manager */
-  getSettingsManager: () => { getCurrentModel: () => string | null; getAvailableModels: () => string[]; getUIConfig: () => { theme?: string } | null; updateUIConfig: (config: { theme: string }) => void };
+  getSettingsManager: () => {
+    getCurrentModel: () => string | null;
+    getAvailableModels: () => string[];
+    getUIConfig: () => { theme?: string } | null;
+    updateUIConfig: (config: { theme: string }) => void;
+    /** Set current model (runtime only, not persisted) */
+    setCurrentModel?: (model: string) => void;
+    /** Save model to user settings (persisted) */
+    saveModelToConfig?: (model: string) => void;
+  };
   /** Get active provider */
-  getActiveProvider: () => { name: string; displayName: string; defaultModel: string; branding: { cliName: string } };
+  getActiveProvider: () => {
+    name: string;
+    displayName: string;
+    defaultModel: string;
+    defaultVisionModel?: string;
+    branding: { cliName: string };
+    models: Record<string, { name: string; description: string; contextWindow: number }>;
+    aliases?: Record<string, string>;
+  };
   /** Get active config paths */
   getActiveConfigPaths: () => { DIR_NAME: string };
   /** Get usage tracker */
@@ -164,8 +192,14 @@ UI Commands:
   /theme           - Show current theme and list available themes
   /theme <name>    - Switch color theme (default, dark, light, dracula, monokai)
 
-Model Configuration:
-  Edit ~/${configDirName}/config.json to configure default model and settings
+Model Commands:
+  /model           - Show current model and list available models
+  /model <name>    - Switch to a model (session only)
+  /model save      - Save current model to config (persistent)
+  /model reset     - Reset to provider default model
+
+Configuration:
+  Edit ~/${configDirName}/config.json to configure settings
 
 For complex operations, just describe what you want in natural language.`;
 
@@ -403,7 +437,7 @@ export function formatGLMUsageInfo(stats: SessionStats): string {
   content += `  • Billing reflects previous day (n-1) consumption\n`;
   content += `  • Current day usage may not be immediately visible\n`;
   content += `  • Cached content: 1/5 of original price\n`;
-  content += `\n**💰 GLM-4.6 Pricing:**\n`;
+  content += `\n**💰 GLM Pricing:**\n`;
   content += `  • Input: $2.00 per 1M tokens\n`;
   content += `  • Output: $10.00 per 1M tokens\n`;
   content += `  • Cached: $0.50 per 1M tokens\n`;
@@ -546,4 +580,301 @@ export function calculateEstimatedCost(
   const outputCost = (completionTokens / 1000000) * outputRate;
   const totalCost = inputCost + outputCost;
   return { inputCost, outputCost, totalCost };
+}
+
+/**
+ * Resolve model alias to actual model name
+ */
+export function resolveModelAlias(
+  modelName: string,
+  aliases?: Record<string, string>
+): string {
+  if (!aliases) return modelName;
+  const lower = modelName.toLowerCase();
+  return aliases[lower] || modelName;
+}
+
+/**
+ * Handle /model command - view, switch, and save models
+ *
+ * Usage:
+ *   /model              - Show current model and list available models
+ *   /model <name>       - Switch to a model (session only)
+ *   /model save         - Save current model to config (persistent)
+ *   /model save <name>  - Switch and save model to config
+ *   /model reset        - Reset to provider default model
+ */
+export function handleModelCommand(
+  args: string,
+  deps: {
+    getCurrentModel: () => string | null;
+    setCurrentModel?: (model: string) => void;
+    saveModelToConfig?: (model: string) => void;
+    getAvailableModels: () => string[];
+  },
+  provider: {
+    name: string;
+    displayName: string;
+    defaultModel: string;
+    defaultVisionModel?: string;
+    models: Record<string, { name: string; description: string; contextWindow: number; supportsVision?: boolean }>;
+    aliases?: Record<string, string>;
+  },
+  configDirName: string
+): CommandResult {
+  const currentModel = deps.getCurrentModel() || provider.defaultModel;
+  const trimmedArgs = args.trim().toLowerCase();
+
+  // /model or /model list - show current model and available models
+  if (!trimmedArgs || trimmedArgs === 'list' || trimmedArgs === 'status') {
+    return handleModelListCommand(currentModel, provider, configDirName);
+  }
+
+  // /model reset - reset to provider default
+  if (trimmedArgs === 'reset' || trimmedArgs === 'default') {
+    return handleModelResetCommand(provider, deps, configDirName);
+  }
+
+  // /model save [name] - save model to config
+  if (trimmedArgs.startsWith('save')) {
+    const modelToSave = trimmedArgs.replace('save', '').trim();
+    return handleModelSaveCommand(
+      modelToSave || currentModel,
+      provider,
+      deps,
+      configDirName
+    );
+  }
+
+  // /model <name> - switch model (session only)
+  return handleModelSwitchCommand(trimmedArgs, currentModel, provider, deps);
+}
+
+/**
+ * Handle /model list - show available models
+ */
+function handleModelListCommand(
+  currentModel: string,
+  provider: {
+    displayName: string;
+    defaultModel: string;
+    defaultVisionModel?: string;
+    models: Record<string, { name: string; description: string; contextWindow: number; supportsVision?: boolean }>;
+    aliases?: Record<string, string>;
+  },
+  configDirName: string
+): CommandResult {
+  let content = `🤖 **Model Selection (${provider.displayName})**\n\n`;
+  content += `**Current Model:** \`${currentModel}\`\n`;
+  content += `**Provider Default:** \`${provider.defaultModel}\`\n`;
+  if (provider.defaultVisionModel) {
+    content += `**Vision Model:** \`${provider.defaultVisionModel}\`\n`;
+  }
+  content += '\n';
+
+  // List available models
+  content += '**Available Models:**\n';
+  const modelEntries = Object.entries(provider.models);
+
+  // Group by type (text vs vision)
+  const textModels = modelEntries.filter(([_, m]) => !('supportsVision' in m && m.supportsVision));
+  const visionModels = modelEntries.filter(([_, m]) => 'supportsVision' in m && m.supportsVision);
+
+  for (const [id, model] of textModels) {
+    const isCurrentMarker = id === currentModel ? ' ← current' : '';
+    const isDefaultMarker = id === provider.defaultModel ? ' (default)' : '';
+    const contextK = Math.round(model.contextWindow / 1000);
+    content += `  • \`${id}\`${isDefaultMarker}${isCurrentMarker}\n`;
+    content += `    ${model.description} (${contextK}K context)\n`;
+  }
+
+  if (visionModels.length > 0) {
+    content += '\n**Vision Models:**\n';
+    for (const [id, model] of visionModels) {
+      const contextK = Math.round(model.contextWindow / 1000);
+      content += `  • \`${id}\` - ${model.description} (${contextK}K)\n`;
+    }
+  }
+
+  // List aliases
+  if (provider.aliases && Object.keys(provider.aliases).length > 0) {
+    content += '\n**Aliases:**\n';
+    for (const [alias, target] of Object.entries(provider.aliases)) {
+      content += `  • \`${alias}\` → \`${target}\`\n`;
+    }
+  }
+
+  content += '\n**Commands:**\n';
+  content += '  `/model <name>`       - Switch model (session only)\n';
+  content += '  `/model save`         - Save current model to config\n';
+  content += '  `/model save <name>`  - Switch and save to config\n';
+  content += '  `/model reset`        - Reset to provider default\n';
+  content += `\n💡 Config: ~/${configDirName}/config.json`;
+
+  return {
+    handled: true,
+    entries: [{
+      type: 'assistant',
+      content,
+      timestamp: new Date(),
+    }],
+    clearInput: true,
+  };
+}
+
+/**
+ * Handle /model <name> - switch model for current session
+ */
+function handleModelSwitchCommand(
+  modelName: string,
+  _currentModel: string,
+  provider: {
+    models: Record<string, { name: string; description: string }>;
+    aliases?: Record<string, string>;
+  },
+  deps: {
+    setCurrentModel?: (model: string) => void;
+  }
+): CommandResult {
+  // Resolve alias
+  const resolvedModel = resolveModelAlias(modelName, provider.aliases);
+
+  // Check if model exists in provider config
+  const modelConfig = provider.models[resolvedModel];
+  const isKnownModel = !!modelConfig;
+
+  // Allow switching even to unknown models (for custom/external models)
+  if (deps.setCurrentModel) {
+    deps.setCurrentModel(resolvedModel);
+  }
+
+  let content: string;
+  if (isKnownModel) {
+    content = `✅ **Switched to \`${resolvedModel}\`**\n\n`;
+    content += `${modelConfig.description}\n\n`;
+    content += '💡 This change is for the current session only.\n';
+    content += 'Use `/model save` to persist across sessions.';
+  } else {
+    content = `⚠️ **Switched to \`${resolvedModel}\`** (custom model)\n\n`;
+    content += 'This model is not in the provider config.\n';
+    content += 'Make sure it exists on your API endpoint.\n\n';
+    content += '💡 Use `/model save` to persist if it works.';
+  }
+
+  if (modelName !== resolvedModel) {
+    content = content.replace(
+      `**Switched to \`${resolvedModel}\`**`,
+      `**Switched to \`${resolvedModel}\`** (via alias \`${modelName}\`)`
+    );
+  }
+
+  return {
+    handled: true,
+    entries: [{
+      type: 'assistant',
+      content,
+      timestamp: new Date(),
+    }],
+    clearInput: true,
+  };
+}
+
+/**
+ * Handle /model save - save current model to config
+ */
+function handleModelSaveCommand(
+  modelName: string,
+  provider: {
+    models: Record<string, { name: string; description: string }>;
+    aliases?: Record<string, string>;
+  },
+  deps: {
+    setCurrentModel?: (model: string) => void;
+    saveModelToConfig?: (model: string) => void;
+  },
+  configDirName: string
+): CommandResult {
+  const resolvedModel = resolveModelAlias(modelName, provider.aliases);
+
+  if (!deps.saveModelToConfig) {
+    return {
+      handled: true,
+      entries: [{
+        type: 'assistant',
+        content: '❌ Model saving is not supported in this context.',
+        timestamp: new Date(),
+      }],
+      clearInput: true,
+    };
+  }
+
+  // Save to config
+  deps.saveModelToConfig(resolvedModel);
+
+  // Also set as current model
+  if (deps.setCurrentModel) {
+    deps.setCurrentModel(resolvedModel);
+  }
+
+  const modelConfig = provider.models[resolvedModel];
+  let content = `✅ **Saved \`${resolvedModel}\` to config**\n\n`;
+  if (modelConfig) {
+    content += `${modelConfig.description}\n\n`;
+  }
+  content += `📁 Config: ~/${configDirName}/config.json\n\n`;
+  content += 'This model will be used in future sessions.';
+
+  return {
+    handled: true,
+    entries: [{
+      type: 'assistant',
+      content,
+      timestamp: new Date(),
+    }],
+    clearInput: true,
+  };
+}
+
+/**
+ * Handle /model reset - reset to provider default
+ */
+function handleModelResetCommand(
+  provider: {
+    defaultModel: string;
+    models: Record<string, { name: string; description: string }>;
+  },
+  deps: {
+    setCurrentModel?: (model: string) => void;
+    saveModelToConfig?: (model: string) => void;
+  },
+  configDirName: string
+): CommandResult {
+  const defaultModel = provider.defaultModel;
+
+  // Set current model to default
+  if (deps.setCurrentModel) {
+    deps.setCurrentModel(defaultModel);
+  }
+
+  // Save to config
+  if (deps.saveModelToConfig) {
+    deps.saveModelToConfig(defaultModel);
+  }
+
+  const modelConfig = provider.models[defaultModel];
+  let content = `✅ **Reset to default: \`${defaultModel}\`**\n\n`;
+  if (modelConfig) {
+    content += `${modelConfig.description}\n\n`;
+  }
+  content += `📁 Saved to ~/${configDirName}/config.json`;
+
+  return {
+    handled: true,
+    entries: [{
+      type: 'assistant',
+      content,
+      timestamp: new Date(),
+    }],
+    clearInput: true,
+  };
 }

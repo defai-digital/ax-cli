@@ -378,6 +378,16 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
+*   **v5.0.0**: Major Release - Command Registry Architecture
+    - **New Command Registry System**: Extracted 20+ slash command handlers from monolithic use-input-handler.ts into modular registry pattern
+    - **Bug Fixes**:
+      - Fixed race condition in async command processing (setProcessing called after asyncAction)
+      - Fixed missing processing indicator in `/doctor` command
+      - Fixed unknown slash commands silently sent to AI instead of showing error
+      - Fixed command suggestions missing aliases
+    - **Improved UX**: Unknown commands like `/foobar` now show clear error message with `/help` hint
+    - **Better autocomplete**: Command suggestions now include aliases (e.g., `/q` shows as "Exit the application (alias for /exit)")
+    - **Code Quality**: Reduced use-input-handler.ts from 2,780 to ~1,800 lines, improved testability
 *   **v4.5.1**: Shift+Enter for Newlines - Changed default input behavior to industry standard: Enter sends message, Shift+Enter inserts newline. Updated `/terminal-setup` command with proper configurations for VS Code, iTerm2, Kitty, WezTerm, Alacritty, and more. Uses same escape sequence as Claude Code (`\u001b\r`) for maximum compatibility. Backslash+Enter (`\`+Enter) works as universal fallback.
 *   **v4.5.0**: Stability & Performance Release - Prevented infinite loops and reduced latency in agent execution. Added Design Stabilizer for design system enforcement. Integrated Grok 4.1 advanced features with server-side agent tools (web_search, x_search, code_execution). Improved agent reliability with better error handling and cleanup. Enhanced test coverage with 6,084+ passing tests.
 *   **v4.4.21**: Agentic Behaviors (Phase 2) - New intelligent agent behaviors for improved reliability and transparency. **ReAct Loop**: Explicit Thought → Action → Observation reasoning cycles for complex tasks (`--react` flag). **Self-Correction**: Automatic failure detection with reflective retry (ON by default, `--no-correction` to disable). **Verification**: TypeScript checking after plan phases (`--verify` flag). **Parallel Tool Optimization**: Dependency detection for safe concurrent execution. SDK updated to v1.4.0 with new `enableReAct`, `enableVerification`, `disableCorrection` options for programmatic usage.

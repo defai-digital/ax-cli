@@ -73,3 +73,6 @@ export {
 
 // Design Module (Figma integration)
 export * from './public/design/index.js';
+
+// Guard System (Security Governance)
+export * from './public/guard/index.js';

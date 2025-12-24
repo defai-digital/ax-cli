@@ -22,6 +22,9 @@ import { executeAxAgent, executeAxAgentsParallel, type AxAgentOptions, type AxAg
 import { extractErrorMessage } from "../../utils/error-handler.js";
 import type { ToolParseResult } from "../core/types.js";
 import { getHooksManager } from "../../hooks/index.js";
+import { getDefaultGuard } from "../../guard/index.js";
+import { getSettingsManager } from "../../utils/settings-manager.js";
+import type { GateContext } from "@defai.digital/ax-schemas";
 
 /**
  * Tool executor configuration
@@ -131,6 +134,125 @@ export class ToolExecutor {
           success: false,
           error: `Tool blocked by hook: ${blockCheck.reason || 'No reason provided'}`,
         };
+      }
+
+      // Guard check - security governance layer
+      const guardSettings = getSettingsManager().getGuardSettings();
+
+      if (guardSettings.enabled) {
+        const guard = getDefaultGuard();
+
+        // Extract file path from various possible argument names
+        const extractFilePath = (): string | undefined => {
+          const pathArgs = ['path', 'file_path', 'filePath', 'file', 'filename', 'target'];
+          for (const argName of pathArgs) {
+            const value = args[argName];
+            if (typeof value === 'string') {
+              return value;
+            }
+          }
+          return undefined;
+        };
+
+        // Build gate context from tool call
+        const gateContext: GateContext = {
+          cwd: process.cwd(),
+          toolName: toolCall.function.name,
+          toolArguments: args as Record<string, unknown>,
+          // Extract file path if present (for file operations)
+          filePath: extractFilePath(),
+          // Extract command if present (for bash operations)
+          command: typeof args.command === 'string' ? args.command : undefined,
+          // Extract content if present (for content operations)
+          content: typeof args.content === 'string' ? args.content : undefined,
+        };
+
+        // Check for tool-specific policy override from settings
+        let policyId = guardSettings.toolPolicies[toolCall.function.name] || guardSettings.defaultPolicy;
+
+        // Auto-detect policy based on tool type if using default
+        if (policyId === 'tool-execution') {
+          const toolName = toolCall.function.name.toLowerCase();
+
+          // Command execution tools
+          if (toolName === 'bash' || toolName === 'shell' || toolName === 'exec' || toolName === 'run_command') {
+            policyId = 'command-execution';
+          }
+          // File write tools (various naming conventions)
+          else if (
+            toolName === 'create_file' ||
+            toolName === 'str_replace_editor' ||
+            toolName === 'multi_edit' ||
+            toolName === 'write_file' ||
+            toolName === 'edit_file' ||
+            toolName === 'write' ||       // Claude's Write tool
+            toolName === 'edit' ||        // Claude's Edit tool
+            toolName === 'notebookedit' ||// Claude's NotebookEdit tool
+            toolName === 'patch_file' ||
+            toolName === 'update_file' ||
+            toolName === 'save_file'
+          ) {
+            policyId = 'file-write';
+          }
+          // File read tools
+          else if (
+            toolName === 'view_file' ||
+            toolName === 'read_file' ||
+            toolName === 'read' ||        // Claude's Read tool
+            toolName === 'cat_file' ||
+            toolName === 'get_file'
+          ) {
+            policyId = 'file-read';
+          }
+        }
+
+        try {
+          // Build config overrides from settings
+          const configOverrides: Record<string, Record<string, unknown>> = {};
+
+          // Add custom blocked/allowed paths from settings
+          // IMPORTANT: Only include non-empty arrays to avoid overriding policy defaults with empty arrays
+          const pathViolationOverrides: Record<string, unknown> = {};
+          if (guardSettings.customBlockedPaths.length > 0) {
+            pathViolationOverrides.blockedPaths = guardSettings.customBlockedPaths;
+          }
+          if (guardSettings.customAllowedPaths.length > 0) {
+            pathViolationOverrides.allowedPaths = guardSettings.customAllowedPaths;
+          }
+          if (Object.keys(pathViolationOverrides).length > 0) {
+            configOverrides['path_violation'] = pathViolationOverrides;
+          }
+
+          const guardResult = guard.check(policyId, gateContext, configOverrides);
+
+          // Log guard checks if configured
+          if (guardSettings.logChecks) {
+            console.log(`[Guard] ${toolCall.function.name}: ${guardResult.overallResult} (${guardResult.duration}ms)`);
+          }
+
+          if (guardResult.overallResult === 'FAIL') {
+            // Collect all failed gate messages
+            const failedMessages = guardResult.checks
+              .filter(c => c.result === 'FAIL')
+              .map(c => c.message)
+              .join('; ');
+
+            return {
+              success: false,
+              error: `Tool blocked by security guard: ${failedMessages}`,
+            };
+          }
+        } catch (guardError) {
+          // Handle guard errors based on failSilently setting
+          if (!guardSettings.failSilently) {
+            return {
+              success: false,
+              error: `Guard check failed: ${extractErrorMessage(guardError)}`,
+            };
+          }
+          // If failSilently is true, continue with tool execution
+          console.warn(`[Guard] Error during check (continuing): ${extractErrorMessage(guardError)}`);
+        }
       }
 
       // Helper to safely get string argument with validation

@@ -12,7 +12,7 @@ import { exitCancelled, exitWithError, ExitCode } from '../utils/exit-handler.js
 // Logger imported for future structured logging improvements
 // import { getLogger } from '../utils/logger.js';
 import type { UserSettings } from '../schemas/settings-schemas.js';
-import { getActiveConfigPaths, getActiveProvider } from '../provider/config.js';
+import { getActiveConfigPaths, getActiveProvider, GLM_PROVIDER, GROK_PROVIDER } from '../provider/config.js';
 import {
   detectZAIServices,
   getRecommendedServers,
@@ -87,7 +87,10 @@ async function runAutomatosXSetup(): Promise<boolean> {
 }
 
 /**
- * Provider configurations
+ * Provider configurations for setup wizard
+ *
+ * NOTE: Model names are derived from centralized provider configs (GLM_PROVIDER, GROK_PROVIDER)
+ * to ensure consistency. When updating models, only update the provider config files.
  */
 interface ProviderConfig {
   name: string;
@@ -101,33 +104,50 @@ interface ProviderConfig {
 
 const HIGH_TOKEN_PROVIDERS = new Set(['z.ai', 'z.ai-free', 'x.ai']);
 
+/**
+ * Get GLM model description from provider config
+ */
+function getGLMModelDescription(): string {
+  const model = GLM_PROVIDER.models[GLM_PROVIDER.defaultModel];
+  const contextK = Math.round(model?.contextWindow / 1000) || 131;
+  return `Z.AI with ${GLM_PROVIDER.defaultModel.toUpperCase()} - ${model?.description || 'Advanced reasoning'} (${contextK}K context)`;
+}
+
+/**
+ * Get Grok model description from provider config
+ */
+function getGrokModelDescription(): string {
+  const model = GROK_PROVIDER.models[GROK_PROVIDER.defaultModel];
+  return `xAI ${GROK_PROVIDER.defaultModel} - ${model?.description || 'Search, vision, and code execution'}`;
+}
+
 const PROVIDERS: Record<string, ProviderConfig> = {
   'z.ai': {
     name: 'z.ai',
     displayName: 'Z.AI (GLM Models)',
-    baseURL: 'https://api.z.ai/api/coding/paas/v4',
-    defaultModel: 'glm-4.6',
+    baseURL: GLM_PROVIDER.defaultBaseURL,
+    defaultModel: GLM_PROVIDER.defaultModel, // Uses centralized config
     requiresApiKey: true,
     website: 'https://z.ai',
-    description: 'Z.AI with GLM 4.6 - Advanced reasoning and 200K context window'
+    description: getGLMModelDescription(),
   },
   'z.ai-free': {
     name: 'z.ai-free',
     displayName: 'Z.AI (Free Plan)',
     baseURL: 'https://api.z.ai/api/paas/v4',
-    defaultModel: 'glm-4.6',
+    defaultModel: GLM_PROVIDER.defaultModel, // Uses centralized config
     requiresApiKey: true,
     website: 'https://z.ai',
-    description: 'Z.AI Free Plan - Standard API endpoint for non-coding-plan users'
+    description: 'Z.AI Free Plan - Standard API endpoint for non-coding-plan users',
   },
   'x.ai': {
     name: 'x.ai',
     displayName: 'xAI Grok (Recommended)',
-    baseURL: 'https://api.x.ai/v1',
-    defaultModel: 'grok-4',
+    baseURL: GROK_PROVIDER.defaultBaseURL,
+    defaultModel: GROK_PROVIDER.defaultModel, // Uses centralized config
     requiresApiKey: true,
     website: 'https://console.x.ai',
-    description: 'xAI Grok 4.1 family with search, vision, and code execution',
+    description: getGrokModelDescription(),
   },
   'openai': {
     name: 'openai',
@@ -136,7 +156,7 @@ const PROVIDERS: Record<string, ProviderConfig> = {
     defaultModel: 'gpt-4-turbo',
     requiresApiKey: true,
     website: 'https://platform.openai.com',
-    description: 'OpenAI GPT models - Industry-leading language models'
+    description: 'OpenAI GPT models - Industry-leading language models',
   },
   'anthropic': {
     name: 'anthropic',
@@ -145,7 +165,7 @@ const PROVIDERS: Record<string, ProviderConfig> = {
     defaultModel: 'claude-3-5-sonnet-20241022',
     requiresApiKey: true,
     website: 'https://console.anthropic.com',
-    description: 'Anthropic Claude models - Advanced AI assistant'
+    description: 'Anthropic Claude models - Advanced AI assistant',
   },
   'ollama': {
     name: 'ollama',
@@ -154,8 +174,8 @@ const PROVIDERS: Record<string, ProviderConfig> = {
     defaultModel: 'llama3.1',
     requiresApiKey: false,
     website: 'https://ollama.ai',
-    description: 'Local models via Ollama - No API key required'
-  }
+    description: 'Local models via Ollama - No API key required',
+  },
 };
 
 /**

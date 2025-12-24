@@ -50,7 +50,7 @@ const DEFAULT_LOCAL_BASE_URL = AX_CLI_PROVIDER.defaultBaseURL || 'http://localho
  */
 const MODEL_TIERS = {
   T1: { prefix: 'T1-Qwen', pattern: /qwen/i, rating: '9.6/10', label: 'PRIMARY', displayName: 'Qwen 3', description: 'Best overall, coding leader', color: chalk.green },
-  T2: { prefix: 'T2-GLM', pattern: /glm|codegeex|chatglm/i, rating: '9.4/10', label: 'REFACTOR', displayName: 'GLM-4.6', description: 'Large-scale refactor + docs', color: chalk.magenta, isNew: true },
+  T2: { prefix: 'T2-GLM', pattern: /glm|codegeex|chatglm/i, rating: '9.4/10', label: 'REFACTOR', displayName: 'GLM', description: 'Large-scale refactor + docs', color: chalk.magenta, isNew: true },
   T3: { prefix: 'T3-DeepSeek', pattern: /deepseek/i, rating: '9.3/10', label: 'SPEED', displayName: 'DeepSeek', description: 'Quick patches, linting', color: chalk.blue },
   T4: { prefix: 'T4-Codestral', pattern: /codestral|mistral/i, rating: '8.4/10', label: 'C++/RUST', displayName: 'Codestral', description: 'Systems programming', color: chalk.cyan },
   T5: { prefix: 'T5-Llama', pattern: /llama|codellama/i, rating: '8.1/10', label: 'FALLBACK', displayName: 'Llama', description: 'Best compatibility', color: chalk.gray },

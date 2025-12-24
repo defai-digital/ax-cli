@@ -58,6 +58,15 @@ vi.mock("../../../packages/core/src/utils/settings-manager.js", () => ({
         enableCommandWhitelist: false,
       },
     }),
+    getGuardSettings: vi.fn().mockReturnValue({
+      enabled: true,
+      defaultPolicy: 'tool-execution',
+      logChecks: false,
+      failSilently: true,
+      customBlockedPaths: [],
+      customAllowedPaths: [],
+      toolPolicies: {},
+    }),
   }),
 }));
 

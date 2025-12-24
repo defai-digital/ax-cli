@@ -7,9 +7,10 @@
  *
  * Features:
  * - Full ax-cli functionality (17 tools, MCP, memory, checkpoints, etc.)
- * - GLM-4.6 thinking mode support
+ * - GLM-4.7 with enhanced thinking modes (Interleaved, Preserved, Turn-level)
+ * - 73.8% SWE-bench (+5.8%), 66.7% SWE-bench Multilingual (+12.9%)
  * - Optimized for Z.AI API
- * - 200K context window
+ * - 131K context window (GLM-4.7) / 200K context window (GLM-4.6)
  */
 
 import { runCLI, GLM_PROVIDER } from '@defai.digital/ax-core';

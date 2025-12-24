@@ -127,17 +127,38 @@ export const GLM_PROVIDER: ProviderDefinition = {
   apiKeyEnvVar: 'ZAI_API_KEY',
   apiKeyEnvVarAliases: ['GLM_API_KEY', 'YOUR_API_KEY'],
   defaultBaseURL: 'https://api.z.ai/api/coding/paas/v4',
-  defaultModel: 'glm-4.6',
+  defaultModel: 'glm-4.7',
   defaultVisionModel: 'glm-4.6v',
   configDirName: '.ax-glm',
   // GLM-specific aliases (only for ax-glm users)
   aliases: {
-    'glm-latest': 'glm-4.6',
+    'glm-latest': 'glm-4.7',
     'glm-fast': 'glm-4-flash',
     'glm-vision': 'glm-4.6v',
     'glm-image': 'cogview-4',
+    // Legacy alias for users still expecting 4.6
+    'glm-4.6-legacy': 'glm-4.6',
   },
   models: {
+    // ═══════════════════════════════════════════════════════════════════════
+    // GLM-4.7 Series - Latest generation (December 2025)
+    // 73.8% SWE-bench (+5.8%), 66.7% SWE-bench Multilingual (+12.9%)
+    // 42.8% HLE benchmark (+12.4%)
+    // ═══════════════════════════════════════════════════════════════════════
+    'glm-4.7': {
+      name: 'GLM-4.7',
+      contextWindow: 131072,
+      maxOutputTokens: 128000,
+      supportsThinking: true,
+      supportsVision: false,
+      supportsSearch: false,
+      supportsSeed: false,
+      defaultTemperature: 0.7,
+      description: 'Latest GLM with enhanced thinking modes (Interleaved, Preserved, Turn-level)',
+    },
+    // ═══════════════════════════════════════════════════════════════════════
+    // GLM-4.6 Series - Previous generation
+    // ═══════════════════════════════════════════════════════════════════════
     'glm-4.6': {
       name: 'GLM-4.6',
       contextWindow: 200000,
@@ -147,7 +168,7 @@ export const GLM_PROVIDER: ProviderDefinition = {
       supportsSearch: false,
       supportsSeed: false,
       defaultTemperature: 0.7,
-      description: 'Most capable GLM model with thinking mode support',
+      description: 'Previous generation GLM with 200K context window',
     },
     // Vision models - selected separately in setup (Step 2)
     'glm-4.6v': {

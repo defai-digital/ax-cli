@@ -227,6 +227,25 @@ export const SecuritySettingsSchema = z.object({
   enableErrorSanitization: z.boolean().optional(),
 }).optional();
 
+// Guard Settings Schema (security governance layer)
+export const GuardSettingsSchema = z.object({
+  // Enable/disable the guard system (default: true)
+  enabled: z.boolean().optional().default(true),
+  // Default policy to use for tool execution (default: 'tool-execution')
+  defaultPolicy: z.string().optional().default('tool-execution'),
+  // Log guard check results (default: false)
+  logChecks: z.boolean().optional().default(false),
+  // Fail silently on guard errors (default: true)
+  // When false, guard errors will block tool execution
+  failSilently: z.boolean().optional().default(true),
+  // Custom blocked paths (in addition to defaults)
+  customBlockedPaths: z.array(z.string()).optional(),
+  // Custom allowed paths (override blocked paths)
+  customAllowedPaths: z.array(z.string()).optional(),
+  // Policy overrides for specific tools
+  toolPolicies: z.record(z.string(), z.string()).optional(),
+}).optional();
+
 // User Settings Schema
 export const UserSettingsSchema: z.ZodType<any> = z.object({
   // API key (plain-text) - DEPRECATED: Use apiKeyEncrypted instead
@@ -290,6 +309,8 @@ export const UserSettingsSchema: z.ZodType<any> = z.object({
   autoUpdate: AutoUpdateSettingsSchema,
   // Agent-first mode settings
   agentFirst: AgentFirstSettingsSchema,
+  // Guard settings (security governance layer)
+  guard: GuardSettingsSchema,
   // User-level MCP server configurations (global across all projects)
   // Used for provider-specific MCP servers like Z.AI that should work from any directory
   mcpServers: z.record(z.string(), z.any()).optional(),
@@ -314,6 +335,8 @@ export const ProjectSettingsSchema: z.ZodType<any> = z.object({
   ui: UISettingsSchema,
   // Project-level agent-first mode settings (overrides user settings)
   agentFirst: AgentFirstSettingsSchema,
+  // Project-level guard settings (overrides user settings)
+  guard: GuardSettingsSchema,
 }).passthrough(); // Allow additional properties for backward compatibility
 
 // Model Option Schema
@@ -377,3 +400,4 @@ export type ExternalEditorSettings = z.infer<typeof ExternalEditorSettingsSchema
 export type ThinkingModeSettings = z.infer<typeof ThinkingModeSettingsSchema>;
 export type AutoUpdateSettings = z.infer<typeof AutoUpdateSettingsSchema>;
 export type AgentFirstSettings = z.infer<typeof AgentFirstSettingsSchema>;
+export type GuardSettings = z.infer<typeof GuardSettingsSchema>;

@@ -603,6 +603,24 @@ export class SettingsManager {
   }
 
   /**
+   * Save model to user config (persistent across all projects/sessions)
+   * This saves to ~/.ax-glm/config.json (or equivalent for other providers)
+   */
+  public saveModelToUserConfig(model: string): void {
+    const result = ModelIdSchema.safeParse(model);
+    if (!result.success) {
+      throw new Error(`Invalid model ID: ${model}. ${result.error.message}`);
+    }
+    // Save to both defaultModel and currentModel for consistency
+    const userSettings = this.loadUserSettings();
+    this.saveUserSettings({
+      ...userSettings,
+      defaultModel: result.data,
+      currentModel: result.data,
+    });
+  }
+
+  /**
    * Get available models list from user settings
    */
   public getAvailableModels(): string[] {
@@ -759,6 +777,36 @@ export class SettingsManager {
       showAgentIndicator: (merged.showAgentIndicator as boolean) ?? true,
       defaultAgent: (merged.defaultAgent as string | null) ?? 'standard',
       excludedAgents: (merged.excludedAgents as string[]) ?? [],
+    };
+  }
+
+  /**
+   * Get guard settings for security governance layer
+   * Returns merged settings from user and project configurations
+   */
+  public getGuardSettings(): {
+    enabled: boolean;
+    defaultPolicy: string;
+    logChecks: boolean;
+    failSilently: boolean;
+    customBlockedPaths: string[];
+    customAllowedPaths: string[];
+    toolPolicies: Record<string, string>;
+  } {
+    const userSettings = this.getUserSetting("guard");
+    const projectSettings = this.getProjectSetting("guard");
+
+    // Merge with project settings taking priority
+    const merged = { ...(userSettings || {}), ...(projectSettings || {}) } as Record<string, unknown>;
+
+    return {
+      enabled: (merged.enabled as boolean) ?? true,
+      defaultPolicy: (merged.defaultPolicy as string) ?? 'tool-execution',
+      logChecks: (merged.logChecks as boolean) ?? false,
+      failSilently: (merged.failSilently as boolean) ?? true,
+      customBlockedPaths: (merged.customBlockedPaths as string[]) ?? [],
+      customAllowedPaths: (merged.customAllowedPaths as string[]) ?? [],
+      toolPolicies: (merged.toolPolicies as Record<string, string>) ?? {},
     };
   }
 

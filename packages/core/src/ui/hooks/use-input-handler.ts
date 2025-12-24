@@ -4,15 +4,11 @@ import { LLMAgent, ChatEntry } from "../../agent/llm-agent.js";
 import { ConfirmationService } from "../../utils/confirmation-service.js";
 import { useEnhancedInput, Key } from "./use-enhanced-input.js";
 import { escapeShellArg } from "../../tools/bash.js";
-import { VerbosityLevel, TIMEOUT_CONFIG, FILE_NAMES } from "../../constants.js";
+import { VerbosityLevel } from "../../constants.js";
 
 import { filterCommandSuggestions } from "../components/command-suggestions.js";
 import { getSettingsManager } from "../../utils/settings-manager.js";
-import { ProjectAnalyzer } from "../../utils/project-analyzer.js";
-// Dynamic import is used for LLMOptimizedInstructionGenerator to avoid circular imports
-import { getUsageTracker } from "../../utils/usage-tracker.js";
 import { getActiveProvider, getActiveConfigPaths } from "../../provider/config.js";
-import { getHistoryManager } from "../../utils/history-manager.js";
 import { handleRewindCommand, handleCheckpointsCommand, handleCheckpointCleanCommand } from "../../commands/rewind.js";
 import {
   handlePlansCommand,
@@ -24,14 +20,6 @@ import {
   handleAbandonCommand,
   handleResumableCommand,
 } from "../../commands/plan.js";
-import { BashOutputTool } from "../../tools/bash-output.js";
-import { getKeyboardShortcutGuideText } from "../components/keyboard-hints.js";
-import { clearToolGroupCache } from "../utils/tool-grouper.js";
-import {
-  getContextStore,
-  ContextGenerator,
-  getStatsCollector,
-} from "../../memory/index.js";
 import { openExternalEditor, getPreferredEditor, getEditorDisplayName } from "../../utils/external-editor.js";
 import { extractErrorMessage } from "../../utils/error-handler.js";
 import { getCustomCommandsManager, type CustomCommand } from "../../commands/custom-commands.js";
@@ -39,13 +27,16 @@ import { getHooksManager } from "../../hooks/index.js";
 import { getMCPPrompts, getMCPManager, getMCPResources } from "../../llm/tools.js";
 import { promptToSlashCommand, parsePromptCommand, formatPromptResult, getPromptDescription } from "../../mcp/prompts.js";
 import type { MCPResource } from "../../mcp/resources.js";
-import { getPermissionManager, PermissionTier } from "../../permissions/permission-manager.js";
 import { parseFileMentions } from "../../utils/file-mentions.js";
 import { parseImageInput, formatAttachmentForDisplay, buildMessageContent } from "../utils/image-handler.js";
 import { routeToAgent } from "../../agent/agent-router.js";
 import { executeAgent } from "../../agent/agent-executor.js";
-import * as fs from "fs";
-import * as path from "path";
+import {
+  initializeCommandRegistry,
+  getAllCommandSuggestions,
+} from "../../commands/handlers/index.js";
+import { getCommandRegistry } from "../../commands/registry.js";
+import type { CommandContext } from "../../commands/types.js";
 
 interface UseInputHandlerProps {
   agent: LLMAgent;
@@ -135,6 +126,13 @@ export function useInputHandler({
   forcedAgent,
   onAgentSelected,
 }: UseInputHandlerProps) {
+  // Initialize command registry on first render
+  const commandRegistryRef = useRef<ReturnType<typeof getCommandRegistry> | null>(null);
+  if (!commandRegistryRef.current) {
+    initializeCommandRegistry();
+    commandRegistryRef.current = getCommandRegistry();
+  }
+
   const [showCommandSuggestions, setShowCommandSuggestions] = useState(false);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [resourceSuggestions, setResourceSuggestions] = useState<MCPResource[]>([]);
@@ -280,7 +278,26 @@ export function useInputHandler({
     if (userInput.trim()) {
       const directCommandResult = await handleDirectCommand(userInput);
       if (!directCommandResult) {
-        await processUserMessage(userInput);
+        // Check if this looks like an unrecognized slash command
+        const trimmed = userInput.trim();
+        // Match valid command pattern: /commandname (alphanumeric, dash, underscore)
+        const cmdMatch = trimmed.match(/^\/([a-zA-Z][a-zA-Z0-9_-]*)/);
+
+        if (cmdMatch && !trimmed.startsWith("//")) {
+          // This looks like a slash command that wasn't handled
+          const cmdName = cmdMatch[1];
+          const errorEntry: ChatEntry = {
+            type: "assistant",
+            content: `❌ Unknown command: \`/${cmdName}\`\n\nType \`/help\` to see available commands.`,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, errorEntry]);
+          clearInput();
+        } else {
+          // Not a valid command pattern (e.g., just "/", "/123", "//comment")
+          // Send to AI as regular message
+          await processUserMessage(userInput);
+        }
       }
     }
   };
@@ -473,25 +490,21 @@ export function useInputHandler({
 
   // Build command suggestions including custom commands
   const commandSuggestions: CommandSuggestion[] = useMemo(() => {
-    const builtIn: CommandSuggestion[] = [
-      { command: "/help", description: "Show help information" },
-      { command: "/shortcuts", description: "Show keyboard shortcuts guide" },
-      { command: "/terminal-setup", description: "Configure Shift+Enter for multi-line input" },
+    // Get commands from the registry
+    const registryCommands = getAllCommandSuggestions();
+
+    // Add streaming commands not in registry
+    const streamingCommands: CommandSuggestion[] = [
       { command: "/continue", description: "Continue incomplete response" },
       { command: "/retry", description: "Re-send the last message" },
-      { command: "/clear", description: "Clear chat history" },
-      { command: "/init", description: "Initialize project with smart analysis" },
-      { command: "/usage", description: "Show API usage statistics" },
-      { command: "/doctor", description: "Run health check diagnostics" },
-      { command: "/mcp", description: "Open MCP server dashboard" },
-      { command: "/permissions", description: "View/manage tool permissions" },
-      { command: "/tasks", description: "List background tasks" },
-      { command: "/task", description: "View output of a background task" },
-      { command: "/kill", description: "Kill a background task" },
+      { command: "/commit-and-push", description: "AI commit & push to remote" },
+    ];
+
+    // Add plan/rewind commands (handled separately)
+    const planCommands: CommandSuggestion[] = [
       { command: "/rewind", description: "Rewind to previous checkpoint" },
       { command: "/checkpoints", description: "List checkpoint statistics" },
       { command: "/checkpoint-clean", description: "Clean old checkpoints" },
-      { command: "/commit-and-push", description: "AI commit & push to remote" },
       { command: "/plans", description: "List all task plans" },
       { command: "/plan", description: "Show current plan details" },
       { command: "/phases", description: "Show phases of current plan" },
@@ -499,12 +512,6 @@ export function useInputHandler({
       { command: "/resume", description: "Resume paused plan" },
       { command: "/skip", description: "Skip current phase" },
       { command: "/abandon", description: "Abandon current plan" },
-      { command: "/memory", description: "Show project memory status" },
-      { command: "/memory warmup", description: "Generate project memory" },
-      { command: "/memory refresh", description: "Update project memory" },
-      { command: "/commands", description: "List custom commands" },
-      { command: "/theme", description: "Switch color theme (default, dark, light, dracula, monokai)" },
-      { command: "/exit", description: "Exit the application" },
     ];
 
     // Add custom commands
@@ -521,7 +528,7 @@ export function useInputHandler({
       description: getPromptDescription(prompt as any),
     }));
 
-    return [...builtIn, ...customSuggestions, ...mcpPromptSuggestions];
+    return [...registryCommands, ...streamingCommands, ...planCommands, ...customSuggestions, ...mcpPromptSuggestions];
   }, [customCommandsManager]);
 
   // Load models from configuration with fallback to defaults
@@ -533,6 +540,118 @@ export function useInputHandler({
 
   const handleDirectCommand = async (input: string): Promise<boolean> => {
     const trimmedInput = input.trim();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Command Registry Dispatch
+    // Try the registry first for non-streaming commands
+    // ═══════════════════════════════════════════════════════════════════════════
+    const registry = commandRegistryRef.current;
+    if (registry && trimmedInput.startsWith("/")) {
+      const parsed = registry.parse(trimmedInput);
+
+      // Skip streaming commands - they need special handling below
+      const streamingCommands = new Set(["continue", "retry", "commit-and-push"]);
+      const isStreamingCommand = streamingCommands.has(parsed.command);
+
+      if (parsed.isSlashCommand && registry.has(parsed.command) && !isStreamingCommand) {
+        // Build command context
+        const ctx: CommandContext = {
+          agent,
+          settings: getSettingsManager(),
+          provider: getActiveProvider(),
+          configPaths: getActiveConfigPaths(),
+          input: trimmedInput,
+          setChatHistory,
+          setIsProcessing,
+          setIsStreaming,
+          clearInput,
+          setInput,
+          resetHistory,
+          onMemoryWarmed,
+          onMemoryRefreshed,
+          onMcpDashboardToggle,
+          onChatCleared,
+          onOperationInterrupted,
+          onEditorSuccess,
+          processingStartTime,
+          setTokenCount,
+          setProcessingTime,
+        };
+
+        try {
+          const result = await registry.execute(trimmedInput, ctx);
+
+          if (result.handled) {
+            // Add entries to chat history
+            if (result.entries && result.entries.length > 0) {
+              setChatHistory((prev) => [...prev, ...result.entries!]);
+            }
+
+            // Handle error result
+            if (result.error) {
+              setChatHistory((prev) => [
+                ...prev,
+                {
+                  type: "assistant",
+                  content: `❌ ${result.error}`,
+                  timestamp: new Date(),
+                },
+              ]);
+            }
+
+            // Clear input if requested
+            if (result.clearInput !== false) {
+              clearInput();
+            }
+
+            // Set processing state BEFORE async action to avoid race condition
+            // (asyncAction's finally block may call setIsProcessing(false) before
+            // this line would otherwise execute if placed after asyncAction)
+            if (result.setProcessing) {
+              setIsProcessing(true);
+            }
+
+            // Execute async action if provided
+            if (result.asyncAction) {
+              // Fire and forget - the action manages its own state
+              result.asyncAction().catch((error) => {
+                const errorMessage = extractErrorMessage(error);
+                setChatHistory((prev) => [
+                  ...prev,
+                  {
+                    type: "assistant",
+                    content: `❌ Command failed: ${errorMessage}`,
+                    timestamp: new Date(),
+                  },
+                ]);
+                // Reset processing state on error if it was set
+                if (result.setProcessing) {
+                  setIsProcessing(false);
+                }
+              });
+            }
+
+            return true;
+          }
+        } catch (error) {
+          const errorMessage = extractErrorMessage(error);
+          setChatHistory((prev) => [
+            ...prev,
+            {
+              type: "assistant",
+              content: `❌ Command error: ${errorMessage}`,
+              timestamp: new Date(),
+            },
+          ]);
+          clearInput();
+          return true;
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Streaming Commands (handled inline due to complex state management)
+    // ═══════════════════════════════════════════════════════════════════════════
 
     if (trimmedInput === "/continue") {
       // Send a shorter, more focused continuation prompt to avoid timeout
@@ -770,641 +889,9 @@ export function useInputHandler({
       return true;
     }
 
-    if (trimmedInput === "/clear") {
-      // Reset chat history
-      setChatHistory([]);
-
-      // Clear saved history from disk
-      const historyManager = getHistoryManager();
-      historyManager.clearHistory();
-
-      // Clear tool grouper cache to prevent memory leaks
-      clearToolGroupCache();
-
-      // Reset processing states
-      setIsProcessing(false);
-      setIsStreaming(false);
-      setTokenCount(0);
-      setProcessingTime(0);
-      processingStartTime.current = 0;
-
-      // Reset confirmation service session flags
-      const confirmationService = ConfirmationService.getInstance();
-      confirmationService.resetSession();
-
-      // Notify parent for toast feedback
-      onChatCleared?.();
-
-      clearInput();
-      resetHistory();
-      return true;
-    }
-
-    if (trimmedInput === "/init") {
-      const userEntry: ChatEntry = {
-        type: "user",
-        content: "/init",
-        timestamp: new Date(),
-      };
-      setChatHistory((prev) => [...prev, userEntry]);
-
-      setIsProcessing(true);
-
-      try {
-        const projectRoot = process.cwd();
-
-        // Add analysis message
-        const analyzingEntry: ChatEntry = {
-          type: "assistant",
-          content: "🔍 Analyzing project with deep analysis (Tier 3)...\n",
-          timestamp: new Date(),
-        };
-        setChatHistory((prev) => [...prev, analyzingEntry]);
-
-        // Get provider-specific config paths
-        const activeConfigPaths = getActiveConfigPaths();
-        const configDirName = activeConfigPaths.DIR_NAME; // e.g., '.ax-glm' or '.ax-grok'
-        const axCliDir = path.join(projectRoot, configDirName);
-        const customMdPath = path.join(axCliDir, FILE_NAMES.CUSTOM_MD);
-        // Shared project index at root (used by all CLIs)
-        const sharedIndexPath = path.join(projectRoot, FILE_NAMES.AX_INDEX_JSON);
-        // Pre-computed summary for prompt injection
-        const sharedSummaryPath = path.join(projectRoot, FILE_NAMES.AX_SUMMARY_JSON);
-
-        // /init always rebuilds ax.index.json (no --force needed for index)
-        // Only CUSTOM.md requires --force to overwrite (use terminal command)
-        const customMdExists = fs.existsSync(customMdPath);
-
-        // If CUSTOM.md exists, warn user but still rebuild ax.index.json
-        const willSkipCustomMd = customMdExists;
-
-        // Analyze project with deep analysis (Tier 3 - default)
-        const analyzer = new ProjectAnalyzer(projectRoot);
-        const result = await analyzer.analyze();
-
-        if (!result.success || !result.projectInfo) {
-          const errorEntry: ChatEntry = {
-            type: "assistant",
-            content: `❌ Failed to analyze project: ${result.error || "Unknown error"}`,
-            timestamp: new Date(),
-          };
-          setChatHistory((prev) => [...prev, errorEntry]);
-          setIsProcessing(false);
-          clearInput();
-          return true;
-        }
-
-        const projectInfo = result.projectInfo;
-
-        // Generate LLM-optimized instructions
-        const { LLMOptimizedInstructionGenerator } = await import("../../utils/llm-optimized-instruction-generator.js");
-        const generator = new LLMOptimizedInstructionGenerator({
-          compressionLevel: "moderate",
-          hierarchyEnabled: true,
-          criticalRulesCount: 5,
-          includeDODONT: true,
-          includeTroubleshooting: true,
-        });
-        const instructions = generator.generateInstructions(projectInfo);
-        const index = generator.generateIndex(projectInfo);
-        const summary = generator.generateSummary(projectInfo);
-
-        // Create provider-specific directory
-        if (!fs.existsSync(axCliDir)) {
-          fs.mkdirSync(axCliDir, { recursive: true });
-        }
-
-        // Write custom instructions (provider-specific) - only if doesn't exist
-        if (!willSkipCustomMd) {
-          fs.writeFileSync(customMdPath, instructions, "utf-8");
-        }
-
-        // Always write shared project index and summary at root (no --force needed)
-        fs.writeFileSync(sharedIndexPath, index, "utf-8");
-        fs.writeFileSync(sharedSummaryPath, summary, "utf-8");
-
-        // Display success
-        const provider = getActiveProvider();
-        const cliName = provider.branding.cliName;
-        let successMessage = willSkipCustomMd
-          ? `🔄 Project index rebuilt!\n\n`
-          : `🎉 Project initialized successfully!\n\n`;
-        successMessage += `📋 Analysis Results:\n`;
-        successMessage += `   Name: ${projectInfo.name}\n`;
-        successMessage += `   Type: ${projectInfo.projectType}\n`;
-        successMessage += `   Language: ${projectInfo.primaryLanguage}\n`;
-        if (projectInfo.techStack.length > 0) {
-          successMessage += `   Stack: ${projectInfo.techStack.join(", ")}\n`;
-        }
-        if (result.duration) {
-          successMessage += `   Analysis time: ${result.duration}ms\n`;
-        }
-        successMessage += `\n✅ Rebuilt project index: ${sharedIndexPath}\n`;
-        successMessage += `✅ Rebuilt prompt summary: ${sharedSummaryPath}\n`;
-        if (willSkipCustomMd) {
-          successMessage += `⏭️  Skipped CUSTOM.md (already exists): ${customMdPath}\n`;
-          successMessage += `   Use '${cliName} init --force' from terminal to regenerate CUSTOM.md\n`;
-        } else {
-          successMessage += `✅ Generated custom instructions: ${customMdPath}\n`;
-        }
-        successMessage += `\n💡 ax.summary.json is loaded into prompts, ax.index.json has full details`;
-
-        const successEntry: ChatEntry = {
-          type: "assistant",
-          content: successMessage,
-          timestamp: new Date(),
-        };
-        setChatHistory((prev) => [...prev, successEntry]);
-      } catch (error) {
-        const errorEntry: ChatEntry = {
-          type: "assistant",
-          content: `❌ Error during initialization: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`,
-          timestamp: new Date(),
-        };
-        setChatHistory((prev) => [...prev, errorEntry]);
-      }
-
-      setIsProcessing(false);
-      clearInput();
-      return true;
-    }
-
-    if (trimmedInput === "/help") {
-      const helpEntry: ChatEntry = {
-        type: "assistant",
-        content: `AX CLI Help:
-
-Built-in Commands:
-  /continue   - Continue incomplete response from where it left off
-  /clear      - Clear chat history
-  /init       - Initialize project with smart analysis
-  /help       - Show this help
-  /shortcuts  - Show keyboard shortcuts guide
-  /usage      - Show API usage statistics
-  /doctor     - Run health check diagnostics
-  /mcp        - Open MCP server dashboard
-  /exit       - Exit application
-  exit, quit  - Exit application
-
-Background Task Commands:
-  /tasks             - List all background tasks
-  /task <id>         - View output of a background task
-  /kill <id>         - Kill a running background task
-
-  Tip: Append ' &' to any bash command to run it in background
-       Example: npm run dev &
-
-Checkpoint Commands:
-  /rewind            - Rewind to a previous checkpoint (interactive)
-  /checkpoints       - Show checkpoint statistics
-  /checkpoint-clean  - Clean old checkpoints (compress and prune)
-
-Plan Commands (Multi-Phase Task Planning):
-  /plans             - List all task plans
-  /plan [id]         - Show current or specific plan details
-  /phases            - Show phases of current plan
-  /pause             - Pause current plan execution
-  /resume [id]       - Resume current or specific plan
-  /skip              - Skip current phase
-  /abandon           - Abandon current plan
-
-Git Commands:
-  /commit-and-push - AI-generated commit + push to remote
-
-Memory Commands (z.ai GLM-4.6 caching):
-  /memory          - Show project memory status
-  /memory warmup   - Generate project memory context
-  /memory refresh  - Update memory after changes
-
-UI Commands:
-  /theme           - Show current theme and list available themes
-  /theme <name>    - Switch color theme (default, dark, light, dracula, monokai)
-
-Enhanced Input Features:
-  ↑/↓ Arrow   - Navigate command history
-  Ctrl+C      - Clear input (press twice to exit)
-  Ctrl+X      - Clear entire input line
-  Esc×2       - Clear input (press Escape twice quickly)
-  Ctrl+←/→    - Move by word
-  Ctrl+A/E    - Move to line start/end
-  Ctrl+W      - Delete word before cursor
-  Ctrl+K      - Delete to end of line
-  Ctrl+U      - Delete to start of line
-  Ctrl+O      - Toggle verbose mode (show full output, default: concise)
-  Ctrl+B      - Toggle background mode (run all commands in background)
-  Ctrl+P      - Expand/collapse pasted text at cursor
-  Ctrl+Y      - Copy last assistant response to clipboard
-  Shift+Tab   - Toggle auto-edit mode (bypass confirmations)
-  1-4 keys    - Quick select in confirmation dialogs
-
-Paste Handling:
-  When you paste 5+ lines, it's automatically collapsed to a preview.
-  Position cursor on collapsed text and press Ctrl+P to expand/collapse.
-  Full content is always sent to AI (display-only feature).
-
-Direct Commands (executed immediately):
-  ls [path]   - List directory contents
-  pwd         - Show current directory
-  cd <path>   - Change directory
-  cat <file>  - View file contents
-  mkdir <dir> - Create directory
-  touch <file>- Create empty file
-
-Model Configuration:
-  Edit ~/${getActiveConfigPaths().DIR_NAME}/config.json to configure default model and settings
-
-For complex operations, just describe what you want in natural language.
-Examples:
-  "edit package.json and add a new script"
-  "create a new React component called Header"
-  "show me all TypeScript files in this project"`,
-        timestamp: new Date(),
-      };
-      setChatHistory((prev) => [...prev, helpEntry]);
-      clearInput();
-      return true;
-    }
-
-    if (trimmedInput === "/shortcuts") {
-      const shortcutsEntry: ChatEntry = {
-        type: "assistant",
-        content: getKeyboardShortcutGuideText(),
-        timestamp: new Date(),
-      };
-      setChatHistory((prev) => [...prev, shortcutsEntry]);
-      clearInput();
-      return true;
-    }
-
-    if (trimmedInput === "/terminal-setup") {
-      const terminalSetupContent = `🔧 **Terminal Setup for Shift+Enter**
-
-Shift+Enter allows you to create multi-line input. Configure your terminal below:
-
-**VS Code Integrated Terminal (Recommended):**
-Add to \`keybindings.json\` (Cmd+Shift+P → "Open Keyboard Shortcuts JSON"):
-\`\`\`json
-[
-  {
-    "key": "shift+enter",
-    "command": "workbench.action.terminal.sendSequence",
-    "args": { "text": "\\u001b\\r" },
-    "when": "terminalFocus"
-  }
-]
-\`\`\`
-
-**iTerm2 (macOS):**
-1. Preferences → Profiles → Keys → Key Mappings
-2. Click "+" → Keyboard Shortcut: ⇧↩ (Shift+Enter)
-3. Action: "Send Escape Sequence" → Esc+: \`\\r\`
-
-**Mac Terminal.app:**
-1. Settings → Profiles → Keyboard
-2. Check "Use Option as Meta Key"
-3. Use Option+Enter for newlines
-
-**Kitty:**
-Add to \`~/.config/kitty/kitty.conf\`:
-\`\`\`
-map shift+enter send_text all \\x1b\\r
-\`\`\`
-
-**WezTerm:**
-Add to \`~/.wezterm.lua\`:
-\`\`\`lua
-config.keys = {
-  { key = "Enter", mods = "SHIFT", action = wezterm.action.SendString("\\x1b\\r") },
-}
-\`\`\`
-
-**Alacritty:**
-Add to \`~/.config/alacritty/alacritty.toml\`:
-\`\`\`toml
-[keyboard]
-bindings = [
-  { key = "Return", mods = "Shift", chars = "\\u001b\\r" }
-]
-\`\`\`
-
-**Hyper:**
-Add to \`~/.hyper.js\`:
-\`\`\`js
-keymaps: { 'shift+enter': 'pane:send-escape-sequence:\\x1b\\r' }
-\`\`\`
-
-**Fallback (works everywhere):**
-• Type \`\\\` then Enter - backslash escape for newline
-
-**Test:** After setup, press Shift+Enter here. If it creates a newline, you're done!`;
-
-      const terminalSetupEntry: ChatEntry = {
-        type: "assistant",
-        content: terminalSetupContent,
-        timestamp: new Date(),
-      };
-      setChatHistory((prev) => [...prev, terminalSetupEntry]);
-      clearInput();
-      return true;
-    }
-
-    if (trimmedInput === "/usage") {
-      const tracker = getUsageTracker();
-      const stats = tracker.getSessionStats();
-      const provider = getActiveProvider();
-      const isGrok = provider.name === 'grok';
-      const currentModel = getSettingsManager().getCurrentModel() || provider.defaultModel;
-
-      const providerName = isGrok ? 'xAI (Grok)' : 'Z.AI (GLM)';
-      let usageContent = `📊 **API Usage & Limits (${providerName})**\n\n`;
-
-      // Session statistics
-      usageContent += "**📱 Current Session:**\n";
-      usageContent += `  • Model: ${currentModel}\n`;
-      if (stats.totalRequests === 0) {
-        usageContent += "  No API requests made yet. Ask me something to start tracking!\n";
-      } else {
-        usageContent += `  • Requests: ${stats.totalRequests.toLocaleString()}\n`;
-        usageContent += `  • Prompt Tokens: ${stats.totalPromptTokens.toLocaleString()}\n`;
-        usageContent += `  • Completion Tokens: ${stats.totalCompletionTokens.toLocaleString()}\n`;
-        usageContent += `  • Total Tokens: ${stats.totalTokens.toLocaleString()}\n`;
-
-        if (stats.totalReasoningTokens > 0) {
-          usageContent += `  • Reasoning Tokens: ${stats.totalReasoningTokens.toLocaleString()}\n`;
-        }
-
-        if (stats.byModel.size > 0) {
-          usageContent += `\n  **Models Used:**\n`;
-          for (const [model, modelStats] of stats.byModel.entries()) {
-            usageContent += `    - ${model}: ${modelStats.totalTokens.toLocaleString()} tokens (${modelStats.requests} requests)\n`;
-          }
-        }
-      }
-
-      if (isGrok) {
-        // xAI/Grok account information
-        usageContent += `\n**🔑 xAI Account Usage & Limits:**\n`;
-        usageContent += `  ⚠️  API does not provide programmatic access to usage data\n`;
-        usageContent += `\n  **Check your account:**\n`;
-        usageContent += `  • Usage Explorer: https://console.x.ai\n`;
-        usageContent += `  • Billing & Team: https://console.x.ai/team\n`;
-        usageContent += `  • API Keys: https://console.x.ai/api-keys\n`;
-
-        usageContent += `\n**ℹ️  Notes:**\n`;
-        usageContent += `  • Usage is tracked in real-time on the xAI console\n`;
-        usageContent += `  • Cached input tokens: 75% discount\n`;
-
-        // Grok pricing based on model
-        const modelLower = currentModel.toLowerCase();
-        if (modelLower.includes('grok-4.1-fast')) {
-          usageContent += `\n**💰 Grok 4.1 Fast Pricing:**\n`;
-          usageContent += `  • Input: $0.20 per 1M tokens\n`;
-          usageContent += `  • Output: $0.50 per 1M tokens\n`;
-        } else if (modelLower.includes('grok-4')) {
-          usageContent += `\n**💰 Grok 4 Pricing:**\n`;
-          usageContent += `  • Input: $3.00 per 1M tokens\n`;
-          usageContent += `  • Output: $15.00 per 1M tokens\n`;
-          usageContent += `  • Cached: $0.75 per 1M tokens\n`;
-        } else {
-          // Default to Grok 4 pricing (current default model)
-          usageContent += `\n**💰 Grok 4 Pricing:**\n`;
-          usageContent += `  • Input: $3.00 per 1M tokens\n`;
-          usageContent += `  • Output: $15.00 per 1M tokens\n`;
-          usageContent += `  • Cached: $0.75 per 1M tokens\n`;
-        }
-
-        if (stats.totalRequests > 0) {
-          // Calculate estimated cost based on model
-          let inputRate = 3.0, outputRate = 15.0;
-          if (modelLower.includes('grok-4.1-fast')) {
-            inputRate = 0.20; outputRate = 0.50;
-          }
-          const inputCost = (stats.totalPromptTokens / 1000000) * inputRate;
-          const outputCost = (stats.totalCompletionTokens / 1000000) * outputRate;
-          const totalCost = inputCost + outputCost;
-          usageContent += `\n**💵 Estimated Session Cost:**\n`;
-          usageContent += `  • Input: $${inputCost.toFixed(6)} (${stats.totalPromptTokens.toLocaleString()} tokens)\n`;
-          usageContent += `  • Output: $${outputCost.toFixed(6)} (${stats.totalCompletionTokens.toLocaleString()} tokens)\n`;
-          usageContent += `  • **Total: ~$${totalCost.toFixed(6)}**\n`;
-        }
-      } else {
-        // Z.AI/GLM account information
-        usageContent += `\n**🔑 Z.AI Account Usage & Limits:**\n`;
-        usageContent += `  ⚠️  API does not provide programmatic access to usage data\n`;
-        usageContent += `\n  **Check your account:**\n`;
-        usageContent += `  • Billing & Usage: https://z.ai/manage-apikey/billing\n`;
-        usageContent += `  • Rate Limits: https://z.ai/manage-apikey/rate-limits\n`;
-        usageContent += `  • API Keys: https://z.ai/manage-apikey/apikey-list\n`;
-
-        usageContent += `\n**ℹ️  Notes:**\n`;
-        usageContent += `  • Billing reflects previous day (n-1) consumption\n`;
-        usageContent += `  • Current day usage may not be immediately visible\n`;
-        usageContent += `  • Cached content: 1/5 of original price\n`;
-
-        usageContent += `\n**💰 GLM-4.6 Pricing:**\n`;
-        usageContent += `  • Input: $2.00 per 1M tokens\n`;
-        usageContent += `  • Output: $10.00 per 1M tokens\n`;
-        usageContent += `  • Cached: $0.50 per 1M tokens\n`;
-
-        if (stats.totalRequests > 0) {
-          // Calculate estimated cost for this session
-          const inputCost = (stats.totalPromptTokens / 1000000) * 2.0;
-          const outputCost = (stats.totalCompletionTokens / 1000000) * 10.0;
-          const totalCost = inputCost + outputCost;
-          usageContent += `\n**💵 Estimated Session Cost:**\n`;
-          usageContent += `  • Input: $${inputCost.toFixed(6)} (${stats.totalPromptTokens.toLocaleString()} tokens)\n`;
-          usageContent += `  • Output: $${outputCost.toFixed(6)} (${stats.totalCompletionTokens.toLocaleString()} tokens)\n`;
-          usageContent += `  • **Total: ~$${totalCost.toFixed(6)}**\n`;
-        }
-      }
-
-      const usageEntry: ChatEntry = {
-        type: "assistant",
-        content: usageContent,
-        timestamp: new Date(),
-      };
-      setChatHistory((prev) => [...prev, usageEntry]);
-      clearInput();
-      return true;
-    }
-
-    if (trimmedInput === "/doctor") {
-      // Run doctor diagnostics
-      const doctorContent = "🏥 **Running AX CLI Diagnostics...**\n\n";
-      const doctorEntry: ChatEntry = {
-        type: "assistant",
-        content: doctorContent,
-        timestamp: new Date(),
-      };
-      setChatHistory((prev) => [...prev, doctorEntry]);
-
-      // Execute doctor command asynchronously (non-blocking)
-      (async () => {
-        try {
-          const { exec } = await import("child_process");
-          const { promisify } = await import("util");
-          const execAsync = promisify(exec);
-
-          // Use 'ax-cli doctor' command which will use the globally installed binary
-          // This works whether installed globally or linked locally
-          // Disable chalk colors (FORCE_COLOR=0) since output goes to markdown
-          const { stdout, stderr } = await execAsync("ax-cli doctor", {
-            encoding: "utf-8",
-            timeout: TIMEOUT_CONFIG.BASH_DEFAULT,
-            maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-            env: { ...process.env, FORCE_COLOR: "0" },
-          });
-
-          // Convert plain text output to markdown with proper emoji indicators
-          const output = (stdout || stderr)
-            .replace(/✓/g, "✅")
-            .replace(/✗/g, "❌")
-            .replace(/⚠/g, "⚠️");
-          const resultEntry: ChatEntry = {
-            type: "assistant",
-            content: output,
-            timestamp: new Date(),
-          };
-          setChatHistory((prev) => [...prev, resultEntry]);
-        } catch (error: unknown) {
-          const errorMessage = extractErrorMessage(error);
-          const errorEntry: ChatEntry = {
-            type: "assistant",
-            content: `❌ **Doctor diagnostics failed:**\n\n\`\`\`\n${errorMessage}\n\`\`\``,
-            timestamp: new Date(),
-          };
-          setChatHistory((prev) => [...prev, errorEntry]);
-        }
-      })();
-
-      clearInput();
-      return true;
-    }
-
-    // MCP Dashboard command
-    if (trimmedInput === "/mcp") {
-      if (onMcpDashboardToggle) {
-        onMcpDashboardToggle();
-      }
-      clearInput();
-      return true;
-    }
-
-    // Permissions management command
-    if (trimmedInput === "/permissions" || trimmedInput.startsWith("/permissions ")) {
-      const args = trimmedInput.replace("/permissions", "").trim();
-      const permManager = getPermissionManager();
-      const config = permManager.getConfig();
-
-      if (!args || args === "show" || args === "list") {
-        // Show current permissions configuration
-        const permissionLines: string[] = [
-          "**Permission Configuration**\n",
-          `Default Tier: **${config.permissions.default_tier}**\n`,
-          "\n**Tool Permissions:**\n",
-        ];
-
-        const tierEmoji: Record<string, string> = {
-          [PermissionTier.AutoApprove]: "✅",
-          [PermissionTier.Notify]: "🔔",
-          [PermissionTier.Confirm]: "⚠️",
-          [PermissionTier.Block]: "🚫",
-        };
-
-        for (const [tool, toolConfig] of Object.entries(config.permissions.tools)) {
-          const emoji = tierEmoji[toolConfig.tier] || "❓";
-          permissionLines.push(`- ${emoji} **${tool}**: ${toolConfig.tier}\n`);
-        }
-
-        permissionLines.push("\n**Session Settings:**\n");
-        permissionLines.push(`- Allow all bash: ${config.permissions.session_approvals.allow_all_bash ? "Yes" : "No"}\n`);
-        permissionLines.push(`- Trust current directory: ${config.permissions.session_approvals.trust_current_directory ? "Yes" : "No"}\n`);
-
-        permissionLines.push("\n*Tip: Use `/permissions set <tool> <tier>` to change permissions*\n");
-        permissionLines.push("*Tiers: auto_approve, notify, confirm, block*");
-
-        const permEntry: ChatEntry = {
-          type: "assistant",
-          content: permissionLines.join(""),
-          timestamp: new Date(),
-        };
-        setChatHistory((prev) => [...prev, permEntry]);
-
-      } else if (args.startsWith("set ")) {
-        // Set permission for a tool
-        const setArgs = args.replace("set ", "").trim().split(/\s+/);
-        if (setArgs.length >= 2) {
-          const [tool, tier] = setArgs;
-          const validTiers = ["auto_approve", "notify", "confirm", "block"];
-
-          if (!validTiers.includes(tier)) {
-            const errorEntry: ChatEntry = {
-              type: "assistant",
-              content: `❌ Invalid tier: "${tier}"\n\nValid tiers are: ${validTiers.join(", ")}`,
-              timestamp: new Date(),
-            };
-            setChatHistory((prev) => [...prev, errorEntry]);
-          } else {
-            // Update the permission
-            const newTools = { ...config.permissions.tools };
-            newTools[tool] = { tier: tier as PermissionTier };
-
-            permManager.updateConfig({ tools: newTools }).then(() => {
-              const successEntry: ChatEntry = {
-                type: "assistant",
-                content: `✅ Set **${tool}** permission to **${tier}**`,
-                timestamp: new Date(),
-              };
-              setChatHistory((prev) => [...prev, successEntry]);
-            }).catch((error) => {
-              const errorEntry: ChatEntry = {
-                type: "assistant",
-                content: `❌ Failed to update permission: ${extractErrorMessage(error)}`,
-                timestamp: new Date(),
-              };
-              setChatHistory((prev) => [...prev, errorEntry]);
-            });
-          }
-        } else {
-          const helpEntry: ChatEntry = {
-            type: "assistant",
-            content: "Usage: `/permissions set <tool> <tier>`\n\nExample: `/permissions set bash confirm`",
-            timestamp: new Date(),
-          };
-          setChatHistory((prev) => [...prev, helpEntry]);
-        }
-      } else if (args === "reset") {
-        // Reset to default permissions
-        permManager.clearSessionApprovals();
-        const resetEntry: ChatEntry = {
-          type: "assistant",
-          content: "✅ Session permissions cleared. Tool permissions reset to defaults.",
-          timestamp: new Date(),
-        };
-        setChatHistory((prev) => [...prev, resetEntry]);
-      } else {
-        // Show help
-        const helpEntry: ChatEntry = {
-          type: "assistant",
-          content: "**Permission Commands:**\n\n" +
-            "- `/permissions` - Show current permissions\n" +
-            "- `/permissions set <tool> <tier>` - Set tool permission tier\n" +
-            "- `/permissions reset` - Reset session approvals\n\n" +
-            "**Permission Tiers:**\n" +
-            "- `auto_approve` - Automatically allow (safe operations)\n" +
-            "- `notify` - Allow with notification\n" +
-            "- `confirm` - Require user confirmation\n" +
-            "- `block` - Always block",
-          timestamp: new Date(),
-        };
-        setChatHistory((prev) => [...prev, helpEntry]);
-      }
-
-      clearInput();
-      return true;
-    }
+    // Commands handled by the command registry:
+    // /clear, /init, /help, /shortcuts, /terminal-setup, /usage, /doctor,
+    // /mcp, /permissions, /exit, /memory, /theme, /model, /tasks, /task, /kill, /commands
 
     // MCP Prompt commands (format: /mcp__servername__promptname [args])
     if (trimmedInput.startsWith("/mcp__")) {
@@ -1488,363 +975,7 @@ keymaps: { 'shift+enter': 'pane:send-escape-sequence:\\x1b\\r' }
       }
     }
 
-    if (trimmedInput === "/exit") {
-      process.exit(0);
-      return true;
-    }
-
-    // Memory commands
-    if (trimmedInput === "/memory" || trimmedInput === "/memory status") {
-      const store = getContextStore();
-      const metadata = store.getMetadata();
-
-      let memoryContent = "🧠 **Project Memory Status**\n\n";
-
-      if (!metadata.exists) {
-        memoryContent += "❌ No project memory found.\n\n";
-        memoryContent += "Run `/memory warmup` to generate project memory for z.ai caching.\n";
-      } else {
-        memoryContent += `✅ Memory initialized\n\n`;
-        memoryContent += `**Token Estimate:** ${metadata.tokenEstimate?.toLocaleString() || 'N/A'} tokens\n`;
-        memoryContent += `**Last Updated:** ${metadata.updatedAt ? new Date(metadata.updatedAt).toLocaleString() : 'N/A'}\n`;
-        memoryContent += `**Usage Count:** ${metadata.usageCount || 0}\n`;
-
-        // Try to get section breakdown
-        const loadResult = store.load();
-        if (loadResult.success) {
-          const sections = loadResult.data.context.sections;
-          memoryContent += `\n**📊 Token Distribution:**\n`;
-          const total = Object.values(sections).reduce((a, b) => a + b, 0);
-          for (const [name, tokens] of Object.entries(sections)) {
-            const pct = total > 0 ? Math.round((tokens / total) * 100) : 0;
-            const bar = '█'.repeat(Math.round(pct / 5)) + '░'.repeat(20 - Math.round(pct / 5));
-            memoryContent += `   ${bar}  ${name.charAt(0).toUpperCase() + name.slice(1)}  (${pct}%)\n`;
-          }
-        }
-
-        // Show cache stats if available
-        const statsCollector = getStatsCollector();
-        const formattedStats = statsCollector.getFormattedStats();
-        if (formattedStats && formattedStats.usageCount > 0) {
-          memoryContent += `\n**💾 Cache Statistics:**\n`;
-          memoryContent += `   • Usage Count: ${formattedStats.usageCount}\n`;
-          memoryContent += `   • Tokens Saved: ${formattedStats.tokensSaved.toLocaleString()}\n`;
-          memoryContent += `   • Cache Rate: ${formattedStats.cacheRate}%\n`;
-          memoryContent += `   • Est. Savings: $${formattedStats.estimatedSavings.toFixed(4)}\n`;
-        }
-      }
-
-      const memoryEntry: ChatEntry = {
-        type: "assistant",
-        content: memoryContent,
-        timestamp: new Date(),
-      };
-      setChatHistory((prev) => [...prev, memoryEntry]);
-      clearInput();
-      return true;
-    }
-
-    if (trimmedInput === "/memory warmup") {
-      setIsProcessing(true);
-
-      const warmupEntry: ChatEntry = {
-        type: "assistant",
-        content: "🔄 Generating project memory...",
-        timestamp: new Date(),
-      };
-
-      // Track the entry index BEFORE any async operations to prevent race conditions
-      let entryIndex = -1;
-      setChatHistory((prev) => {
-        entryIndex = prev.length; // Store index before pushing
-        return [...prev, warmupEntry];
-      });
-
-      try {
-        const generator = new ContextGenerator();
-        const result = await generator.generate();
-
-        if (result.success && result.memory) {
-          const store = getContextStore();
-          const memory = result.memory;
-          const saveResult = store.save(memory);
-
-          if (saveResult.success) {
-            const sections = memory.context.sections;
-            const tokenEstimate = memory.context.token_estimate;
-            let resultContent = `✅ Project memory generated (${tokenEstimate.toLocaleString()} tokens)\n\n`;
-            resultContent += `**📊 Context breakdown:**\n`;
-            for (const [name, tokens] of Object.entries(sections)) {
-              if (tokens !== undefined) {
-                const tokenCount = tokens as number;
-                const pct = Math.round((tokenCount / tokenEstimate) * 100);
-                resultContent += `   ${name.charAt(0).toUpperCase() + name.slice(1)}: ${tokenCount.toLocaleString()} tokens (${pct}%)\n`;
-              }
-            }
-            resultContent += `\n💾 Saved to ${getActiveConfigPaths().DIR_NAME}/memory.json`;
-
-            // Update the specific entry by index to avoid race conditions
-            setChatHistory((prev) => {
-              const updated = [...prev];
-              if (entryIndex >= 0 && entryIndex < updated.length) {
-                updated[entryIndex] = {
-                  type: "assistant",
-                  content: resultContent,
-                  timestamp: new Date(),
-                };
-              }
-              return updated;
-            });
-
-            // Trigger toast notification
-            onMemoryWarmed?.(tokenEstimate);
-          } else {
-            throw new Error(saveResult.error);
-          }
-        } else {
-          throw new Error(result.error);
-        }
-      } catch (error: unknown) {
-        const errorMessage = extractErrorMessage(error);
-        // Update the specific entry by index to avoid race conditions
-        setChatHistory((prev) => {
-          const updated = [...prev];
-          if (entryIndex >= 0 && entryIndex < updated.length) {
-            updated[entryIndex] = {
-              type: "assistant",
-              content: `❌ Failed to generate memory: ${errorMessage}`,
-              timestamp: new Date(),
-            };
-          }
-          return updated;
-        });
-      }
-
-      setIsProcessing(false);
-      clearInput();
-      return true;
-    }
-
-    if (trimmedInput === "/memory refresh") {
-      setIsProcessing(true);
-
-      const refreshEntry: ChatEntry = {
-        type: "assistant",
-        content: "🔄 Refreshing project memory...",
-        timestamp: new Date(),
-      };
-
-      // Track the entry index BEFORE any async operations to prevent race conditions
-      let entryIndex = -1;
-      setChatHistory((prev) => {
-        entryIndex = prev.length; // Store index before pushing
-        return [...prev, refreshEntry];
-      });
-
-      try {
-        const store = getContextStore();
-        const existing = store.load();
-        const generator = new ContextGenerator();
-        const result = await generator.generate();
-
-        if (result.success && result.memory) {
-          const memory = result.memory;
-          const hasChanges = !existing.success ||
-            existing.data.content_hash !== memory.content_hash;
-
-          if (hasChanges) {
-            const saveResult = store.save(memory);
-            if (saveResult.success) {
-              // Update the specific entry by index to avoid race conditions
-              setChatHistory((prev) => {
-                const updated = [...prev];
-                if (entryIndex >= 0 && entryIndex < updated.length) {
-                  updated[entryIndex] = {
-                    type: "assistant",
-                    content: `✅ Memory updated (${memory.context.token_estimate.toLocaleString()} tokens)`,
-                    timestamp: new Date(),
-                  };
-                }
-                return updated;
-              });
-
-              // Trigger toast notification
-              onMemoryRefreshed?.();
-            } else {
-              throw new Error(saveResult.error);
-            }
-          } else {
-            // Update the specific entry by index to avoid race conditions
-            setChatHistory((prev) => {
-              const updated = [...prev];
-              if (entryIndex >= 0 && entryIndex < updated.length) {
-                updated[entryIndex] = {
-                  type: "assistant",
-                  content: `✅ No changes detected - memory is up to date`,
-                  timestamp: new Date(),
-                };
-              }
-              return updated;
-            });
-          }
-        } else {
-          throw new Error(result.error);
-        }
-      } catch (error: unknown) {
-        const errorMessage = extractErrorMessage(error);
-        // Update the specific entry by index to avoid race conditions
-        setChatHistory((prev) => {
-          const updated = [...prev];
-          if (entryIndex >= 0 && entryIndex < updated.length) {
-            updated[entryIndex] = {
-              type: "assistant",
-              content: `❌ Failed to refresh memory: ${errorMessage}`,
-              timestamp: new Date(),
-            };
-          }
-          return updated;
-        });
-      }
-
-      setIsProcessing(false);
-      clearInput();
-      return true;
-    }
-
-    // Theme command
-    if (trimmedInput === "/theme" || trimmedInput.startsWith("/theme ")) {
-      try {
-        // Convert to lowercase for case-insensitive theme name matching
-        const arg = trimmedInput.substring(7).trim().toLowerCase();
-        const settings = getSettingsManager();
-        const { getAllThemes, isValidTheme } = await import("../themes/index.js");
-        const { clearThemeCache } = await import("../utils/colors.js");
-        const allThemes = getAllThemes();
-
-        if (!arg || arg === "list") {
-          // Show current theme and list available themes
-          const uiConfig = settings.getUIConfig();
-          const currentTheme = (uiConfig && uiConfig.theme) ? uiConfig.theme : 'default';
-          let themeContent = "🎨 **Color Themes**\n\n";
-          themeContent += `**Current theme:** ${currentTheme}\n\n`;
-          themeContent += "**Available themes:**\n";
-          for (const theme of allThemes) {
-            const isCurrent = theme.name === currentTheme ? " ✓" : "";
-            themeContent += `   • \`${theme.name}\` - ${theme.description}${isCurrent}\n`;
-          }
-          themeContent += "\n**Usage:** `/theme <name>` to switch themes";
-
-          const themeEntry: ChatEntry = {
-            type: "assistant",
-            content: themeContent,
-            timestamp: new Date(),
-          };
-          setChatHistory((prev) => [...prev, themeEntry]);
-          clearInput();
-          return true;
-        }
-
-        // Set a specific theme
-        if (isValidTheme(arg)) {
-          settings.updateUIConfig({ theme: arg });
-          clearThemeCache(); // Clear cached theme colors
-
-          const selectedTheme = allThemes.find(t => t.name === arg);
-          const themeEntry: ChatEntry = {
-            type: "assistant",
-            content: `✅ Theme changed to **${selectedTheme?.displayName}** (${selectedTheme?.description}).\n\n💡 The new theme will be applied to UI elements.`,
-            timestamp: new Date(),
-          };
-          setChatHistory((prev) => [...prev, themeEntry]);
-          clearInput();
-          return true;
-        } else {
-          // Invalid theme name
-          const themeEntry: ChatEntry = {
-            type: "assistant",
-            content: `❌ Unknown theme: \`${arg}\`\n\nAvailable themes: ${allThemes.map(t => t.name).join(", ")}`,
-            timestamp: new Date(),
-          };
-          setChatHistory((prev) => [...prev, themeEntry]);
-          clearInput();
-          return true;
-        }
-      } catch (error) {
-        const errorMessage = extractErrorMessage(error);
-        const errorEntry: ChatEntry = {
-          type: "assistant",
-          content: `❌ Failed to process theme command: ${errorMessage}`,
-          timestamp: new Date(),
-        };
-        setChatHistory((prev) => [...prev, errorEntry]);
-        clearInput();
-        return true;
-      }
-    }
-
-    // Background task commands
-    if (trimmedInput === "/tasks") {
-      const bashOutputTool = new BashOutputTool();
-      const result = bashOutputTool.listTasks();
-      const tasksEntry: ChatEntry = {
-        type: "assistant",
-        content: result.output || "No background tasks",
-        timestamp: new Date(),
-      };
-      setChatHistory((prev) => [...prev, tasksEntry]);
-      clearInput();
-      return true;
-    }
-
-    if (trimmedInput.startsWith("/task ")) {
-      const taskId = trimmedInput.substring(6).trim();
-      if (!taskId) {
-        const errorEntry: ChatEntry = {
-          type: "assistant",
-          content: "Usage: /task <task_id>",
-          timestamp: new Date(),
-        };
-        setChatHistory((prev) => [...prev, errorEntry]);
-        clearInput();
-        return true;
-      }
-
-      const bashOutputTool = new BashOutputTool();
-      const result = await bashOutputTool.execute(taskId);
-      const taskEntry: ChatEntry = {
-        type: "assistant",
-        content: result.success ? result.output || "No output" : result.error || "Task not found",
-        timestamp: new Date(),
-      };
-      setChatHistory((prev) => [...prev, taskEntry]);
-      clearInput();
-      return true;
-    }
-
-    if (trimmedInput.startsWith("/kill ")) {
-      const taskId = trimmedInput.substring(6).trim();
-      if (!taskId) {
-        const errorEntry: ChatEntry = {
-          type: "assistant",
-          content: "Usage: /kill <task_id>",
-          timestamp: new Date(),
-        };
-        setChatHistory((prev) => [...prev, errorEntry]);
-        clearInput();
-        return true;
-      }
-
-      const bashOutputTool = new BashOutputTool();
-      const result = bashOutputTool.killTask(taskId);
-      const killEntry: ChatEntry = {
-        type: "assistant",
-        content: result.success ? result.output || "Task killed" : result.error || "Failed to kill task",
-        timestamp: new Date(),
-      };
-      setChatHistory((prev) => [...prev, killEntry]);
-      clearInput();
-      return true;
-    }
+    // /exit, /memory, /theme, /model, /tasks, /task, /kill are now handled by the command registry
 
     if (trimmedInput === "/rewind") {
       await handleRewindCommand(agent);
@@ -2165,46 +1296,7 @@ Respond with ONLY the commit message, no additional text.`;
       return true;
     }
 
-    // Handle /commands - list all custom commands
-    if (trimmedInput === "/commands") {
-      const customCmds = customCommandsManager.getAllCommands();
-      let content = "**Custom Commands:**\n\n";
-
-      if (customCmds.length === 0) {
-        content += "No custom commands found.\n\n";
-        const configDir = getActiveConfigPaths().DIR_NAME;
-        content += "Create commands by adding markdown files to:\n";
-        content += `  • \`${configDir}/commands/\` (project-level)\n`;
-        content += `  • \`~/${configDir}/commands/\` (user-level)\n`;
-      } else {
-        const projectCmds = customCmds.filter((c: CustomCommand) => c.scope === "project");
-        const userCmds = customCmds.filter((c: CustomCommand) => c.scope === "user");
-
-        if (projectCmds.length > 0) {
-          content += "**Project Commands:**\n";
-          for (const cmd of projectCmds) {
-            content += `  /${cmd.name} - ${cmd.description}\n`;
-          }
-          content += "\n";
-        }
-
-        if (userCmds.length > 0) {
-          content += "**User Commands:**\n";
-          for (const cmd of userCmds) {
-            content += `  /${cmd.name} - ${cmd.description}\n`;
-          }
-        }
-      }
-
-      const commandsEntry: ChatEntry = {
-        type: "assistant",
-        content,
-        timestamp: new Date(),
-      };
-      setChatHistory((prev) => [...prev, commandsEntry]);
-      clearInput();
-      return true;
-    }
+    // /commands is now handled by the command registry
 
     // Handle custom commands (starts with / but not a built-in command)
     if (trimmedInput.startsWith("/")) {

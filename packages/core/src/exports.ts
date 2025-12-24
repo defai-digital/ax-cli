@@ -94,3 +94,61 @@ export {
 
 // Constants
 export { AGENT_CONFIG, GLM_MODELS } from './constants.js';
+
+// Guard System (Security Governance)
+export {
+  // Types
+  type GateImplementation,
+  type GuardCheckOptions,
+  type GuardConfig,
+  type GuardHooks,
+  type GateType,
+  type GateResult,
+  type GateContext,
+  type GateConfig,
+  type GuardCheckResult,
+  type GuardResult,
+  type GuardPolicy,
+  type GuardMetrics,
+  type GuardOptions,
+
+  // Classes
+  Guard,
+  GuardBlockedError,
+  PathViolationGate,
+  CredentialExposureGate,
+  InjectionAttemptGate,
+  SchemaViolationGate,
+
+  // Factory functions
+  createGuard,
+  getDefaultGuard,
+  resetDefaultGuard,
+
+  // Schema utilities
+  registerToolSchema,
+  getToolSchema,
+  clearToolSchemas,
+
+  // Utilities
+  computeOverallResult,
+  normalizePath,
+  isPathUnder,
+  validateGateContext,
+  validateGuardPolicy,
+  validateGuardResult,
+
+  // Policies
+  TOOL_EXECUTION_POLICY,
+  FILE_WRITE_POLICY,
+  FILE_READ_POLICY,
+  COMMAND_EXECUTION_POLICY,
+  OUTPUT_SCREENING_POLICY,
+  INPUT_VALIDATION_POLICY,
+  COMPREHENSIVE_POLICY,
+  MINIMAL_POLICY,
+  DEFAULT_POLICIES,
+  getPolicy,
+  registerPolicy,
+  getAllPolicies,
+} from './guard/index.js';

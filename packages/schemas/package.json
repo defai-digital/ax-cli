@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-schemas",
-  "version": "4.5.1",
+  "version": "5.0.0",
   "description": "Zod schema definitions and TypeScript types for AX CLI ecosystem - Shared validation schemas for config, API, tools, and MCP protocols.",
   "repository": {
     "type": "git",
