@@ -97,7 +97,7 @@ Run `/init` inside the CLI to initialize your project context.
 ---
 
 ### Provider highlights (GLM + Grok)
-- **GLM (ax-glm)**: 200K context, thinking_mode support, strong Chinese language performance, vision via `glm-4.6v`, fast iterations via `glm-4-flash`.
+- **GLM (ax-glm)**: 200K context, **GLM 4.7** with enhanced reasoning and improved coding, thinking_mode support, strong Chinese language performance, vision via `glm-4.6v`, fast iterations via `glm-4-flash`.
 - **Grok (ax-grok)**: Built-in web search, vision, reasoning_effort; **Grok 4.1 fast variants ship with 2M context, parallel server tools, x_search, and server-side code execution**. See `docs/grok-4.1-advanced-features.md` for details.
 - Both CLIs share the same toolchain (file edits, MCP, bash) and project memory; pick the provider that matches your API key.
 - Install both to run in parallel with isolated state (`.ax-glm`, `.ax-grok`) for side-by-side comparisons.
@@ -110,7 +110,8 @@ Run `/init` inside the CLI to initialize your project context.
 
 | Model | Context | Features | Alias |
 |-------|---------|----------|-------|
-| `glm-4.6` | 200K | **Thinking mode**: detailed thought processes and planning | `glm-latest` |
+| `glm-4.7` | 200K | **Latest model**: Enhanced reasoning, improved coding, best overall performance | `glm-latest` |
+| `glm-4.6` | 200K | **Thinking mode**: detailed thought processes and planning | `glm-thinking` |
 | `glm-4.6v` | 128K | **Vision + Thinking**: latest vision model with native multimodal function calling | `glm-vision` |
 | `glm-4-flash` | 128K | Fast, efficient for quick tasks | `glm-fast` |
 | `cogview-4` | - | **Image generation**: text-to-image with variable resolutions | `glm-image` |
@@ -378,7 +379,8 @@ Stay up-to-date with the latest improvements and features.
 
 ### Recent Highlights:
 
-*   **v5.0.0**: Major Release - Command Registry Architecture
+*   **v5.0.0**: Major Release - GLM 4.7 Support & Command Registry Architecture
+    - **GLM 4.7 Support**: Full support for the latest GLM-4.7 model with enhanced reasoning and improved coding capabilities
     - **New Command Registry System**: Extracted 20+ slash command handlers from monolithic use-input-handler.ts into modular registry pattern
     - **Bug Fixes**:
       - Fixed race condition in async command processing (setProcessing called after asyncAction)
