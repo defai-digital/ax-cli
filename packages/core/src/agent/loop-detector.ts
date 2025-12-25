@@ -60,9 +60,25 @@ const TOOL_THRESHOLDS: Record<string, number> = {
   create_todo_list: 3,
   update_todo_list: 10,  // Higher because progress updates are normal
 
+  // MCP web search tools - restrict to prevent infinite search loops
+  webSearchPrime: 3,  // Z.AI web search
+  web_search: 3,      // Generic web search
+  websearch: 3,       // Alternative naming
+
   // Default for unknown tools
   default: 5,
 };
+
+/**
+ * Pattern matchers for MCP tools
+ * Used to apply thresholds to tools with dynamic names like mcp__server__tool
+ */
+const MCP_TOOL_PATTERNS: Array<{ pattern: RegExp; threshold: number }> = [
+  // Web search MCP tools (zai-web-search, automatosx, etc.)
+  { pattern: /web.?search/i, threshold: 3 },
+  // Web fetch/reader tools
+  { pattern: /web.?fetch|web.?reader/i, threshold: 5 },
+];
 
 /**
  * Tools that should be tracked by unique path/target
@@ -84,7 +100,18 @@ const FAILURE_SENSITIVE_TOOLS = new Set([
   'str_replace_editor',
   'bash',
   'execute_bash',
+  // Web search tools - failures often mean the tool isn't available or API issues
+  'webSearchPrime',
+  'web_search',
+  'websearch',
 ]);
+
+/**
+ * Pattern for detecting failure-sensitive MCP tools
+ */
+const FAILURE_SENSITIVE_PATTERNS = [
+  /web.?search/i,
+];
 
 export interface LoopDetectionResult {
   isLoop: boolean;
@@ -313,8 +340,20 @@ export class LoopDetector {
   }
 
   private getThreshold(toolName: string, _signature: string): number {
-    // Use tool-specific threshold or default
-    return TOOL_THRESHOLDS[toolName] || TOOL_THRESHOLDS.default;
+    // Check exact match first
+    if (TOOL_THRESHOLDS[toolName]) {
+      return TOOL_THRESHOLDS[toolName];
+    }
+
+    // Check MCP tool patterns (handles mcp__server__tool naming)
+    for (const { pattern, threshold } of MCP_TOOL_PATTERNS) {
+      if (pattern.test(toolName)) {
+        return threshold;
+      }
+    }
+
+    // Default threshold
+    return TOOL_THRESHOLDS.default;
   }
 
   private adjustThresholdForFailures(
@@ -322,11 +361,20 @@ export class LoopDetector {
     baseThreshold: number,
     failureCount: number
   ): number {
-    // For failure-sensitive tools, reduce threshold based on consecutive failures
-    if (FAILURE_SENSITIVE_TOOLS.has(toolName) && failureCount > 0) {
-      // Each failure reduces threshold by 1, minimum of 2
-      return Math.max(2, baseThreshold - failureCount);
+    if (failureCount === 0) {
+      return baseThreshold;
     }
+
+    // Check if tool is failure-sensitive (exact match or pattern)
+    const isFailureSensitive = FAILURE_SENSITIVE_TOOLS.has(toolName) ||
+      FAILURE_SENSITIVE_PATTERNS.some(pattern => pattern.test(toolName));
+
+    if (isFailureSensitive) {
+      // Each failure reduces threshold by 1, minimum of 1
+      // More aggressive for web search tools to prevent loops
+      return Math.max(1, baseThreshold - failureCount);
+    }
+
     return baseThreshold;
   }
 

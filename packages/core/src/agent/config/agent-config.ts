@@ -141,7 +141,8 @@ export class AgentConfigManager {
    */
   modelSupportsThinking(model: string): boolean {
     const modelLower = model.toLowerCase();
-    return modelLower.includes('glm') || modelLower.includes('4.6');
+    // GLM models (4.6, 4.7, etc.) and Grok 4 models support thinking
+    return modelLower.includes('glm') || modelLower.includes('grok-4');
   }
 
   /**

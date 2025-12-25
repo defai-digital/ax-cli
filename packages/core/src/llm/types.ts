@@ -363,11 +363,22 @@ export interface MultimodalMessage {
 }
 
 /**
- * GLM-4.6 model configurations
+ * GLM model configurations
  *
  * Defines capabilities and limits for supported models
  */
 export const GLM_MODELS = {
+  // GLM-4.7 Series - Latest generation (December 2025)
+  "glm-4.7": {
+    contextWindow: 131072,      // 131K tokens
+    maxOutputTokens: 128000,    // 128K max output
+    supportsThinking: true,     // Enhanced thinking modes
+    supportsVision: false,
+    defaultTemperature: 0.7,
+    temperatureRange: { min: 0.0, max: 1.0 },
+    tokenEfficiency: 1.4,
+  },
+  // GLM-4.6 Series - Previous generation
   "glm-4.6": {
     contextWindow: 200000,      // 200K tokens
     maxOutputTokens: 128000,    // 128K max output

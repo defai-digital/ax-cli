@@ -160,6 +160,16 @@ interface RawStreamChunk {
   usage?: StreamUsage;
 }
 
+/**
+ * GLM API thinking parameter format
+ * Different from ThinkingConfig - this is the actual API format
+ */
+interface GLMThinkingParam {
+  type: "enabled" | "disabled";
+  /** Preserve reasoning from previous turns (recommended for coding) */
+  clear_thinking: boolean;
+}
+
 /** API request payload structure */
 interface APIRequestPayload {
   model: string;
@@ -169,8 +179,8 @@ interface APIRequestPayload {
   tools?: LLMTool[];
   tool_choice?: "auto";
   stream?: boolean;
-  // GLM-style thinking mode
-  thinking?: ThinkingConfig;
+  // GLM-style thinking mode (API format with clear_thinking)
+  thinking?: GLMThinkingParam;
   // Grok-style reasoning effort (alternative to thinking)
   reasoning_effort?: "low" | "high";
   // Web search parameters
@@ -521,8 +531,13 @@ export class LLMClient {
           payload.reasoning_effort = thinking.reasoningEffort || 'high';
         }
       } else {
-        // GLM uses thinking parameter
-        payload.thinking = thinking;
+        // GLM uses thinking parameter with specific format
+        // GLM-4.7 expects: { type: "enabled", clear_thinking: false }
+        // clear_thinking: false preserves reasoning from previous turns (recommended for coding)
+        payload.thinking = {
+          type: thinking.type,
+          clear_thinking: false,
+        };
       }
     }
 

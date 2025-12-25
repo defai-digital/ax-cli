@@ -6,27 +6,26 @@
  * - Ollama (primary)
  * - LMStudio
  * - vLLM
- * - DeepSeek Cloud (only cloud provider)
  *
  * Supports any model available in Ollama: Qwen, DeepSeek, Llama, Phi, Gemma, etc.
  *
- * NOTE: ax-cli does NOT have provider-specific features like:
- * - Web search (native API)
- * - Image generation
- * - Vision capabilities
- *
- * For GLM features, use ax-glm: npm install -g @defai.digital/ax-glm
- * For Grok features, use ax-grok: npm install -g @defai.digital/ax-grok
+ * NOTE: ax-cli is LOCAL/OFFLINE FIRST. For cloud provider features, use:
+ * - ax-glm: npm install -g @defai.digital/ax-glm (web search, vision, image gen)
+ * - ax-grok: npm install -g @defai.digital/ax-grok (web search, vision, X search)
  */
 
+import { createCLI, AX_CLI_PROVIDER } from '@defai.digital/ax-core';
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { createRequire } from 'module';
 import { runSetup } from './setup.js';
 import { loadConfig, type AxCliConfig } from './config.js';
 
-const VERSION = '4.3.16';
-const NAME = 'ax-cli';
-type AxCoreModule = typeof import('@defai.digital/ax-core');
+// Get version from package.json
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json') as { version: string };
+
+const VERSION = pkg.version;
 
 /**
  * Display the AX-CLI banner with cool theme
@@ -70,107 +69,90 @@ function showStatus(config: AxCliConfig): void {
 }
 
 /**
- * Load ax-core with a clear error if it is missing
+ * Create ax-cli specific setup command
  */
-async function loadAxCore(): Promise<AxCoreModule> {
-  try {
-    return await import('@defai.digital/ax-core');
-  } catch (error) {
-    console.log(chalk.yellow('\n  Unable to load @defai.digital/ax-core.'));
-    console.log('  If it is not installed, add it first:\n');
-    console.log(chalk.gray('    npm install -g @defai.digital/ax-core'));
-    if (error instanceof Error && error.message) {
-      console.log(chalk.red(`\n  Details: ${error.message}`));
-    }
-    console.log();
-    process.exit(1);
-  }
-}
-
-/**
- * Launch the CLI with the configured provider
- */
-async function launchCLI(config: AxCliConfig): Promise<void> {
-  const core = await loadAxCore();
-
-  // Use AX_CLI_PROVIDER directly - it has no GLM/Grok specific features
-  // Override baseURL and model from config if provided
-  const axCliProvider = {
-    ...core.AX_CLI_PROVIDER,
-    // Override with user's configured settings
-    defaultBaseURL: config.baseURL || core.AX_CLI_PROVIDER.defaultBaseURL,
-    defaultModel: config.defaultModel || core.AX_CLI_PROVIDER.defaultModel,
-  };
-
-  try {
-    await core.runCLI({
-      provider: axCliProvider,
-      version: VERSION,
-    });
-  } catch (error) {
-    console.log(chalk.red('\n  Failed to launch ax-cli.'));
-    if (error instanceof Error && error.message) {
-      console.log(chalk.red(`  ${error.message}`));
-    }
-    process.exit(1);
-  }
-}
-
-const program = new Command();
-
-program
-  .name(NAME)
-  .description('Enterprise-Class AI Command Line Interface')
-  .version(VERSION);
-
-/**
- * Setup command - configure provider and API key
- */
-program
-  .command('setup')
-  .description('Configure your LLM provider')
-  .option('--force', 'Delete existing configuration and start fresh')
-  .action(async (options: { force?: boolean }) => {
-    showBanner();
-    await runSetup({ force: options.force });
-  });
-
-/**
- * Status command - show current configuration
- */
-program
-  .command('status')
-  .description('Show current provider configuration')
-  .action(() => {
-    showBanner();
-    const config = loadConfig();
-    showStatus(config);
-  });
-
-/**
- * Default action - launch CLI or prompt setup
- */
-program
-  .argument('[message...]', 'Initial message to send to the AI')
-  .action(async (_messageArgs: string[]) => {
-    const config = loadConfig();
-
-    if (!config?.selectedProvider) {
+function createAxCliSetupCommand(): Command {
+  return new Command('setup')
+    .description('Configure your local LLM provider (Ollama, LMStudio, vLLM)')
+    .option('--force', 'Delete existing configuration and start fresh')
+    .action(async (options: { force?: boolean }) => {
       showBanner();
-      console.log(chalk.yellow('  No provider configured yet.\n'));
-      console.log('  Available providers:');
-      console.log('    • ' + chalk.green('Local/Offline') + ' - Ollama, LMStudio, vLLM (recommended)');
-      console.log('    • ' + chalk.magenta('DeepSeek') + ' - DeepSeek Cloud API');
-      console.log();
-      console.log('  Run ' + chalk.bold.blue('ax-cli setup') + ' to get started.\n');
-      console.log(chalk.dim('  Note: For cloud provider features (web search, vision, image):'));
-      console.log(chalk.dim('  • GLM: npm install -g @defai.digital/ax-glm'));
-      console.log(chalk.dim('  • Grok: npm install -g @defai.digital/ax-grok\n'));
-      process.exit(1);
-    }
+      await runSetup({ force: options.force });
+    });
+}
 
-    // Launch the full CLI
-    await launchCLI(config);
-  });
+/**
+ * Create ax-cli specific config command (shows local provider configuration)
+ */
+function createAxCliConfigCommand(): Command {
+  return new Command('config')
+    .description('Show current local provider configuration')
+    .action(() => {
+      showBanner();
+      const config = loadConfig();
+      showStatus(config);
+    });
+}
 
-program.parse();
+/**
+ * Check if ax-cli is configured, show helpful message if not
+ */
+function checkConfiguration(): boolean {
+  const config = loadConfig();
+
+  if (!config?.selectedProvider) {
+    showBanner();
+    console.log(chalk.yellow('  No provider configured yet.\n'));
+    console.log('  Available providers:');
+    console.log('    • ' + chalk.green('Local/Offline') + ' - Ollama, LMStudio, vLLM (recommended)');
+    console.log();
+    console.log('  Run ' + chalk.bold.blue('ax-cli setup') + ' to get started.\n');
+    console.log(chalk.dim('  Note: For cloud provider features (web search, vision, image):'));
+    console.log(chalk.dim('  • GLM: npm install -g @defai.digital/ax-glm'));
+    console.log(chalk.dim('  • Grok: npm install -g @defai.digital/ax-grok\n'));
+    return false;
+  }
+
+  return true;
+}
+
+// Build the ax-cli provider with local config overrides
+function getAxCliProvider() {
+  const config = loadConfig();
+
+  return {
+    ...AX_CLI_PROVIDER,
+    // Override with user's configured settings
+    defaultBaseURL: config.baseURL || AX_CLI_PROVIDER.defaultBaseURL,
+    defaultModel: config.defaultModel || AX_CLI_PROVIDER.defaultModel,
+  };
+}
+
+// Check args to see if we're running a subcommand that doesn't need config
+const args = process.argv.slice(2);
+const isSetupCommand = args[0] === 'setup';
+const isConfigCommand = args[0] === 'config';
+const isHelpCommand = args.includes('--help') || args.includes('-h');
+const isVersionCommand = args.includes('--version') || args.includes('-v');
+const isMcpCommand = args[0] === 'mcp';
+const needsConfigCheck = !isSetupCommand && !isConfigCommand && !isHelpCommand && !isVersionCommand && !isMcpCommand;
+
+// Check configuration before creating CLI (unless running setup/config/help/version/mcp)
+if (needsConfigCheck && !checkConfiguration()) {
+  process.exit(1);
+}
+
+// Create the CLI using core's factory with all features (including MCP!)
+// Use skipSetupCommand to allow ax-cli to provide its own local-focused setup
+const cli = createCLI({
+  provider: getAxCliProvider(),
+  version: VERSION,
+  skipSetupCommand: true, // ax-cli provides its own setup command
+});
+
+// Add ax-cli specific commands
+cli.addCommand(createAxCliSetupCommand());
+cli.addCommand(createAxCliConfigCommand());
+
+// Parse and run
+cli.parse();

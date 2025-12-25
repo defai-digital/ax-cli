@@ -292,6 +292,23 @@ export function shouldUseThinkingMode(request: string): boolean {
     return false;
   }
 
+  // Skip thinking mode for web search queries - these are simple tool invocations
+  // The MCP tool does the actual work, no need for extended reasoning
+  const isWebSearchQuery =
+    lowerRequest.includes("search the web") ||
+    lowerRequest.includes("search online") ||
+    lowerRequest.includes("web search") ||
+    lowerRequest.includes("look up online") ||
+    lowerRequest.includes("find online") ||
+    lowerRequest.includes("search for news") ||
+    lowerRequest.includes("latest news") ||
+    lowerRequest.includes("current news") ||
+    /^(search|google|look up|find)\s+(for\s+)?/i.test(lowerRequest.trim());
+
+  if (isWebSearchQuery) {
+    return false;
+  }
+
   return hasThinkingKeywords || hasReasoningQuestion || wantsExplanation || hasMultipleOptions || isDebugging;
 }
 

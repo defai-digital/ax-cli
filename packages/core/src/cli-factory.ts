@@ -56,6 +56,11 @@ export interface CLIFactoryOptions {
     /** Enable parallel function calling */
     parallelFunctionCalling?: boolean;
   };
+  /**
+   * Skip adding the default setup command.
+   * Use this when the provider CLI has its own custom setup command (e.g., ax-cli).
+   */
+  skipSetupCommand?: boolean;
 }
 
 // Global agent tracker for cleanup on exit
@@ -419,7 +424,9 @@ export function createCLI(options: CLIFactoryOptions): Command {
   cli.addCommand(createTemplatesCommand());
   cli.addCommand(createMemoryCommand());
   cli.addCommand(createUpdateCommand(provider)); // Provider-specific update command
-  cli.addCommand(createProviderSetupCommand(provider)); // Provider-specific setup wizard
+  if (!options.skipSetupCommand) {
+    cli.addCommand(createProviderSetupCommand(provider)); // Provider-specific setup wizard
+  }
   cli.addCommand(createUsageCommand());
   cli.addCommand(createCacheCommand());
   cli.addCommand(createModelsCommand());
