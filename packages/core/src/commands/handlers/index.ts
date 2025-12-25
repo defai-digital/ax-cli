@@ -18,6 +18,7 @@ export * from "./permissions.js";
 export * from "./init.js";
 export * from "./memory.js";
 export * from "./mcp.js";
+export * from "./lang.js";
 
 // Import command definitions for registration
 import { helpCommands } from "./help.js";
@@ -31,6 +32,7 @@ import { permissionsCommands } from "./permissions.js";
 import { initCommands } from "./init.js";
 import { memoryCommands } from "./memory.js";
 import { mcpCommands } from "./mcp.js";
+import { langCommands } from "./lang.js";
 
 import type { CommandDefinition } from "../types.js";
 import { CommandRegistry } from "../registry.js";
@@ -53,6 +55,7 @@ export const builtInCommands: CommandDefinition[] = [
   ...initCommands,
   ...memoryCommands,
   ...mcpCommands,
+  ...langCommands,
 ];
 
 // Track initialization state
