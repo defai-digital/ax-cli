@@ -81,7 +81,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -b && cp -r src/i18n/locales dist/i18n/",
+    "build": "tsc -b && cp -r src/i18n/locales dist/i18n/ && cp -r config-defaults dist/",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit"
   },
