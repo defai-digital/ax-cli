@@ -30,7 +30,8 @@
     "thinkingActive": "Đang suy nghĩ...",
     "context": "Ngữ cảnh",
     "contextAvailable": "Ngữ cảnh khả dụng",
-    "contextWarning": "Sắp hết!"
+    "contextWarning": "低!",
+    "autoPruned": "tự động cắt"
   },
   "tools": {
     "executing": "Đang thực thi",
@@ -99,6 +100,7 @@
     "jumpToLatest": "Nhảy đến mới nhất",
     "toggleVerbosity": "Chuyển đổi chi tiết",
     "toggleAutoEdit": "Chuyển đổi tự động sửa",
+    "togglePaste": "Chuyển chế độ dán",
     "toggleThinking": "Chuyển đổi chế độ suy nghĩ",
     "toggleBackground": "Chuyển đổi chế độ nền"
   },

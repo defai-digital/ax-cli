@@ -27,6 +27,8 @@ import { addUserMCPServer, removeUserMCPServer } from '../mcp/config.js';
 import { FILE_NAMES } from '../constants.js';
 import { exitIfCancelled } from './utils.js';
 import type { SupportedLanguageType } from '../schemas/settings-schemas.js';
+import { getCommandTranslations } from '../i18n/loader.js';
+import { resetCachedLanguage } from '../ui/hooks/use-translations.js';
 
 /**
  * Check AutomatosX status - returns version if installed, null otherwise
@@ -107,14 +109,24 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
       validate?: boolean;
     }) => {
       try {
+        // Load initial translations using existing config language or English
+        const settingsManager = getSettingsManager();
+        let initialLang: SupportedLanguageType = 'en';
+        try {
+          initialLang = settingsManager.getLanguage();
+        } catch {
+          // Ignore - use English if settings can't be read
+        }
+        let t = getCommandTranslations(initialLang as SupportedLanguageType);
+
         // Show intro with provider-specific branding
-        prompts.intro(chalk.cyan(`${cliName.toUpperCase()} Setup`));
+        prompts.intro(chalk.cyan(`${cliName.toUpperCase()} ${t.setup.title}`));
 
         await prompts.note(
           `${provider.branding.description}\n\n` +
-          `Provider: ${provider.displayName}\n` +
-          `Get API key: ${website}`,
-          'Welcome'
+          `${t.setup.provider}: ${provider.displayName}\n` +
+          `${t.setup.apiKeyHint}: ${website}`,
+          t.setup.welcome || 'Welcome'
         );
 
         // ═══════════════════════════════════════════════════════════════════
@@ -155,7 +167,6 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         const activeConfigPaths = getActiveConfigPaths();
         const configPath = activeConfigPaths.USER_CONFIG;
         const configDir = dirname(configPath);
-        const settingsManager = getSettingsManager();
 
         // Ensure config directory exists
         if (!existsSync(configDir)) {
@@ -171,8 +182,8 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
 
             if (existingConfig.apiKey && !options.force) {
               await prompts.note(
-                `Existing configuration found at:\n${configPath}`,
-                'Configuration Exists'
+                `${t.setup.configExists || 'Existing configuration found at'}:\n${configPath}`,
+                t.setup.configExistsTitle || 'Configuration Exists'
               );
             }
           } catch (error) {
@@ -184,7 +195,7 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         // STEP 1: Language Selection
         // ═══════════════════════════════════════════════════════════════════
         const totalSteps = provider.name === 'glm' ? 5 : 4;
-        prompts.log.step(chalk.bold(`Step 1/${totalSteps} — Choose Language`));
+        prompts.log.step(chalk.bold(`${t.setup.step} 1/${totalSteps} — ${t.setup.chooseLanguage}`));
 
         const languageChoices: { value: SupportedLanguageType; label: string; hint: string }[] = [
           { value: 'en', label: 'English', hint: 'Default' },
@@ -207,17 +218,19 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
           : (existingLang?.current ?? 'en');
 
         const selectedLanguage = await prompts.select({
-          message: 'Select display language:',
+          message: t.setup.selectLanguage,
           options: languageChoices,
           initialValue: currentLang,
         });
         exitIfCancelled(selectedLanguage);
 
-        // Show language confirmation with note about when it takes effect
+        // Reload translations for selected language
+        t = getCommandTranslations(selectedLanguage as SupportedLanguageType);
+
+        // Show language confirmation
         if (selectedLanguage !== 'en') {
           const langLabel = languageChoices.find(l => l.value === selectedLanguage)?.label ?? selectedLanguage;
-          prompts.log.info(`Language set to ${langLabel}`);
-          prompts.log.message(chalk.dim('Note: The setup wizard continues in English. Language will be applied to commands like /lang, /help after setup completes.'));
+          prompts.log.info(`${t.setup.languageChanged || 'Language set to'} ${langLabel}`);
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -227,20 +240,20 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         let isLocalServer = false;
 
         if (provider.name === 'glm') {
-          prompts.log.step(chalk.bold(`Step 2/${totalSteps} — Server Selection`));
+          prompts.log.step(chalk.bold(`${t.setup.step} 2/${totalSteps} — ${t.setup.serverSelection}`));
 
           const serverType = await prompts.select({
-            message: 'Select server type:',
+            message: t.setup.selectServerType,
             options: [
               {
                 value: 'zai',
-                label: 'Z.AI Cloud (Recommended)',
-                hint: 'Use official Z.AI API at api.z.ai',
+                label: `${t.setup.cloudRecommended}`,
+                hint: t.setup.cloudHint,
               },
               {
                 value: 'local',
-                label: 'Local/Custom Server',
-                hint: 'Ollama, LMStudio, vLLM, or other OpenAI-compatible server',
+                label: t.setup.localCustom,
+                hint: t.setup.localHint,
               },
             ],
             initialValue: 'zai',
@@ -251,15 +264,15 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
             isLocalServer = true;
 
             await prompts.note(
-              'Supported local servers:\n' +
+              `${t.setup.supportedServers}:\n` +
               '• Ollama:   http://localhost:11434/v1\n' +
               '• LMStudio: http://localhost:1234/v1\n' +
               '• vLLM:     http://localhost:8000/v1',
-              'Local Server Options'
+              t.setup.localServerOptions
             );
 
             const customURL = await prompts.text({
-              message: 'Enter server URL:',
+              message: t.setup.enterServerUrl,
               placeholder: 'http://localhost:11434/v1',
               initialValue: existingConfig?.baseURL && existingConfig.baseURL !== provider.defaultBaseURL
                 ? existingConfig.baseURL
@@ -284,8 +297,8 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         // ═══════════════════════════════════════════════════════════════════
         // STEP 3: API Key with Connection Test Loop (or Step 2 for Grok)
         // ═══════════════════════════════════════════════════════════════════
-        const apiKeyStep = provider.name === 'glm' ? `Step 3/${totalSteps}` : `Step 2/${totalSteps}`;
-        prompts.log.step(chalk.bold(`${apiKeyStep} — API Key & Connection Test`));
+        const apiKeyStepNum = provider.name === 'glm' ? 3 : 2;
+        prompts.log.step(chalk.bold(`${t.setup.step} ${apiKeyStepNum}/${totalSteps} — ${t.setup.apiKeyStep}`));
 
         let apiKey = '';
         let connectionValidated = false;
@@ -302,11 +315,11 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
 
           await prompts.note(
             `Key: ${maskedKey}`,
-            `Existing API Key`
+            t.setup.existingApiKey || 'Existing API Key'
           );
 
           const reuseKey = await prompts.confirm({
-            message: 'Use existing API key?',
+            message: t.setup.useExistingKey || 'Use existing API key?',
             initialValue: true,
           });
           exitIfCancelled(reuseKey);
@@ -320,10 +333,10 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         while (!connectionValidated) {
           // If no API key yet, prompt for one
           if (!apiKey) {
-            prompts.log.info(`Get your API key from: ${website}`);
+            prompts.log.info(`${t.setup.apiKeyHint}: ${website}`);
             const newKey = await prompts.password({
-              message: `Enter your ${provider.displayName} API key:`,
-              validate: (value) => value?.trim().length > 0 ? undefined : 'API key is required',
+              message: t.setup.enterApiKey,
+              validate: (value) => value?.trim().length > 0 ? undefined : t.setup.apiKeyRequired || 'API key is required',
             });
             exitIfCancelled(newKey);
             apiKey = newKey.trim();
@@ -331,11 +344,11 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
 
           // Test connection
           if (shouldSkipValidation) {
-            prompts.log.info('Skipping validation' + (isLocalServer ? ' (local server)' : ''));
+            prompts.log.info(t.setup.skipValidation || 'Skipping validation' + (isLocalServer ? ' (local server)' : ''));
             connectionValidated = true;
           } else {
             const spinner = prompts.spinner();
-            spinner.start('Testing API connection...');
+            spinner.start(t.setup.testingConnection);
 
             const validationResult = await validateProviderSetup(
               {
@@ -348,28 +361,28 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
             );
 
             if (validationResult.success) {
-              spinner.stop('Connection successful!');
-              prompts.log.success('API key validated');
+              spinner.stop(t.setup.connectionSuccess);
+              prompts.log.success(t.setup.apiKeyValidated || 'API key validated');
               connectionValidated = true;
             } else {
-              spinner.stop('Connection failed');
+              spinner.stop(t.setup.connectionFailed);
 
               // Show error details
               if (validationResult.authentication && !validationResult.authentication.success) {
-                prompts.log.error(`Authentication: ${validationResult.authentication.error || validationResult.authentication.message}`);
+                prompts.log.error(`${t.setup.authError || 'Authentication'}: ${validationResult.authentication.error || validationResult.authentication.message}`);
               } else if (validationResult.endpoint && !validationResult.endpoint.success) {
-                prompts.log.error(`Endpoint: ${validationResult.endpoint.error || validationResult.endpoint.message}`);
+                prompts.log.error(`${t.setup.endpointError || 'Endpoint'}: ${validationResult.endpoint.error || validationResult.endpoint.message}`);
               }
 
               console.log(''); // Blank line
 
               // Ask user what to do
               const retryChoice = await prompts.select({
-                message: 'Connection failed. What would you like to do?',
+                message: t.setup.retryOrSkip,
                 options: [
-                  { value: 'retry', label: 'Enter a different API key', hint: 'Try again with a new key' },
-                  { value: 'skip', label: 'Continue anyway', hint: 'Save config without validation' },
-                  { value: 'quit', label: 'Cancel setup', hint: 'Press Esc or select to quit' },
+                  { value: 'retry', label: t.setup.retry, hint: t.setup.retryHint || 'Try again with a new key' },
+                  { value: 'skip', label: t.setup.continueAnyway, hint: t.setup.continueAnywayHint || 'Save config without validation' },
+                  { value: 'quit', label: t.setup.cancelSetup || 'Cancel setup', hint: t.setup.cancelHint || 'Press Esc or select to quit' },
                 ],
               });
               exitIfCancelled(retryChoice);
@@ -378,10 +391,10 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
                 apiKey = ''; // Clear to prompt for new key
                 continue;
               } else if (retryChoice === 'skip') {
-                prompts.log.warn('Proceeding with unvalidated configuration');
+                prompts.log.warn(t.setup.proceedingWithoutValidation || 'Proceeding with unvalidated configuration');
                 connectionValidated = true;
               } else {
-                prompts.cancel('Setup cancelled.');
+                prompts.cancel(t.setup.setupCancelled);
                 process.exit(0);
               }
             }
@@ -391,8 +404,8 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         // ═══════════════════════════════════════════════════════════════════
         // STEP 4: Model Selection (or Step 3 for Grok)
         // ═══════════════════════════════════════════════════════════════════
-        const modelStep = provider.name === 'glm' ? `Step 4/${totalSteps}` : `Step 3/${totalSteps}`;
-        prompts.log.step(chalk.bold(`${modelStep} — Choose Model`));
+        const modelStepNum = provider.name === 'glm' ? 4 : 3;
+        prompts.log.step(chalk.bold(`${t.setup.step} ${modelStepNum}/${totalSteps} — ${t.setup.modelSelection}`));
 
         // Format context window for display
         const formatContext = (tokens: number): string => {
@@ -417,8 +430,8 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
           const isDefault = modelId === provider.defaultModel;
           return {
             value: modelId,
-            label: isDefault ? `${config.name} (recommended)` : config.name,
-            hint: `${contextInfo} context • ${config.description}`,
+            label: isDefault ? `${config.name} (${t.setup.recommended})` : config.name,
+            hint: `${contextInfo} ${t.setup.context} • ${config.description}`,
           };
         });
 
@@ -433,7 +446,7 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         const initialModel = existingModel && provider.models[existingModel] ? existingModel : provider.defaultModel;
 
         const modelSelection = await prompts.select({
-          message: 'Select default model:',
+          message: t.setup.selectModel,
           options: modelChoices,
           initialValue: initialModel,
         });
@@ -445,7 +458,7 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         // Safety check - should not happen but prevents crash
         if (!modelConfig) {
           prompts.log.error(`Model "${chosenModel}" not found in provider configuration`);
-          prompts.cancel('Setup failed due to invalid model selection.');
+          prompts.cancel(t.setup.configSaveFailed || 'Setup failed due to invalid model selection.');
           process.exit(1);
         }
 
@@ -458,16 +471,16 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
 
         const contextStr = formatContext(modelConfig.contextWindow);
         if (features.length > 0) {
-          prompts.log.info(`${contextStr} context • Features: ${features.join(', ')}`);
+          prompts.log.info(`${contextStr} ${t.setup.context} • ${t.setup.features}: ${features.join(', ')}`);
         } else {
-          prompts.log.info(`${contextStr} context window`);
+          prompts.log.info(`${contextStr} ${t.setup.context}`);
         }
 
         // ═══════════════════════════════════════════════════════════════════
         // STEP 5: Review & Save (or Step 4 for Grok)
         // ═══════════════════════════════════════════════════════════════════
-        const saveStep = provider.name === 'glm' ? `Step 5/${totalSteps}` : `Step 4/${totalSteps}`;
-        prompts.log.step(chalk.bold(`${saveStep} — Review & Save`));
+        const saveStepNum = provider.name === 'glm' ? 5 : 4;
+        prompts.log.step(chalk.bold(`${t.setup.step} ${saveStepNum}/${totalSteps} — ${t.setup.reviewSave}`));
 
         const maxTokens = modelConfig.maxOutputTokens > 32768 ? 32768 : modelConfig.maxOutputTokens;
 
@@ -475,23 +488,23 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         const langDisplay = languageChoices.find(l => l.value === selectedLanguage)?.label ?? selectedLanguage;
 
         await prompts.note(
-          `Language:    ${langDisplay}\n` +
-          `Provider:    ${provider.displayName}${isLocalServer ? ' (Local)' : ''}\n` +
-          `Base URL:    ${selectedBaseURL}\n` +
-          `Model:       ${chosenModel}\n` +
-          `Max Tokens:  ${existingConfig?.maxTokens ?? maxTokens}\n` +
-          `Config path: ${configPath}`,
-          'Configuration Summary'
+          `${t.setup.language}:    ${langDisplay}\n` +
+          `${t.setup.provider}:    ${provider.displayName}${isLocalServer ? ' (Local)' : ''}\n` +
+          `${t.setup.baseUrl}:    ${selectedBaseURL}\n` +
+          `${t.setup.model}:       ${chosenModel}\n` +
+          `${t.setup.maxTokens}:  ${existingConfig?.maxTokens ?? maxTokens}\n` +
+          `${t.setup.configPath}: ${configPath}`,
+          t.setup.configSummary
         );
 
         const confirmSave = await prompts.confirm({
-          message: 'Save these settings?',
+          message: t.setup.saveSettings,
           initialValue: true,
         });
         exitIfCancelled(confirmSave);
 
         if (!confirmSave) {
-          prompts.cancel('Setup cancelled. No changes saved.');
+          prompts.cancel(t.setup.setupCancelled);
           process.exit(0);
         }
 
@@ -514,11 +527,13 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         // Persist using settings manager to ensure encryption + permissions
         try {
           settingsManager.saveUserSettings(mergedConfig);
-          prompts.log.success('Configuration saved successfully!');
+          // CRITICAL: Invalidate the translation cache so UI uses the new language
+          resetCachedLanguage();
+          prompts.log.success(t.setup.configSaved);
         } catch (saveError) {
-          prompts.log.error(`Failed to save configuration: ${extractErrorMessage(saveError)}`);
-          prompts.log.info(`Config path: ${configPath}`);
-          prompts.log.info('Please check file permissions and disk space.');
+          prompts.log.error(`${t.setup.configSaveFailed}: ${extractErrorMessage(saveError)}`);
+          prompts.log.info(`${t.setup.configPath}: ${configPath}`);
+          prompts.log.info(t.setup.checkPermissions || 'Please check file permissions and disk space.');
           process.exit(1);
         }
 
@@ -527,15 +542,15 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         // ═══════════════════════════════════════════════════════════════════
         if (provider.name === 'glm' && !isLocalServer) {
           await prompts.note(
-            'Enabling Z.AI MCP servers for enhanced capabilities:\n' +
-            '- Web Search - Real-time web search\n' +
-            '- Web Reader - Extract content from web pages\n' +
-            '- Vision - Image/video analysis (Node.js 22+)',
-            'Z.AI MCP Integration'
+            `${t.setup.enablingMcp}:\n` +
+            `- ${t.setup.webSearch} - Real-time web search\n` +
+            `- ${t.setup.webReader} - Extract content from web pages\n` +
+            `- ${t.setup.vision} - Image/video analysis (Node.js 22+)`,
+            t.setup.mcpIntegration
           );
 
           const mcpSpinner = prompts.spinner();
-          mcpSpinner.start('Configuring Z.AI MCP servers...');
+          mcpSpinner.start(t.setup.configuringMcp);
 
           try {
             const status = await detectZAIServices();
@@ -563,11 +578,11 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
               }
             }
 
-            mcpSpinner.stop(`${successCount} Z.AI MCP server${successCount !== 1 ? 's' : ''} configured`);
+            mcpSpinner.stop(t.setup.mcpConfigured.replace('{count}', String(successCount)));
           } catch (error) {
-            mcpSpinner.stop('Could not set up Z.AI MCP servers');
+            mcpSpinner.stop(t.setup.mcpFailed);
             prompts.log.warn(`${extractErrorMessage(error)}`);
-            prompts.log.info(`You can enable them later with: ${cliName} mcp add-zai`);
+            prompts.log.info(`${t.setup.enableLater}: ${cliName} mcp add-zai`);
           }
         }
 
@@ -575,67 +590,67 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         // AutomatosX Integration
         // ═══════════════════════════════════════════════════════════════════
         await prompts.note(
-          'Multi-agent AI orchestration with persistent memory and collaboration.',
-          'AutomatosX Agent Orchestration'
+          t.setup.automatosxDesc,
+          t.setup.automatosx
         );
 
         let axStatus = getAutomatosXStatus();
 
         if (axStatus.installed) {
-          prompts.log.success(`AutomatosX detected${axStatus.version ? ` (v${axStatus.version})` : ''}`);
+          prompts.log.success(`${t.setup.automatosxFound}${axStatus.version ? ` (v${axStatus.version})` : ''}`);
 
           const axSpinner = prompts.spinner();
-          axSpinner.start('Checking for updates...');
+          axSpinner.start(t.setup.checkAutomatosx);
 
           const updated = await updateAutomatosX();
           if (updated) {
             axStatus = getAutomatosXStatus(); // Refresh version after update
             axSpinner.stop(`AutomatosX updated${axStatus.version ? ` to v${axStatus.version}` : ''}`);
           } else {
-            axSpinner.stop('Could not update AutomatosX');
+            axSpinner.stop(t.setup.automatosxNotFound || 'Could not update AutomatosX');
             prompts.log.info('Run manually: ax update -y');
           }
         } else {
           try {
             const installResponse = await prompts.confirm({
-              message: 'Install AutomatosX for multi-agent AI orchestration?',
+              message: t.setup.installAutomatosxPrompt || 'Install AutomatosX for multi-agent AI orchestration?',
               initialValue: true,
             });
 
             if (!prompts.isCancel(installResponse) && installResponse) {
               const installSpinner = prompts.spinner();
-              installSpinner.start('Installing AutomatosX...');
+              installSpinner.start(t.setup.installingAutomatosx || 'Installing AutomatosX...');
 
               const installed = await installAutomatosX();
               if (installed) {
-                installSpinner.stop('AutomatosX installed successfully!');
-                prompts.log.info('Run `ax list agents` to see available AI agents.');
+                installSpinner.stop(t.setup.automatosxInstalled || 'AutomatosX installed successfully!');
+                prompts.log.info(t.setup.runAxList || 'Run `ax list agents` to see available AI agents.');
                 axStatus = getAutomatosXStatus(); // Refresh status after install
               } else {
-                installSpinner.stop('Could not install AutomatosX');
-                prompts.log.info('Install manually: npm install -g @defai.digital/automatosx');
+                installSpinner.stop(t.setup.automatosxInstallFailed || 'Could not install AutomatosX');
+                prompts.log.info(`${t.setup.installAutomatosx}`);
               }
             } else if (!prompts.isCancel(installResponse)) {
-              prompts.log.info('You can install AutomatosX later: npm install -g @defai.digital/automatosx');
+              prompts.log.info(`${t.setup.installAutomatosx}`);
             }
           } catch {
-            prompts.log.info('Skipping AutomatosX setup (non-interactive mode).');
-            prompts.log.info('Install manually: npm install -g @defai.digital/automatosx');
+            prompts.log.info(t.setup.skippingAutomatosx || 'Skipping AutomatosX setup (non-interactive mode).');
+            prompts.log.info(`${t.setup.installAutomatosx}`);
           }
         }
 
         // Agent-First Mode Configuration (only ask if AutomatosX is available)
         if (axStatus.installed) {
           await prompts.note(
-            `When enabled, ${cliName} automatically routes tasks to specialized agents\n` +
-            'based on keywords (e.g., "test" -> testing agent, "refactor" -> refactoring agent).\n' +
-            'When disabled (default), you use the direct LLM and can invoke agents explicitly.',
-            'Agent-First Mode'
+            `${t.setup.agentFirstDesc || `When enabled, ${cliName} automatically routes tasks to specialized agents`}\n` +
+            `${t.setup.agentFirstKeywords || 'based on keywords (e.g., "test" -> testing agent, "refactor" -> refactoring agent).'}\n` +
+            `${t.setup.agentFirstDefault || 'When disabled (default), you use the direct LLM and can invoke agents explicitly.'}`,
+            t.setup.agentFirstMode || 'Agent-First Mode'
           );
 
           try {
             const enableAgentFirst = await prompts.confirm({
-              message: 'Enable agent-first mode (auto-route to specialized agents)?',
+              message: t.setup.enableAgentFirst || 'Enable agent-first mode (auto-route to specialized agents)?',
               initialValue: false,
             });
 
@@ -653,15 +668,15 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
               });
 
               if (enableAgentFirst) {
-                prompts.log.success('Agent-first mode enabled');
-                prompts.log.info('Tasks will be automatically routed to specialized agents.');
+                prompts.log.success(t.setup.agentFirstEnabled || 'Agent-first mode enabled');
+                prompts.log.info(t.setup.agentFirstEnabledInfo || 'Tasks will be automatically routed to specialized agents.');
               } else {
-                prompts.log.success('Agent-first mode disabled (default)');
-                prompts.log.info('Use direct LLM. Invoke agents with --agent flag when needed.');
+                prompts.log.success(t.setup.agentFirstDisabled || 'Agent-first mode disabled (default)');
+                prompts.log.info(t.setup.agentFirstDisabledInfo || 'Use direct LLM. Invoke agents with --agent flag when needed.');
               }
             }
           } catch {
-            prompts.log.info('Skipping agent-first configuration (non-interactive mode).');
+            prompts.log.info(t.setup.skippingAgentFirst || 'Skipping agent-first configuration (non-interactive mode).');
           }
         }
 
@@ -669,23 +684,23 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         // Project Initialization
         // ═══════════════════════════════════════════════════════════════════
         await prompts.note(
-          'Project initialization analyzes your codebase and creates:\n' +
+          `${t.setup.projectInitDesc || 'Project initialization analyzes your codebase and creates:'}\n` +
           '• CUSTOM.md - AI instructions tailored to your project\n' +
           '• ax.index.json - Full project analysis (AI reads when needed)\n' +
           '• ax.summary.json - Prompt summary (~500 tokens, fast loading)\n\n' +
-          'This helps the AI understand your codebase from the first message.',
-          'Project Initialization'
+          `${t.setup.projectInitBenefit || 'This helps the AI understand your codebase from the first message.'}`,
+          t.setup.projectInit || 'Project Initialization'
         );
 
         try {
           const initProject = await prompts.confirm({
-            message: 'Initialize current project now?',
+            message: t.setup.initProjectNow || 'Initialize current project now?',
             initialValue: true,
           });
 
           if (!prompts.isCancel(initProject) && initProject) {
             const initSpinner = prompts.spinner();
-            initSpinner.start('Analyzing project and generating context...');
+            initSpinner.start(t.setup.analyzingProject || 'Analyzing project and generating context...');
 
             try {
               // Run project initialization using the init command logic
@@ -728,73 +743,73 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
                 writeFileSync(indexPath, index, 'utf-8');
                 writeFileSync(summaryPath, summary, 'utf-8');
 
-                initSpinner.stop('Project initialized successfully!');
-                prompts.log.success(`Created: ${activeConfigPaths.DIR_NAME}/CUSTOM.md`);
-                prompts.log.success('Created: ax.index.json');
-                prompts.log.success('Created: ax.summary.json');
+                initSpinner.stop(t.setup.projectInitSuccess || 'Project initialized successfully!');
+                prompts.log.success(`${t.setup.created || 'Created'}: ${activeConfigPaths.DIR_NAME}/CUSTOM.md`);
+                prompts.log.success(`${t.setup.created || 'Created'}: ax.index.json`);
+                prompts.log.success(`${t.setup.created || 'Created'}: ax.summary.json`);
               } else {
-                initSpinner.stop('Could not analyze project');
-                prompts.log.warn(result.error || 'Project analysis failed');
-                prompts.log.info(`You can initialize later with: ${cliName} init`);
+                initSpinner.stop(t.setup.projectAnalysisFailed || 'Could not analyze project');
+                prompts.log.warn(result.error || t.setup.projectAnalysisFailed || 'Project analysis failed');
+                prompts.log.info(`${t.setup.initLater || 'You can initialize later with'}: ${cliName} init`);
               }
             } catch (initError) {
-              initSpinner.stop('Project initialization failed');
+              initSpinner.stop(t.setup.projectInitFailed || 'Project initialization failed');
               prompts.log.warn(`${extractErrorMessage(initError)}`);
-              prompts.log.info(`You can initialize later with: ${cliName} init`);
+              prompts.log.info(`${t.setup.initLater || 'You can initialize later with'}: ${cliName} init`);
             }
           } else if (!prompts.isCancel(initProject)) {
-            prompts.log.info(`You can initialize later with: ${cliName} init`);
+            prompts.log.info(`${t.setup.initLater || 'You can initialize later with'}: ${cliName} init`);
           }
         } catch {
-          prompts.log.info('Skipping project initialization (non-interactive mode).');
-          prompts.log.info(`Initialize later with: ${cliName} init`);
+          prompts.log.info(t.setup.skippingProjectInit || 'Skipping project initialization (non-interactive mode).');
+          prompts.log.info(`${t.setup.initLater || 'Initialize later with'}: ${cliName} init`);
         }
 
         // ═══════════════════════════════════════════════════════════════════
         // Completion Summary
         // ═══════════════════════════════════════════════════════════════════
         await prompts.note(
-          `Location:    ${configPath}\n` +
-          `Language:    ${langDisplay}\n` +
-          `Provider:    ${provider.displayName}${isLocalServer ? ' (Local)' : ''}\n` +
-          `Base URL:    ${selectedBaseURL}\n` +
-          `Model:       ${chosenModel}\n` +
-          `Max Tokens:  ${mergedConfig.maxTokens || maxTokens}\n` +
+          `${t.setup.configPath}:    ${configPath}\n` +
+          `${t.setup.language}:    ${langDisplay}\n` +
+          `${t.setup.provider}:    ${provider.displayName}${isLocalServer ? ' (Local)' : ''}\n` +
+          `${t.setup.baseUrl}:    ${selectedBaseURL}\n` +
+          `${t.setup.model}:       ${chosenModel}\n` +
+          `${t.setup.maxTokens}:  ${mergedConfig.maxTokens || maxTokens}\n` +
           `Temperature: ${mergedConfig.temperature ?? 0.7}`,
-          'Configuration Details'
+          t.setup.configDetails || 'Configuration Details'
         );
 
         await prompts.note(
-          '1. Start interactive mode:\n' +
+          `1. ${t.setup.startInteractive || 'Start interactive mode'}:\n` +
           `   $ ${cliName}\n\n` +
-          '2. Run a quick test:\n' +
+          `2. ${t.setup.runQuickTest || 'Run a quick test'}:\n` +
           `   $ ${cliName} -p "Hello, introduce yourself"`,
-          'Next Steps'
+          t.setup.nextSteps || 'Next Steps'
         );
 
         // Provider-specific tips
         const tips: string[] = [
-          `Edit config manually:  ${configPath}`,
-          `View help:             ${cliName} --help`,
-          `Change language:       /lang (inside ${cliName})`,
+          `${t.setup.editConfig || 'Edit config manually'}:  ${configPath}`,
+          `${t.setup.viewHelp || 'View help'}:             ${cliName} --help`,
+          `${t.setup.changeLang || 'Change language'}:       /lang (inside ${cliName})`,
         ];
 
         if (provider.features.supportsThinking) {
-          tips.push(`Enable thinking mode:  ${cliName} --think`);
+          tips.push(`${t.setup.enableThinking || 'Enable thinking mode'}:  ${cliName} --think`);
         }
         if (provider.features.supportsSeed) {
-          tips.push(`Reproducible output:   ${cliName} --seed 42`);
+          tips.push(`${t.setup.reproducibleOutput || 'Reproducible output'}:   ${cliName} --seed 42`);
         }
         if (provider.features.supportsVision) {
           const visionModel = Object.entries(provider.models).find(([, c]) => c.supportsVision)?.[0];
           if (visionModel) {
-            tips.push(`Use vision model:      ${cliName} -m ${visionModel}`);
+            tips.push(`${t.setup.useVisionModel || 'Use vision model'}:      ${cliName} -m ${visionModel}`);
           }
         }
 
-        await prompts.note(tips.join('\n'), 'Tips');
+        await prompts.note(tips.join('\n'), t.setup.tips || 'Tips');
 
-        prompts.outro(chalk.green('Setup complete! Happy coding!'));
+        prompts.outro(chalk.green(t.setup.setupComplete + ' ' + (t.setup.getStarted || 'Happy coding!')));
 
       } catch (error: unknown) {
         const err = error as { message?: string; name?: string };

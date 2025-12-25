@@ -4,9 +4,10 @@
  * Features provider-specific branding and animated ASCII robot avatar during startup
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Box, Text } from "ink";
 import type { TextProps } from "ink";
+import { useTranslations } from "../hooks/use-translations.js";
 
 /** Provider branding info for welcome panel */
 export interface ProviderBranding {
@@ -113,41 +114,6 @@ const AVATAR_FRAMES = [
     └─┴─┘     `,
 ];
 
-const EXAMPLE_PROMPTS: ExamplePrompt[] = [
-  {
-    category: "Explore",
-    examples: [
-      "What does this codebase do?",
-      "Find all TODO comments",
-      "Show me the main entry point",
-    ],
-  },
-  {
-    category: "Edit",
-    examples: [
-      "Add error handling to the login function",
-      "Refactor this component to use hooks",
-      "Fix the TypeScript errors in utils.ts",
-    ],
-  },
-  {
-    category: "Create",
-    examples: [
-      "Create a new React component for user profile",
-      "Add unit tests for the auth module",
-      "Generate a README for this project",
-    ],
-  },
-  {
-    category: "Execute",
-    examples: [
-      "Run the test suite",
-      "Install lodash as a dependency",
-      "Show git status",
-    ],
-  },
-];
-
 interface WelcomePanelProps {
   projectName: string;
   branding?: ProviderBranding;
@@ -159,6 +125,27 @@ export function WelcomePanel({ projectName: _projectName, branding = DEFAULT_BRA
   // Animation state - cycle through frames during first 6 seconds
   const [currentFrame, setCurrentFrame] = useState(0);
   const [animationActive, setAnimationActive] = useState(true);
+  const { ui } = useTranslations();
+
+  // Build example prompts from translations
+  const EXAMPLE_PROMPTS: ExamplePrompt[] = useMemo(() => [
+    {
+      category: ui.categories.explore,
+      examples: ui.welcome.exploreExamples,
+    },
+    {
+      category: ui.categories.edit,
+      examples: ui.welcome.editExamples,
+    },
+    {
+      category: ui.categories.create,
+      examples: ui.welcome.createExamples,
+    },
+    {
+      category: ui.categories.execute,
+      examples: ui.welcome.executeExamples,
+    },
+  ], [ui]);
 
   useEffect(() => {
     const frameDuration = ANIMATION_CONFIG.FRAME_DURATION_MS;
@@ -218,53 +205,53 @@ export function WelcomePanel({ projectName: _projectName, branding = DEFAULT_BRA
       >
         <Box marginBottom={1}>
           <Text color={primaryColor} bold>
-            Essential Shortcuts
+            {ui.welcome.essentialShortcuts}
           </Text>
         </Box>
 
         <Box flexDirection="row" flexWrap="wrap">
           {/* Column 1: Mode toggles */}
           <Box flexDirection="column" marginRight={4} minWidth={28}>
-            <Text color="yellow" bold>Modes</Text>
+            <Text color="yellow" bold>{ui.welcome.modes}</Text>
             <Box>
               <Text color="yellow" bold>⇧⇥</Text>
               <Text color="gray"> Shift+Tab  </Text>
-              <Text>auto-edit</Text>
+              <Text>{ui.welcome.autoEdit}</Text>
             </Box>
             <Box>
               <Text color="yellow" bold>^O</Text>
               <Text color="gray"> Ctrl+O     </Text>
-              <Text>verbose output</Text>
+              <Text>{ui.welcome.verboseOutput}</Text>
             </Box>
             <Box>
               <Text color="magenta" bold>^B</Text>
               <Text color="gray"> Ctrl+B     </Text>
-              <Text>background mode</Text>
+              <Text>{ui.welcome.backgroundMode}</Text>
             </Box>
           </Box>
 
           {/* Column 2: Actions */}
           <Box flexDirection="column" minWidth={28}>
-            <Text color="yellow" bold>Actions</Text>
+            <Text color="yellow" bold>{ui.welcome.actions}</Text>
             <Box>
               <Text color={primaryColor} bold>^K</Text>
               <Text color="gray"> Ctrl+K     </Text>
-              <Text>quick actions</Text>
+              <Text>{ui.hints.openQuickActions}</Text>
             </Box>
             <Box>
               <Text color="green" bold>^P</Text>
               <Text color="gray"> Ctrl+P     </Text>
-              <Text>toggle paste</Text>
+              <Text>{ui.hints.togglePaste || 'toggle paste'}</Text>
             </Box>
             <Box>
               <Text color="white" bold>?</Text>
               <Text color="gray">  or /help  </Text>
-              <Text>all shortcuts</Text>
+              <Text>{ui.welcome.allShortcuts}</Text>
             </Box>
             <Box>
               <Text color="red" bold>Esc</Text>
               <Text color="gray">           </Text>
-              <Text>interrupt/cancel</Text>
+              <Text>{ui.hints.confirmCancel}</Text>
             </Box>
           </Box>
         </Box>
@@ -278,32 +265,32 @@ export function WelcomePanel({ projectName: _projectName, branding = DEFAULT_BRA
       >
         <Box marginBottom={1}>
           <Text color="white" bold>
-            Quick Start
+            {ui.welcome.quickStart}
           </Text>
         </Box>
 
         <Box flexDirection="column">
           <Box>
             <Text color="gray">• </Text>
-            <Text>Type naturally to ask questions or request changes</Text>
+            <Text>{ui.welcome.typeNaturally}</Text>
           </Box>
           <Box>
             <Text color="gray">• </Text>
-            <Text>Use </Text>
+            <Text>{ui.welcome.tip2Pre} </Text>
             <Text color={primaryColor}>/init</Text>
-            <Text> to generate project context (CUSTOM.md)</Text>
+            <Text> {ui.welcome.tip2Post}</Text>
           </Box>
           <Box>
             <Text color="gray">• </Text>
-            <Text>Run </Text>
+            <Text>{ui.welcome.tip3Pre} </Text>
             <Text color={primaryColor}>/memory warmup</Text>
-            <Text> to cache project context (faster AI responses)</Text>
+            <Text> {ui.welcome.tip3Post}</Text>
           </Box>
           <Box>
             <Text color="gray">• </Text>
-            <Text>Append </Text>
+            <Text>{ui.welcome.tip4Pre} </Text>
             <Text color={primaryColor}>&</Text>
-            <Text> to bash commands for background execution</Text>
+            <Text> {ui.welcome.tip4Post}</Text>
           </Box>
         </Box>
       </Box>
@@ -312,7 +299,7 @@ export function WelcomePanel({ projectName: _projectName, branding = DEFAULT_BRA
       <Box flexDirection="column">
         <Box marginBottom={1}>
           <Text color="gray" dimColor>
-            Try asking:
+            {ui.welcome.tryAsking}
           </Text>
         </Box>
 

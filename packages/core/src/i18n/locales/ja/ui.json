@@ -30,7 +30,8 @@
     "thinkingActive": "思考中...",
     "context": "コンテキスト",
     "contextAvailable": "利用可能なコンテキスト",
-    "contextWarning": "残り少ない！"
+    "contextWarning": "低!",
+    "autoPruned": "自動裁剪"
   },
   "tools": {
     "executing": "実行中",
@@ -99,6 +100,7 @@
     "jumpToLatest": "最新へジャンプ",
     "toggleVerbosity": "詳細度を切替",
     "toggleAutoEdit": "自動編集を切替",
+    "togglePaste": "貼り付けモードを切替",
     "toggleThinking": "思考モードを切替",
     "toggleBackground": "バックグラウンドモードを切替"
   },
@@ -221,6 +223,7 @@
     "close": "閉じる",
     "searchHint": "検索",
     "toggleAutoEdit": "自動編集を切替",
+    "togglePaste": "貼り付けモードを切替",
     "toggleVerbose": "詳細モードを切替",
     "backgroundMode": "バックグラウンドモード",
     "allShortcuts": "すべてのショートカット",

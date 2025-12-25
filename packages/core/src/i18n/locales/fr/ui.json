@@ -30,7 +30,8 @@
     "thinkingActive": "Réflexion en cours...",
     "context": "Contexte",
     "contextAvailable": "Contexte disponible",
-    "contextWarning": "Faible !"
+    "contextWarning": "低!",
+    "autoPruned": "auto-élagué"
   },
   "tools": {
     "executing": "Exécution",
@@ -99,6 +100,7 @@
     "jumpToLatest": "Aller au plus récent",
     "toggleVerbosity": "Basculer la verbosité",
     "toggleAutoEdit": "Basculer l'auto-édition",
+    "togglePaste": "Basculer le mode collage",
     "toggleThinking": "Basculer le mode réflexion",
     "toggleBackground": "Basculer le mode arrière-plan"
   },
@@ -221,6 +223,7 @@
     "close": "Fermer",
     "searchHint": "Rechercher",
     "toggleAutoEdit": "Basculer l'auto-édition",
+    "togglePaste": "Basculer le mode collage",
     "toggleVerbose": "Basculer le mode détaillé",
     "backgroundMode": "Mode arrière-plan",
     "allShortcuts": "Tous les raccourcis",

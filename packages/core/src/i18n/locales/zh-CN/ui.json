@@ -30,7 +30,8 @@
     "thinkingActive": "思考中...",
     "context": "上下文",
     "contextAvailable": "可用上下文",
-    "contextWarning": "不足！"
+    "contextWarning": "低!",
+    "autoPruned": "自动精简"
   },
   "tools": {
     "executing": "执行中",
@@ -99,6 +100,7 @@
     "jumpToLatest": "跳转到最新",
     "toggleVerbosity": "切换详细程度",
     "toggleAutoEdit": "切换自动编辑",
+    "togglePaste": "切换粘贴模式",
     "toggleThinking": "切换思考模式",
     "toggleBackground": "切换后台模式"
   },
@@ -221,6 +223,7 @@
     "close": "关闭",
     "searchHint": "搜索",
     "toggleAutoEdit": "切换自动编辑",
+    "togglePaste": "切换粘贴模式",
     "toggleVerbose": "切换详细模式",
     "backgroundMode": "后台模式",
     "allShortcuts": "所有快捷键",

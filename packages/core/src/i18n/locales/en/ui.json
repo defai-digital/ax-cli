@@ -30,7 +30,8 @@
     "thinkingActive": "THINKING...",
     "context": "ctx",
     "contextAvailable": "ctx avail",
-    "contextWarning": "LOW!"
+    "contextWarning": "LOW!",
+    "autoPruned": "auto-pruned"
   },
   "tools": {
     "executing": "Executing",
@@ -99,6 +100,7 @@
     "jumpToLatest": "Jump to Latest",
     "toggleVerbosity": "Toggle Verbosity",
     "toggleAutoEdit": "Toggle Auto-edit",
+    "togglePaste": "Toggle paste mode",
     "toggleThinking": "Toggle Thinking Mode",
     "toggleBackground": "Toggle Background Mode"
   },

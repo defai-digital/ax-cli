@@ -30,7 +30,8 @@
     "thinkingActive": "Pensando...",
     "context": "Contexto",
     "contextAvailable": "Contexto disponível",
-    "contextWarning": "Baixo!"
+    "contextWarning": "低!",
+    "autoPruned": "auto-podado"
   },
   "tools": {
     "executing": "Executando",
@@ -99,6 +100,7 @@
     "jumpToLatest": "Ir para o mais recente",
     "toggleVerbosity": "Alternar verbosidade",
     "toggleAutoEdit": "Alternar auto-edição",
+    "togglePaste": "Alternar modo colar",
     "toggleThinking": "Alternar modo pensamento",
     "toggleBackground": "Alternar modo segundo plano"
   },
@@ -221,6 +223,7 @@
     "close": "Fechar",
     "searchHint": "Pesquisar",
     "toggleAutoEdit": "Alternar auto-edição",
+    "togglePaste": "Alternar modo colar",
     "toggleVerbose": "Alternar modo detalhado",
     "backgroundMode": "Modo segundo plano",
     "allShortcuts": "Todos os atalhos",

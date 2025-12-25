@@ -30,7 +30,8 @@
     "thinkingActive": "思考中...",
     "context": "上下文",
     "contextAvailable": "可用上下文",
-    "contextWarning": "不足！"
+    "contextWarning": "低!",
+    "autoPruned": "自動精簡"
   },
   "tools": {
     "executing": "執行中",
@@ -99,6 +100,7 @@
     "jumpToLatest": "跳至最新",
     "toggleVerbosity": "切換詳細程度",
     "toggleAutoEdit": "切換自動編輯",
+    "togglePaste": "切換貼上模式",
     "toggleThinking": "切換思考模式",
     "toggleBackground": "切換背景模式"
   },
@@ -221,6 +223,7 @@
     "close": "關閉",
     "searchHint": "搜尋",
     "toggleAutoEdit": "切換自動編輯",
+    "togglePaste": "切換貼上模式",
     "toggleVerbose": "切換詳細模式",
     "backgroundMode": "背景模式",
     "allShortcuts": "所有快速鍵",

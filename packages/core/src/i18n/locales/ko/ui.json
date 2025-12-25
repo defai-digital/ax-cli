@@ -30,7 +30,8 @@
     "thinkingActive": "사고 중...",
     "context": "컨텍스트",
     "contextAvailable": "사용 가능한 컨텍스트",
-    "contextWarning": "부족!"
+    "contextWarning": "低!",
+    "autoPruned": "자동 정리"
   },
   "tools": {
     "executing": "실행 중",
@@ -99,6 +100,7 @@
     "jumpToLatest": "최신으로 이동",
     "toggleVerbosity": "상세도 전환",
     "toggleAutoEdit": "자동 편집 전환",
+    "togglePaste": "붙여넣기 모드 전환",
     "toggleThinking": "사고 모드 전환",
     "toggleBackground": "백그라운드 모드 전환"
   },
@@ -221,6 +223,7 @@
     "close": "닫기",
     "searchHint": "검색",
     "toggleAutoEdit": "자동 편집 전환",
+    "togglePaste": "붙여넣기 모드 전환",
     "toggleVerbose": "상세 모드 전환",
     "backgroundMode": "백그라운드 모드",
     "allShortcuts": "모든 단축키",

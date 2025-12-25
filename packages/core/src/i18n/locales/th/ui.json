@@ -30,7 +30,8 @@
     "thinkingActive": "กำลังคิด...",
     "context": "บริบท",
     "contextAvailable": "บริบทที่ใช้ได้",
-    "contextWarning": "ใกล้หมด!"
+    "contextWarning": "低!",
+    "autoPruned": "ตัดอัตโนมัติ"
   },
   "tools": {
     "executing": "กำลังดำเนินการ",
@@ -99,6 +100,7 @@
     "jumpToLatest": "ข้ามไปล่าสุด",
     "toggleVerbosity": "สลับความละเอียด",
     "toggleAutoEdit": "สลับแก้ไขอัตโนมัติ",
+    "togglePaste": "สลับโหมดวาง",
     "toggleThinking": "สลับโหมดการคิด",
     "toggleBackground": "สลับโหมดพื้นหลัง"
   },
@@ -221,6 +223,7 @@
     "close": "ปิด",
     "searchHint": "ค้นหา",
     "toggleAutoEdit": "สลับแก้ไขอัตโนมัติ",
+    "togglePaste": "สลับโหมดวาง",
     "toggleVerbose": "สลับโหมดละเอียด",
     "backgroundMode": "โหมดพื้นหลัง",
     "allShortcuts": "ทางลัดทั้งหมด",

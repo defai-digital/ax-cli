@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Box, Text } from "ink";
 import { formatTokenCount } from "../../utils/token-counter.js";
+import { useTranslations } from "../hooks/use-translations.js";
 
 interface LoadingSpinnerProps {
   isActive: boolean;
@@ -8,53 +9,6 @@ interface LoadingSpinnerProps {
   tokenCount: number;
   currentAction?: "thinking" | "searching" | "editing" | "executing" | "reading" | "writing";
 }
-
-// Contextual loading messages based on current action
-const loadingTextsByAction = {
-  thinking: [
-    "Thinking...",
-    "Analyzing...",
-    "Reasoning...",
-    "Considering...",
-    "Processing...",
-  ],
-  searching: [
-    "Searching codebase...",
-    "Scanning files...",
-    "Finding matches...",
-    "Looking for patterns...",
-  ],
-  editing: [
-    "Editing file...",
-    "Making changes...",
-    "Updating code...",
-    "Applying edits...",
-  ],
-  executing: [
-    "Running command...",
-    "Executing...",
-    "Processing command...",
-    "Working...",
-  ],
-  reading: [
-    "Reading file...",
-    "Loading content...",
-    "Fetching data...",
-  ],
-  writing: [
-    "Writing file...",
-    "Saving changes...",
-    "Creating file...",
-  ],
-};
-
-// Default messages when no specific action
-const defaultLoadingTexts = [
-  "Thinking...",
-  "Processing...",
-  "Analyzing...",
-  "Working...",
-];
 
 export function LoadingSpinner({
   isActive,
@@ -64,6 +18,41 @@ export function LoadingSpinner({
 }: LoadingSpinnerProps) {
   const [spinnerFrame, setSpinnerFrame] = useState(0);
   const [loadingTextIndex, setLoadingTextIndex] = useState(0);
+  const { ui } = useTranslations();
+
+  // Build loading texts from translations
+  const loadingTextsByAction = useMemo(() => ({
+    thinking: [
+      ui.session.thinking,
+      ui.session.analyzing,
+      ui.session.reasoning,
+      ui.session.generating,
+    ],
+    searching: [
+      ui.session.searchingCodebase,
+      ui.tools.searchingFiles,
+    ],
+    editing: [
+      ui.session.editingFile,
+      ui.tools.fileModified,
+    ],
+    executing: [
+      ui.session.runningCommand,
+      ui.tools.commandRunning,
+    ],
+    reading: [
+      ui.tools.readingFile,
+    ],
+    writing: [
+      ui.tools.writingFile,
+    ],
+  }), [ui]);
+
+  const defaultLoadingTexts = useMemo(() => [
+    ui.session.thinking,
+    ui.session.analyzing,
+    ui.session.generating,
+  ], [ui]);
 
   // Get the appropriate loading texts for current action
   const loadingTexts = loadingTextsByAction[currentAction] || defaultLoadingTexts;
@@ -123,7 +112,7 @@ export function LoadingSpinner({
         <Text color="cyan"> {loadingTexts[loadingTextIndex % loadingTexts.length] || loadingTexts[0]} </Text>
         {/* Phase 3: Show warning for long-running operations */}
         {isVeryLong && (
-          <Text color="yellow" bold> (taking longer than usual)</Text>
+          <Text color="yellow" bold> {ui.session.takingLonger}</Text>
         )}
       </Box>
       <Box marginLeft={2}>
@@ -136,14 +125,14 @@ export function LoadingSpinner({
           </Text>
         )}
         <Text color="gray" dimColor>
-          {" "}• <Text color="yellow">esc</Text> to interrupt
+          {" "}• <Text color="yellow">esc</Text> {ui.session.escToInterrupt.replace('esc ', '')}
         </Text>
       </Box>
       {/* Phase 3: Show helpful hint for very long operations */}
       {isVeryLong && (
         <Box marginLeft={2} marginTop={1}>
           <Text color="yellow">
-            💡 Complex task - this may take a while. Press <Text bold>esc</Text> to interrupt (unsaved progress will be lost).
+            💡 Complex task - this may take a while. Press <Text bold>esc</Text> to interrupt.
           </Text>
         </Box>
       )}
