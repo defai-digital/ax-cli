@@ -253,6 +253,27 @@ export class MCPManager extends EventEmitter {
   }
 
   /**
+   * Warm up HTTP connections by performing a lightweight ping
+   *
+   * This pre-establishes HTTP connections to MCP servers, reducing
+   * latency on the first actual tool call. Particularly useful for
+   * remote HTTP servers like Z.AI MCP.
+   *
+   * @param serverNames - Optional list of servers to warm up. If not provided, warms up all connected servers.
+   */
+  async warmupConnections(serverNames?: string[]): Promise<void> {
+    const brandedNames = serverNames
+      ? serverNames.map(createServerName).filter((n): n is NonNullable<typeof n> => n !== null)
+      : undefined;
+
+    const result = await this.v2.warmupConnections(brandedNames);
+    if (!result.success) {
+      // Don't throw - warmup is best-effort
+      console.warn('Failed to warm up some MCP connections:', result.error);
+    }
+  }
+
+  /**
    * Cleanup all resources and remove event listeners
    */
   async dispose(): Promise<void> {

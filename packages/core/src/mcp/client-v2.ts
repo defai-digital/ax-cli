@@ -703,6 +703,10 @@ export class MCPManagerV2 extends EventEmitter {
       signal?: AbortSignal;
     }
   ): Promise<Result<ValidatedToolResult, Error>> {
+    // Performance timing for debugging
+    const callStart = Date.now();
+    const timings: { mutex?: number; call?: number; validation?: number } = {};
+
     if (this.disposed) {
       return Err(new Error('MCPManager is disposed'));
     }
@@ -712,6 +716,7 @@ export class MCPManagerV2 extends EventEmitter {
       return Err(new Error(`Tool ${toolName} not found`));
     }
 
+    const mutexStart = Date.now();
     // BUG FIX: Get client reference inside mutex to prevent TOCTOU race with removeServer
     const mutexResult = await this.connectionMutex.runExclusive(
       tool.serverName,
@@ -731,6 +736,8 @@ export class MCPManagerV2 extends EventEmitter {
       }
     );
 
+    timings.mutex = Date.now() - mutexStart;
+
     // Unwrap nested Result
     if (!mutexResult.success) {
       return mutexResult;
@@ -743,6 +750,7 @@ export class MCPManagerV2 extends EventEmitter {
 
     const client = clientResult.value;
 
+    const callStart2 = Date.now();
     try {
       // Extract original tool name
       const prefix = `mcp__${tool.serverName}__`;
@@ -790,6 +798,26 @@ export class MCPManagerV2 extends EventEmitter {
       // Call tool with timeout (mutex released, but client reference is still valid)
       // MCP SDK accepts { timeout?: number, signal?: AbortSignal } as third parameter
       const result = await client.callTool(callParams, undefined, requestOptions);
+
+      timings.call = Date.now() - callStart2;
+
+      // Log slow calls for debugging and emit event for monitoring
+      const totalTime = Date.now() - callStart;
+      if (totalTime > 5000) {
+        // Emit event for slow calls (for UI/monitoring)
+        this.emit('slow-tool-call', {
+          toolName,
+          serverName: tool.serverName,
+          totalMs: totalTime,
+          mutexMs: timings.mutex,
+          callMs: timings.call,
+        });
+
+        // Log in DEBUG mode
+        if (process.env.DEBUG) {
+          console.log(`[MCP] Slow tool call: ${toolName} took ${totalTime}ms (mutex: ${timings.mutex}ms, call: ${timings.call}ms)`);
+        }
+      }
 
       // Apply token limiting
       if (MCP_CONFIG.TRUNCATION_ENABLED) {
@@ -1207,6 +1235,54 @@ export class MCPManagerV2 extends EventEmitter {
    */
   getTools(): MCPTool[] {
     return Array.from(this.tools.values());
+  }
+
+  /**
+   * Warm up HTTP connections by performing a lightweight ping
+   *
+   * This pre-establishes HTTP connections to MCP servers, reducing
+   * latency on the first actual tool call. Particularly useful for
+   * remote HTTP servers like Z.AI MCP.
+   *
+   * @param serverNames - Optional list of servers to warm up. If not provided, warms up all connected servers.
+   * @returns Result indicating success or any errors encountered
+   */
+  async warmupConnections(serverNames?: ServerName[]): Promise<Result<void, Error>> {
+    if (this.disposed) {
+      return Err(new Error('MCPManager is disposed'));
+    }
+
+    const serversToWarmup = serverNames ?? this.getServers();
+    const errors: Error[] = [];
+
+    // Warm up each server by listing tools (lightweight operation)
+    const warmupPromises = serversToWarmup.map(async (serverName) => {
+      const state = this.connections.get(serverName);
+      if (!state || state.status !== 'connected') {
+        return; // Skip non-connected servers
+      }
+
+      try {
+        // listTools is a lightweight operation that establishes the HTTP connection
+        const startTime = Date.now();
+        await state.client.listTools();
+        const elapsed = Date.now() - startTime;
+
+        this.emit('connection-warmed', { serverName, durationMs: elapsed });
+      } catch (error) {
+        const err = toError(error);
+        errors.push(err);
+        this.emit('warmup-failed', { serverName, error: err });
+      }
+    });
+
+    await Promise.allSettled(warmupPromises);
+
+    if (errors.length > 0) {
+      return Err(new AggregateError(errors, 'Some servers failed to warm up'));
+    }
+
+    return Ok(undefined);
   }
 
   /**

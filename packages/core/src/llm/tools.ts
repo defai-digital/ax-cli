@@ -185,6 +185,14 @@ export async function initializeMCPServers(clientConfig?: { name?: string; versi
       // Only log if there were failures mixed with successes
       // Silent success is preferred for good UX
     }
+
+    // Warm up HTTP connections for better first-call latency
+    // This is fire-and-forget to avoid blocking initialization
+    if (successful > 0) {
+      manager.warmupConnections().catch(() => {
+        // Ignore warmup errors - they're logged via events
+      });
+    }
   } finally {
     disableStderrSuppression();
   }
