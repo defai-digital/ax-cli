@@ -107,20 +107,23 @@ export function resetCommandRegistryState(): void {
  * Get all command suggestions for autocomplete
  *
  * Returns built-in commands from the registry.
- * Aliases are shown inline with the command, not as separate entries.
+ * The `command` field contains ONLY the primary command name (for Tab completion).
+ * The `displayCommand` field includes aliases for display purposes.
  */
 export function getAllCommandSuggestions(): Array<{
   command: string;
+  displayCommand: string;
   description: string;
 }> {
   const registry = CommandRegistry.getInstance();
-  const suggestions: Array<{ command: string; description: string }> = [];
+  const suggestions: Array<{ command: string; displayCommand: string; description: string }> = [];
 
   for (const cmd of registry.getAll()) {
-    // Show command with aliases inline (e.g., "/exit, /q")
+    // Show command with aliases inline for display (e.g., "/exit, /q")
     const aliasStr = cmd.aliases?.length ? `, /${cmd.aliases.join(', /')}` : '';
     suggestions.push({
-      command: `/${cmd.name}${aliasStr}`,
+      command: `/${cmd.name}`,  // Primary command only - used for Tab completion
+      displayCommand: `/${cmd.name}${aliasStr}`,  // With aliases - used for display
       description: cmd.description,
     });
   }

@@ -188,8 +188,11 @@ export interface CommandDefinition {
  * Command suggestion for autocomplete
  */
 export interface CommandSuggestion {
-  /** The command string (e.g., "/model") */
+  /** The command string (e.g., "/model") - used for Tab completion */
   command: string;
+
+  /** Display text with aliases (e.g., "/model, /m") - falls back to command if not set */
+  displayCommand?: string;
 
   /** Description for display */
   description: string;

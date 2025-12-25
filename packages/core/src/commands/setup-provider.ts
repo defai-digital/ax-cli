@@ -26,6 +26,7 @@ import {
 import { addUserMCPServer, removeUserMCPServer } from '../mcp/config.js';
 import { FILE_NAMES } from '../constants.js';
 import { exitIfCancelled } from './utils.js';
+import type { SupportedLanguageType } from '../schemas/settings-schemas.js';
 
 /**
  * Check AutomatosX status - returns version if installed, null otherwise
@@ -180,13 +181,46 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 1: Server URL (GLM only - Grok is always online)
+        // STEP 1: Language Selection
+        // ═══════════════════════════════════════════════════════════════════
+        const totalSteps = provider.name === 'glm' ? 5 : 4;
+        prompts.log.step(chalk.bold(`Step 1/${totalSteps} — Choose Language`));
+
+        const languageChoices: { value: SupportedLanguageType; label: string; hint: string }[] = [
+          { value: 'en', label: 'English', hint: 'Default' },
+          { value: 'zh-CN', label: '简体中文', hint: 'Simplified Chinese' },
+          { value: 'zh-TW', label: '繁體中文', hint: 'Traditional Chinese' },
+          { value: 'ja', label: '日本語', hint: 'Japanese' },
+          { value: 'ko', label: '한국어', hint: 'Korean' },
+          { value: 'th', label: 'ไทย', hint: 'Thai' },
+          { value: 'vi', label: 'Tiếng Việt', hint: 'Vietnamese' },
+          { value: 'de', label: 'Deutsch', hint: 'German' },
+          { value: 'fr', label: 'Français', hint: 'French' },
+          { value: 'es', label: 'Español', hint: 'Spanish' },
+          { value: 'pt', label: 'Português', hint: 'Portuguese' },
+        ];
+
+        // Get existing language from config
+        const existingLang = existingConfig?.language;
+        const currentLang: SupportedLanguageType = typeof existingLang === 'string'
+          ? existingLang as SupportedLanguageType
+          : (existingLang?.current ?? 'en');
+
+        const selectedLanguage = await prompts.select({
+          message: 'Select display language:',
+          options: languageChoices,
+          initialValue: currentLang,
+        });
+        exitIfCancelled(selectedLanguage);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // STEP 2: Server URL (GLM only - Grok is always online)
         // ═══════════════════════════════════════════════════════════════════
         let selectedBaseURL = provider.defaultBaseURL;
         let isLocalServer = false;
 
         if (provider.name === 'glm') {
-          prompts.log.step(chalk.bold('Step 1/4 — Server Selection'));
+          prompts.log.step(chalk.bold(`Step 2/${totalSteps} — Server Selection`));
 
           const serverType = await prompts.select({
             message: 'Select server type:',
@@ -241,9 +275,9 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 2: API Key with Connection Test Loop
+        // STEP 3: API Key with Connection Test Loop (or Step 2 for Grok)
         // ═══════════════════════════════════════════════════════════════════
-        const apiKeyStep = provider.name === 'glm' ? 'Step 2/4' : 'Step 1/3';
+        const apiKeyStep = provider.name === 'glm' ? `Step 3/${totalSteps}` : `Step 2/${totalSteps}`;
         prompts.log.step(chalk.bold(`${apiKeyStep} — API Key & Connection Test`));
 
         let apiKey = '';
@@ -348,9 +382,9 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 3: Model Selection (step number adjusts for GLM)
+        // STEP 4: Model Selection (or Step 3 for Grok)
         // ═══════════════════════════════════════════════════════════════════
-        const modelStep = provider.name === 'glm' ? 'Step 3/4' : 'Step 2/3';
+        const modelStep = provider.name === 'glm' ? `Step 4/${totalSteps}` : `Step 3/${totalSteps}`;
         prompts.log.step(chalk.bold(`${modelStep} — Choose Model`));
 
         // Format context window for display
@@ -423,14 +457,18 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 4: Review & Save (step number adjusts for GLM)
+        // STEP 5: Review & Save (or Step 4 for Grok)
         // ═══════════════════════════════════════════════════════════════════
-        const saveStep = provider.name === 'glm' ? 'Step 4/4' : 'Step 3/3';
+        const saveStep = provider.name === 'glm' ? `Step 5/${totalSteps}` : `Step 4/${totalSteps}`;
         prompts.log.step(chalk.bold(`${saveStep} — Review & Save`));
 
         const maxTokens = modelConfig.maxOutputTokens > 32768 ? 32768 : modelConfig.maxOutputTokens;
 
+        // Get language display name
+        const langDisplay = languageChoices.find(l => l.value === selectedLanguage)?.label ?? selectedLanguage;
+
         await prompts.note(
+          `Language:    ${langDisplay}\n` +
           `Provider:    ${provider.displayName}${isLocalServer ? ' (Local)' : ''}\n` +
           `Base URL:    ${selectedBaseURL}\n` +
           `Model:       ${chosenModel}\n` +
@@ -460,6 +498,7 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
           maxTokens: existingConfig?.maxTokens ?? maxTokens,
           temperature: existingConfig?.temperature ?? 0.7,
           models: Object.keys(provider.models),
+          language: selectedLanguage,
           _provider: provider.displayName,
           _website: website,
           _isLocalServer: isLocalServer,
@@ -709,6 +748,7 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         // ═══════════════════════════════════════════════════════════════════
         await prompts.note(
           `Location:    ${configPath}\n` +
+          `Language:    ${langDisplay}\n` +
           `Provider:    ${provider.displayName}${isLocalServer ? ' (Local)' : ''}\n` +
           `Base URL:    ${selectedBaseURL}\n` +
           `Model:       ${chosenModel}\n` +
@@ -729,6 +769,7 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         const tips: string[] = [
           `Edit config manually:  ${configPath}`,
           `View help:             ${cliName} --help`,
+          `Change language:       /lang (inside ${cliName})`,
         ];
 
         if (provider.features.supportsThinking) {

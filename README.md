@@ -378,6 +378,7 @@ AX CLI uses a modular architecture with provider-specific CLIs built on a shared
 
 | Version | Highlights |
 |---------|------------|
+| **v5.1.3** | Fix: Slash command execution (Tab completion bug), Language selection in setup wizard |
 | **v5.1.2** | Fix: i18n locale files included in build, test fixes for glm-4.7 default |
 | **v5.1.1** | Fix: `/lang` command now works in interactive mode |
 | **v5.1.0** | i18n support (11 languages), `/lang` command, cleaner help & commands |

@@ -82,6 +82,7 @@ interface UseInputHandlerProps {
 
 interface CommandSuggestion {
   command: string;
+  displayCommand?: string;  // Display text with aliases (falls back to command if not set)
   description: string;
 }
 

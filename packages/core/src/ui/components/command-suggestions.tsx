@@ -3,6 +3,7 @@ import { Box, Text } from "ink";
 
 interface CommandSuggestion {
   command: string;
+  displayCommand?: string;  // Display text with aliases (falls back to command if not set)
   description: string;
 }
 
@@ -124,7 +125,7 @@ export function CommandSuggestions({
             color={index === selectedIndex ? "black" : "white"}
             backgroundColor={index === selectedIndex ? "cyan" : undefined}
           >
-            {suggestion.command}
+            {suggestion.displayCommand || suggestion.command}
           </Text>
           <Box marginLeft={1}>
             <Text color="gray">{suggestion.description}</Text>
