@@ -1,0 +1,208 @@
+# Grok Provider Models Configuration (xAI)
+# This file defines all available models for ax-grok
+# Edit this file to add/remove models without code changes
+
+provider: grok
+display_name: Grok (xAI)
+
+# Default model for coding tasks
+default_model: grok-code-fast-1
+
+# Fast model for agentic tasks (used by --fast flag)
+fast_model: grok-code-fast-1
+
+models:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Grok Code Fast 1 - Agentic Coding Model (August 2025)
+  # 70.8% SWE-bench, 256K context, optimized for tool use
+  # $0.20/1M input, $1.50/1M output, $0.02/1M cached
+  # ═══════════════════════════════════════════════════════════════════════════
+  grok-code-fast-1:
+    name: Grok Code Fast 1
+    context_window: 256000
+    max_output_tokens: 16000
+    supports_thinking: true
+    supports_vision: false
+    supports_search: false
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Best for agentic coding: 70.8% SWE-bench, 256K context, ~92 tok/s"
+    tier: recommended
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Grok 4.1 Series - Latest generation (November 2025)
+  # ═══════════════════════════════════════════════════════════════════════════
+  grok-4.1:
+    name: Grok-4.1
+    context_window: 131072
+    max_output_tokens: 131072
+    supports_thinking: true
+    supports_vision: true
+    supports_search: true
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Latest stable: improved accuracy, lower hallucination"
+    tier: flagship
+
+  grok-4.1-fast-reasoning:
+    name: Grok-4.1 Fast (Reasoning)
+    context_window: 2097152
+    max_output_tokens: 131072
+    supports_thinking: true
+    supports_vision: true
+    supports_search: true
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Best tool-calling with 2M context, includes reasoning"
+    tier: fast
+
+  grok-4.1-fast-non-reasoning:
+    name: Grok-4.1 Fast (Non-Reasoning)
+    context_window: 2097152
+    max_output_tokens: 131072
+    supports_thinking: false
+    supports_vision: true
+    supports_search: true
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Fastest tool-calling with 2M context, no reasoning"
+    tier: fast
+
+  grok-4.1-mini:
+    name: Grok-4.1 Mini
+    context_window: 131072
+    max_output_tokens: 32768
+    supports_thinking: true
+    supports_vision: true
+    supports_search: true
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Smaller, faster, cost-effective variant"
+    tier: mini
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Grok 4.0 Series - Original release (July 2025)
+  # ═══════════════════════════════════════════════════════════════════════════
+  grok-4:
+    name: Grok-4 (Alias)
+    context_window: 131072
+    max_output_tokens: 131072
+    supports_thinking: true
+    supports_vision: true
+    supports_search: true
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Alias to latest stable Grok-4 version (recommended)"
+    tier: flagship
+
+  grok-4-0709:
+    name: Grok-4 (July 2025)
+    context_window: 131072
+    max_output_tokens: 131072
+    supports_thinking: true
+    supports_vision: true
+    supports_search: true
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Original Grok-4 release: reasoning, coding, vision, search"
+    tier: stable
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Specialized Models
+  # ═══════════════════════════════════════════════════════════════════════════
+  grok-2-image-1212:
+    name: Grok-2 Image
+    context_window: 32768
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Text-to-image generation model"
+    tier: specialized
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Legacy Models (Grok 3.x and 2.x) - Backward Compatibility
+  # ═══════════════════════════════════════════════════════════════════════════
+  grok-3:
+    name: Grok-3
+    context_window: 131072
+    max_output_tokens: 32768
+    supports_thinking: true
+    supports_vision: false
+    supports_search: true
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Legacy Grok-3 with extended thinking"
+    tier: legacy
+
+  grok-3-mini:
+    name: Grok-3 Mini
+    context_window: 131072
+    max_output_tokens: 32768
+    supports_thinking: true
+    supports_vision: false
+    supports_search: true
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Legacy Grok-3 smaller variant"
+    tier: legacy
+
+  grok-2-1212:
+    name: Grok-2 (Dec 2024)
+    context_window: 131072
+    max_output_tokens: 32768
+    supports_thinking: false
+    supports_vision: false
+    supports_search: true
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Legacy Grok-2 December 2024 release"
+    tier: legacy
+
+  grok-2-vision-1212:
+    name: Grok-2 Vision
+    context_window: 32768
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: true
+    supports_search: false
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Legacy Grok-2 with vision capabilities"
+    tier: legacy
+
+  grok-beta:
+    name: Grok Beta
+    context_window: 131072
+    max_output_tokens: 32768
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Legacy Grok beta model"
+    tier: legacy
+
+  grok-vision-beta:
+    name: Grok Vision Beta
+    context_window: 32768
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: true
+    supports_search: false
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Legacy Grok vision beta model"
+    tier: legacy
+
+# Model aliases for convenience
+aliases:
+  grok-latest: grok-4.1
+  grok-code: grok-code-fast-1
+  grok-fast: grok-code-fast-1
+  grok-fast-reasoning: grok-4.1-fast-reasoning
+  grok-fast-nr: grok-4.1-fast-non-reasoning
+  grok-mini: grok-4.1-mini
+  grok-image: grok-2-image-1212

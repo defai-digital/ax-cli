@@ -2,12 +2,11 @@
  * Tests for agent/status-reporter module
  * Tests status reporting and context summary generation
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   StatusReporter,
   getStatusReporter,
   resetStatusReporter,
-  type ContextSummary,
 } from '../../packages/core/src/agent/status-reporter.js';
 import type { ChatEntry } from '../../packages/core/src/agent/llm-agent.js';
 import type { LLMMessage } from '../../packages/core/src/llm/client.js';

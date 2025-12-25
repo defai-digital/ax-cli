@@ -1,0 +1,212 @@
+# AX CLI Provider Models Configuration (Local/Offline)
+# This file defines all available models for ax-cli
+# Edit this file to add/remove models without code changes
+
+provider: ax-cli
+display_name: AX CLI (Local)
+
+# Default model for coding tasks
+default_model: qwen3:14b
+
+# Fast model for agentic tasks (used by --fast flag)
+fast_model: deepseek-coder-v2:7b
+
+models:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TIER 1: QWEN 3 (9.6/10) - Best Overall Offline Coding Model
+  # ═══════════════════════════════════════════════════════════════════════════
+  qwen3:72b:
+    name: Qwen 3 72B
+    context_window: 128000
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "T1 BEST: Most capable, 128K context"
+    tier: tier1
+
+  qwen3:32b:
+    name: Qwen 3 32B
+    context_window: 128000
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "T1 BEST: High-quality coding, 128K context"
+    tier: tier1
+
+  qwen3:14b:
+    name: Qwen 3 14B
+    context_window: 128000
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "T1 BEST: Balanced performance (recommended)"
+    tier: recommended
+
+  qwen3:8b:
+    name: Qwen 3 8B
+    context_window: 128000
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "T1 BEST: Efficient, great for most tasks"
+    tier: tier1
+
+  qwen2.5-coder:32b:
+    name: Qwen2.5-Coder 32B
+    context_window: 128000
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "Excellent coding specialist, 128K context"
+    tier: tier1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TIER 2: GLM-4.6 (9.4/10) - Best for Refactor + Docs
+  # GLM-4.6 9B rivals Qwen 14B / DeepSeek 16B in quality
+  # ═══════════════════════════════════════════════════════════════════════════
+  glm-4.6:32b:
+    name: GLM-4.6 32B
+    context_window: 200000
+    max_output_tokens: 32000
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "T2 REFACTOR: Large-scale refactor + multi-file editing"
+    tier: tier2
+
+  glm-4.6:9b:
+    name: GLM-4.6 9B
+    context_window: 200000
+    max_output_tokens: 32000
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "T2 REFACTOR: Rivals Qwen 14B, excellent long context"
+    tier: tier2
+
+  codegeex4:
+    name: CodeGeeX4
+    context_window: 128000
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "T2 DOCS: Best for documentation generation"
+    tier: tier2
+
+  glm4:9b:
+    name: GLM-4 9B
+    context_window: 128000
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "T2: Bilingual code understanding"
+    tier: tier2
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TIER 3: DEEPSEEK-CODER V2 (9.3/10) - Best Speed/Value
+  # ═══════════════════════════════════════════════════════════════════════════
+  deepseek-coder-v2:16b:
+    name: DeepSeek-Coder-V2 16B
+    context_window: 64000
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "T3 FAST: Best speed/quality ratio"
+    tier: fast
+
+  deepseek-coder-v2:7b:
+    name: DeepSeek-Coder-V2 7B
+    context_window: 64000
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "T3 FAST: 7B performs like 13B, edge-friendly"
+    tier: fast
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TIER 4: CODESTRAL/MISTRAL (8.4/10) - C/C++/Rust
+  # ═══════════════════════════════════════════════════════════════════════════
+  codestral:22b:
+    name: Codestral 22B
+    context_window: 32000
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "T4: Strong in C/C++/Rust"
+    tier: tier4
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TIER 5: LLAMA (8.1/10) - Best Fallback/Compatibility
+  # ═══════════════════════════════════════════════════════════════════════════
+  llama3.1:70b:
+    name: Llama 3.1 70B
+    context_window: 128000
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "T5 FALLBACK: Best compatibility"
+    tier: tier5
+
+  llama3.1:8b:
+    name: Llama 3.1 8B
+    context_window: 128000
+    max_output_tokens: 8192
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "T5 FALLBACK: Fast, stable"
+    tier: tier5
+
+  codellama:34b:
+    name: Code Llama 34B
+    context_window: 16000
+    max_output_tokens: 4096
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "Optimized for code generation"
+    tier: tier5
+
+# Model aliases for convenience (none defined for local models)
+aliases: {}

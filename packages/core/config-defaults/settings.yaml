@@ -86,6 +86,15 @@ timeouts:
   mcp_init: 5000  # 5 seconds for MCP initialization
   shutdown: 10000  # 10 seconds for graceful shutdown
 
+  # Validation/Setup timeouts
+  validator_short: 5000  # 5 seconds for quick validation checks
+  validator_long: 10000  # 10 seconds for longer validation (API tests)
+  connection: 5000  # 5 seconds for IPC/socket connections
+  git_operation: 10000  # 10 seconds for git operations (diff, status)
+
+  # Doctor/diagnostic timeouts
+  doctor_command: 10000  # 10 seconds for doctor diagnostic commands
+
   # UI timeouts
   notification_display: 3000  # 3 seconds for notification display
   tool_approval: 300000  # 5 minutes for tool approval timeout

@@ -9,7 +9,8 @@ import yaml from 'js-yaml';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { z } from 'zod';
-import { ModelsYamlSchema, SettingsYamlSchema, PromptsYamlSchema, MessagesYamlSchema } from '../schemas/yaml-schemas.js';
+import { ModelsYamlSchema, SettingsYamlSchema, PromptsYamlSchema, MessagesYamlSchema, ProviderModelsYamlSchema } from '../schemas/yaml-schemas.js';
+import type { ProviderModelsYaml, ProviderModelYamlConfig } from '../schemas/yaml-schemas.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -178,6 +179,16 @@ export interface SettingsYaml {
     tool_approval?: number;
     context_cleanup_interval?: number;
     confirmation_timeout?: number;
+    /** Quick validation checks (e.g., Ollama ping) */
+    validator_short?: number;
+    /** Longer validation checks (e.g., API endpoint tests) */
+    validator_long?: number;
+    /** IPC/socket connection timeout */
+    connection?: number;
+    /** Git operation timeout (diff, status) */
+    git_operation?: number;
+    /** Doctor diagnostic command timeout */
+    doctor_command?: number;
   };
   ui: {
     status_update_interval: number;
@@ -290,4 +301,79 @@ export function formatMessage(template: string, variables: Record<string, string
   return template.replace(/\{([a-zA-Z0-9_-]+)\}/g, (match, key) => {
     return variables[key]?.toString() ?? match;
   });
+}
+
+/**
+ * Load provider-specific model configurations from YAML
+ * Files: grok-models.yaml, glm-models.yaml, ax-cli-models.yaml
+ *
+ * @param providerName - Provider name (e.g., 'grok', 'glm', 'ax-cli')
+ * @returns Provider models configuration or null if not found
+ */
+export function loadProviderModelsConfig(providerName: string): ProviderModelsYaml | null {
+  const filename = `${providerName}-models.yaml`;
+  try {
+    return loadYamlConfig<ProviderModelsYaml>(filename, ProviderModelsYamlSchema);
+  } catch {
+    // Return null if provider-specific YAML doesn't exist (fall back to hardcoded)
+    return null;
+  }
+}
+
+/**
+ * Convert YAML model config to provider model config format
+ * This bridges the YAML format to the TypeScript ProviderModelConfig interface
+ */
+export function convertYamlModelToProviderConfig(yamlModel: ProviderModelYamlConfig): {
+  name: string;
+  contextWindow: number;
+  maxOutputTokens: number;
+  supportsThinking: boolean;
+  supportsVision: boolean;
+  supportsSearch: boolean;
+  supportsSeed: boolean;
+  defaultTemperature: number;
+  description: string;
+} {
+  return {
+    name: yamlModel.name,
+    contextWindow: yamlModel.context_window,
+    maxOutputTokens: yamlModel.max_output_tokens,
+    supportsThinking: yamlModel.supports_thinking,
+    supportsVision: yamlModel.supports_vision,
+    supportsSearch: yamlModel.supports_search,
+    supportsSeed: yamlModel.supports_seed,
+    defaultTemperature: yamlModel.default_temperature,
+    description: yamlModel.description,
+  };
+}
+
+/**
+ * Load and convert all provider models from YAML to provider format
+ *
+ * @param providerName - Provider name (e.g., 'grok', 'glm', 'ax-cli')
+ * @returns Object with models, defaultModel, fastModel, aliases, or null if not found
+ */
+export function loadProviderModelsFromYaml(providerName: string): {
+  models: Record<string, ReturnType<typeof convertYamlModelToProviderConfig>>;
+  defaultModel: string;
+  fastModel?: string;
+  defaultVisionModel?: string;
+  aliases?: Record<string, string>;
+} | null {
+  const yamlConfig = loadProviderModelsConfig(providerName);
+  if (!yamlConfig) return null;
+
+  const models: Record<string, ReturnType<typeof convertYamlModelToProviderConfig>> = {};
+  for (const [modelId, yamlModel] of Object.entries(yamlConfig.models)) {
+    models[modelId] = convertYamlModelToProviderConfig(yamlModel);
+  }
+
+  return {
+    models,
+    defaultModel: yamlConfig.default_model,
+    fastModel: yamlConfig.fast_model,
+    defaultVisionModel: yamlConfig.default_vision_model,
+    aliases: yamlConfig.aliases,
+  };
 }

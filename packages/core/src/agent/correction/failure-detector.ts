@@ -41,9 +41,18 @@ function hashArgs(args: Record<string, unknown>): string {
 
 /**
  * Extracts file path from tool arguments if present
+ * BUG FIX: Properly validate types instead of using unsafe type assertion.
+ * Previously, non-string values (numbers, booleans) would pass through incorrectly.
  */
 function extractFilePath(args: Record<string, unknown>): string | undefined {
-  return (args.path || args.file_path || args.filename) as string | undefined;
+  // Check each potential path argument and validate it's actually a string
+  const candidates = [args.path, args.file_path, args.filename];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.length > 0) {
+      return candidate;
+    }
+  }
+  return undefined;
 }
 
 /**

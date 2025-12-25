@@ -1691,19 +1691,25 @@ export class MCPManagerV2 extends EventEmitter {
         return;
       }
 
-      // Increment attempt count
-      this.reconnectionAttempts.set(serverName, attempts + 1);
+      try {
+        // Increment attempt count
+        this.reconnectionAttempts.set(serverName, attempts + 1);
 
-      // Attempt reconnection
-      const result = await this.addServer(config);
+        // Attempt reconnection
+        const result = await this.addServer(config);
 
-      if (result.success) {
-        // Success! Reset attempt counter
-        this.reconnectionAttempts.delete(serverName);
-        this.emit('reconnection-succeeded', serverName, attempts + 1);
-      } else {
-        // Failed - will be rescheduled by addServer error handling
-        // (which calls scheduleReconnection again)
+        if (result.success) {
+          // Success! Reset attempt counter
+          this.reconnectionAttempts.delete(serverName);
+          this.emit('reconnection-succeeded', serverName, attempts + 1);
+        } else {
+          // Failed - will be rescheduled by addServer error handling
+          // (which calls scheduleReconnection again)
+        }
+      } catch (error) {
+        // BUG FIX: Handle unhandled promise rejection in setTimeout async callback
+        // Log the error and emit reconnection-failed event
+        this.emit('reconnection-failed', serverName, attempts + 1, error instanceof Error ? error : new Error(String(error)));
       }
     }, calculatedDelay);
 

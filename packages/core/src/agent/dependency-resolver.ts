@@ -193,6 +193,9 @@ export class DependencyResolver {
   ): string[][] {
     const batches: string[][] = [];
 
+    // PERFORMANCE FIX: Create task lookup map for O(1) access instead of O(n) .find()
+    const taskMap = new Map(tasks.map(t => [t.id, t]));
+
     // Assign levels to each node
     const levels = new Map<string, number>();
     for (const nodeId of sorted) {
@@ -228,10 +231,11 @@ export class DependencyResolver {
       }
 
       if (batch.length > 0) {
-        // Sort by priority within batch
+        // PERFORMANCE FIX: Use taskMap for O(1) lookup instead of O(n) .find()
+        // This changes sort from O(n²logn) to O(nlogn)
         batch.sort((a, b) => {
-          const taskA = tasks.find(t => t.id === a);
-          const taskB = tasks.find(t => t.id === b);
+          const taskA = taskMap.get(a);
+          const taskB = taskMap.get(b);
           return (taskB?.priority || 0) - (taskA?.priority || 0);
         });
 

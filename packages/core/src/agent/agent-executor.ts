@@ -157,9 +157,15 @@ export async function* executeAgent(
     });
 
     // Handle abort signal
+    // BUG FIX: Wrap kill() in try-catch to handle race condition where
+    // the process exits between checking !process_.killed and calling kill()
     abortHandler = () => {
       if (process_ && !process_.killed) {
-        process_.kill('SIGTERM');
+        try {
+          process_.kill('SIGTERM');
+        } catch {
+          // Process already exited - ignore the error
+        }
         emitter.emit('chunk', { type: 'error', content: 'Agent execution timed out' });
         emitter.emit('chunk', { type: 'done', exitCode: EXIT_CODE_TIMEOUT });
         emitter.emit('done');
@@ -203,8 +209,14 @@ export async function* executeAgent(
     if (abortHandler) {
       abortController.signal.removeEventListener('abort', abortHandler);
     }
+    // BUG FIX: Wrap in try-catch to handle race condition where process exits
+    // between checking !process_.killed and calling kill()
     if (process_ && !process_.killed) {
-      process_.kill('SIGTERM');
+      try {
+        process_.kill('SIGTERM');
+      } catch {
+        // Process already exited - ignore the error
+      }
     }
   }
 }

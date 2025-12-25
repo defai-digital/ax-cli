@@ -1,6 +1,6 @@
 # AX CLI - Công cụ Lập trình AI Cấp Doanh nghiệp
 
-> 📖 Bản dịch này dựa trên [README.md @ v5.1.8](./README.md)
+> 📖 Bản dịch này dựa trên [README.md @ v5.1.9](./README.md)
 
 [![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
 [![Tests](https://img.shields.io/badge/tests-6,084+%20passing-brightgreen.svg)](#)

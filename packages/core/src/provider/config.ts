@@ -3,10 +3,20 @@
  *
  * Defines provider-specific configurations for GLM, Grok, and other providers.
  * Each provider has its own defaults, model configs, and feature flags.
+ *
+ * Model Configuration Priority:
+ * 1. YAML files in config-defaults/ (e.g., grok-models.yaml) - Easy to edit
+ * 2. Hardcoded TypeScript definitions below - Type-safe fallback
+ *
+ * To update models, edit the YAML files in packages/core/config-defaults/:
+ * - grok-models.yaml - Grok (xAI) models
+ * - glm-models.yaml - GLM (Z.AI) models
+ * - ax-cli-models.yaml - Local/offline models
  */
 
 import { homedir } from 'os';
 import { join } from 'path';
+import { loadProviderModelsFromYaml } from '../utils/config-loader.js';
 
 /**
  * Model configuration for a specific model
@@ -129,6 +139,7 @@ export const GLM_PROVIDER: ProviderDefinition = {
   defaultBaseURL: 'https://api.z.ai/api/coding/paas/v4',
   defaultModel: 'glm-4.7',
   defaultVisionModel: 'glm-4.6v',
+  fastModel: 'glm-4-flash', // Fast model for agentic tasks (used by --fast flag)
   configDirName: '.ax-glm',
   // GLM-specific aliases (only for ax-glm users)
   aliases: {
@@ -256,14 +267,20 @@ export const GLM_PROVIDER: ProviderDefinition = {
 /**
  * Grok Provider Definition (xAI)
  *
- * All Grok 4.x models available via xAI API:
- * - grok-4-0709: Original Grok-4 release (July 2025)
- * - grok-4.1: Latest stable with improved accuracy
- * - grok-4.1-fast-reasoning: Optimized for tool use with reasoning
- * - grok-4.1-fast-non-reasoning: Fast tool use without extended reasoning
- * - grok-4.1-mini: Smaller, faster variant
+ * Default model: grok-code-fast-1 (best for agentic coding)
+ * - 70.8% SWE-bench, 256K context, ~92 tok/s
+ * - Optimized for tool use (grep, terminal, file editing)
+ * - $0.20/1M input, $1.50/1M output tokens
  *
- * Aliases: grok-4 -> latest stable, grok-4-latest -> bleeding edge
+ * All Grok models available via xAI API:
+ * - grok-code-fast-1: NEW - Agentic coding specialist (default)
+ * - grok-4.1: Latest stable with improved accuracy
+ * - grok-4.1-fast-reasoning: 2M context with reasoning
+ * - grok-4.1-fast-non-reasoning: Fast tool use without reasoning
+ * - grok-4.1-mini: Smaller, faster variant
+ * - grok-4-0709: Original Grok-4 release (July 2025)
+ *
+ * Aliases: grok-code/grok-fast -> grok-code-fast-1, grok-latest -> grok-4.1
  */
 export const GROK_PROVIDER: ProviderDefinition = {
   name: 'grok',
@@ -271,19 +288,37 @@ export const GROK_PROVIDER: ProviderDefinition = {
   apiKeyEnvVar: 'XAI_API_KEY',
   apiKeyEnvVarAliases: ['GROK_API_KEY'],
   defaultBaseURL: 'https://api.x.ai/v1',
-  defaultModel: 'grok-4',
-  fastModel: 'grok-4.1-fast-reasoning', // Best for agentic tasks (2M context, parallel tools)
+  defaultModel: 'grok-code-fast-1', // Best for agentic coding (256K context, 70.8% SWE-bench)
+  fastModel: 'grok-code-fast-1', // Same as default - optimized for tool use
   // NOTE: Grok-4 has built-in vision, thinking, and search - no separate vision model needed
   configDirName: '.ax-grok',
   // Grok-specific aliases (only for ax-grok users)
   aliases: {
     'grok-latest': 'grok-4.1',
-    'grok-fast': 'grok-4.1-fast-reasoning',
+    'grok-code': 'grok-code-fast-1',
+    'grok-fast': 'grok-code-fast-1', // Updated: grok-code-fast-1 is the new fast model
+    'grok-fast-reasoning': 'grok-4.1-fast-reasoning',
     'grok-fast-nr': 'grok-4.1-fast-non-reasoning',
     'grok-mini': 'grok-4.1-mini',
     'grok-image': 'grok-2-image-1212',
   },
   models: {
+    // ═══════════════════════════════════════════════════════════════════════
+    // Grok Code Fast 1 - Agentic Coding Model (August 2025)
+    // 70.8% SWE-bench, 256K context, optimized for tool use
+    // $0.20/1M input, $1.50/1M output, $0.02/1M cached
+    // ═══════════════════════════════════════════════════════════════════════
+    'grok-code-fast-1': {
+      name: 'Grok Code Fast 1',
+      contextWindow: 256000, // 256K context
+      maxOutputTokens: 16000, // 16K output per request
+      supportsThinking: true, // Exposes reasoning traces
+      supportsVision: false, // Text mode only
+      supportsSearch: false, // No built-in search
+      supportsSeed: true,
+      defaultTemperature: 0.7,
+      description: 'Best for agentic coding: 70.8% SWE-bench, 256K context, ~92 tok/s',
+    },
     // ═══════════════════════════════════════════════════════════════════════
     // Grok 4.1 Series - Latest generation (November 2025)
     // ═══════════════════════════════════════════════════════════════════════
@@ -497,6 +532,7 @@ export const AX_CLI_PROVIDER: ProviderDefinition = {
   apiKeyEnvVarAliases: ['AXCLI_API_KEY'],  // Keep provider-agnostic (no DEEPSEEK binding for future ax-deepseek)
   defaultBaseURL: 'http://localhost:11434/v1', // Default to Ollama (local)
   defaultModel: 'qwen3:14b',  // Tier 1: Best overall
+  fastModel: 'deepseek-coder-v2:7b', // Fast model for agentic tasks
   configDirName: '.ax-cli',
   models: {
     // ═══════════════════════════════════════════════════════════════════
@@ -719,28 +755,76 @@ export const AX_CLI_PROVIDER: ProviderDefinition = {
  */
 export const DEFAULT_PROVIDER = AX_CLI_PROVIDER;
 
+// Cache for providers with YAML models merged in
+let _providersWithYaml: Record<string, ProviderDefinition> | null = null;
+
 /**
- * Provider lookup map - created once at module load
- * Keys are lowercase for case-insensitive lookup
+ * Load provider definition with YAML models merged in
+ * YAML takes priority over hardcoded models for easy updates
+ *
+ * @param baseProvider - The base hardcoded provider definition
+ * @returns Provider with YAML models merged in (or original if YAML not found)
  */
-const PROVIDERS_MAP: Readonly<Record<string, ProviderDefinition>> = {
-  'ax-cli': AX_CLI_PROVIDER,
-  glm: GLM_PROVIDER,
-  grok: GROK_PROVIDER,
-};
+function loadProviderWithYamlModels(baseProvider: ProviderDefinition): ProviderDefinition {
+  try {
+    const yamlModels = loadProviderModelsFromYaml(baseProvider.name);
+    if (!yamlModels) {
+      return baseProvider; // No YAML file, use hardcoded
+    }
+
+    // Merge YAML models into provider definition (YAML takes priority)
+    return {
+      ...baseProvider,
+      defaultModel: yamlModels.defaultModel,
+      fastModel: yamlModels.fastModel,
+      defaultVisionModel: yamlModels.defaultVisionModel ?? baseProvider.defaultVisionModel,
+      models: yamlModels.models,
+      aliases: yamlModels.aliases ?? baseProvider.aliases,
+    };
+  } catch {
+    // On any error, fall back to hardcoded
+    return baseProvider;
+  }
+}
+
+/**
+ * Get all providers with YAML models merged in
+ * Cached for performance
+ */
+function getProvidersWithYaml(): Record<string, ProviderDefinition> {
+  if (_providersWithYaml) return _providersWithYaml;
+
+  _providersWithYaml = {
+    'ax-cli': loadProviderWithYamlModels(AX_CLI_PROVIDER),
+    glm: loadProviderWithYamlModels(GLM_PROVIDER),
+    grok: loadProviderWithYamlModels(GROK_PROVIDER),
+  };
+
+  return _providersWithYaml;
+}
 
 /**
  * Get provider definition by name (case-insensitive)
+ * Loads models from YAML files when available for easy updates
  */
 export function getProviderDefinition(name: string): ProviderDefinition | undefined {
-  return PROVIDERS_MAP[name.toLowerCase()];
+  const providers = getProvidersWithYaml();
+  return providers[name.toLowerCase()];
 }
 
 /**
  * Get all available providers
+ * Loads models from YAML files when available for easy updates
  */
 export function getAvailableProviders(): ProviderDefinition[] {
-  return Object.values(PROVIDERS_MAP);
+  return Object.values(getProvidersWithYaml());
+}
+
+/**
+ * Clear the providers cache (useful for testing or reloading)
+ */
+export function clearProvidersCache(): void {
+  _providersWithYaml = null;
 }
 
 /**

@@ -438,8 +438,16 @@ export class CheckpointManager {
           continue; // Skip this checkpoint, try next one
         }
 
-        await this.storage.delete(checkpoint.id);
-        currentSize -= checkpoint.size;
+        // BUG FIX: Catch individual delete errors to continue with remaining checkpoints
+        // Previously, a single delete failure would stop the entire loop
+        try {
+          await this.storage.delete(checkpoint.id);
+          currentSize -= checkpoint.size;
+        } catch (error: unknown) {
+          const msg = extractErrorMessage(error);
+          console.error(`Failed to delete checkpoint ${checkpoint.id} during storage limit enforcement: ${msg}`);
+          // Continue with next checkpoint instead of stopping
+        }
 
         // Safety: prevent negative size from arithmetic errors
         if (currentSize < 0) {

@@ -37,6 +37,37 @@ export type ModelConfig = z.infer<typeof ModelConfigSchema>;
 /**
  * Schema for application settings in settings.yaml
  */
+/**
+ * Schema for timeout configuration
+ * All timeouts are optional with sensible defaults in constants.ts
+ */
+export const TimeoutsSchema = z.object({
+  bash_default: z.number().positive().int().optional(),
+  search_default: z.number().positive().int().optional(),
+  hook_default: z.number().positive().int().optional(),
+  streaming_first_chunk: z.number().positive().int().optional(),
+  streaming_idle: z.number().positive().int().optional(),
+  process_execution: z.number().positive().int().optional(),
+  process_idle: z.number().positive().int().optional(),
+  paste_timeout: z.number().positive().int().optional(),
+  cache_ttl: z.number().positive().int().optional(),
+  settings_cache_ttl: z.number().positive().int().optional(),
+  api_request: z.number().positive().int().optional(),
+  api_health_check: z.number().positive().int().optional(),
+  command_check: z.number().positive().int().optional(),
+  mcp_init: z.number().positive().int().optional(),
+  shutdown: z.number().positive().int().optional(),
+  notification_display: z.number().positive().int().optional(),
+  tool_approval: z.number().positive().int().optional(),
+  context_cleanup_interval: z.number().positive().int().optional(),
+  confirmation_timeout: z.number().positive().int().optional(),
+  validator_short: z.number().positive().int().optional(),
+  validator_long: z.number().positive().int().optional(),
+  connection: z.number().positive().int().optional(),
+  git_operation: z.number().positive().int().optional(),
+  doctor_command: z.number().positive().int().optional(),
+}).optional();
+
 export const SettingsYamlSchema = z.object({
   agent: z.object({
     max_tool_rounds: z.number().positive().int(),
@@ -63,6 +94,7 @@ export const SettingsYamlSchema = z.object({
     token_hard_limit: z.number().positive().int(),
     truncation_enabled: z.boolean(),
   }),
+  timeouts: TimeoutsSchema,
   ui: z.object({
     status_update_interval: z.number().positive().int(),
     processing_timer_interval: z.number().positive().int(),
@@ -167,6 +199,40 @@ export type PromptsYaml = z.infer<typeof PromptsYamlSchema>;
 export type PromptSection = z.infer<typeof PromptSectionSchema>;
 
 /**
+ * Schema for provider-specific model configuration
+ * Used by grok-models.yaml, glm-models.yaml, ax-cli-models.yaml
+ */
+export const ProviderModelConfigSchema = z.object({
+  name: z.string().min(1),
+  context_window: z.number().positive().int(),
+  max_output_tokens: z.number().positive().int(),
+  supports_thinking: z.boolean(),
+  supports_vision: z.boolean(),
+  supports_search: z.boolean(),
+  supports_seed: z.boolean(),
+  default_temperature: z.number().min(0).max(2),
+  description: z.string().min(1),
+  tier: z.string().optional(), // recommended, fast, flagship, legacy, etc.
+});
+
+export const ProviderModelsYamlSchema = z.object({
+  provider: z.string().min(1),
+  display_name: z.string().min(1),
+  default_model: z.string().min(1),
+  fast_model: z.string().optional(),
+  default_vision_model: z.string().optional(),
+  models: z.record(z.string(), ProviderModelConfigSchema),
+  aliases: z.record(z.string(), z.string()).optional(),
+}).refine(data => data.models[data.default_model] !== undefined, {
+  message: "default_model must exist in models dictionary",
+}).refine(data => !data.fast_model || data.models[data.fast_model] !== undefined, {
+  message: "fast_model must exist in models dictionary if specified",
+});
+
+export type ProviderModelsYaml = z.infer<typeof ProviderModelsYamlSchema>;
+export type ProviderModelYamlConfig = z.infer<typeof ProviderModelConfigSchema>;
+
+/**
  * Validation helpers
  */
 export function validateModelsYaml(data: unknown): { success: true; data: ModelsYaml } | { success: false; error: string } {
@@ -195,6 +261,14 @@ export function validateMessagesYaml(data: unknown): { success: true; data: Mess
 
 export function validatePromptsYaml(data: unknown): { success: true; data: PromptsYaml } | { success: false; error: string } {
   const result = PromptsYamlSchema.safeParse(data);
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+  return { success: false, error: result.error.message };
+}
+
+export function validateProviderModelsYaml(data: unknown): { success: true; data: ProviderModelsYaml } | { success: false; error: string } {
+  const result = ProviderModelsYamlSchema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };
   }

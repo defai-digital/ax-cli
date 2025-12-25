@@ -11,23 +11,57 @@ import tsparser from '@typescript-eslint/parser';
  * - await-thenable: Catches awaiting non-promise values
  *
  * These rules prevent the most common bug categories found in code review.
+ *
+ * NOTE: .eslintignore is deprecated in flat config. All ignores are in this file.
  */
 export default [
   {
     ignores: [
+      // Build outputs
       'dist/**',
+      'lib/**',
+      'build/**',
+      '*.tsbuildinfo',
+
+      // Dependencies
       'node_modules/**',
+
+      // Test artifacts
       'coverage/**',
+      '.nyc_output/**',
+
+      // Config files
       '*.config.js',
       '*.config.ts',
-      'packages/**',           // Packages have their own ESLint configs
-      '**/*.d.ts',            // Ignore TypeScript declaration files
-      '**/__tests__/**',      // Ignore test directories
-      'examples/**',          // Ignore examples (documentation only)
-      'automatosx/tmp/**',    // Ignore AutomatosX temporary files and backups
-      'vscode-extension/**',  // VS Code extension has its own ESLint config
-      'test-file-*',          // BUG FIX: Ignore leftover test files from test runs
-      'test-file-*.*',        // BUG FIX: Ignore leftover test files (with extension)
+      '.eslintcache',
+
+      // Packages have their own ESLint configs
+      'packages/**',
+
+      // TypeScript declaration files
+      '**/*.d.ts',
+
+      // Test directories
+      '**/__tests__/**',
+
+      // Examples (documentation only)
+      'examples/**',
+
+      // AutomatosX temporary files and backups
+      'automatosx/tmp/**',
+
+      // VS Code extension has its own ESLint config
+      'vscode-extension/**',
+
+      // Leftover test files from test runs
+      'test-file-*',
+      'test-file-*.*',
+
+      // Test fixtures (intentionally contain issues for testing)
+      'test-design-check/**',
+
+      // Markdown content files that ESLint incorrectly parses as code
+      'vscode-extension/docs/**/*.content.md',
     ],
   },
   {
@@ -37,6 +71,10 @@ export default [
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
+        // Enable JSX parsing for .tsx files
+        ecmaFeatures: {
+          jsx: true,
+        },
       },
     },
     plugins: {

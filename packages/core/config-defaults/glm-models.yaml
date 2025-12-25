@@ -1,0 +1,118 @@
+# GLM Provider Models Configuration (Z.AI)
+# This file defines all available models for ax-glm
+# Edit this file to add/remove models without code changes
+
+provider: glm
+display_name: GLM (Z.AI)
+
+# Default model for coding tasks
+default_model: glm-4.7
+
+# Fast model for agentic tasks (used by --fast flag)
+fast_model: glm-4-flash
+
+# Default vision model
+default_vision_model: glm-4.6v
+
+models:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # GLM-4.7 Series - Latest generation (December 2025)
+  # 73.8% SWE-bench (+5.8%), 66.7% SWE-bench Multilingual (+12.9%)
+  # 42.8% HLE benchmark (+12.4%)
+  # ═══════════════════════════════════════════════════════════════════════════
+  glm-4.7:
+    name: GLM-4.7
+    context_window: 131072
+    max_output_tokens: 128000
+    supports_thinking: true
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "Latest GLM with enhanced thinking modes (Interleaved, Preserved, Turn-level)"
+    tier: recommended
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # GLM-4.6 Series - Previous generation
+  # ═══════════════════════════════════════════════════════════════════════════
+  glm-4.6:
+    name: GLM-4.6
+    context_window: 200000
+    max_output_tokens: 128000
+    supports_thinking: true
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "Previous generation GLM with 200K context window"
+    tier: stable
+
+  # Vision models - selected separately in setup (Step 2)
+  glm-4.6v:
+    name: GLM-4.6V
+    context_window: 128000
+    max_output_tokens: 128000
+    supports_thinking: true
+    supports_vision: true
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "Latest vision model with 128K context and thinking mode"
+    tier: vision
+
+  glm-4.5v:
+    name: GLM-4.5V
+    context_window: 64000
+    max_output_tokens: 16000
+    supports_thinking: true
+    supports_vision: true
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "Vision model with 64K context (legacy)"
+    tier: legacy
+
+  glm-4:
+    name: GLM-4
+    context_window: 128000
+    max_output_tokens: 8000
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "Standard GLM-4 model"
+    tier: stable
+
+  glm-4-flash:
+    name: GLM-4 Flash
+    context_window: 128000
+    max_output_tokens: 4000
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: false
+    default_temperature: 0.7
+    description: "Fast, efficient GLM model for quick tasks"
+    tier: fast
+
+  # Image generation model
+  cogview-4:
+    name: CogView-4
+    context_window: 4096
+    max_output_tokens: 1024
+    supports_thinking: false
+    supports_vision: false
+    supports_search: false
+    supports_seed: true
+    default_temperature: 0.7
+    description: "Text-to-image generation model with variable resolutions"
+    tier: specialized
+
+# Model aliases for convenience
+aliases:
+  glm-latest: glm-4.7
+  glm-fast: glm-4-flash
+  glm-vision: glm-4.6v
+  glm-image: cogview-4
+  glm-4.6-legacy: glm-4.6

@@ -1,6 +1,6 @@
 # AX CLI - 엔터프라이즈급 AI 코딩 어시스턴트
 
-> 📖 이 번역은 [README.md @ v5.1.8](./README.md)을 기반으로 합니다
+> 📖 이 번역은 [README.md @ v5.1.9](./README.md)을 기반으로 합니다
 
 [![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
 [![Tests](https://img.shields.io/badge/tests-6,084+%20passing-brightgreen.svg)](#)

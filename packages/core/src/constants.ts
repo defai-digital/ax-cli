@@ -193,6 +193,15 @@ export const TIMEOUT_CONFIG = {
   CONTEXT_CLEANUP_INTERVAL: settingsYaml.timeouts?.context_cleanup_interval || 300000,
   CONFIRMATION_TIMEOUT: settingsYaml.timeouts?.confirmation_timeout || 60000,
 
+  // Validation/Setup timeouts
+  VALIDATOR_SHORT: settingsYaml.timeouts?.validator_short || 5000,
+  VALIDATOR_LONG: settingsYaml.timeouts?.validator_long || 10000,
+  CONNECTION: settingsYaml.timeouts?.connection || 5000,
+  GIT_OPERATION: settingsYaml.timeouts?.git_operation || 10000,
+
+  // Doctor/diagnostic timeouts
+  DOCTOR_COMMAND: settingsYaml.timeouts?.doctor_command || 10000,
+
   // Time formatting constants
   MS_PER_SECOND: 1000,
   MS_PER_MINUTE: 60000,

@@ -3,6 +3,7 @@
  * Validates provider connectivity, API keys, and model accessibility
  */
 
+import { TIMEOUT_CONFIG } from '../constants.js';
 import { extractAndTranslateError } from './error-translator.js';
 
 /**
@@ -141,7 +142,7 @@ async function testEndpoint(baseURL: string): Promise<{ success: boolean; error?
       const ollamaBase = baseURL.replace(/\/v1\/?$/, '');
       const response = await fetch(ollamaBase + '/api/version', {
         method: 'GET',
-        signal: AbortSignal.timeout(5000), // 5 second timeout
+        signal: AbortSignal.timeout(TIMEOUT_CONFIG.VALIDATOR_SHORT),
       });
 
       if (response.ok) {
@@ -157,7 +158,7 @@ async function testEndpoint(baseURL: string): Promise<{ success: boolean; error?
     // For remote endpoints, try a simple request
     const response = await fetch(baseURL + '/models', {
       method: 'GET',
-      signal: AbortSignal.timeout(10000), // 10 second timeout
+      signal: AbortSignal.timeout(TIMEOUT_CONFIG.VALIDATOR_LONG),
     });
 
     // Any response (even 401) means endpoint is reachable
@@ -216,7 +217,7 @@ async function testAuthentication(
     const response = await fetch(baseURL + '/models', {
       method: 'GET',
       headers: getAuthHeaders(providerName, apiKey),
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(TIMEOUT_CONFIG.VALIDATOR_LONG),
     });
 
     // xAI/Grok uses different error codes:
@@ -287,7 +288,7 @@ async function testModel(
         const ollamaBase = baseURL.replace(/\/v1\/?$/, '');
         const response = await fetch(ollamaBase + '/api/tags', {
           method: 'GET',
-          signal: AbortSignal.timeout(5000), // 5 second timeout
+          signal: AbortSignal.timeout(TIMEOUT_CONFIG.VALIDATOR_SHORT),
         });
         if (response.ok) {
           const data = await response.json() as { models?: Array<{ name?: string }> };
@@ -312,7 +313,7 @@ async function testModel(
     const response = await fetch(baseURL + '/models', {
       method: 'GET',
       headers: getAuthHeaders(providerName, apiKey),
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(TIMEOUT_CONFIG.VALIDATOR_LONG),
     });
 
     if (response.status === 401 || response.status === 403) {

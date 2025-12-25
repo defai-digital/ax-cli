@@ -19,6 +19,64 @@ vi.mock('../../../packages/core/src/ui/utils/colors.js', () => ({
   Colors: {},
 }));
 
+// Mock translations to ensure English output regardless of user settings
+vi.mock('../../../packages/core/src/ui/hooks/use-translations.js', () => ({
+  useTranslations: () => ({
+    ui: {
+      status: {
+        autoEdit: 'Auto-Edit',
+        on: 'On',
+        off: 'Off',
+        verbosity: 'Verbosity',
+        quiet: 'Quiet',
+        concise: 'Concise',
+        verbose: 'Verbose',
+        background: 'bg',
+        backgroundMode: 'Background',
+        thinking: 'Thinking',
+        thinkingMode: 'Thinking',
+        thinkingActive: 'THINKING...',
+        context: 'ctx',
+        contextAvailable: 'ctx avail',
+        contextWarning: 'LOW!',
+        autoPruned: 'auto-pruned',
+      },
+      session: {
+        thinking: 'Thinking...',
+      },
+    },
+    cmd: {},
+    language: 'en',
+  }),
+  getTranslations: () => ({
+    ui: {
+      status: {
+        autoEdit: 'Auto-Edit',
+        on: 'On',
+        off: 'Off',
+        verbosity: 'Verbosity',
+        quiet: 'Quiet',
+        concise: 'Concise',
+        verbose: 'Verbose',
+        background: 'bg',
+        backgroundMode: 'Background',
+        thinking: 'Thinking',
+        thinkingMode: 'Thinking',
+        thinkingActive: 'THINKING...',
+        context: 'ctx',
+        contextAvailable: 'ctx avail',
+        contextWarning: 'LOW!',
+        autoPruned: 'auto-pruned',
+      },
+      session: {
+        thinking: 'Thinking...',
+      },
+    },
+    cmd: {},
+    language: 'en',
+  }),
+}));
+
 import StatusBar from '../../../packages/core/src/ui/components/status-bar.js';
 
 // Simple ANSI stripper for Ink output

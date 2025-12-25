@@ -13,7 +13,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import OpenAI from "openai";
 import { getSettingsManager } from "../utils/settings-manager.js";
-import { GLM_MODELS } from "../constants.js";
+import { GLM_MODELS, TIMEOUT_CONFIG } from "../constants.js";
 import { getActiveProvider, getActiveConfigPaths } from "../provider/config.js";
 import {
   detectZAIServices,
@@ -579,7 +579,7 @@ export async function checkAutomatosXNativeModules(): Promise<CheckResult> {
     }
 
     // Try to run ax to detect ABI issues
-    const { stdout, stderr } = await execAsync("ax list agents 2>&1", { timeout: 10000 }).catch(e => ({
+    const { stdout, stderr } = await execAsync("ax list agents 2>&1", { timeout: TIMEOUT_CONFIG.DOCTOR_COMMAND }).catch(e => ({
       stdout: '',
       stderr: e.message || e.stderr || ''
     }));
@@ -750,7 +750,7 @@ export async function testApiConnection(
     const client = new OpenAI({
       baseURL,
       apiKey,
-      timeout: 10000, // 10 second timeout
+      timeout: TIMEOUT_CONFIG.DOCTOR_COMMAND,
     });
 
     await client.chat.completions.create({

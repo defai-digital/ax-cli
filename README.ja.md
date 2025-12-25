@@ -1,6 +1,6 @@
 # AX CLI - エンタープライズグレードのAIコーディング
 
-> 📖 この翻訳は [README.md @ v5.1.8](./README.md) に基づいています
+> 📖 この翻訳は [README.md @ v5.1.9](./README.md) に基づいています
 
 [![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
 [![Tests](https://img.shields.io/badge/tests-6,084+%20passing-brightgreen.svg)](#)

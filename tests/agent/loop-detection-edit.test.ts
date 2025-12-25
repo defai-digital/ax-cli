@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { LLMAgent } from '../../packages/core/src/agent/llm-agent.js';
 import { getLoopDetector, resetLoopDetector } from '../../packages/core/src/agent/loop-detector.js';
 import type { LLMToolCall } from '../../packages/core/src/llm/client.js';

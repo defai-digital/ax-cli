@@ -30,7 +30,7 @@ import { createStatusCommand } from "./commands/status.js";
 import { createVSCodeCommand } from "./commands/vscode.js";
 import { getVersionString } from "./utils/version.js";
 import { migrateCommandHistory } from "./utils/history-migration.js";
-import { AGENT_CONFIG } from "./constants.js";
+import { AGENT_CONFIG, TIMEOUT_CONFIG } from "./constants.js";
 import { getVSCodeIPCClient, disposeVSCodeIPCClient } from "./ipc/index.js";
 import type { ProviderDefinition } from "./provider/config.js";
 import { getApiKeyFromEnv, setActiveProviderConfigPaths, resolveModelAlias } from "./provider/config.js";
@@ -655,7 +655,7 @@ async function buildContextFromFlags(options: {
   if (options.gitDiff) {
     try {
       const { execSync } = await import("child_process");
-      const gitDiff = execSync("git diff", { encoding: "utf-8", timeout: 10000, maxBuffer: 10 * 1024 * 1024 });
+      const gitDiff = execSync("git diff", { encoding: "utf-8", timeout: TIMEOUT_CONFIG.GIT_OPERATION, maxBuffer: 10 * 1024 * 1024 });
       if (gitDiff.trim()) {
         contextParts.push(`Git diff:\n\`\`\`diff\n${gitDiff}\n\`\`\``);
       }
