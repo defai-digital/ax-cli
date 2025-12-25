@@ -1,4 +1,5 @@
 import { LLMClient, LLMMessage, LLMToolCall, LLMTool } from "../llm/client.js";
+import { convertMCPToolToLLMTool } from "../llm/tools.js";
 import type { SamplingConfig, ChatOptions, ThinkingConfig, MessageContentPart } from "../llm/types.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
 import { ToolResult } from "../types/index.js";
@@ -47,6 +48,14 @@ import type { ReActStreamChunk } from "./react/types.js";
 import type { AgenticConfig } from "./config/agentic-config.js";
 import { mergeAgenticConfig } from "./config/agentic-config.js";
 
+// Import system prompt builders for native search and MCP tools sections
+import {
+  buildNativeSearchInstructions,
+  buildMCPToolsSection,
+  hasNativeSearchInstructions,
+  hasMCPToolsSection,
+} from "./config/system-prompt-builder.js";
+
 // Import and re-export types from core module (maintains backward compatibility)
 import type {
   ChatEntry as CoreChatEntry,
@@ -61,6 +70,12 @@ export type AccumulatedMessage = CoreAccumulatedMessage;
 
 /** Debug flag for loop detection logging (set DEBUG_LOOP_DETECTION=1 to enable) */
 const DEBUG_LOOP = process.env.DEBUG_LOOP_DETECTION === '1';
+
+/** Server-side search tool names (Grok xAI Agent Tools API) */
+const SERVER_SEARCH_TOOLS = {
+  WEB_SEARCH: 'web_search',
+  X_SEARCH: 'x_search',
+} as const;
 
 /** Log debug message for loop detection (only when DEBUG_LOOP_DETECTION=1) */
 function debugLoop(message: string): void {
@@ -117,6 +132,8 @@ export class LLMAgent extends EventEmitter {
   private mcpClientConfig?: { name?: string; version?: string };
   /** BUG FIX: Store subagent event listeners for proper cleanup in dispose() */
   private subagentEventListeners: Array<{ event: string; listener: (...args: unknown[]) => void }> = [];
+  /** Cache for active provider to avoid repeated lookups in hot paths */
+  private activeProviderCache: { provider: ReturnType<ReturnType<typeof getLLMAgentDependencies>['getActiveProvider']>; timestamp: number } | null = null;
 
   // Agentic behaviors (Phase 2 - GLM optimization)
   /** Self-correction engine for failure detection and recovery */
@@ -145,7 +162,7 @@ export class LLMAgent extends EventEmitter {
       throw new Error('No model configured. Please run "ax-cli setup" to configure your AI provider and model.');
     }
 
-    this.maxToolRounds = maxToolRounds || 400;
+    this.maxToolRounds = maxToolRounds || AGENT_CONFIG.MAX_TOOL_ROUNDS;
     this.mcpClientConfig = mcpClientConfig;
     this.llmClient = deps.createLLMClient
       ? deps.createLLMClient(apiKey, modelToUse, baseURL)
@@ -234,11 +251,9 @@ export class LLMAgent extends EventEmitter {
       this // Pass this as EventEmitter for correction events
     );
 
-    // Initialize checkpoint manager
-    this.initializeCheckpointManager();
-
-    // Initialize MCP servers if configured (uses deps internally)
-    this.initializeMCP();
+    // Initialize checkpoint manager and MCP servers in parallel
+    // Both are independent initialization tasks that don't block each other
+    this.initializeBackgroundServices();
 
     // Build system prompt from YAML configuration
     const customInstructions = deps.loadCustomInstructions();
@@ -289,57 +304,97 @@ export class LLMAgent extends EventEmitter {
   }
 
   /**
-   * Run an async task in background with proper error handling
-   * Centralizes the common pattern of background initialization
+   * Initialize background services in parallel
+   * Both checkpoint and MCP are independent and can run concurrently
    */
-  private runBackgroundTask(
-    taskName: string,
-    task: () => Promise<void>,
-    options?: { emitSuccess?: string; warnOnError?: boolean }
-  ): void {
-    Promise.resolve().then(async () => {
-      try {
-        await task();
-        if (options?.emitSuccess) {
-          this.emit('system', options.emitSuccess);
-        }
-      } catch (error) {
-        const errorMsg = extractErrorMessage(error);
-        if (options?.warnOnError !== false) {
-          console.warn(`${taskName} failed:`, errorMsg);
-        }
-        this.emit('system', `${taskName} failed: ${errorMsg}`);
-      }
-    }).catch((error) => {
-      console.error(`Unexpected error during ${taskName}:`, error);
-    });
-  }
-
-  private initializeCheckpointManager(): void {
-    this.runBackgroundTask(
-      'Checkpoint initialization',
-      async () => {
-        await this.checkpointManager.initialize();
-      },
-      { emitSuccess: 'Checkpoint system initialized' }
-    );
-  }
-
-  private async initializeMCP(): Promise<void> {
-    const deps = getLLMAgentDependencies();
-    const config = deps.loadMCPConfig();
-    if (config.servers.length === 0) return; // Skip if no servers configured
-
-    this.runBackgroundTask(
-      'MCP initialization',
-      async () => {
-        // Pass provider-specific client config (e.g., 'ax-glm', 'ax-grok', 'ax-cli')
+  private initializeBackgroundServices(): void {
+    // Run both initialization tasks in parallel - Promise.allSettled never rejects
+    Promise.allSettled([
+      this.runSafeAsync('Checkpoint', () => this.checkpointManager.initialize()),
+      this.runSafeAsync('MCP', async () => {
+        const deps = getLLMAgentDependencies();
+        const config = deps.loadMCPConfig();
+        if (config.servers.length === 0) return;
         await deps.initializeMCPServers(this.mcpClientConfig);
-        // After MCP servers are initialized, update system prompt to include MCP tools
-        this.updateSystemPromptWithMCPTools();
-      },
-      { emitSuccess: 'MCP servers initialized successfully', warnOnError: true }
-    );
+        // Separate try-catch for prompt update to avoid mislabeled errors
+        if (!this.disposed) {
+          try {
+            this.updateSystemPromptWithMCPTools();
+          } catch (promptError) {
+            console.warn('MCP prompt update failed:', extractErrorMessage(promptError));
+          }
+        }
+      }),
+    ]);
+  }
+
+  /**
+   * Run an async operation with proper disposal and error handling
+   * Consolidates the common pattern of try/catch with disposed checks
+   */
+  private async runSafeAsync(name: string, operation: () => Promise<void>): Promise<void> {
+    try {
+      await operation();
+      if (!this.disposed) {
+        this.emit('system', `${name} system initialized`);
+      }
+    } catch (error) {
+      if (this.disposed) return;
+      const errorMsg = extractErrorMessage(error);
+      console.warn(`${name} initialization failed:`, errorMsg);
+      this.emit('system', `${name} initialization failed: ${errorMsg}`);
+    }
+  }
+
+  /** Provider cache validity duration in milliseconds (5 seconds) */
+  private static readonly PROVIDER_CACHE_TTL_MS = 5000;
+
+  /**
+   * Get cached active provider for performance in hot paths
+   * Provider rarely changes during a session, so caching is safe
+   */
+  private getCachedActiveProvider(): ReturnType<ReturnType<typeof getLLMAgentDependencies>['getActiveProvider']> {
+    // Return cached value if valid and not expired
+    const now = Date.now();
+    if (this.activeProviderCache && (now - this.activeProviderCache.timestamp) < LLMAgent.PROVIDER_CACHE_TTL_MS) {
+      return this.activeProviderCache.provider;
+    }
+
+    // Fetch fresh provider and update cache
+    const deps = getLLMAgentDependencies();
+    const provider = deps.getActiveProvider();
+
+    // Only update cache if not disposed (prevents memory leak on disposed agents)
+    if (!this.disposed) {
+      this.activeProviderCache = { provider, timestamp: now };
+    }
+
+    return provider;
+  }
+
+  /**
+   * Get the system message from messages array
+   * Returns null if not found or content is not a string
+   */
+  private getSystemMessage(): LLMMessage | null {
+    const systemMessage = this.messages.find(m => m.role === 'system');
+    if (!systemMessage || typeof systemMessage.content !== 'string') {
+      return null;
+    }
+    return systemMessage;
+  }
+
+  /**
+   * Append content to the system message if it exists
+   * @returns true if content was appended, false otherwise
+   */
+  private appendToSystemMessage(content: string): boolean {
+    const systemMessage = this.getSystemMessage();
+    if (!systemMessage || typeof systemMessage.content !== 'string') {
+      return false;
+    }
+    systemMessage.content += content;
+    return true;
   }
 
   /**
@@ -348,33 +403,17 @@ export class LLMAgent extends EventEmitter {
    * This is separate from MCP tools - native search is built into the API
    */
   private updateSystemPromptWithNativeSearch(): void {
-    const deps = getLLMAgentDependencies();
-    const activeProvider = deps.getActiveProvider();
-
-    // Only add instructions for providers that support native search
-    if (!activeProvider?.features.supportsSearch) return;
-
-    // Find the system message
-    const systemMessage = this.messages.find(m => m.role === 'system');
+    const systemMessage = this.getSystemMessage();
     if (!systemMessage || typeof systemMessage.content !== 'string') return;
 
-    // Check if native search instructions already exist (avoid duplicates)
-    if (systemMessage.content.includes('NATIVE web search capability')) return;
+    // Use shared function to check and add native search instructions
+    if (hasNativeSearchInstructions(systemMessage.content)) return;
 
-    // Add native search instructions
-    const searchInstructions = [
-      '',
-      '---',
-      '[Native Search Capability]',
-      `You have NATIVE web search capability through the ${activeProvider.displayName} API.`,
-      'When users ask about current events, recent information, or anything requiring up-to-date data:',
-      '- You CAN and SHOULD search the web - the API will automatically handle search queries',
-      '- Simply respond with information that requires current data - search happens automatically',
-      '- Do NOT say you cannot search the web or access current information',
-      '- The search is built into your API - you DO have real-time web access',
-    ].join('\n');
-
-    systemMessage.content += searchInstructions;
+    const deps = getLLMAgentDependencies();
+    const searchInstructions = buildNativeSearchInstructions(deps.getActiveProvider());
+    if (searchInstructions) {
+      this.appendToSystemMessage(searchInstructions);
+    }
   }
 
   /**
@@ -383,47 +422,26 @@ export class LLMAgent extends EventEmitter {
    */
   private updateSystemPromptWithMCPTools(): void {
     const deps = getLLMAgentDependencies();
-    const mcpManager = deps.getMCPManager();
-    const mcpTools = mcpManager?.getTools() || [];
+    const mcpTools = deps.getMCPManager()?.getTools() || [];
 
     if (mcpTools.length === 0) return; // No MCP tools to add
 
-    // Find the system message
-    const systemMessage = this.messages.find(m => m.role === 'system');
+    const systemMessage = this.getSystemMessage();
     if (!systemMessage || typeof systemMessage.content !== 'string') return;
 
-    // Check if MCP tools are already in the prompt (avoid duplicate updates)
-    if (systemMessage.content.includes('MCP Tools (External Capabilities)')) return;
+    // Use shared function to check for existing MCP tools section
+    if (hasMCPToolsSection(systemMessage.content)) return;
 
-    // Build MCP tools section
-    const mcpToolsList = mcpTools
-      .map(tool => {
-        const friendlyName = tool.name.replace(/^mcp__[^_]+__/, '');
-        const description = tool.description?.split('\n')[0] || 'External tool';
-        return `- ${friendlyName}: ${description}`;
-      })
-      .join('\n');
+    // Convert MCPTool[] to LLMTool[] using shared utility
+    const llmTools = mcpTools.map(convertMCPToolToLLMTool);
 
-    // Provider-aware search instructions
-    // Native search instructions are added separately via updateSystemPromptWithNativeSearch()
-    // Here we only add MCP-specific instructions
+    // Use shared function to build MCP tools section
     const activeProvider = deps.getActiveProvider();
-    const hasNativeSearch = activeProvider?.features.supportsSearch;
+    const mcpSection = buildMCPToolsSection(llmTools, activeProvider?.features.supportsSearch ?? false);
 
-    // For providers without native search, tell them to use MCP tools for web access
-    // For providers WITH native search, just mention MCP is for specific URL fetching
-    const searchInstructions = hasNativeSearch
-      ? '\nUse MCP tools for fetching specific URLs, reading web pages, and other external data access.'
-      : '\nIMPORTANT: Use MCP tools for web search, fetching URLs, and external data access. You HAVE network access through these tools.';
-
-    const mcpSection = [
-      '\n\nMCP Tools (External Capabilities):',
-      mcpToolsList,
-      searchInstructions,
-    ].join('\n');
-
-    // Append MCP tools section to system prompt
-    systemMessage.content += mcpSection;
+    if (mcpSection) {
+      this.appendToSystemMessage(mcpSection);
+    }
   }
 
 
@@ -444,32 +462,23 @@ export class LLMAgent extends EventEmitter {
       result.thinking = this.thinkingConfig;
     }
 
+    // Lazy-load provider only when needed (for vision/search options)
+    const needsProvider = (!result.model && this.hasMultimodalContent()) || !result.searchOptions;
+    const activeProvider = needsProvider ? this.getCachedActiveProvider() : null;
+
     // Auto-switch to vision model if messages contain images
-    if (!result.model && this.hasMultimodalContent()) {
-      // Detect provider from current model
-      const currentModel = this.llmClient.getCurrentModel().toLowerCase();
-      if (currentModel.includes('grok')) {
-        // Grok 4 has built-in vision support - no model switch needed
-        // Keep using current model (grok-4-0709 or grok-4.1-fast)
-      } else {
-        // For GLM, switch to glm-4.6v (vision model with 128K context)
-        result.model = 'glm-4.6v';
-      }
+    if (!result.model && this.hasMultimodalContent() && activeProvider?.defaultVisionModel) {
+      result.model = activeProvider.defaultVisionModel;
     }
 
     // Provider-aware search options
     // Enable native search for providers that support it (e.g., Grok)
     // Disable for providers without native search (e.g., GLM) - they use MCP tools instead
-    if (!result.searchOptions) {
-      const deps = getLLMAgentDependencies();
-      const activeProvider = deps.getActiveProvider();
-      if (activeProvider?.features.supportsSearch) {
-        // Provider supports native search - use auto mode
-        result.searchOptions = { search_parameters: { mode: "auto" } };
-      } else {
-        // Provider doesn't support native search - disable it
-        result.searchOptions = { search_parameters: { mode: "off" } };
-      }
+    // Only set if we have a valid provider to avoid incorrect defaults
+    if (!result.searchOptions && activeProvider) {
+      result.searchOptions = activeProvider.features.supportsSearch
+        ? { search_parameters: { mode: "auto" } }
+        : { search_parameters: { mode: "off" } };
     }
 
     // Include server tools configuration if set and not overridden (Grok xAI Agent Tools)
@@ -477,6 +486,35 @@ export class LLMAgent extends EventEmitter {
       result.serverTools = this.serverToolsConfig.tools;
       if (this.serverToolsConfig.config && !result.serverToolConfig) {
         result.serverToolConfig = this.serverToolsConfig.config;
+      }
+    }
+
+    // Performance optimization: Skip thinking mode for web search operations
+    // Web search is a simple tool invocation that doesn't benefit from extended reasoning
+    // This reduces latency significantly for search queries
+    if (!result.skipThinking) {
+      // Skip for explicit search mode
+      const searchMode = result.searchOptions?.search_parameters?.mode;
+      if (searchMode === 'on') {
+        result.skipThinking = true;
+      }
+      // Skip for Grok server-side search tools
+      const hasSearchTools = result.serverTools?.some(t =>
+        t === SERVER_SEARCH_TOOLS.WEB_SEARCH || t === SERVER_SEARCH_TOOLS.X_SEARCH
+      );
+      if (hasSearchTools) {
+        result.skipThinking = true;
+      }
+    }
+
+    // Performance optimization: Skip thinking mode when processing tool results
+    // Tool result processing doesn't need deep reasoning - the model just needs to
+    // decide whether to call more tools or formulate a response.
+    // This significantly reduces latency for tool-heavy workflows (e.g., web search).
+    if (!result.skipThinking && this.messages.length > 0) {
+      const lastMessage = this.messages[this.messages.length - 1];
+      if (lastMessage && 'role' in lastMessage && lastMessage.role === 'tool') {
+        result.skipThinking = true;
       }
     }
 
@@ -587,9 +625,10 @@ export class LLMAgent extends EventEmitter {
     }
 
     // Check if model supports thinking mode
+    // GLM models (4.6, 4.7, etc.) and Grok 4 models support thinking
     const model = this.llmClient.getCurrentModel();
     const modelLower = model.toLowerCase();
-    const supportsThinking = modelLower.includes('glm') || modelLower.includes('4.6');
+    const supportsThinking = modelLower.includes('glm') || modelLower.includes('grok-4');
 
     if (!supportsThinking) {
       return false;
@@ -1515,6 +1554,21 @@ export class LLMAgent extends EventEmitter {
               if (settledResult.status === "fulfilled") {
                 const { toolCall, result } = settledResult.value;
                 processResult(toolCall, result);
+              } else {
+                // BUG FIX: Handle rejected promises - create error result so LLM knows tool failed
+                // Without this, the LLM doesn't receive feedback and may retry indefinitely
+                const error = settledResult.reason;
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                // Find the toolCall from the original parallel array by index
+                const toolCallIndex = parallelResults.indexOf(settledResult);
+                const toolCall = parallel[toolCallIndex];
+                if (toolCall) {
+                  const errorResult: ToolResult = {
+                    success: false,
+                    error: `Tool execution failed: ${errorMessage}`,
+                  };
+                  processResult(toolCall, errorResult);
+                }
               }
             }
           }
@@ -1828,9 +1882,29 @@ export class LLMAgent extends EventEmitter {
             executionDurationMs,
           };
         } else {
-          // Handle rejected promise (shouldn't happen normally, but be safe)
+          // BUG FIX: Handle rejected promise - create error result so LLM knows tool failed
+          // Without this, the LLM doesn't receive feedback and may retry indefinitely
           const error = settledResult.reason;
-          debugLoop(`❌ Parallel tool execution failed: ${error}`);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          debugLoop(`❌ Parallel tool execution failed: ${errorMessage}`);
+
+          // Find the toolCall from the original parallel array by index
+          const toolCallIndex = parallelResults.indexOf(settledResult);
+          const toolCall = parallel[toolCallIndex];
+          if (toolCall) {
+            const errorResult: ToolResult = {
+              success: false,
+              error: `Tool execution failed: ${errorMessage}`,
+            };
+            processToolResult(toolCall, errorResult, 0);
+
+            yield {
+              type: "tool_result",
+              toolCall,
+              toolResult: errorResult,
+              executionDurationMs: 0,
+            };
+          }
         }
       }
     }
@@ -2277,10 +2351,16 @@ export class LLMAgent extends EventEmitter {
       if (config.verification.enabled) {
         // Lazy import to avoid circular dependencies
         import("../planner/verification/index.js").then(({ createPlanVerifier }) => {
+          // BUG FIX: Check disposed before mutating state (async import may complete after disposal)
+          if (this.disposed) return;
           this.planVerifier = createPlanVerifier(config.verification, this);
           this.planExecutor.setVerifier(this.planVerifier, this.agenticConfig.verification);
-        }).catch(() => {
+        }).catch((err) => {
           // Silently ignore if verification module not available
+          // BUG FIX: Log in debug mode for debuggability
+          if (process.env.DEBUG) {
+            console.warn('Verification module import failed:', err);
+          }
         });
       } else {
         this.planVerifier = undefined;
@@ -2683,6 +2763,7 @@ export class LLMAgent extends EventEmitter {
     // Clear in-memory caches
     this.toolCallIndexMap.clear();
     this.toolCallArgsCache.clear();
+    this.activeProviderCache = null;
 
     // BUG FIX: Clear all pending tool approval timeouts to prevent memory leaks
     // These timers would otherwise keep running for up to 5 minutes after dispose

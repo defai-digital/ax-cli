@@ -30,6 +30,32 @@ const STREAMING_CONFIG = {
   MAX_TIME_BEFORE_YIELD_MS: 100,
 } as const;
 
+/** Default model configuration for unknown/custom models (e.g., Ollama) */
+const DEFAULT_MODEL_CONFIG = {
+  maxOutputTokens: 128000,
+  defaultMaxTokens: 4096,
+  temperatureRange: { min: 0.0, max: 2.0 },
+  defaultTemperature: 0.7,
+} as const;
+
+/**
+ * Module-level FinalizationRegistry for stream generator cleanup
+ * BUG FIX: Must be at module scope to persist and actually trigger cleanup callbacks.
+ * A function-scoped registry would be garbage collected immediately, never firing cleanup.
+ */
+const streamCleanupRegistry = typeof FinalizationRegistry !== 'undefined'
+  ? new FinalizationRegistry<() => void>((cleanupFn) => {
+      try {
+        cleanupFn();
+      } catch (error) {
+        // Cleanup errors should not propagate - log in debug mode only
+        if (process.env.DEBUG) {
+          console.warn('Stream cleanup failed:', error);
+        }
+      }
+    })
+  : null;
+
 export type LLMMessage = ChatCompletionMessageParam;
 
 /** JSON Schema property types for tool parameters */
@@ -163,11 +189,10 @@ interface RawStreamChunk {
 /**
  * GLM API thinking parameter format
  * Different from ThinkingConfig - this is the actual API format
+ * GLM 4.7 uses simple { type: "enabled" | "disabled" } format
  */
 interface GLMThinkingParam {
   type: "enabled" | "disabled";
-  /** Preserve reasoning from previous turns (recommended for coding) */
-  clear_thinking: boolean;
 }
 
 /** API request payload structure */
@@ -179,7 +204,7 @@ interface APIRequestPayload {
   tools?: LLMTool[];
   tool_choice?: "auto";
   stream?: boolean;
-  // GLM-style thinking mode (API format with clear_thinking)
+  // GLM-style thinking mode (simple type field)
   thinking?: GLMThinkingParam;
   // Grok-style reasoning effort (alternative to thinking)
   reasoning_effort?: "low" | "high";
@@ -222,8 +247,8 @@ interface APIError extends Error {
 export class LLMClient {
   private client: OpenAI;
   private currentModel: string; // Can be SupportedModel or custom model name (e.g., Ollama)
-  private defaultMaxTokens: number;
-  private defaultTemperature: number;
+  private defaultMaxTokens!: number; // Assigned in updateModelDefaults() called from constructor
+  private defaultTemperature!: number; // Assigned in updateModelDefaults() called from constructor
   private rateLimiter: RateLimiter; // REQ-SEC-006: Rate limiting to prevent API abuse
 
   constructor(apiKey: string, model?: string, baseURL?: string) {
@@ -238,19 +263,99 @@ export class LLMClient {
     this.client = new OpenAI({
       apiKey,
       baseURL,
-      timeout: 600000, // Increased to 10 minutes for long contexts
+      timeout: TIMEOUT_CONFIG.API_REQUEST,
     });
 
-    // Set model with validation
+    // Set model with validation and update defaults
     this.currentModel = this.validateModel(model);
+    this.updateModelDefaults(this.currentModel);
 
-    // Get model configuration (with fallback for custom models)
-    const modelConfig = GLM_MODELS[this.currentModel as SupportedModel] || {
-      maxOutputTokens: 128000, // Generous default for custom models
-      defaultMaxTokens: 4096,
-      temperatureRange: { min: 0.0, max: 2.0 },
-      defaultTemperature: 0.7,
+    // Initialize rate limiter for API abuse prevention (REQ-SEC-006)
+    this.rateLimiter = new RateLimiter(DEFAULT_RATE_LIMITS.LLM_API);
+  }
+
+  /**
+   * Check rate limit and throw if exceeded
+   * Consolidates rate limit checking logic used in chat and chatStream
+   */
+  private checkRateLimit(auditLogger: ReturnType<typeof getAuditLogger>): void {
+    const rateLimitResult = this.rateLimiter.tryAcquire();
+    if (!rateLimitResult.allowed) {
+      const waitSeconds = Math.ceil(rateLimitResult.resetIn / 1000);
+
+      // REQ-SEC-008: Audit log rate limit exceeded
+      auditLogger.logWarning({
+        category: AuditCategory.RATE_LIMIT,
+        action: 'rate_limit_exceeded',
+        resource: 'llm_api',
+        outcome: 'failure',
+        details: {
+          limit: rateLimitResult.limit,
+          remaining: rateLimitResult.remaining,
+          resetIn: rateLimitResult.resetIn,
+        },
+      });
+
+      throw new Error(
+        `Rate limit exceeded. ${rateLimitResult.remaining}/${rateLimitResult.limit} requests remaining. ` +
+        `Please wait ${waitSeconds} seconds before trying again.`
+      );
+    }
+  }
+
+  /**
+   * Prepare and validate request options
+   * Returns validated model, temperature, maxTokens, and other options
+   */
+  private prepareRequestOptions(options?: ChatOptions): {
+    model: string;
+    temperature: number;
+    maxTokens: number;
+    thinking: ThinkingConfig | undefined;
+    searchOptions: ChatOptions['searchOptions'];
+    responseFormat: ChatOptions['responseFormat'];
+    sampling: SamplingConfig | undefined;
+    skipThinking: boolean | undefined;
+    serverTools: string[] | undefined;
+    serverToolConfig: Record<string, unknown> | undefined;
+  } {
+    const model = this.validateModel(options?.model || this.currentModel);
+    const temperature = options?.temperature ?? this.defaultTemperature;
+    const rawMaxTokens = options?.maxTokens ?? this.defaultMaxTokens;
+    const thinking = options?.thinking;
+    const searchOptions = options?.searchOptions;
+    const responseFormat = options?.responseFormat;
+    const sampling = options?.sampling;
+    const skipThinking = options?.skipThinking;
+    const serverTools = options?.serverTools;
+    const serverToolConfig = options?.serverToolConfig;
+
+    // Validate parameters (clamp maxTokens to model limit)
+    this.validateTemperature(temperature, model);
+    const maxTokens = this.validateAndClampMaxTokens(rawMaxTokens, model);
+    this.validateThinking(thinking, model);
+    validateSampling(sampling, temperature);
+
+    return {
+      model,
+      temperature,
+      maxTokens,
+      thinking,
+      searchOptions,
+      responseFormat,
+      sampling,
+      skipThinking,
+      serverTools,
+      serverToolConfig,
     };
+  }
+
+  /**
+   * Update default max tokens and temperature based on model configuration
+   * Consolidates logic used in constructor and setModel
+   */
+  private updateModelDefaults(model: string): void {
+    const modelConfig = GLM_MODELS[model as SupportedModel] || DEFAULT_MODEL_CONFIG;
 
     // Set defaults from environment or model config
     const envMax = Number(process.env.AI_MAX_TOKENS);
@@ -264,9 +369,6 @@ export class LLMClient {
       envTemp <= modelConfig.temperatureRange.max
       ? envTemp
       : modelConfig.defaultTemperature;
-
-    // Initialize rate limiter for API abuse prevention (REQ-SEC-006)
-    this.rateLimiter = new RateLimiter(DEFAULT_RATE_LIMITS.LLM_API);
   }
 
   /**
@@ -460,6 +562,21 @@ export class LLMClient {
   }
 
   /**
+   * Check if the model is a Grok model (xAI provider)
+   * Used for provider-specific behavior like parallel function calling
+   */
+  private isGrokModel(model: string): boolean {
+    return model.toLowerCase().includes('grok');
+  }
+
+  /**
+   * Check if the model supports Grok 4 reasoning features
+   */
+  private supportsGrokReasoning(model: string): boolean {
+    return model.toLowerCase().includes('grok-4');
+  }
+
+  /**
    * Validate thinking configuration for current model
    */
   private validateThinking(thinking: ThinkingConfig | undefined, model: string): void {
@@ -477,6 +594,8 @@ export class LLMClient {
   /**
    * Build request payload for chat completions
    * Consolidates duplicate payload building logic
+   *
+   * @param skipThinking - When true, skip thinking/reasoning even if enabled (performance optimization)
    */
   private buildRequestPayload(
     model: string, // Accept string to support custom models (e.g., Ollama)
@@ -490,7 +609,8 @@ export class LLMClient {
     responseFormat?: { type: "text" | "json_object" },
     sampling?: SamplingConfig,
     serverTools?: string[],
-    serverToolConfig?: Record<string, unknown>
+    serverToolConfig?: Record<string, unknown>,
+    skipThinking?: boolean
   ): APIRequestPayload {
     const payload: APIRequestPayload = {
       model,
@@ -499,8 +619,8 @@ export class LLMClient {
       max_tokens: maxTokens,
     };
 
-    // Detect if this is a Grok model (xAI)
-    const isGrokModel = model.toLowerCase().includes('grok');
+    // Check provider type once for reuse
+    const isGrok = this.isGrokModel(model);
 
     // Only include tools if there are any - some APIs reject empty tools array
     if (tools && tools.length > 0) {
@@ -510,7 +630,7 @@ export class LLMClient {
       // Enable parallel function calling for Grok models (xAI Agent Tools API)
       // This allows Grok to execute multiple tool calls in parallel server-side
       // significantly improving performance for multi-tool operations
-      if (isGrokModel) {
+      if (isGrok) {
         payload.parallel_function_calling = true;
       }
     }
@@ -521,29 +641,28 @@ export class LLMClient {
     }
 
     // Add thinking/reasoning parameters based on provider
-    if (thinking && thinking.type === 'enabled') {
-      if (isGrokModel) {
+    // Skip thinking if explicitly disabled for this request (performance optimization for tool results)
+    if (thinking && thinking.type === 'enabled' && !skipThinking) {
+      if (isGrok) {
         // Grok uses reasoning_effort parameter for models that support thinking
         // Grok 4 models support reasoning_effort (low/high) - Grok 4 is now the default
-        const modelLower = model.toLowerCase();
-        const supportsReasoning = modelLower.includes('grok-4');
-        if (supportsReasoning) {
+        if (this.supportsGrokReasoning(model)) {
           payload.reasoning_effort = thinking.reasoningEffort || 'high';
         }
       } else {
-        // GLM uses thinking parameter with specific format
-        // GLM-4.7 expects: { type: "enabled", clear_thinking: false }
-        // clear_thinking: false preserves reasoning from previous turns (recommended for coding)
+        // GLM uses thinking parameter with simple format
+        // GLM-4.7 expects: { type: "enabled" } - no clear_thinking parameter
         payload.thinking = {
           type: thinking.type,
-          clear_thinking: false,
         };
       }
     }
 
-    // Add search parameters if specified
-    // Works for both Grok (live search) and potentially other providers
-    if (searchOptions?.search_parameters) {
+    // Add search parameters if specified and enabled
+    // Only include when search is actually requested (mode: "on" or "auto")
+    // Don't send search_parameters when mode is "off" - some APIs reject unknown parameters
+    const searchMode = searchOptions?.search_parameters?.mode;
+    if (searchOptions?.search_parameters && searchMode && searchMode !== 'off') {
       payload.search_parameters = searchOptions.search_parameters;
     }
 
@@ -555,7 +674,7 @@ export class LLMClient {
 
     // Add sampling parameters - provider-specific handling
     if (sampling) {
-      if (isGrokModel) {
+      if (isGrok) {
         // Grok uses seed for reproducibility (not do_sample)
         if (sampling.seed !== undefined) {
           payload.seed = sampling.seed;
@@ -577,7 +696,7 @@ export class LLMClient {
 
     // Add Grok server-side tools (xAI Agent Tools API)
     // These tools run on xAI infrastructure: web_search, x_search, code_execution
-    if (isGrokModel && serverTools && serverTools.length > 0) {
+    if (isGrok && serverTools && serverTools.length > 0) {
       payload.server_tools = serverTools;
       if (serverToolConfig) {
         payload.server_tool_config = serverToolConfig;
@@ -589,25 +708,7 @@ export class LLMClient {
 
   setModel(model: string): void {
     this.currentModel = this.validateModel(model);
-
-    const modelConfig = GLM_MODELS[this.currentModel as SupportedModel] || {
-      maxOutputTokens: 128000,
-      defaultMaxTokens: 4096,
-      temperatureRange: { min: 0.0, max: 2.0 },
-      defaultTemperature: 0.7,
-    };
-
-    const envMax = Number(process.env.AI_MAX_TOKENS);
-    this.defaultMaxTokens = Number.isFinite(envMax) && envMax > 0
-      ? Math.min(envMax, modelConfig.maxOutputTokens)
-      : modelConfig.defaultMaxTokens;
-
-    const envTemp = Number(process.env.AI_TEMPERATURE);
-    this.defaultTemperature = Number.isFinite(envTemp) &&
-      envTemp >= modelConfig.temperatureRange.min &&
-      envTemp <= modelConfig.temperatureRange.max
-      ? envTemp
-      : modelConfig.defaultTemperature;
+    this.updateModelDefaults(this.currentModel);
   }
 
   getCurrentModel(): string {
@@ -655,52 +756,19 @@ export class LLMClient {
     }
 
     const timeoutId = setTimeout(
-      () => requestController.abort(new Error('LLM chat request timed out after 600000ms')),
-      600000
+      () => requestController.abort(new Error(`LLM chat request timed out after ${TIMEOUT_CONFIG.API_REQUEST}ms`)),
+      TIMEOUT_CONFIG.API_REQUEST
     );
 
     try {
       // REQ-SEC-006: Check rate limit before making API call
-      const rateLimitResult = this.rateLimiter.tryAcquire();
-      if (!rateLimitResult.allowed) {
-        const waitSeconds = Math.ceil(rateLimitResult.resetIn / 1000);
+      this.checkRateLimit(auditLogger);
 
-        // REQ-SEC-008: Audit log rate limit exceeded
-        auditLogger.logWarning({
-          category: AuditCategory.RATE_LIMIT,
-          action: 'rate_limit_exceeded',
-          resource: 'llm_api',
-          outcome: 'failure',
-          details: {
-            limit: rateLimitResult.limit,
-            remaining: rateLimitResult.remaining,
-            resetIn: rateLimitResult.resetIn,
-          },
-        });
-
-        throw new Error(
-          `Rate limit exceeded. ${rateLimitResult.remaining}/${rateLimitResult.limit} requests remaining. ` +
-          `Please wait ${waitSeconds} seconds before trying again.`
-        );
-      }
-
-      // Merge options with defaults
-      const model = this.validateModel(options?.model || this.currentModel);
-      const temperature = options?.temperature ?? this.defaultTemperature;
-      const rawMaxTokens = options?.maxTokens ?? this.defaultMaxTokens;
-      const thinking = options?.thinking;
-      const searchOptions = options?.searchOptions;
-      const responseFormat = options?.responseFormat;
-      const sampling = options?.sampling;
-      // Grok-specific options (xAI Agent Tools API)
-      const serverTools = options?.serverTools;
-      const serverToolConfig = options?.serverToolConfig;
-
-      // Validate parameters (clamp maxTokens to model limit)
-      this.validateTemperature(temperature, model);
-      const maxTokens = this.validateAndClampMaxTokens(rawMaxTokens, model);
-      this.validateThinking(thinking, model);
-      validateSampling(sampling, temperature);
+      // Prepare and validate request options
+      const {
+        model, temperature, maxTokens, thinking, searchOptions,
+        responseFormat, sampling, skipThinking, serverTools, serverToolConfig
+      } = this.prepareRequestOptions(options);
 
       // Build request payload using consolidated helper
       const requestPayload = this.buildRequestPayload(
@@ -715,7 +783,8 @@ export class LLMClient {
         responseFormat,
         sampling,
         serverTools,
-        serverToolConfig
+        serverToolConfig,
+        skipThinking
       );
 
       // Track response time for performance metrics
@@ -888,8 +957,8 @@ export class LLMClient {
     }
 
     const masterTimeoutId = setTimeout(
-      () => masterController.abort(new Error('LLM streaming request timed out after 600000ms')),
-      600000
+      () => masterController.abort(new Error(`LLM streaming request timed out after ${TIMEOUT_CONFIG.API_REQUEST}ms`)),
+      TIMEOUT_CONFIG.API_REQUEST
     );
 
     let finalUsage: StreamUsage | null = null;
@@ -897,43 +966,13 @@ export class LLMClient {
 
     try {
       // REQ-SEC-006: Check rate limit before making streaming API call
-      const rateLimitResult = this.rateLimiter.tryAcquire();
-      if (!rateLimitResult.allowed) {
-        const waitSeconds = Math.ceil(rateLimitResult.resetIn / 1000);
-        auditLogger.logWarning({
-          category: AuditCategory.RATE_LIMIT,
-          action: 'rate_limit_exceeded',
-          resource: 'llm_api',
-          outcome: 'failure',
-          details: {
-            limit: rateLimitResult.limit,
-            remaining: rateLimitResult.remaining,
-            resetIn: rateLimitResult.resetIn,
-          },
-        });
-        throw new Error(
-          `Rate limit exceeded. ${rateLimitResult.remaining}/${rateLimitResult.limit} requests remaining. ` +
-          `Please wait ${waitSeconds} seconds before trying again.`
-        );
-      }
+      this.checkRateLimit(auditLogger);
 
-      // Merge options with defaults
-      const model = this.validateModel(options?.model || this.currentModel);
-      const temperature = options?.temperature ?? this.defaultTemperature;
-      const rawMaxTokens = options?.maxTokens ?? this.defaultMaxTokens;
-      const thinking = options?.thinking;
-      const searchOptions = options?.searchOptions;
-      const responseFormat = options?.responseFormat;
-      const sampling = options?.sampling;
-      // Grok-specific options (xAI Agent Tools API)
-      const serverTools = options?.serverTools;
-      const serverToolConfig = options?.serverToolConfig;
-
-      // Validate parameters (clamp maxTokens to model limit)
-      this.validateTemperature(temperature, model);
-      const maxTokens = this.validateAndClampMaxTokens(rawMaxTokens, model);
-      this.validateThinking(thinking, model);
-      validateSampling(sampling, temperature);
+      // Prepare and validate request options
+      const {
+        model, temperature, maxTokens, thinking, searchOptions,
+        responseFormat, sampling, skipThinking, serverTools, serverToolConfig
+      } = this.prepareRequestOptions(options);
 
       // Build request payload using consolidated helper
       const requestPayload = this.buildRequestPayload(
@@ -948,7 +987,8 @@ export class LLMClient {
         responseFormat,
         sampling,
         serverTools,
-        serverToolConfig
+        serverToolConfig,
+        skipThinking
       );
 
       // Track response time for streaming (time to first chunk + total stream time)
@@ -1055,11 +1095,11 @@ export class LLMClient {
           }
         })();
 
-        // BUG FIX: Use FinalizationRegistry to clean up listener if generator is GC'd without being consumed
+        // BUG FIX: Use module-level FinalizationRegistry to clean up listener if generator is GC'd
         // This is a safety net - proper usage should always iterate the generator
-        if (typeof FinalizationRegistry !== 'undefined') {
-          const registry = new FinalizationRegistry(cleanupListener);
-          registry.register(generator, undefined);
+        // The registry MUST be at module scope to persist; a local registry would be GC'd immediately
+        if (streamCleanupRegistry) {
+          streamCleanupRegistry.register(generator, cleanupListener);
         }
 
         return generator;

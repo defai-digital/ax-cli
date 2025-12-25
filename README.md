@@ -378,6 +378,7 @@ AX CLI uses a modular architecture with provider-specific CLIs built on a shared
 
 | Version | Highlights |
 |---------|------------|
+| **v5.1.6** | Fix: FinalizationRegistry scope bug (stream cleanup), MCP error labeling, searchOptions null guard; Refactor: consolidated error handling, optimized provider caching |
 | **v5.1.5** | Fix: i18n translations now apply immediately after language selection in setup (root cause: translation cache invalidation) |
 | **v5.1.4** | Fix: Added language change notice in setup wizard, clarify i18n scope |
 | **v5.1.3** | Fix: Slash command execution (Tab completion bug), Language selection in setup wizard |

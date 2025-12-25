@@ -4,14 +4,20 @@
  * Integrates project memory for z.ai GLM-4.6 caching
  * Includes project index (ax.index.json) for project understanding
  * Includes priority-based tool selection guidance
+ * Includes user language preference for multilingual responses
  */
 
 import { loadPromptsConfig, type PromptSection } from './config-loader.js';
 import { getContextInjector } from '../memory/index.js';
-import { getMCPManager } from '../llm/tools.js';
+import { getMCPManager, convertMCPToolToLLMTool } from '../llm/tools.js';
 import { getActiveProvider } from '../provider/config.js';
 import { getPriorityRegistry } from '../tools/priority-registry.js';
 import { getProjectIndexManager } from './project-index-manager.js';
+import { getSettingsManager } from './settings-manager.js';
+import {
+  buildLanguageInstructions,
+  buildMCPToolsSection,
+} from '../agent/config/system-prompt-builder.js';
 
 /**
  * Build the system prompt for the AI assistant
@@ -53,6 +59,19 @@ export function buildSystemPrompt(options: {
 
   // Identity
   sections.push(config.system_prompt.identity);
+
+  // Language preference (if user selected a non-English language)
+  // Placed early in the prompt for high visibility
+  try {
+    const settingsManager = getSettingsManager();
+    const language = settingsManager.getLanguage();
+    const languageInstruction = buildLanguageInstructions(language);
+    if (languageInstruction) {
+      sections.push(languageInstruction);
+    }
+  } catch {
+    // Ignore errors - language setting is optional enhancement
+  }
 
   // New Claude Code-style sections (if defined)
   const namedSections = [
@@ -105,28 +124,15 @@ export function buildSystemPrompt(options: {
   const mcpManager = getMCPManager();
   const mcpTools = mcpManager?.getTools() || [];
   if (mcpTools.length > 0) {
-    sections.push('\nMCP Tools (External Capabilities):');
-    const mcpToolsList = mcpTools
-      .map(tool => {
-        // Extract friendly name from mcp__server__toolname format
-        const friendlyName = tool.name.replace(/^mcp__[^_]+__/, '');
-        const description = tool.description?.split('\n')[0] || 'External tool';
-        return `- ${friendlyName}: ${description}`;
-      })
-      .join('\n');
-    sections.push(mcpToolsList);
+    // Convert MCPTool[] to LLMTool[] using shared utility
+    const llmTools = mcpTools.map(convertMCPToolToLLMTool);
 
-    // Provider-aware search instructions
-    // Only recommend MCP for web search if the provider doesn't have native search
+    // Use shared function to build MCP tools section
     const activeProvider = getActiveProvider();
     const hasNativeSearch = activeProvider.features.supportsSearch;
-
-    if (hasNativeSearch) {
-      // Provider has native search (e.g., Grok) - use it directly
-      sections.push(`\nIMPORTANT: You have NATIVE web search capability through the ${activeProvider.displayName} API. For web searches, simply ask questions that require current information - the API will automatically search the web. Use MCP tools for fetching specific URLs and other external data access.`);
-    } else {
-      // Provider doesn't have native search (e.g., GLM) - use MCP tools
-      sections.push('\nIMPORTANT: Use MCP tools for web search, fetching URLs, and external data access. You HAVE network access through these tools.');
+    const mcpSection = buildMCPToolsSection(llmTools, hasNativeSearch);
+    if (mcpSection) {
+      sections.push(mcpSection);
     }
 
     // Add priority-based tool selection guidance

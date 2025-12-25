@@ -9,6 +9,46 @@
 
 import type { LLMTool } from "../../llm/client.js";
 import type { ProviderDefinition } from "../../provider/config.js";
+import type { SupportedLanguageType } from "../../schemas/settings-schemas.js";
+
+/**
+ * Section header markers for system prompt sections
+ * Centralized to ensure consistency and easy updates
+ */
+const SECTION_MARKERS = {
+  SESSION_CONTEXT: '[Session Context]',
+  LANGUAGE_PREFERENCE: '[Language Preference]',
+  NATIVE_SEARCH: '[Native Search Capability]',
+  GROK_CAPABILITIES: '[Grok Agent Capabilities (xAI)]',
+  MCP_TOOLS: 'MCP Tools (External Capabilities):',
+} as const;
+
+/**
+ * Build a section header with consistent formatting
+ * @param title Section title
+ * @param lines Content lines
+ * @returns Formatted section string
+ */
+function buildSection(title: string, lines: string[]): string {
+  return ['', '---', title, ...lines].join('\n');
+}
+
+/**
+ * Map of language codes to their full names for LLM instruction clarity
+ */
+const LANGUAGE_NAMES: Record<SupportedLanguageType, string> = {
+  'en': 'English',
+  'zh-CN': 'Simplified Chinese (简体中文)',
+  'zh-TW': 'Traditional Chinese (繁體中文)',
+  'ja': 'Japanese (日本語)',
+  'ko': 'Korean (한국어)',
+  'th': 'Thai (ภาษาไทย)',
+  'vi': 'Vietnamese (Tiếng Việt)',
+  'de': 'German (Deutsch)',
+  'fr': 'French (Français)',
+  'es': 'Spanish (Español)',
+  'pt': 'Portuguese (Português)',
+};
 
 /**
  * Build the dynamic session context section for the system prompt.
@@ -18,13 +58,44 @@ import type { ProviderDefinition } from "../../provider/config.js";
  * @returns Formatted session context string
  */
 export function buildSessionContext(workingDir?: string): string {
-  return [
-    '',
-    '---',
-    '[Session Context]',
+  return buildSection(SECTION_MARKERS.SESSION_CONTEXT, [
     `Working Directory: ${workingDir ?? process.cwd()}`,
     `Session Start: ${new Date().toISOString().split('T')[0]}`,
-  ].join('\n');
+  ]);
+}
+
+/**
+ * Build language preference instructions for the system prompt.
+ * Tells the LLM to respond in the user's selected language.
+ *
+ * @param language The user's selected language code
+ * @returns Language instruction string, or empty string for English (default)
+ */
+export function buildLanguageInstructions(language: SupportedLanguageType | undefined): string {
+  // English is the default, no special instruction needed
+  if (!language || language === 'en') {
+    return '';
+  }
+
+  const languageName = LANGUAGE_NAMES[language] || language;
+
+  return buildSection(SECTION_MARKERS.LANGUAGE_PREFERENCE, [
+    `IMPORTANT: The user has selected ${languageName} as their preferred language.`,
+    `You MUST respond in ${languageName} for all your replies.`,
+    'Technical terms, code, file paths, and command outputs should remain in their original form.',
+    'Only translate your explanations, questions, and conversational text.',
+  ]);
+}
+
+/**
+ * Check if a system prompt already contains language preference instructions.
+ * Used to prevent duplicate instructions.
+ *
+ * @param content The current system prompt content
+ * @returns true if language instructions already exist
+ */
+export function hasLanguageInstructions(content: string): boolean {
+  return content.includes(SECTION_MARKERS.LANGUAGE_PREFERENCE);
 }
 
 /**
@@ -40,17 +111,14 @@ export function buildNativeSearchInstructions(provider: ProviderDefinition | nul
     return '';
   }
 
-  return [
-    '',
-    '---',
-    '[Native Search Capability]',
+  return buildSection(SECTION_MARKERS.NATIVE_SEARCH, [
     `You have NATIVE web search capability through the ${provider.displayName} API.`,
     'When users ask about current events, recent information, or anything requiring up-to-date data:',
     '- You CAN and SHOULD search the web - the API will automatically handle search queries',
     '- Simply respond with information that requires current data - search happens automatically',
     '- Do NOT say you cannot search the web or access current information',
     '- The search is built into your API - you DO have real-time web access',
-  ].join('\n');
+  ]);
 }
 
 /**
@@ -85,17 +153,14 @@ export function buildGrokCapabilitiesInstructions(provider: ProviderDefinition |
     return '';
   }
 
-  return [
-    '',
-    '---',
-    '[Grok Agent Capabilities (xAI)]',
+  return buildSection(SECTION_MARKERS.GROK_CAPABILITIES, [
     'You have enhanced server-side tool capabilities through the xAI Agent Tools API:',
     ...capabilities,
     '',
     'OPTIMIZATION: When a task requires multiple independent tool calls (e.g., reading multiple files,',
     'running multiple searches), make ALL calls in a SINGLE response to leverage parallel execution.',
     'This significantly reduces total response time.',
-  ].join('\n');
+  ]);
 }
 
 /**
@@ -106,7 +171,7 @@ export function buildGrokCapabilitiesInstructions(provider: ProviderDefinition |
  * @returns true if Grok capabilities instructions already exist
  */
 export function hasGrokCapabilitiesInstructions(content: string): boolean {
-  return content.includes('Grok Agent Capabilities (xAI)');
+  return content.includes(SECTION_MARKERS.GROK_CAPABILITIES);
 }
 
 /**
@@ -148,7 +213,7 @@ export function buildMCPToolsSection(
     : '\nIMPORTANT: Use MCP tools for web search, fetching URLs, and external data access. You HAVE network access through these tools.';
 
   return [
-    '\n\nMCP Tools (External Capabilities):',
+    `\n\n${SECTION_MARKERS.MCP_TOOLS}`,
     mcpToolsList,
     searchInstructions,
   ].join('\n');
@@ -162,7 +227,7 @@ export function buildMCPToolsSection(
  * @returns true if native search instructions already exist
  */
 export function hasNativeSearchInstructions(content: string): boolean {
-  return content.includes('NATIVE web search capability');
+  return content.includes(SECTION_MARKERS.NATIVE_SEARCH);
 }
 
 /**
@@ -173,7 +238,7 @@ export function hasNativeSearchInstructions(content: string): boolean {
  * @returns true if MCP tools section already exists
  */
 export function hasMCPToolsSection(content: string): boolean {
-  return content.includes('MCP Tools (External Capabilities)');
+  return content.includes(SECTION_MARKERS.MCP_TOOLS);
 }
 
 /**
@@ -189,9 +254,15 @@ export function buildCompleteSystemPrompt(
     workingDir?: string;
     provider?: ProviderDefinition | null;
     mcpTools?: LLMTool[];
+    language?: SupportedLanguageType;
   } = {}
 ): string {
   let prompt = basePrompt;
+
+  // Add language preference instructions (at the top for visibility)
+  if (options.language) {
+    prompt += buildLanguageInstructions(options.language);
+  }
 
   // Add session context
   prompt += buildSessionContext(options.workingDir);

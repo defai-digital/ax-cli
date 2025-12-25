@@ -168,6 +168,8 @@ export interface SettingsYaml {
     paste_timeout?: number;
     cache_ttl?: number;
     settings_cache_ttl?: number;
+    /** LLM API request timeout (10 minutes for long contexts) */
+    api_request?: number;
     api_health_check?: number;
     command_check?: number;
     mcp_init?: number;

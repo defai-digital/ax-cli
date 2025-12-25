@@ -152,6 +152,20 @@ export interface ChatOptions {
   thinking?: ThinkingConfig;
 
   /**
+   * Skip thinking/reasoning for this request
+   *
+   * When true, thinking mode is disabled even if globally enabled.
+   * Use this for tool result processing where speed > quality.
+   *
+   * This is a performance optimization: tool result processing
+   * doesn't need deep reasoning - the model just needs to decide
+   * whether to call more tools or formulate a response.
+   *
+   * @default false
+   */
+  skipThinking?: boolean;
+
+  /**
    * Search parameters for web-enabled queries
    */
   searchOptions?: SearchOptions;
@@ -498,7 +512,7 @@ export function validateThinking(
 /**
  * Create default chat options with sensible defaults
  */
-export function createDefaultChatOptions(model?: string): Required<Omit<ChatOptions, 'thinking' | 'searchOptions' | 'tools' | 'responseFormat' | 'sampling' | 'signal' | 'serverTools' | 'serverToolConfig'>> {
+export function createDefaultChatOptions(model?: string): Required<Omit<ChatOptions, 'thinking' | 'skipThinking' | 'searchOptions' | 'tools' | 'responseFormat' | 'sampling' | 'signal' | 'serverTools' | 'serverToolConfig'>> {
   // Use the configured default model as fallback, not hardcoded "glm-4.6"
   const modelName = model || DEFAULT_MODEL;
   const config = getModelConfig(modelName);

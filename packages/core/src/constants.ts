@@ -180,6 +180,8 @@ export const TIMEOUT_CONFIG = {
   SETTINGS_CACHE_TTL: settingsYaml.timeouts?.settings_cache_ttl || 5000,
 
   // Network/API timeouts
+  /** LLM API request timeout (10 minutes for long contexts) */
+  API_REQUEST: settingsYaml.timeouts?.api_request || 600000,
   API_HEALTH_CHECK: settingsYaml.timeouts?.api_health_check || 5000,
   COMMAND_CHECK: settingsYaml.timeouts?.command_check || 3000,
   MCP_INIT: settingsYaml.timeouts?.mcp_init || 5000,
