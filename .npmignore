@@ -8,6 +8,7 @@ automatosx/
 .ax/
 .claude/
 .grok/
+.qwen/
 quality_report.md
 CLAUDE.md
 

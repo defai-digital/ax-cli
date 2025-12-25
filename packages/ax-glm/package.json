@@ -1,7 +1,7 @@
 {
   "name": "@defai.digital/ax-glm",
-  "version": "5.1.6",
-  "description": "GLM AI Coding Assistant CLI powered by Z.AI - Terminal-based vibe coding with GLM-4 thinking mode, vision, web search, and MCP integration. Part of the AX CLI ecosystem.",
+  "version": "5.1.7",
+  "description": "GLM AI Coding Assistant CLI powered by Z.AI - Terminal-based vibe coding with GLM-4.7 thinking mode, vision, web search, and MCP integration. Part of the AX CLI ecosystem.",
   "repository": {
     "type": "git",
     "url": "https://github.com/defai-digital/ax-cli.git",

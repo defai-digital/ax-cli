@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/@defai.digital/ax-glm.svg)](https://www.npmjs.com/package/@defai.digital/ax-glm)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Enterprise-grade AI coding assistant powered by Z.AI's GLM-4** - Terminal-based vibe coding with thinking mode, vision, web search, and MCP integration.
+**Enterprise-grade AI coding assistant powered by Z.AI's GLM-4.7** - Terminal-based vibe coding with enhanced reasoning, thinking mode, vision, web search, and MCP integration.
 
 ## Quick Start
 
@@ -15,6 +15,7 @@ ax-glm
 
 ## Features
 
+- **GLM 4.7**: Latest model with enhanced reasoning and improved coding performance
 - **GLM 4.6 Thinking Mode**: Detailed thought processes and planning
 - **200K Context Window**: Handle large codebases and long conversations
 - **Vision Support**: Analyze images with GLM-4.6V
@@ -28,6 +29,7 @@ ax-glm
 
 | Model | Context | Features |
 |-------|---------|----------|
+| `glm-4.7` | 200K | **Latest**: Enhanced reasoning, improved coding, best performance |
 | `glm-4.6` | 200K | Thinking mode: detailed thought processes and planning |
 | `glm-4.6v` | 128K | Vision + Thinking: multimodal function calling |
 | `glm-4-flash` | 128K | Fast, efficient for quick tasks |

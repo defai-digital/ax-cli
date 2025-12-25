@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-cli",
-  "version": "5.1.6",
+  "version": "5.1.7",
   "sdkVersion": "1.4.0",
   "description": "Enterprise-Class AI Coding Assistant CLI - Terminal-based vibe coding with GLM, Grok, and multi-provider AI orchestration. Features thinking mode, vision, web search, MCP integration, and AutomatosX agent system.",
   "type": "module",
