@@ -102,6 +102,7 @@ temp/
 .codex-temp/
 .grok/
 .gemini/
+.qwen/
 .specify/
 
 # AI agent instruction files (root level)
@@ -112,6 +113,7 @@ CLAUDE.md
 CODEX.md
 GEMINI.md
 GROK.md
+QWEN.md
 SPECIFY.md
 agents.md
 ax.md
@@ -119,6 +121,7 @@ claude.md
 codex.md
 gemini.md
 grok.md
+qwen.md
 specify.md
 
 # AutomatosX - SECURITY: Completely exclude from version control
@@ -148,9 +151,10 @@ test-file-*.*
 !.ax-cli/settings.json.template
 
 # Provider-specific project directories (SECURITY: contain API keys and user data)
-# These directories are created by ax-glm and ax-grok CLI variants
+# These directories are created by ax-glm, ax-grok, and ax-qwen CLI variants
 .ax-glm/
 .ax-grok/
+.ax-qwen/
 
 # Checkpoint directories (both locations)
 # These contain session-specific data and should never be committed
