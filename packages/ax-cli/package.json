@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-cli",
-  "version": "5.0.1",
+  "version": "5.1.0",
   "description": "Enterprise-Class AI Command Line Interface with cool theme (blue, purple, green)",
   "repository": {
     "type": "git",
@@ -35,7 +35,7 @@
     "@defai.digital/ax-core": "workspace:*",
     "@inquirer/prompts": "^7.2.0",
     "chalk": "^5.4.1",
-    "commander": "^13.0.0",
+    "commander": "^14.0.2",
     "ora": "^8.1.1",
     "which": "^5.0.0"
   },

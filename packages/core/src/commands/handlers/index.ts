@@ -103,8 +103,8 @@ export function resetCommandRegistryState(): void {
 /**
  * Get all command suggestions for autocomplete
  *
- * Returns both built-in commands and any additional
- * registered commands from the registry, including aliases.
+ * Returns built-in commands from the registry.
+ * Aliases are shown inline with the command, not as separate entries.
  */
 export function getAllCommandSuggestions(): Array<{
   command: string;
@@ -114,21 +114,12 @@ export function getAllCommandSuggestions(): Array<{
   const suggestions: Array<{ command: string; description: string }> = [];
 
   for (const cmd of registry.getAll()) {
-    // Add primary command
+    // Show command with aliases inline (e.g., "/exit, /q")
+    const aliasStr = cmd.aliases?.length ? `, /${cmd.aliases.join(', /')}` : '';
     suggestions.push({
-      command: `/${cmd.name}`,
+      command: `/${cmd.name}${aliasStr}`,
       description: cmd.description,
     });
-
-    // Add aliases with indication they're aliases
-    if (cmd.aliases) {
-      for (const alias of cmd.aliases) {
-        suggestions.push({
-          command: `/${alias}`,
-          description: `${cmd.description} (alias for /${cmd.name})`,
-        });
-      }
-    }
   }
 
   return suggestions;

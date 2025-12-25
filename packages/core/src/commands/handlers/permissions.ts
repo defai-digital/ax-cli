@@ -221,7 +221,6 @@ export function handlePermissions(args: string, ctx: CommandContext): CommandRes
 export const permissionsCommands: CommandDefinition[] = [
   {
     name: "permissions",
-    aliases: ["perm", "perms"],
     description: "View/manage tool permissions",
     category: "settings",
     handler: handlePermissions,

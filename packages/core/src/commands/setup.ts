@@ -11,7 +11,7 @@ import { getTerminalStateManager } from '../utils/terminal-state.js';
 import { exitCancelled, exitWithError, ExitCode } from '../utils/exit-handler.js';
 // Logger imported for future structured logging improvements
 // import { getLogger } from '../utils/logger.js';
-import type { UserSettings } from '../schemas/settings-schemas.js';
+import type { UserSettings, SupportedLanguageType } from '../schemas/settings-schemas.js';
 import { getActiveConfigPaths, getActiveProvider, GLM_PROVIDER, GROK_PROVIDER } from '../provider/config.js';
 import {
   detectZAIServices,
@@ -248,9 +248,41 @@ export function createSetupCommand(): Command {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 1: Provider Selection
+        // STEP 1: Language Selection
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 1/5 — Choose Provider'));
+        prompts.log.step(chalk.bold('Step 1/6 — Choose Language'));
+
+        const languageChoices: { value: SupportedLanguageType; label: string; hint: string }[] = [
+          { value: 'en', label: 'English', hint: 'Default' },
+          { value: 'zh-CN', label: '简体中文', hint: 'Simplified Chinese' },
+          { value: 'zh-TW', label: '繁體中文', hint: 'Traditional Chinese' },
+          { value: 'ja', label: '日本語', hint: 'Japanese' },
+          { value: 'ko', label: '한국어', hint: 'Korean' },
+          { value: 'th', label: 'ไทย', hint: 'Thai' },
+          { value: 'vi', label: 'Tiếng Việt', hint: 'Vietnamese' },
+          { value: 'de', label: 'Deutsch', hint: 'German' },
+          { value: 'fr', label: 'Français', hint: 'French' },
+          { value: 'es', label: 'Español', hint: 'Spanish' },
+          { value: 'pt', label: 'Português', hint: 'Portuguese' },
+        ];
+
+        // Get existing language from config
+        const existingLang = existingConfig?.language;
+        const currentLang: SupportedLanguageType = typeof existingLang === 'string'
+          ? existingLang as SupportedLanguageType
+          : (existingLang?.current ?? 'en');
+
+        const selectedLanguage = await prompts.select({
+          message: 'Select display language:',
+          options: languageChoices,
+          initialValue: currentLang,
+        });
+        exitIfCancelled(selectedLanguage);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // STEP 2: Provider Selection
+        // ═══════════════════════════════════════════════════════════════════
+        prompts.log.step(chalk.bold('Step 2/6 — Choose Provider'));
 
         const providerChoices = Object.entries(PROVIDERS).map(([key, provider]) => ({
           value: key,
@@ -269,9 +301,9 @@ export function createSetupCommand(): Command {
         const selectedProvider = PROVIDERS[providerKey];
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 2: API Key
+        // STEP 3: API Key
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 2/5 — API Key'));
+        prompts.log.step(chalk.bold('Step 3/6 — API Key'));
 
         let apiKey = '';
         if (selectedProvider.requiresApiKey) {
@@ -326,9 +358,9 @@ export function createSetupCommand(): Command {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 3: Model Selection (Primary LLM)
+        // STEP 4: Model Selection (Primary LLM)
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 3/6 — Choose Primary Model (for coding)'));
+        prompts.log.step(chalk.bold('Step 4/6 — Choose Primary Model (for coding)'));
 
         // Get models that DON'T support vision (primary coding models)
         const activeProvider = getActiveProvider();
@@ -371,12 +403,12 @@ export function createSetupCommand(): Command {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 4: Vision Model Selection (if provider supports vision)
+        // STEP 5: Vision Model Selection (if provider supports vision)
         // ═══════════════════════════════════════════════════════════════════
         let chosenVisionModel: string | undefined;
 
         if (activeProvider.features.supportsVision && activeProvider.defaultVisionModel) {
-          prompts.log.step(chalk.bold('Step 4/6 — Choose Vision Model (for image analysis)'));
+          prompts.log.step(chalk.bold('Step 5/6 — Choose Vision Model (for image analysis)'));
 
           // Get models that DO support vision
           const visionModels = Object.entries(activeProvider.models)
@@ -416,9 +448,9 @@ export function createSetupCommand(): Command {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 5: Quick Setup Option
+        // STEP 6: Quick Setup Option
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold(`Step ${activeProvider.features.supportsVision ? '5/6' : '4/5'} — Quick Setup`));
+        prompts.log.step(chalk.bold(`Step 6/6 — Quick Setup`));
 
         const maxTokens = HIGH_TOKEN_PROVIDERS.has(selectedProvider.name) ? 32768 : 8192;
 
@@ -548,7 +580,9 @@ export function createSetupCommand(): Command {
         // ═══════════════════════════════════════════════════════════════════
         if (!useDefaults) {
           const visionSummary = chosenVisionModel ? `\nVision:      ${chosenVisionModel}` : '';
+          const langLabel = languageChoices.find(l => l.value === selectedLanguage)?.label || selectedLanguage;
           await prompts.note(
+            `Language:    ${langLabel}\n` +
             `Provider:    ${selectedProvider.displayName}\n` +
             `Base URL:    ${selectedProvider.baseURL}\n` +
             `Model:       ${chosenModel}${visionSummary}\n` +
@@ -582,6 +616,7 @@ export function createSetupCommand(): Command {
           maxTokens: existingConfig?.maxTokens ?? maxTokens,
           temperature: existingConfig?.temperature ?? 0.7,
           models: Array.from(new Set([chosenModel, ...(existingConfig?.models || []), selectedProvider.defaultModel].filter(Boolean))),
+          language: { current: selectedLanguage, autoDetect: false }, // Language setting
           _provider: selectedProvider.displayName,
           _website: selectedProvider.website,
         } as UserSettings;
@@ -801,8 +836,10 @@ export function createSetupCommand(): Command {
         // Completion Summary
         // ═══════════════════════════════════════════════════════════════════
         const visionModelInfo = chosenVisionModel ? `\nVision:      ${chosenVisionModel}` : '';
+        const finalLangLabel = languageChoices.find(l => l.value === selectedLanguage)?.label || selectedLanguage;
         await prompts.note(
           `Location:    ${configPath}\n` +
+          `Language:    ${finalLangLabel}\n` +
           `Provider:    ${selectedProvider.displayName}\n` +
           `Base URL:    ${selectedProvider.baseURL}\n` +
           `Model:       ${chosenModel}${visionModelInfo}\n` +

@@ -227,6 +227,25 @@ export const SecuritySettingsSchema = z.object({
   enableErrorSanitization: z.boolean().optional(),
 }).optional();
 
+// Language Settings Schema (i18n)
+export const SupportedLanguageSchema = z.enum([
+  'en', 'zh-CN', 'zh-TW', 'ja', 'ko', 'th', 'vi',
+  'de', 'fr', 'es', 'pt'  // European languages
+]);
+
+// Support both string (legacy) and object (new) formats for backward compatibility
+export const LanguageSettingsSchema = z.union([
+  // New format: object with current and autoDetect
+  z.object({
+    // Current display language (default: 'en')
+    current: SupportedLanguageSchema.optional().default('en'),
+    // Auto-detect language from system locale (default: false)
+    autoDetect: z.boolean().optional().default(false),
+  }),
+  // Legacy format: just a string language code
+  SupportedLanguageSchema,
+]).optional();
+
 // Guard Settings Schema (security governance layer)
 export const GuardSettingsSchema = z.object({
   // Enable/disable the guard system (default: true)
@@ -311,6 +330,8 @@ export const UserSettingsSchema: z.ZodType<any> = z.object({
   agentFirst: AgentFirstSettingsSchema,
   // Guard settings (security governance layer)
   guard: GuardSettingsSchema,
+  // Language settings (i18n)
+  language: LanguageSettingsSchema,
   // User-level MCP server configurations (global across all projects)
   // Used for provider-specific MCP servers like Z.AI that should work from any directory
   mcpServers: z.record(z.string(), z.any()).optional(),
@@ -401,3 +422,7 @@ export type ThinkingModeSettings = z.infer<typeof ThinkingModeSettingsSchema>;
 export type AutoUpdateSettings = z.infer<typeof AutoUpdateSettingsSchema>;
 export type AgentFirstSettings = z.infer<typeof AgentFirstSettingsSchema>;
 export type GuardSettings = z.infer<typeof GuardSettingsSchema>;
+export type LanguageSettings = z.infer<typeof LanguageSettingsSchema>;
+export type SupportedLanguageType = z.infer<typeof SupportedLanguageSchema>;
+// Normalized language settings (always object format)
+export type NormalizedLanguageSettings = { current: SupportedLanguageType; autoDetect: boolean };

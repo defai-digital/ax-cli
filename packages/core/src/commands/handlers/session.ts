@@ -74,7 +74,7 @@ export function handleClear(_args: string, ctx: CommandContext): CommandResult {
 export const sessionCommands: CommandDefinition[] = [
   {
     name: "exit",
-    aliases: ["quit", "q"],
+    aliases: ["q"],
     description: "Exit the application",
     category: "session",
     handler: handleExit,

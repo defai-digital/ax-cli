@@ -219,7 +219,8 @@ By default, self-correction is ON (agent automatically retries on failures with 
 |---------|-------------|
 | `/init` | Initialize project context |
 | `/help` | Show all commands |
-| `/models` | Switch AI model |
+| `/model` | Switch AI model |
+| `/lang` | Change display language (11 languages) |
 | `/doctor` | Run diagnostics |
 | `/exit` | Exit CLI |
 
@@ -377,6 +378,7 @@ AX CLI uses a modular architecture with provider-specific CLIs built on a shared
 
 | Version | Highlights |
 |---------|------------|
+| **v5.1.0** | i18n support (11 languages), `/lang` command, cleaner help & commands |
 | **v5.0.1** | Documentation updates, GLM 4.7 model table |
 | **v5.0.0** | GLM 4.7 support, Command Registry architecture, bug fixes |
 | **v4.5.x** | Shift+Enter newlines, stability & performance improvements |

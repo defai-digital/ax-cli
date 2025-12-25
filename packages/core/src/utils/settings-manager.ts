@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, chmodSync } from "fs";
 import { dirname } from "path";
 import { UserSettingsSchema, ProjectSettingsSchema } from "../schemas/settings-schemas.js";
-import type { UserSettings, ProjectSettings, SamplingSettings, ThinkingSettings, InputSettings, ShortcutsSettings, PasteSettings, UISettings, StatusBarSettings, AutoAcceptSettings, ExternalEditorSettings, ThinkingModeSettings, AutoUpdateSettings } from "../schemas/settings-schemas.js";
+import type { UserSettings, ProjectSettings, SamplingSettings, ThinkingSettings, InputSettings, ShortcutsSettings, PasteSettings, UISettings, StatusBarSettings, AutoAcceptSettings, ExternalEditorSettings, ThinkingModeSettings, AutoUpdateSettings, SupportedLanguageType, NormalizedLanguageSettings } from "../schemas/settings-schemas.js";
 import { ModelIdSchema } from '@defai.digital/ax-schemas';
 import { parseJsonFile, writeJsonFile } from "./json-utils.js";
 import { encrypt, decrypt } from "./encryption.js";
@@ -1208,6 +1208,11 @@ export class SettingsManager {
     autoInstall: false,
   };
 
+  private static readonly LANGUAGE_DEFAULTS: NormalizedLanguageSettings = {
+    current: 'en',
+    autoDetect: false,
+  };
+
   /**
    * Get auto-update configuration with proper defaults
    * Priority: User settings > Schema defaults
@@ -1287,6 +1292,79 @@ export class SettingsManager {
     } catch {
       // Silently ignore - don't crash CLI if we can't save timestamp
     }
+  }
+
+  // ==================== Language Configuration ====================
+
+  /**
+   * Get current language setting
+   * Priority: User settings > Schema defaults > 'en'
+   * Handles both legacy string format and new object format
+   */
+  public getLanguage(): SupportedLanguageType {
+    const userSettings = this.loadUserSettings();
+    const langSettings = userSettings.language;
+
+    // Handle legacy string format
+    if (typeof langSettings === 'string') {
+      return langSettings as SupportedLanguageType;
+    }
+
+    // Handle new object format
+    if (langSettings && typeof langSettings === 'object') {
+      return langSettings.current ?? SettingsManager.LANGUAGE_DEFAULTS.current;
+    }
+
+    return SettingsManager.LANGUAGE_DEFAULTS.current;
+  }
+
+  /**
+   * Get language configuration with proper defaults
+   * Normalizes legacy string format to object format
+   */
+  public getLanguageConfig(): NormalizedLanguageSettings {
+    const userSettings = this.loadUserSettings();
+    const langSettings = userSettings.language;
+
+    // Handle legacy string format - convert to object
+    if (typeof langSettings === 'string') {
+      return {
+        current: langSettings as SupportedLanguageType,
+        autoDetect: SettingsManager.LANGUAGE_DEFAULTS.autoDetect,
+      };
+    }
+
+    // Handle object format or undefined
+    if (langSettings && typeof langSettings === 'object') {
+      return {
+        current: langSettings.current ?? SettingsManager.LANGUAGE_DEFAULTS.current,
+        autoDetect: langSettings.autoDetect ?? SettingsManager.LANGUAGE_DEFAULTS.autoDetect,
+      };
+    }
+
+    return SettingsManager.LANGUAGE_DEFAULTS;
+  }
+
+  /**
+   * Set current language
+   */
+  public setLanguage(language: SupportedLanguageType): void {
+    const userSettings = this.loadUserSettings();
+    const currentConfig = this.getLanguageConfig();
+
+    const newConfig = {
+      ...currentConfig,
+      current: language,
+    };
+
+    this.saveUserSettings({ ...userSettings, language: newConfig });
+  }
+
+  /**
+   * Check if auto-detect is enabled for language
+   */
+  public isLanguageAutoDetect(): boolean {
+    return this.getLanguageConfig().autoDetect;
   }
 
   /**

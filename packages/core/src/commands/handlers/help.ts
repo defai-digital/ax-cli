@@ -14,98 +14,57 @@ import { getCustomCommandsManager } from "../custom-commands.js";
  * Generate help content with dynamic config directory
  */
 function generateHelpContent(configDirName: string): string {
-  return `AX CLI Help:
+  return `**AX CLI Help**
 
-Built-in Commands:
-  /continue   - Continue incomplete response from where it left off
-  /clear      - Clear chat history
-  /init       - Initialize project with smart analysis
-  /help       - Show this help
-  /shortcuts  - Show keyboard shortcuts guide
-  /usage      - Show API usage statistics
-  /doctor     - Run health check diagnostics
-  /mcp        - Open MCP server dashboard
-  /exit       - Exit application
-  exit, quit  - Exit application
+**Core Commands:**
+  /help, /?     Show this help
+  /clear        Clear chat history
+  /exit, /q     Exit application
+  /shortcuts    Keyboard shortcuts guide
 
-Background Task Commands:
-  /tasks             - List all background tasks
-  /task <id>         - View output of a background task
-  /kill <id>         - Kill a running background task
+**Session:**
+  /continue     Continue incomplete response
+  /model, /m    View/switch AI models
+  /lang, /l     Change display language
+  /usage        API usage statistics
 
-  Tip: Append ' &' to any bash command to run it in background
-       Example: npm run dev &
+**Project:**
+  /init         Initialize project with analysis
+  /memory       Project memory status
+  /doctor       Health check diagnostics
 
-Checkpoint Commands:
-  /rewind            - Rewind to a previous checkpoint (interactive)
-  /checkpoints       - Show checkpoint statistics
-  /checkpoint-clean  - Clean old checkpoints (compress and prune)
+**Background Tasks:**
+  /tasks        List background tasks
+  /task <id>    View task output
+  /kill <id>    Kill running task
+  Tip: Append ' &' to run commands in background
 
-Plan Commands (Multi-Phase Task Planning):
-  /plans             - List all task plans
-  /plan [id]         - Show current or specific plan details
-  /phases            - Show phases of current plan
-  /pause             - Pause current plan execution
-  /resume [id]       - Resume current or specific plan
-  /skip              - Skip current phase
-  /abandon           - Abandon current plan
+**Checkpoints:**
+  /rewind       Rewind to previous checkpoint
+  /checkpoints  Show checkpoint stats
 
-Git Commands:
-  /commit-and-push - AI-generated commit + push to remote
+**Plans (Multi-Phase Tasks):**
+  /plans        List all plans
+  /plan [id]    Show plan details
+  /pause        Pause execution
+  /resume       Resume plan
 
-Memory Commands (z.ai GLM caching):
-  /memory          - Show project memory status
-  /memory warmup   - Generate project memory context
-  /memory refresh  - Update memory after changes
+**Settings:**
+  /theme        Switch color theme
+  /permissions  Manage tool permissions
+  /mcp          MCP server dashboard
 
-UI Commands:
-  /theme           - Show current theme and list available themes
-  /theme <name>    - Switch color theme (default, dark, light, dracula, monokai)
+**Quick Keys:**
+  ↑/↓         Command history
+  Ctrl+O      Toggle verbose mode
+  Ctrl+B      Toggle background mode
+  Shift+Tab   Toggle auto-edit mode
+  /shortcuts  Full keyboard guide
 
-Model Commands:
-  /model           - Show current model and list available models
-  /model <name>    - Switch to a model (session only)
-  /model save      - Save current model to config (persistent)
-  /model reset     - Reset to provider default model
+**Configuration:**
+  ~/${configDirName}/config.json
 
-Enhanced Input Features:
-  ↑/↓ Arrow   - Navigate command history
-  Ctrl+C      - Clear input (press twice to exit)
-  Ctrl+X      - Clear entire input line
-  Esc×2       - Clear input (press Escape twice quickly)
-  Ctrl+←/→    - Move by word
-  Ctrl+A/E    - Move to line start/end
-  Ctrl+W      - Delete word before cursor
-  Ctrl+K      - Delete to end of line
-  Ctrl+U      - Delete to start of line
-  Ctrl+O      - Toggle verbose mode (show full output, default: concise)
-  Ctrl+B      - Toggle background mode (run all commands in background)
-  Ctrl+P      - Expand/collapse pasted text at cursor
-  Ctrl+Y      - Copy last assistant response to clipboard
-  Shift+Tab   - Toggle auto-edit mode (bypass confirmations)
-  1-4 keys    - Quick select in confirmation dialogs
-
-Paste Handling:
-  When you paste 5+ lines, it's automatically collapsed to a preview.
-  Position cursor on collapsed text and press Ctrl+P to expand/collapse.
-  Full content is always sent to AI (display-only feature).
-
-Direct Commands (executed immediately):
-  ls [path]   - List directory contents
-  pwd         - Show current directory
-  cd <path>   - Change directory
-  cat <file>  - View file contents
-  mkdir <dir> - Create directory
-  touch <file>- Create empty file
-
-Model Configuration:
-  Edit ~/${configDirName}/config.json to configure default model and settings
-
-For complex operations, just describe what you want in natural language.
-Examples:
-  "edit package.json and add a new script"
-  "create a new React component called Header"
-  "show me all TypeScript files in this project"`;
+Type naturally to ask questions or describe tasks.`;
 }
 
 /**
@@ -259,7 +218,7 @@ export function handleCommands(_args: string, ctx: CommandContext): CommandResul
 export const helpCommands: CommandDefinition[] = [
   {
     name: "help",
-    aliases: ["h", "?"],
+    aliases: ["?"],
     description: "Show help information",
     category: "info",
     handler: handleHelp,
