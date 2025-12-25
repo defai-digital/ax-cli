@@ -82,7 +82,7 @@ describe('GLM-4.6 Type Validation', () => {
 
     it('should return default config for unknown model', () => {
       const config = getModelConfig('unknown-model');
-      expect(config).toEqual(GLM_MODELS['glm-4.6']);
+      expect(config).toEqual(GLM_MODELS['glm-4.7']);
     });
   });
 
@@ -95,9 +95,9 @@ describe('GLM-4.6 Type Validation', () => {
       expect(options.stream).toBe(false);
     });
 
-    it('should use glm-4.6 as default when no model specified', () => {
+    it('should use glm-4.7 as default when no model specified', () => {
       const options = createDefaultChatOptions();
-      expect(options.model).toBe('glm-4.6');
+      expect(options.model).toBe('glm-4.7');
     });
 
     it('should cap max tokens at model limit', () => {

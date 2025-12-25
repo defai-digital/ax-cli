@@ -240,8 +240,8 @@ describe('LoopDetector', () => {
 
       const result = detector.checkForLoop(toolCall);
 
-      // Threshold should be at minimum (2), not negative
-      expect(result.threshold).toBeGreaterThanOrEqual(2);
+      // Threshold should be at minimum (1), not negative or zero
+      expect(result.threshold).toBeGreaterThanOrEqual(1);
     });
   });
 

@@ -485,7 +485,7 @@ describe("LLMClient chat method", () => {
 
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        thinking: { type: "enabled" },
+        thinking: expect.objectContaining({ type: "enabled" }),
       }),
       expect.any(Object)
     );

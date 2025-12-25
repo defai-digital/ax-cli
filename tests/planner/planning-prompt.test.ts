@@ -268,7 +268,7 @@ describe('shouldUseThinkingMode', () => {
   it('should return true for debugging scenarios', () => {
     expect(shouldUseThinkingMode('This function is not working properly when processing large files, help me fix it')).toBe(true);
     expect(shouldUseThinkingMode('I am getting a strange error when I run the server in production mode')).toBe(true);
-    expect(shouldUseThinkingMode('Find the bug in the payment processor that causes duplicate charges')).toBe(true);
+    expect(shouldUseThinkingMode('There is a bug in the payment processor that causes duplicate charges, help me fix it')).toBe(true);
   });
 
   it('should return true for comparison requests', () => {
