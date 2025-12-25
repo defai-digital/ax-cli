@@ -213,6 +213,13 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         });
         exitIfCancelled(selectedLanguage);
 
+        // Show language confirmation with note about when it takes effect
+        if (selectedLanguage !== 'en') {
+          const langLabel = languageChoices.find(l => l.value === selectedLanguage)?.label ?? selectedLanguage;
+          prompts.log.info(`Language set to ${langLabel}`);
+          prompts.log.message(chalk.dim('Note: The setup wizard continues in English. Language will be applied to commands like /lang, /help after setup completes.'));
+        }
+
         // ═══════════════════════════════════════════════════════════════════
         // STEP 2: Server URL (GLM only - Grok is always online)
         // ═══════════════════════════════════════════════════════════════════

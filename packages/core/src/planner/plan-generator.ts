@@ -90,8 +90,17 @@ export class PlanGenerator {
     _context?: GenerationContext
   ): TaskPlan | null {
     try {
+      // Strip markdown code blocks if present (```json ... ``` or ``` ... ```)
+      let cleanedResponse = llmResponse.trim();
+      if (cleanedResponse.startsWith("```")) {
+        // Remove opening ``` or ```json
+        cleanedResponse = cleanedResponse.replace(/^```(?:json)?\s*\n?/, "");
+        // Remove closing ```
+        cleanedResponse = cleanedResponse.replace(/\n?```\s*$/, "");
+      }
+
       // Parse JSON response
-      const parsed = JSON.parse(llmResponse);
+      const parsed = JSON.parse(cleanedResponse);
 
       // Validate against schema
       const result = LLMPlanResponseSchema.safeParse(parsed);

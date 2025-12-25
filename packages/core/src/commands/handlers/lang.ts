@@ -68,19 +68,29 @@ export async function handleLang(
       };
     }
 
-    // Normalize language code (handle common aliases)
+    // Normalize language code (handle common aliases and case-insensitive matching)
     let normalizedLang = arg;
-    if (arg === 'zh' || arg === 'chinese') normalizedLang = 'zh-CN';
-    if (arg === 'tw' || arg === 'traditional') normalizedLang = 'zh-TW';
-    if (arg === 'jp' || arg === 'japanese') normalizedLang = 'ja';
-    if (arg === 'kr' || arg === 'korean') normalizedLang = 'ko';
-    if (arg === 'thai') normalizedLang = 'th';
-    if (arg === 'vietnamese') normalizedLang = 'vi';
-    if (arg === 'english') normalizedLang = 'en';
-    if (arg === 'german' || arg === 'deutsch') normalizedLang = 'de';
-    if (arg === 'french' || arg === 'français' || arg === 'francais') normalizedLang = 'fr';
-    if (arg === 'spanish' || arg === 'español' || arg === 'espanol') normalizedLang = 'es';
-    if (arg === 'portuguese' || arg === 'português' || arg === 'portugues') normalizedLang = 'pt';
+
+    // First, try case-insensitive match against supported languages
+    const caseInsensitiveMatch = supportedLanguages.find(
+      lang => lang.toLowerCase() === arg.toLowerCase()
+    );
+    if (caseInsensitiveMatch) {
+      normalizedLang = caseInsensitiveMatch;
+    } else {
+      // Handle common aliases
+      if (arg === 'zh' || arg === 'chinese') normalizedLang = 'zh-CN';
+      else if (arg === 'tw' || arg === 'traditional') normalizedLang = 'zh-TW';
+      else if (arg === 'jp' || arg === 'japanese') normalizedLang = 'ja';
+      else if (arg === 'kr' || arg === 'korean') normalizedLang = 'ko';
+      else if (arg === 'thai') normalizedLang = 'th';
+      else if (arg === 'vietnamese') normalizedLang = 'vi';
+      else if (arg === 'english') normalizedLang = 'en';
+      else if (arg === 'german' || arg === 'deutsch') normalizedLang = 'de';
+      else if (arg === 'french' || arg === 'français' || arg === 'francais') normalizedLang = 'fr';
+      else if (arg === 'spanish' || arg === 'español' || arg === 'espanol') normalizedLang = 'es';
+      else if (arg === 'portuguese' || arg === 'português' || arg === 'portugues') normalizedLang = 'pt';
+    }
 
     // Check if language code is valid
     if (!supportedLanguages.includes(normalizedLang as SupportedLanguage)) {
