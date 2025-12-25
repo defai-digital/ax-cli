@@ -5,22 +5,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock all dependencies
-vi.mock('../../packages/core/src/utils/config-loader.js', () => ({
-  loadPromptsConfig: vi.fn().mockReturnValue({
-    system_prompt: {
-      identity: 'You are an AI assistant.',
-      closing: 'End of instructions.',
-      thinking: { title: 'Thinking', content: 'Think step by step.' },
-      tools: { title: 'Tools', content: 'Use tools wisely.' },
-      professional_objectivity: { title: 'Objectivity', content: 'Be objective.' },
-      core_principles: { title: 'Principles', rules: ['Rule 1', 'Rule 2'] },
-      tools_header: 'Available Tools:',
-      sections: {
-        extra: { title: 'Extra', guidelines: ['Guideline 1'] },
+vi.mock('../../packages/core/src/utils/config-loader.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../packages/core/src/utils/config-loader.js')>();
+  return {
+    ...actual,
+    loadPromptsConfig: vi.fn().mockReturnValue({
+      system_prompt: {
+        identity: 'You are an AI assistant.',
+        closing: 'End of instructions.',
+        thinking: { title: 'Thinking', content: 'Think step by step.' },
+        tools: { title: 'Tools', content: 'Use tools wisely.' },
+        professional_objectivity: { title: 'Objectivity', content: 'Be objective.' },
+        core_principles: { title: 'Principles', rules: ['Rule 1', 'Rule 2'] },
+        tools_header: 'Available Tools:',
+        sections: {
+          extra: { title: 'Extra', guidelines: ['Guideline 1'] },
+        },
       },
-    },
-    custom_instructions_prefix: '\n<custom>\n',
-    custom_instructions_suffix: '\n</custom>\n',
+      custom_instructions_prefix: '\n<custom>\n',
+      custom_instructions_suffix: '\n</custom>\n',
+    }),
+  };
+});
+
+vi.mock('../../packages/core/src/utils/settings-manager.js', () => ({
+  getSettingsManager: vi.fn().mockReturnValue({
+    getLanguage: vi.fn().mockReturnValue('en'),
   }),
 }));
 
@@ -34,6 +44,14 @@ vi.mock('../../packages/core/src/llm/tools.js', () => ({
   getMCPManager: vi.fn().mockReturnValue({
     getTools: vi.fn().mockReturnValue([]),
   }),
+  convertMCPToolToLLMTool: vi.fn((mcpTool: { name: string; description?: string }) => ({
+    type: 'function',
+    function: {
+      name: mcpTool.name,
+      description: mcpTool.description ?? 'External tool',
+      parameters: { type: 'object', properties: {} },
+    },
+  })),
 }));
 
 vi.mock('../../packages/core/src/provider/config.js', () => ({
@@ -194,8 +212,8 @@ describe('buildSystemPrompt', () => {
 
     const prompt = buildSystemPrompt({});
 
-    expect(prompt).toContain('NATIVE web search capability');
-    expect(prompt).toContain('Grok');
+    // When provider has native search, MCP tools are for specific URL fetching
+    expect(prompt).toContain('Use MCP tools for fetching specific URLs');
   });
 
   it('should show MCP search message when provider lacks native search', () => {

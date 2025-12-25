@@ -14,6 +14,7 @@ vi.mock('../../packages/core/src/mcp/client.js', () => {
   const mockGetPrompts = vi.fn().mockReturnValue([]);
   const mockDiscoverPrompts = vi.fn().mockResolvedValue(undefined);
   const mockEnsureServersInitialized = vi.fn().mockResolvedValue(undefined);
+  const mockWarmupConnections = vi.fn().mockResolvedValue(undefined);
 
   class MockMCPManager {
     getTools = mockGetTools;
@@ -24,6 +25,7 @@ vi.mock('../../packages/core/src/mcp/client.js', () => {
     getPrompts = mockGetPrompts;
     discoverPrompts = mockDiscoverPrompts;
     ensureServersInitialized = mockEnsureServersInitialized;
+    warmupConnections = mockWarmupConnections;
   }
 
   return {
@@ -36,6 +38,7 @@ vi.mock('../../packages/core/src/mcp/client.js', () => {
     mockGetPrompts,
     mockDiscoverPrompts,
     mockEnsureServersInitialized,
+    mockWarmupConnections,
   };
 });
 
