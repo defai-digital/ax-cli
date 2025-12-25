@@ -89,6 +89,10 @@ export const ZAI_MCP_TEMPLATES: Record<ZAIServerName, ZAIMCPTemplate> = {
 /**
  * Create HTTP transport config with Z.AI authorization
  * Note: Z.AI MCP servers require Accept header with both application/json and text/event-stream
+ *
+ * Performance optimizations:
+ * - Connection: keep-alive for connection reuse
+ * - Prefer JSON response over SSE for faster parsing
  */
 function createHttpTransport(url: string, apiKey: string) {
   return {
@@ -96,8 +100,12 @@ function createHttpTransport(url: string, apiKey: string) {
     url,
     headers: {
       'Authorization': `Bearer ${apiKey}`,
+      // Prefer JSON over SSE for faster response parsing
+      // The order matters - servers typically respect the first acceptable type
       'Accept': 'application/json, text/event-stream',
       'Content-Type': 'application/json',
+      // Explicitly request keep-alive for connection reuse
+      'Connection': 'keep-alive',
     },
   };
 }
@@ -118,12 +126,16 @@ export function generateZAIServerConfig(
       return {
         name: ZAI_SERVER_NAMES.WEB_READER,
         transport: createHttpTransport(ZAI_ENDPOINTS.WEB_READER, apiKey),
+        // Web reader operations typically complete within 30 seconds
+        timeout: 30000,
       };
 
     case ZAI_SERVER_NAMES.WEB_SEARCH:
       return {
         name: ZAI_SERVER_NAMES.WEB_SEARCH,
         transport: createHttpTransport(ZAI_ENDPOINTS.WEB_SEARCH, apiKey),
+        // Web search operations typically complete within 30 seconds
+        timeout: 30000,
       };
 
     case ZAI_SERVER_NAMES.VISION:
