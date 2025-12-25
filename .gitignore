@@ -151,10 +151,9 @@ test-file-*.*
 !.ax-cli/settings.json.template
 
 # Provider-specific project directories (SECURITY: contain API keys and user data)
-# These directories are created by ax-glm, ax-grok, and ax-qwen CLI variants
+# These directories are created by ax-glm and ax-grok CLI variants
 .ax-glm/
 .ax-grok/
-.ax-qwen/
 
 # Checkpoint directories (both locations)
 # These contain session-specific data and should never be committed
