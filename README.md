@@ -8,6 +8,20 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24.0.0-blue?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
+<p align="center">
+  <a href="./README.md">English</a> |
+  <a href="./README.zh-CN.md">简体中文</a> |
+  <a href="./README.zh-TW.md">繁體中文</a> |
+  <a href="./README.ja.md">日本語</a> |
+  <a href="./README.ko.md">한국어</a> |
+  <a href="./README.de.md">Deutsch</a> |
+  <a href="./README.es.md">Español</a> |
+  <a href="./README.pt.md">Português</a> |
+  <a href="./README.fr.md">Français</a> |
+  <a href="./README.vi.md">Tiếng Việt</a> |
+  <a href="./README.th.md">ไทย</a>
+</p>
+
 ## Table of Contents
 
 - [Quick Start](#quick-start)
@@ -378,6 +392,7 @@ AX CLI uses a modular architecture with provider-specific CLIs built on a shared
 
 | Version | Highlights |
 |---------|------------|
+| **v5.1.8** | Add: Localized README files for 10 languages (zh-CN, zh-TW, ja, ko, de, es, pt, fr, vi, th); Add: Translation contribution guide |
 | **v5.1.7** | Update: GLM-4.7 model references in package descriptions; Add: .qwen folder protection in .npmignore |
 | **v5.1.6** | Fix: FinalizationRegistry scope bug (stream cleanup), MCP error labeling, searchOptions null guard; Refactor: consolidated error handling, optimized provider caching |
 | **v5.1.5** | Fix: i18n translations now apply immediately after language selection in setup (root cause: translation cache invalidation) |
