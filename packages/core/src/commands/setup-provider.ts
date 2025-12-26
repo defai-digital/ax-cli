@@ -104,9 +104,11 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
     .description(`Initialize ${cliName} configuration with ${provider.displayName}`)
     .option('--force', 'Overwrite existing configuration')
     .option('--no-validate', 'Skip validation of API endpoint and credentials')
+    .option('-s, --silent', 'Non-interactive mode with default settings (uses selected language)')
     .action(async (options: {
       force?: boolean;
       validate?: boolean;
+      silent?: boolean;
     }) => {
       try {
         // Load initial translations using existing config language or English
@@ -130,10 +132,10 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         );
 
         // ═══════════════════════════════════════════════════════════════════
-        // Legacy Migration Check
+        // Legacy Migration Check (skip in silent mode)
         // ═══════════════════════════════════════════════════════════════════
         // Check for legacy ~/.ax-cli/ config and offer migration
-        if (ConfigMigrator.hasLegacyConfig() && !ConfigMigrator.wasAlreadyMigrated(provider)) {
+        if (!options.silent && ConfigMigrator.hasLegacyConfig() && !ConfigMigrator.wasAlreadyMigrated(provider)) {
           const legacyConfig = ConfigMigrator.loadLegacyConfig();
 
           if (legacyConfig) {
@@ -217,18 +219,26 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
           ? existingLang as SupportedLanguageType
           : (existingLang?.current ?? 'en');
 
-        const selectedLanguage = await prompts.select({
-          message: t.setup.selectLanguage,
-          options: languageChoices,
-          initialValue: currentLang,
-        });
-        exitIfCancelled(selectedLanguage);
+        let selectedLanguage: SupportedLanguageType;
+        if (options.silent) {
+          // Silent mode: use existing language or default
+          selectedLanguage = currentLang;
+          prompts.log.info(`${t.setup.language}: ${languageChoices.find(l => l.value === selectedLanguage)?.label || selectedLanguage}`);
+        } else {
+          const langChoice = await prompts.select({
+            message: t.setup.selectLanguage,
+            options: languageChoices,
+            initialValue: currentLang,
+          });
+          exitIfCancelled(langChoice);
+          selectedLanguage = langChoice as SupportedLanguageType;
+        }
 
         // Reload translations for selected language
-        t = getCommandTranslations(selectedLanguage as SupportedLanguageType);
+        t = getCommandTranslations(selectedLanguage);
 
         // Show language confirmation
-        if (selectedLanguage !== 'en') {
+        if (selectedLanguage !== initialLang) {
           const langLabel = languageChoices.find(l => l.value === selectedLanguage)?.label ?? selectedLanguage;
           prompts.log.info(`${t.setup.languageChanged || 'Language set to'} ${langLabel}`);
         }
@@ -242,55 +252,62 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         if (provider.name === 'glm') {
           prompts.log.step(chalk.bold(`${t.setup.step} 2/${totalSteps} — ${t.setup.serverSelection}`));
 
-          const serverType = await prompts.select({
-            message: t.setup.selectServerType,
-            options: [
-              {
-                value: 'zai',
-                label: `${t.setup.cloudRecommended}`,
-                hint: t.setup.cloudHint,
-              },
-              {
-                value: 'local',
-                label: t.setup.localCustom,
-                hint: t.setup.localHint,
-              },
-            ],
-            initialValue: 'zai',
-          });
-          exitIfCancelled(serverType);
-
-          if (serverType === 'local') {
-            isLocalServer = true;
-
-            await prompts.note(
-              `${t.setup.supportedServers}:\n` +
-              '• Ollama:   http://localhost:11434/v1\n' +
-              '• LMStudio: http://localhost:1234/v1\n' +
-              '• vLLM:     http://localhost:8000/v1',
-              t.setup.localServerOptions
-            );
-
-            const customURL = await prompts.text({
-              message: t.setup.enterServerUrl,
-              placeholder: 'http://localhost:11434/v1',
-              initialValue: existingConfig?.baseURL && existingConfig.baseURL !== provider.defaultBaseURL
-                ? existingConfig.baseURL
-                : 'http://localhost:11434/v1',
-              validate: (value) => {
-                if (!value?.trim()) return 'Server URL is required';
-                try {
-                  new URL(value);
-                  return undefined;
-                } catch {
-                  return 'Invalid URL format';
-                }
-              },
-            });
-            exitIfCancelled(customURL);
-            selectedBaseURL = customURL.trim();
+          if (options.silent) {
+            // Silent mode: use existing URL or default cloud
+            selectedBaseURL = existingConfig?.baseURL || provider.defaultBaseURL;
+            isLocalServer = existingConfig?._isLocalServer || false;
+            prompts.log.info(`${t.setup.baseUrl}: ${selectedBaseURL}`);
           } else {
-            selectedBaseURL = provider.defaultBaseURL;
+            const serverType = await prompts.select({
+              message: t.setup.selectServerType,
+              options: [
+                {
+                  value: 'zai',
+                  label: `${t.setup.cloudRecommended}`,
+                  hint: t.setup.cloudHint,
+                },
+                {
+                  value: 'local',
+                  label: t.setup.localCustom,
+                  hint: t.setup.localHint,
+                },
+              ],
+              initialValue: 'zai',
+            });
+            exitIfCancelled(serverType);
+
+            if (serverType === 'local') {
+              isLocalServer = true;
+
+              await prompts.note(
+                `${t.setup.supportedServers}:\n` +
+                '• Ollama:   http://localhost:11434/v1\n' +
+                '• LMStudio: http://localhost:1234/v1\n' +
+                '• vLLM:     http://localhost:8000/v1',
+                t.setup.localServerOptions
+              );
+
+              const customURL = await prompts.text({
+                message: t.setup.enterServerUrl,
+                placeholder: 'http://localhost:11434/v1',
+                initialValue: existingConfig?.baseURL && existingConfig.baseURL !== provider.defaultBaseURL
+                  ? existingConfig.baseURL
+                  : 'http://localhost:11434/v1',
+                validate: (value) => {
+                  if (!value?.trim()) return 'Server URL is required';
+                  try {
+                    new URL(value);
+                    return undefined;
+                  } catch {
+                    return 'Invalid URL format';
+                  }
+                },
+              });
+              exitIfCancelled(customURL);
+              selectedBaseURL = customURL.trim();
+            } else {
+              selectedBaseURL = provider.defaultBaseURL;
+            }
           }
         }
 
@@ -302,12 +319,22 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
 
         let apiKey = '';
         let connectionValidated = false;
-        const shouldSkipValidation = options.validate === false || isLocalServer;
+        const shouldSkipValidation = options.validate === false || isLocalServer || options.silent;
 
         // Check for existing key
         const hasExistingKey = existingConfig?.apiKey && typeof existingConfig.apiKey === 'string' && existingConfig.apiKey.trim().length > 0;
 
-        if (hasExistingKey && existingConfig?.apiKey) {
+        if (options.silent && hasExistingKey && existingConfig?.apiKey) {
+          // Silent mode: reuse existing API key
+          apiKey = existingConfig.apiKey;
+          prompts.log.success(t.setup.useExistingKey || 'Using existing API key');
+          connectionValidated = true;
+        } else if (options.silent && !hasExistingKey) {
+          // Silent mode without existing key - error
+          prompts.log.error(t.setup.apiKeyRequired || 'API key is required');
+          prompts.log.info(`${t.setup.apiKeyHint}: ${website}`);
+          process.exit(1);
+        } else if (hasExistingKey && existingConfig?.apiKey) {
           const key = existingConfig.apiKey;
           const maskedKey = key.length > 12
             ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}`
@@ -445,14 +472,21 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         const existingModel = existingConfig?.defaultModel || existingConfig?.currentModel;
         const initialModel = existingModel && provider.models[existingModel] ? existingModel : provider.defaultModel;
 
-        const modelSelection = await prompts.select({
-          message: t.setup.selectModel,
-          options: modelChoices,
-          initialValue: initialModel,
-        });
-        exitIfCancelled(modelSelection);
+        let chosenModel: string;
+        if (options.silent) {
+          // Silent mode: use existing model or default
+          chosenModel = initialModel;
+          prompts.log.info(`${t.setup.model}: ${chosenModel}`);
+        } else {
+          const modelSelection = await prompts.select({
+            message: t.setup.selectModel,
+            options: modelChoices,
+            initialValue: initialModel,
+          });
+          exitIfCancelled(modelSelection);
+          chosenModel = modelSelection;
+        }
 
-        const chosenModel = modelSelection;
         const modelConfig = provider.models[chosenModel];
 
         // Safety check - should not happen but prevents crash
@@ -497,15 +531,17 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
           t.setup.configSummary
         );
 
-        const confirmSave = await prompts.confirm({
-          message: t.setup.saveSettings,
-          initialValue: true,
-        });
-        exitIfCancelled(confirmSave);
+        if (!options.silent) {
+          const confirmSave = await prompts.confirm({
+            message: t.setup.saveSettings,
+            initialValue: true,
+          });
+          exitIfCancelled(confirmSave);
 
-        if (!confirmSave) {
-          prompts.cancel(t.setup.setupCancelled);
-          process.exit(0);
+          if (!confirmSave) {
+            prompts.cancel(t.setup.setupCancelled);
+            process.exit(0);
+          }
         }
 
         // Create configuration object
@@ -599,18 +635,20 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         if (axStatus.installed) {
           prompts.log.success(`${t.setup.automatosxFound}${axStatus.version ? ` (v${axStatus.version})` : ''}`);
 
-          const axSpinner = prompts.spinner();
-          axSpinner.start(t.setup.checkAutomatosx);
+          if (!options.silent) {
+            const axSpinner = prompts.spinner();
+            axSpinner.start(t.setup.checkAutomatosx);
 
-          const updated = await updateAutomatosX();
-          if (updated) {
-            axStatus = getAutomatosXStatus(); // Refresh version after update
-            axSpinner.stop(`AutomatosX updated${axStatus.version ? ` to v${axStatus.version}` : ''}`);
-          } else {
-            axSpinner.stop(t.setup.automatosxNotFound || 'Could not update AutomatosX');
-            prompts.log.info('Run manually: ax update -y');
+            const updated = await updateAutomatosX();
+            if (updated) {
+              axStatus = getAutomatosXStatus(); // Refresh version after update
+              axSpinner.stop(`AutomatosX updated${axStatus.version ? ` to v${axStatus.version}` : ''}`);
+            } else {
+              axSpinner.stop(t.setup.automatosxNotFound || 'Could not update AutomatosX');
+              prompts.log.info('Run manually: ax update -y');
+            }
           }
-        } else {
+        } else if (!options.silent) {
           try {
             const installResponse = await prompts.confirm({
               message: t.setup.installAutomatosxPrompt || 'Install AutomatosX for multi-agent AI orchestration?',
@@ -637,10 +675,13 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
             prompts.log.info(t.setup.skippingAutomatosx || 'Skipping AutomatosX setup (non-interactive mode).');
             prompts.log.info(`${t.setup.installAutomatosx}`);
           }
+        } else {
+          // Silent mode: skip AutomatosX install
+          prompts.log.info(t.setup.skippingAutomatosx || 'Skipping AutomatosX setup (silent mode).');
         }
 
-        // Agent-First Mode Configuration (only ask if AutomatosX is available)
-        if (axStatus.installed) {
+        // Agent-First Mode Configuration (only ask if AutomatosX is available and not silent)
+        if (axStatus.installed && !options.silent) {
           await prompts.note(
             `${t.setup.agentFirstDesc || `When enabled, ${cliName} automatically routes tasks to specialized agents`}\n` +
             `${t.setup.agentFirstKeywords || 'based on keywords (e.g., "test" -> testing agent, "refactor" -> refactoring agent).'}\n` +
@@ -681,24 +722,34 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // Project Initialization
+        // Project Initialization (skip in silent mode)
         // ═══════════════════════════════════════════════════════════════════
-        await prompts.note(
-          `${t.setup.projectInitDesc || 'Project initialization analyzes your codebase and creates:'}\n` +
-          '• CUSTOM.md - AI instructions tailored to your project\n' +
-          '• ax.index.json - Full project analysis (AI reads when needed)\n' +
-          '• ax.summary.json - Prompt summary (~500 tokens, fast loading)\n\n' +
-          `${t.setup.projectInitBenefit || 'This helps the AI understand your codebase from the first message.'}`,
-          t.setup.projectInit || 'Project Initialization'
-        );
+        if (!options.silent) {
+          await prompts.note(
+            `${t.setup.projectInitDesc || 'Project initialization analyzes your codebase and creates:'}\n` +
+            '• CUSTOM.md - AI instructions tailored to your project\n' +
+            '• ax.index.json - Full project analysis (AI reads when needed)\n' +
+            '• ax.summary.json - Prompt summary (~500 tokens, fast loading)\n\n' +
+            `${t.setup.projectInitBenefit || 'This helps the AI understand your codebase from the first message.'}`,
+            t.setup.projectInit || 'Project Initialization'
+          );
+        }
 
         try {
-          const initProject = await prompts.confirm({
-            message: t.setup.initProjectNow || 'Initialize current project now?',
-            initialValue: true,
-          });
+          let initProject = false;
+          if (options.silent) {
+            // Silent mode: skip project initialization
+            prompts.log.info(t.setup.skippingProjectInit || 'Skipping project initialization (silent mode).');
+            prompts.log.info(`${t.setup.initLater || 'Initialize later with'}: ${cliName} init`);
+          } else {
+            const initChoice = await prompts.confirm({
+              message: t.setup.initProjectNow || 'Initialize current project now?',
+              initialValue: true,
+            });
+            initProject = !prompts.isCancel(initChoice) && initChoice;
+          }
 
-          if (!prompts.isCancel(initProject) && initProject) {
+          if (initProject) {
             const initSpinner = prompts.spinner();
             initSpinner.start(t.setup.analyzingProject || 'Analyzing project and generating context...');
 
@@ -757,8 +808,6 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
               prompts.log.warn(`${extractErrorMessage(initError)}`);
               prompts.log.info(`${t.setup.initLater || 'You can initialize later with'}: ${cliName} init`);
             }
-          } else if (!prompts.isCancel(initProject)) {
-            prompts.log.info(`${t.setup.initLater || 'You can initialize later with'}: ${cliName} init`);
           }
         } catch {
           prompts.log.info(t.setup.skippingProjectInit || 'Skipping project initialization (non-interactive mode).');

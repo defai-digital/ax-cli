@@ -13,6 +13,8 @@ import { exitCancelled, exitWithError, ExitCode } from '../utils/exit-handler.js
 // import { getLogger } from '../utils/logger.js';
 import type { UserSettings, SupportedLanguageType } from '../schemas/settings-schemas.js';
 import { getActiveConfigPaths, getActiveProvider, GLM_PROVIDER, GROK_PROVIDER } from '../provider/config.js';
+import { getCommandTranslations } from '../i18n/loader.js';
+import { resetCachedLanguage } from '../ui/hooks/use-translations.js';
 import {
   detectZAIServices,
   getRecommendedServers,
@@ -204,19 +206,31 @@ export function createSetupCommand(): Command {
     .description('Initialize AX CLI configuration with AI provider selection')
     .option('--force', 'Delete existing configuration and start fresh')
     .option('--no-validate', 'Skip validation of API endpoint and credentials')
+    .option('-s, --silent', 'Non-interactive mode with default settings (uses selected language)')
     .action(async (options: {
       force?: boolean;
       validate?: boolean;
+      silent?: boolean;
     }) => {
       try {
         // Show intro
         const provider = getActiveProvider();
-        prompts.intro(chalk.cyan(`${provider.branding.cliName} Setup`));
+        const settingsManager = getSettingsManager();
+
+        // Load initial language from config or use English
+        let initialLang: SupportedLanguageType = 'en';
+        try {
+          initialLang = settingsManager.getLanguage();
+        } catch {
+          // Ignore - use English if settings can't be read
+        }
+        let t = getCommandTranslations(initialLang);
+
+        prompts.intro(chalk.cyan(`${provider.branding.cliName} ${t.setup.title}`));
 
         // Use provider-specific config path (~/.ax-glm/config.json or ~/.ax-grok/config.json)
         const configPath = getActiveConfigPaths().USER_CONFIG;
         const configDir = dirname(configPath);
-        const settingsManager = getSettingsManager();
 
         // Ensure config directory exists
         if (!existsSync(configDir)) {
@@ -234,12 +248,12 @@ export function createSetupCommand(): Command {
               existingProviderKey = getProviderFromBaseURL(existingConfig.baseURL);
             }
 
-            if (existingProviderKey && !options.force) {
+            if (existingProviderKey && !options.force && !options.silent) {
               const existingProvider = PROVIDERS[existingProviderKey];
               await prompts.note(
-                `Provider: ${existingProvider?.displayName || 'Unknown'}\n` +
-                `Location: ${configPath}`,
-                'Existing Configuration Found'
+                `${t.setup.provider}: ${existingProvider?.displayName || 'Unknown'}\n` +
+                `${t.setup.configPath}: ${configPath}`,
+                t.setup.configExistsTitle || 'Existing Configuration Found'
               );
             }
           } catch (error) {
@@ -250,7 +264,7 @@ export function createSetupCommand(): Command {
         // ═══════════════════════════════════════════════════════════════════
         // STEP 1: Language Selection
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 1/6 — Choose Language'));
+        prompts.log.step(chalk.bold(`${t.setup.step} 1/6 — ${t.setup.chooseLanguage}`));
 
         const languageChoices: { value: SupportedLanguageType; label: string; hint: string }[] = [
           { value: 'en', label: 'English', hint: 'Default' },
@@ -272,45 +286,74 @@ export function createSetupCommand(): Command {
           ? existingLang as SupportedLanguageType
           : (existingLang?.current ?? 'en');
 
-        const selectedLanguage = await prompts.select({
-          message: 'Select display language:',
-          options: languageChoices,
-          initialValue: currentLang,
-        });
-        exitIfCancelled(selectedLanguage);
+        let selectedLanguage: SupportedLanguageType;
+        if (options.silent) {
+          // Silent mode: use existing language or default
+          selectedLanguage = currentLang;
+          prompts.log.info(`${t.setup.language}: ${languageChoices.find(l => l.value === selectedLanguage)?.label || selectedLanguage}`);
+        } else {
+          const langChoice = await prompts.select({
+            message: t.setup.selectLanguage,
+            options: languageChoices,
+            initialValue: currentLang,
+          });
+          exitIfCancelled(langChoice);
+          selectedLanguage = langChoice as SupportedLanguageType;
+        }
+
+        // Reload translations for selected language
+        t = getCommandTranslations(selectedLanguage);
+
+        // Show language confirmation
+        if (selectedLanguage !== initialLang) {
+          const langLabel = languageChoices.find(l => l.value === selectedLanguage)?.label ?? selectedLanguage;
+          prompts.log.info(`${t.setup.languageChanged} ${langLabel}`);
+        }
 
         // ═══════════════════════════════════════════════════════════════════
         // STEP 2: Provider Selection
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 2/6 — Choose Provider'));
+        prompts.log.step(chalk.bold(`${t.setup.step} 2/6 — ${t.setup.provider}`));
 
-        const providerChoices = Object.entries(PROVIDERS).map(([key, provider]) => ({
+        const providerChoices = Object.entries(PROVIDERS).map(([key, prov]) => ({
           value: key,
-          label: provider.displayName,
-          hint: provider.description,
+          label: prov.displayName,
+          hint: prov.description,
         }));
 
         const defaultProviderKey = getDefaultProviderKey(existingProviderKey, provider.defaultBaseURL);
-        const providerKey = await prompts.select({
-          message: 'Select your AI provider:',
-          options: providerChoices,
-          initialValue: defaultProviderKey,
-        });
-        exitIfCancelled(providerKey);
+        let providerKey: string;
+        if (options.silent) {
+          // Silent mode: use existing provider or default
+          providerKey = existingProviderKey || defaultProviderKey;
+          prompts.log.info(`${t.setup.provider}: ${PROVIDERS[providerKey]?.displayName || providerKey}`);
+        } else {
+          const provChoice = await prompts.select({
+            message: t.setup.selectServerType || 'Select your AI provider:',
+            options: providerChoices,
+            initialValue: defaultProviderKey,
+          });
+          exitIfCancelled(provChoice);
+          providerKey = provChoice as string;
+        }
 
         const selectedProvider = PROVIDERS[providerKey];
 
         // ═══════════════════════════════════════════════════════════════════
         // STEP 3: API Key
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 3/6 — API Key'));
+        prompts.log.step(chalk.bold(`${t.setup.step} 3/6 — ${t.setup.apiKeyStep}`));
 
         let apiKey = '';
         if (selectedProvider.requiresApiKey) {
           const isSameProvider = existingProviderKey === providerKey;
           const hasExistingKey = existingConfig?.apiKey && typeof existingConfig.apiKey === 'string' && existingConfig.apiKey.trim().length > 0;
 
-          if (isSameProvider && hasExistingKey && existingConfig?.apiKey) {
+          if (options.silent && hasExistingKey && existingConfig?.apiKey) {
+            // Silent mode: reuse existing API key
+            apiKey = existingConfig.apiKey;
+            prompts.log.success(t.setup.useExistingKey || 'Using existing API key');
+          } else if (isSameProvider && hasExistingKey && existingConfig?.apiKey) {
             const key = existingConfig.apiKey;
             const maskedKey = key.length > 12
               ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}`
@@ -318,40 +361,45 @@ export function createSetupCommand(): Command {
 
             await prompts.note(
               `Key: ${maskedKey}`,
-              `Existing API Key for ${selectedProvider.displayName}`
+              `${t.setup.existingApiKey} ${selectedProvider.displayName}`
             );
 
             const reuseKey = await prompts.confirm({
-              message: 'Use existing API key?',
+              message: t.setup.useExistingKey || 'Use existing API key?',
               initialValue: true,
             });
             exitIfCancelled(reuseKey);
 
             if (reuseKey) {
               apiKey = existingConfig.apiKey;
-              prompts.log.success('Using existing API key');
+              prompts.log.success(t.setup.useExistingKey || 'Using existing API key');
             } else {
-              prompts.log.info(`Get your API key from: ${selectedProvider.website}`);
+              prompts.log.info(`${t.setup.apiKeyHint}: ${selectedProvider.website}`);
               const newKey = await prompts.password({
-                message: `Enter new ${selectedProvider.displayName} API key:`,
-                validate: (value) => value?.trim().length > 0 ? undefined : 'API key is required',
+                message: t.setup.enterApiKey || `Enter new ${selectedProvider.displayName} API key:`,
+                validate: (value) => value?.trim().length > 0 ? undefined : t.setup.apiKeyRequired || 'API key is required',
               });
               exitIfCancelled(newKey);
               apiKey = newKey.trim();
             }
-          } else {
+          } else if (!options.silent) {
             if (hasExistingKey && !isSameProvider && existingProviderKey) {
               const previousProvider = PROVIDERS[existingProviderKey];
               prompts.log.warn(`Switching from ${previousProvider?.displayName || 'previous provider'} to ${selectedProvider.displayName}`);
             }
 
-            prompts.log.info(`Get your API key from: ${selectedProvider.website}`);
+            prompts.log.info(`${t.setup.apiKeyHint}: ${selectedProvider.website}`);
             const newKey = await prompts.password({
-              message: `Enter your ${selectedProvider.displayName} API key:`,
-              validate: (value) => value?.trim().length > 0 ? undefined : 'API key is required',
+              message: t.setup.enterApiKey || `Enter your ${selectedProvider.displayName} API key:`,
+              validate: (value) => value?.trim().length > 0 ? undefined : t.setup.apiKeyRequired || 'API key is required',
             });
             exitIfCancelled(newKey);
             apiKey = newKey.trim();
+          } else {
+            // Silent mode without existing key - error
+            prompts.log.error(t.setup.apiKeyRequired || 'API key is required');
+            prompts.log.info(`${t.setup.apiKeyHint}: ${selectedProvider.website}`);
+            exitWithError('API key required in silent mode', ExitCode.CONFIG_ERROR, { command: 'setup' });
           }
         } else {
           prompts.log.success(`${selectedProvider.displayName} doesn't require an API key`);
@@ -360,7 +408,7 @@ export function createSetupCommand(): Command {
         // ═══════════════════════════════════════════════════════════════════
         // STEP 4: Model Selection (Primary LLM)
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold('Step 4/6 — Choose Primary Model (for coding)'));
+        prompts.log.step(chalk.bold(`${t.setup.step} 4/6 — ${t.setup.modelSelection}`));
 
         // Get models that DON'T support vision (primary coding models)
         const activeProvider = getActiveProvider();
@@ -378,28 +426,35 @@ export function createSetupCommand(): Command {
           ].filter(Boolean))
         ) as string[];
 
-        const modelChoices = baseModelOptions.map(model => ({
-          value: model,
-          label: model === selectedProvider.defaultModel ? `${model} (default)` : model,
-        }));
-        modelChoices.push({ value: '__custom__', label: 'Other (enter manually)' });
+        let chosenModel: string;
+        if (options.silent) {
+          // Silent mode: use existing model or default
+          chosenModel = existingModel || selectedProvider.defaultModel;
+          prompts.log.info(`${t.setup.model}: ${chosenModel}`);
+        } else {
+          const modelChoices = baseModelOptions.map(model => ({
+            value: model,
+            label: model === selectedProvider.defaultModel ? `${model} (${t.setup.recommended})` : model,
+          }));
+          modelChoices.push({ value: '__custom__', label: 'Other (enter manually)' });
 
-        const modelSelection = await prompts.select({
-          message: 'Select default model for coding tasks:',
-          options: modelChoices,
-          initialValue: existingModel || selectedProvider.defaultModel,
-        });
-        exitIfCancelled(modelSelection);
-
-        let chosenModel = modelSelection;
-        if (modelSelection === '__custom__') {
-          const manualModel = await prompts.text({
-            message: 'Enter model ID:',
-            initialValue: selectedProvider.defaultModel,
-            validate: (value) => value?.trim().length > 0 ? undefined : 'Model is required',
+          const modelSelection = await prompts.select({
+            message: t.setup.selectModel || 'Select default model for coding tasks:',
+            options: modelChoices,
+            initialValue: existingModel || selectedProvider.defaultModel,
           });
-          exitIfCancelled(manualModel);
-          chosenModel = manualModel.trim();
+          exitIfCancelled(modelSelection);
+
+          chosenModel = modelSelection;
+          if (modelSelection === '__custom__') {
+            const manualModel = await prompts.text({
+              message: 'Enter model ID:',
+              initialValue: selectedProvider.defaultModel,
+              validate: (value) => value?.trim().length > 0 ? undefined : 'Model is required',
+            });
+            exitIfCancelled(manualModel);
+            chosenModel = manualModel.trim();
+          }
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -408,58 +463,69 @@ export function createSetupCommand(): Command {
         let chosenVisionModel: string | undefined;
 
         if (activeProvider.features.supportsVision && activeProvider.defaultVisionModel) {
-          prompts.log.step(chalk.bold('Step 5/6 — Choose Vision Model (for image analysis)'));
+          prompts.log.step(chalk.bold(`${t.setup.step} 5/6 — ${t.setup.vision}`));
 
-          // Get models that DO support vision
-          const visionModels = Object.entries(activeProvider.models)
-            .filter(([_, config]) => config.supportsVision)
-            .map(([id]) => id);
-
-          const existingVisionModel = existingConfig?.visionModel;
-
-          const visionModelChoices = visionModels.map(model => ({
-            value: model,
-            label: model === activeProvider.defaultVisionModel ? `${model} (default)` : model,
-          }));
-          visionModelChoices.push({ value: '__none__', label: 'None (disable vision)' });
-          visionModelChoices.push({ value: '__custom__', label: 'Other (enter manually)' });
-
-          const visionModelSelection = await prompts.select({
-            message: 'Select model for image/vision tasks:',
-            options: visionModelChoices,
-            initialValue: existingVisionModel || activeProvider.defaultVisionModel,
-          });
-          exitIfCancelled(visionModelSelection);
-
-          if (visionModelSelection === '__none__') {
-            chosenVisionModel = undefined;
-            prompts.log.info('Vision model disabled');
-          } else if (visionModelSelection === '__custom__') {
-            const manualVisionModel = await prompts.text({
-              message: 'Enter vision model ID:',
-              initialValue: activeProvider.defaultVisionModel,
-              validate: (value) => value?.trim().length > 0 ? undefined : 'Model is required',
-            });
-            exitIfCancelled(manualVisionModel);
-            chosenVisionModel = manualVisionModel.trim();
+          if (options.silent) {
+            // Silent mode: use existing or default vision model
+            chosenVisionModel = existingConfig?.visionModel || activeProvider.defaultVisionModel;
+            prompts.log.info(`${t.setup.vision}: ${chosenVisionModel}`);
           } else {
-            chosenVisionModel = visionModelSelection;
+            // Get models that DO support vision
+            const visionModels = Object.entries(activeProvider.models)
+              .filter(([_, config]) => config.supportsVision)
+              .map(([id]) => id);
+
+            const existingVisionModel = existingConfig?.visionModel;
+
+            const visionModelChoices = visionModels.map(model => ({
+              value: model,
+              label: model === activeProvider.defaultVisionModel ? `${model} (${t.setup.recommended})` : model,
+            }));
+            visionModelChoices.push({ value: '__none__', label: 'None (disable vision)' });
+            visionModelChoices.push({ value: '__custom__', label: 'Other (enter manually)' });
+
+            const visionModelSelection = await prompts.select({
+              message: t.setup.selectModel || 'Select model for image/vision tasks:',
+              options: visionModelChoices,
+              initialValue: existingVisionModel || activeProvider.defaultVisionModel,
+            });
+            exitIfCancelled(visionModelSelection);
+
+            if (visionModelSelection === '__none__') {
+              chosenVisionModel = undefined;
+              prompts.log.info('Vision model disabled');
+            } else if (visionModelSelection === '__custom__') {
+              const manualVisionModel = await prompts.text({
+                message: 'Enter vision model ID:',
+                initialValue: activeProvider.defaultVisionModel,
+                validate: (value) => value?.trim().length > 0 ? undefined : 'Model is required',
+              });
+              exitIfCancelled(manualVisionModel);
+              chosenVisionModel = manualVisionModel.trim();
+            } else {
+              chosenVisionModel = visionModelSelection;
+            }
           }
         }
 
         // ═══════════════════════════════════════════════════════════════════
         // STEP 6: Quick Setup Option
         // ═══════════════════════════════════════════════════════════════════
-        prompts.log.step(chalk.bold(`Step 6/6 — Quick Setup`));
+        prompts.log.step(chalk.bold(`${t.setup.step} 6/6 — ${t.setup.reviewSave}`));
 
         const maxTokens = HIGH_TOKEN_PROVIDERS.has(selectedProvider.name) ? 32768 : 8192;
 
-        // Ask if user wants to use defaults for remaining settings
-        const useDefaults = await prompts.confirm({
-          message: 'Use default settings for everything else? (Recommended for quick setup)',
-          initialValue: true,
-        });
-        exitIfCancelled(useDefaults);
+        // In silent mode, always use defaults
+        let useDefaults = options.silent || false;
+        if (!options.silent) {
+          // Ask if user wants to use defaults for remaining settings
+          const defaultsChoice = await prompts.confirm({
+            message: 'Use default settings for everything else? (Recommended for quick setup)',
+            initialValue: true,
+          });
+          exitIfCancelled(defaultsChoice);
+          useDefaults = defaultsChoice;
+        }
 
         // Track whether we should validate and configure extras
         let shouldValidate = options.validate !== false;
@@ -624,7 +690,9 @@ export function createSetupCommand(): Command {
         // Persist using settings manager to ensure encryption + permissions
         try {
           settingsManager.saveUserSettings(mergedConfig);
-          prompts.log.success('Configuration saved successfully!');
+          // CRITICAL: Invalidate the translation cache so UI uses the new language
+          resetCachedLanguage();
+          prompts.log.success(t.setup.configSaved || 'Configuration saved successfully!');
         } catch (saveError) {
           const terminalManager = getTerminalStateManager();
           terminalManager.forceCleanup();
@@ -835,39 +903,36 @@ export function createSetupCommand(): Command {
         // ═══════════════════════════════════════════════════════════════════
         // Completion Summary
         // ═══════════════════════════════════════════════════════════════════
-        const visionModelInfo = chosenVisionModel ? `\nVision:      ${chosenVisionModel}` : '';
+        const visionModelInfo = chosenVisionModel ? `\n${t.setup.vision}:      ${chosenVisionModel}` : '';
         const finalLangLabel = languageChoices.find(l => l.value === selectedLanguage)?.label || selectedLanguage;
         await prompts.note(
-          `Location:    ${configPath}\n` +
-          `Language:    ${finalLangLabel}\n` +
-          `Provider:    ${selectedProvider.displayName}\n` +
-          `Base URL:    ${selectedProvider.baseURL}\n` +
-          `Model:       ${chosenModel}${visionModelInfo}\n` +
-          `Max Tokens:  ${mergedConfig.maxTokens || maxTokens}\n` +
+          `${t.setup.configPath}:    ${configPath}\n` +
+          `${t.setup.language}:    ${finalLangLabel}\n` +
+          `${t.setup.provider}:    ${selectedProvider.displayName}\n` +
+          `${t.setup.baseUrl}:    ${selectedProvider.baseURL}\n` +
+          `${t.setup.model}:       ${chosenModel}${visionModelInfo}\n` +
+          `${t.setup.maxTokens}:  ${mergedConfig.maxTokens || maxTokens}\n` +
           `Temperature: ${mergedConfig.temperature ?? 0.7}`,
-          'Configuration Details'
+          t.setup.configDetails || 'Configuration Details'
         );
 
         const cliName = provider.branding.cliName;
         await prompts.note(
-          '1. Start interactive mode:\n' +
+          `1. ${t.setup.startInteractive}:\n` +
           `   $ ${cliName}\n\n` +
-          `2. Initialize your project (inside ${cliName}):\n` +
-          '   > /init\n\n' +
-          '3. Or run a quick test:\n' +
+          `2. ${t.setup.runQuickTest}:\n` +
           `   $ ${cliName} -p "Hello, introduce yourself"`,
-          'Next Steps'
+          t.setup.nextSteps || 'Next Steps'
         );
 
         await prompts.note(
-          `• Edit config manually:  ${configPath}\n` +
-          '• See example configs:   Check "_examples" in config file\n' +
-          `• View help:             ${cliName} --help\n` +
-          '• Documentation:         https://github.com/defai-digital/ax-cli',
-          'Tips'
+          `• ${t.setup.editConfig}:  ${configPath}\n` +
+          `• ${t.setup.viewHelp}:             ${cliName} --help\n` +
+          `• ${t.setup.changeLang}:       /lang`,
+          t.setup.tips || 'Tips'
         );
 
-        prompts.outro(chalk.green('Setup complete! Happy coding!'));
+        prompts.outro(chalk.green(`${t.setup.setupComplete} ${t.setup.getStarted}`));
 
       } catch (error: unknown) {
         const terminalManager = getTerminalStateManager();
