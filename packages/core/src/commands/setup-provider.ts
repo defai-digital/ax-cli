@@ -66,7 +66,7 @@ async function updateAutomatosX(): Promise<boolean> {
 }
 
 /**
- * Install AutomatosX globally
+ * Install AutomatosX globally and run silent setup
  */
 async function installAutomatosX(): Promise<boolean> {
   try {
@@ -74,6 +74,15 @@ async function installAutomatosX(): Promise<boolean> {
       stdio: 'inherit',
       timeout: 180000 // 3 minutes timeout
     });
+    // Run silent setup after installation
+    try {
+      execSync('ax setup --silent', {
+        stdio: 'inherit',
+        timeout: 60000 // 1 minute timeout
+      });
+    } catch {
+      // Silent setup failed, but installation succeeded
+    }
     return true;
   } catch {
     return false;
@@ -642,10 +651,10 @@ export function createProviderSetupCommand(provider: ProviderDefinition): Comman
             const updated = await updateAutomatosX();
             if (updated) {
               axStatus = getAutomatosXStatus(); // Refresh version after update
-              axSpinner.stop(`AutomatosX updated${axStatus.version ? ` to v${axStatus.version}` : ''}`);
+              axSpinner.stop(t.setup.automatosxUpdated || `AutomatosX updated${axStatus.version ? ` to v${axStatus.version}` : ''}`);
             } else {
-              axSpinner.stop(t.setup.automatosxNotFound || 'Could not update AutomatosX');
-              prompts.log.info('Run manually: ax update -y');
+              axSpinner.stop(t.setup.automatosxUpdateFailed || 'Could not update AutomatosX');
+              prompts.log.info(t.setup.runManually || 'Run manually: ax update -y');
             }
           }
         } else if (!options.silent) {

@@ -704,6 +704,9 @@ export interface CommandTranslations {
     checkAutomatosx: string;
     automatosxFound: string;
     automatosxNotFound: string;
+    automatosxUpdated: string;
+    automatosxUpdateFailed: string;
+    runManually: string;
     installAutomatosx: string;
     installAutomatosxPrompt: string;
     installingAutomatosx: string;
