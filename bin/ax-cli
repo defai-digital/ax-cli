@@ -2,5 +2,5 @@
 // Suppress dotenv v17+ injection messages
 process.env.DOTENV_CONFIG_QUIET = 'true';
 
-// Import and run the main CLI
-import('../dist/index.js');
+// Import and run the main CLI from packages/ax-cli
+import('../packages/ax-cli/dist/index.js');
