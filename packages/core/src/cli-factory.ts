@@ -19,7 +19,7 @@ import { createMCPMigrateCommand } from "./commands/mcp-migrate.js";
 import { createFrontendCommand } from "./commands/frontend.js";
 import { createInitCommand } from "./commands/init.js";
 import { createUpdateCommand, checkForUpdatesOnStartup, promptAndInstallUpdate } from "./commands/update.js";
-import { createProviderSetupCommand } from "./commands/setup-provider.js";
+import { createProviderSetupCommand, runProviderSetup } from "./commands/setup-provider.js";
 import { createUsageCommand } from "./commands/usage.js";
 import { createTemplatesCommand } from "./commands/templates.js";
 import { createMemoryCommand } from "./commands/memory.js";
@@ -219,12 +219,19 @@ export function createCLI(options: CLIFactoryOptions): Command {
       const parsedMaxToolRounds = cliOptions.maxToolRounds ? parseInt(cliOptions.maxToolRounds.toString(), 10) : AGENT_CONFIG.MAX_TOOL_ROUNDS;
       const maxToolRounds = Number.isFinite(parsedMaxToolRounds) && parsedMaxToolRounds > 0 ? parsedMaxToolRounds : AGENT_CONFIG.MAX_TOOL_ROUNDS;
 
-      // Check if we need setup
+      // Check if we need setup - run setup wizard automatically if not configured
       const isInteractiveMode = !cliOptions.prompt && !cliOptions.apiKey;
       if (isInteractiveMode && !apiKey) {
-        console.log(`\n⚠️  ${cliName} is not configured yet.\n`);
-        console.log(`Please run: ${cliName} setup\n`);
-        process.exit(1);
+        console.log(`\n⚠️  ${cliName} is not configured yet. Starting setup wizard...\n`);
+        await runProviderSetup(provider);
+
+        // Reload settings after setup
+        const updatedApiKey = manager.getApiKey() || getApiKeyFromEnv(provider);
+        if (!updatedApiKey) {
+          console.error(`❌ Setup did not complete. Please run: ${cliName} setup`);
+          process.exit(1);
+        }
+        apiKey = updatedApiKey;
       }
 
       if (!apiKey) {
