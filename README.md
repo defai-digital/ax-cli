@@ -392,6 +392,7 @@ AX CLI uses a modular architecture with provider-specific CLIs built on a shared
 
 | Version | Highlights |
 |---------|------------|
+| **v5.1.10** | Auto-launch setup wizard when CLI not configured; Complete i18n translations for AutomatosX setup (11 languages); Add --silent option for non-interactive setup; Fix: root bin/ax-cli path for monorepo |
 | **v5.1.9** | Add: grok-code-fast-1 as default model for ax-grok (70.8% SWE-bench, 256K context); Fix: checkpoint error handling, type assertion validation, race condition in abort handlers; Fix: ESLint JSX parsing and TypeScript errors |
 | **v5.1.8** | Add: Localized README files for 10 languages (zh-CN, zh-TW, ja, ko, de, es, pt, fr, vi, th); Add: Translation contribution guide |
 | **v5.1.7** | Update: GLM-4.7 model references in package descriptions; Add: .qwen folder protection in .npmignore |
