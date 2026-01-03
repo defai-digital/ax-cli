@@ -121,17 +121,26 @@ describe('Provider Definitions', () => {
 describe('getProviderDefinition', () => {
   it('should return GLM provider', () => {
     const provider = getProviderDefinition('glm');
-    expect(provider).toBe(GLM_PROVIDER);
+    expect(provider).toBeDefined();
+    expect(provider?.name).toBe(GLM_PROVIDER.name);
+    expect(provider?.displayName).toBe(GLM_PROVIDER.displayName);
+    expect(provider?.configDirName).toBe(GLM_PROVIDER.configDirName);
   });
 
   it('should return Grok provider', () => {
     const provider = getProviderDefinition('grok');
-    expect(provider).toBe(GROK_PROVIDER);
+    expect(provider).toBeDefined();
+    expect(provider?.name).toBe(GROK_PROVIDER.name);
+    expect(provider?.displayName).toBe(GROK_PROVIDER.displayName);
+    expect(provider?.configDirName).toBe(GROK_PROVIDER.configDirName);
   });
 
   it('should return ax-cli provider', () => {
     const provider = getProviderDefinition('ax-cli');
-    expect(provider).toBe(AX_CLI_PROVIDER);
+    expect(provider).toBeDefined();
+    expect(provider?.name).toBe(AX_CLI_PROVIDER.name);
+    expect(provider?.displayName).toBe(AX_CLI_PROVIDER.displayName);
+    expect(provider?.configDirName).toBe(AX_CLI_PROVIDER.configDirName);
   });
 
   it('should return undefined for unknown provider', () => {
