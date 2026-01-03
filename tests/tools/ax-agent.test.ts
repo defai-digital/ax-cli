@@ -12,13 +12,15 @@ import {
   executeAxAgentsParallel,
   listAgents,
   AGENT_REGISTRY,
+  clearAxCommandCache,
   type AxAgentOptions,
   type AxAgentsParallelOptions,
 } from '../../packages/core/src/tools/ax-agent.js';
 
-// Mock child_process spawn
+// Mock child_process spawn and spawnSync
 vi.mock('child_process', () => ({
   spawn: vi.fn(),
+  spawnSync: vi.fn(() => ({ status: 0 })), // Mock ax --version check
 }));
 
 const mockSpawn = vi.mocked(spawn);
@@ -39,6 +41,7 @@ describe('AX Agent Tool', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    clearAxCommandCache(); // Reset cached ax command path between tests
   });
 
   afterEach(() => {
@@ -239,7 +242,7 @@ describe('AX Agent Tool', () => {
       const result = await promise;
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('AutomatosX is not installed');
+      expect(result.error).toContain('AutomatosX command not found');
       expect(result.error).toContain('npm install -g');
     });
 
@@ -316,7 +319,7 @@ describe('AX Agent Tool', () => {
       const result = await promise;
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('AutomatosX is not installed');
+      expect(result.error).toContain('AutomatosX command not found');
     });
   });
 

@@ -44,15 +44,17 @@ export function createStatusCommand(): Command {
     .description('Show the latest status report')
     .option('-n, --count <number>', 'Number of reports to show', '1')
     .option('-j, --json', 'Output in JSON format')
+    .option('-r, --refresh [seconds]', 'Auto-refresh every N seconds (default: 5)')
     .action(async (options) => {
-      try {
+      // Helper function to display status once
+      const displayStatus = async (): Promise<boolean> => {
         const outputDir = CONFIG_PATHS.AUTOMATOSX_TMP;
 
         // Find all status reports
         const files = await readReportDirectory(outputDir);
         if (files === null) {
           printMissingReportDir(outputDir);
-          return;
+          return false;
         }
 
         const statusFiles = files
@@ -62,7 +64,7 @@ export function createStatusCommand(): Command {
 
         if (statusFiles.length === 0) {
           printMissingReportDir(outputDir);
-          return;
+          return false;
         }
 
         // BUG FIX: Validate parseInt result to prevent NaN causing empty slice
@@ -79,7 +81,7 @@ export function createStatusCommand(): Command {
             }))
           );
           console.log(JSON.stringify(reports, null, 2));
-          return;
+          return true;
         }
 
         // Display in human-readable format
@@ -102,6 +104,47 @@ export function createStatusCommand(): Command {
           console.log(chalk.gray(`💡 ${statusFiles.length - count} more report(s) available.`));
           console.log(chalk.gray(`   Use: ax status show -n ${statusFiles.length} to see all`));
           console.log();
+        }
+
+        return true;
+      };
+
+      try {
+        // Handle refresh mode
+        if (options.refresh !== undefined) {
+          const refreshSeconds = typeof options.refresh === 'string'
+            ? parseInt(options.refresh, 10) || 5
+            : 5;
+
+          console.log(chalk.cyan(`🔄 Auto-refreshing every ${refreshSeconds} second(s). Press Ctrl+C to stop.`));
+          console.log();
+
+          // Initial display
+          await displayStatus();
+
+          // Set up refresh interval
+          const intervalId = setInterval(async () => {
+            // Clear screen for fresh display
+            console.clear();
+            console.log(chalk.cyan(`🔄 Auto-refreshing every ${refreshSeconds} second(s). Press Ctrl+C to stop.`));
+            console.log(chalk.gray(`   Last refreshed: ${new Date().toLocaleTimeString()}`));
+            console.log();
+            await displayStatus();
+          }, refreshSeconds * 1000);
+
+          // Handle graceful shutdown
+          process.on('SIGINT', () => {
+            clearInterval(intervalId);
+            console.log();
+            console.log(chalk.gray('Refresh stopped.'));
+            process.exit(0);
+          });
+
+          // Keep the process running
+          await new Promise(() => {});
+        } else {
+          // Single display
+          await displayStatus();
         }
 
       } catch (error: unknown) {

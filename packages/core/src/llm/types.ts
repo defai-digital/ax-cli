@@ -46,6 +46,14 @@ export interface ThinkingConfig {
    * - "high": Deep reasoning for complex tasks (default when enabled)
    */
   reasoningEffort?: "low" | "high";
+
+  /**
+   * Clear thinking output from responses (GLM-4.7)
+   * - true: Remove thinking content from final response
+   * - false: Preserve thinking content in response
+   * - undefined: Use model default behavior
+   */
+  clearThinking?: boolean;
 }
 
 /**

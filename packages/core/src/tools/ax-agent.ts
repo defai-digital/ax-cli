@@ -8,9 +8,83 @@
  * @packageDocumentation
  */
 
-import { spawn } from "child_process";
+import { spawn, spawnSync } from "child_process";
+import { existsSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
 import type { ToolResult } from "../types/index.js";
 import { extractErrorMessage } from "../utils/error-handler.js";
+
+// Cache the resolved ax command path
+let _axCommandPath: string | null = null;
+
+/**
+ * Find the ax command, checking common global installation paths
+ * Resolves issues where `ax` is installed but not in PATH
+ */
+function findAxCommand(): string {
+  // Return cached path if already found
+  if (_axCommandPath) return _axCommandPath;
+
+  // First try the command directly (in PATH)
+  const directCheck = spawnSync("ax", ["--version"], {
+    encoding: "utf-8",
+    timeout: 3000,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  if (directCheck.status === 0) {
+    _axCommandPath = "ax";
+    return _axCommandPath;
+  }
+
+  // Common global bin paths to check
+  const home = homedir();
+  const possiblePaths = [
+    // npm global (macOS/Linux)
+    join(home, ".npm-global", "bin", "ax"),
+    // npm global (default)
+    "/usr/local/bin/ax",
+    // pnpm global
+    join(home, ".local", "share", "pnpm", "ax"),
+    join(home, "Library", "pnpm", "ax"),
+    // yarn global
+    join(home, ".yarn", "bin", "ax"),
+    join(home, ".config", "yarn", "global", "node_modules", ".bin", "ax"),
+    // nvm paths
+    join(home, ".nvm", "versions", "node", "*", "bin", "ax"),
+    // Windows paths
+    join(process.env.APPDATA || "", "npm", "ax.cmd"),
+    join(process.env.LOCALAPPDATA || "", "pnpm", "ax.cmd"),
+  ];
+
+  for (const axPath of possiblePaths) {
+    // Skip glob patterns for now
+    if (axPath.includes("*")) continue;
+
+    if (existsSync(axPath)) {
+      // Verify it actually works
+      const check = spawnSync(axPath, ["--version"], {
+        encoding: "utf-8",
+        timeout: 3000,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      if (check.status === 0) {
+        _axCommandPath = axPath;
+        return _axCommandPath;
+      }
+    }
+  }
+
+  // Fall back to 'ax' (will fail with helpful error)
+  return "ax";
+}
+
+/**
+ * Clear the cached ax command path (useful for testing)
+ */
+export function clearAxCommandCache(): void {
+  _axCommandPath = null;
+}
 
 /**
  * Available AutomatosX agents with their specializations
@@ -106,8 +180,8 @@ export async function executeAxAgent(options: AxAgentOptions): Promise<ToolResul
  */
 async function runAxCommand(args: string[]): Promise<{ success: boolean; output?: string; error?: string }> {
   return new Promise((resolve) => {
-    // Run ax command without shell to avoid DEP0190 deprecation warning
-    const command = "ax";
+    // Find ax command, checking common installation paths
+    const command = findAxCommand();
 
     const child = spawn(command, args, {
       cwd: process.cwd(),
@@ -137,11 +211,13 @@ async function runAxCommand(args: string[]): Promise<{ success: boolean; output?
     });
 
     child.on("error", (error) => {
-      // If 'ax' fails, the command might not be installed
+      // If 'ax' fails, the command might not be installed or not in PATH
       if (error.message.includes("ENOENT") || error.message.includes("not found")) {
         resolveOnce({
           success: false,
-          error: "AutomatosX is not installed. Install with: npm install -g @defai.digital/automatosx",
+          error: "AutomatosX command not found. Please ensure it's installed and in your PATH.\n" +
+            "Install with: npm install -g @defai.digital/automatosx\n" +
+            "Then restart your terminal or run: source ~/.bashrc (or ~/.zshrc)",
         });
       } else {
         resolveOnce({
@@ -164,7 +240,9 @@ async function runAxCommand(args: string[]): Promise<{ success: boolean; output?
         if (errorOutput.includes("not found") || errorOutput.includes("command not found")) {
           resolveOnce({
             success: false,
-            error: "AutomatosX is not installed. Install with: npm install -g @defai.digital/automatosx",
+            error: "AutomatosX command not found. Please ensure it's installed and in your PATH.\n" +
+              "Install with: npm install -g @defai.digital/automatosx\n" +
+              "Then restart your terminal or run: source ~/.bashrc (or ~/.zshrc)",
           });
         } else {
           resolveOnce({

@@ -189,10 +189,12 @@ interface RawStreamChunk {
 /**
  * GLM API thinking parameter format
  * Different from ThinkingConfig - this is the actual API format
- * GLM 4.7 uses simple { type: "enabled" | "disabled" } format
+ * GLM 4.7 uses { type: "enabled" | "disabled", clear_thinking?: boolean }
  */
 interface GLMThinkingParam {
   type: "enabled" | "disabled";
+  /** Whether to clear thinking between turns (default: true for hybrid mode) */
+  clear_thinking?: boolean;
 }
 
 /** API request payload structure */
@@ -650,11 +652,17 @@ export class LLMClient {
           payload.reasoning_effort = thinking.reasoningEffort || 'high';
         }
       } else {
-        // GLM uses thinking parameter with simple format
-        // GLM-4.7 expects: { type: "enabled" } - no clear_thinking parameter
-        payload.thinking = {
+        // GLM uses thinking parameter
+        // GLM-4.7 supports: { type: "enabled", clear_thinking: false } for preserved thinking
+        // Default clear_thinking to false for coding scenarios (better cache efficiency)
+        const thinkingParam: GLMThinkingParam = {
           type: thinking.type,
         };
+        // Only add clear_thinking if explicitly set (default behavior varies by model)
+        if (thinking.clearThinking !== undefined) {
+          thinkingParam.clear_thinking = thinking.clearThinking;
+        }
+        payload.thinking = thinkingParam;
       }
     }
 
@@ -786,6 +794,16 @@ export class LLMClient {
         serverToolConfig,
         skipThinking
       );
+
+      // Debug logging for API troubleshooting (set AX_DEBUG_API=1 to enable)
+      if (process.env.AX_DEBUG_API || process.env.DEBUG) {
+        const { messages: _, tools: __, ...payloadWithoutLargeFields } = requestPayload;
+        console.debug('[API Request]', JSON.stringify({
+          ...payloadWithoutLargeFields,
+          messageCount: messages.length,
+          toolCount: tools?.length ?? 0,
+        }, null, 2));
+      }
 
       // Track response time for performance metrics
       const requestStartTime = Date.now();

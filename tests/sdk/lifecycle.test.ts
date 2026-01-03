@@ -60,6 +60,15 @@ vi.mock('../../packages/core/src/agent/llm-agent.js', () => {
   };
 });
 
+// Mock MCP initialization to avoid timeout issues
+vi.mock('../../packages/core/src/llm/tools.js', () => ({
+  initializeMCPServers: vi.fn().mockResolvedValue(undefined),
+  getMCPManager: vi.fn(() => ({
+    getServers: vi.fn(() => []),
+    dispose: vi.fn(),
+  })),
+}));
+
 describe('SDK Lifecycle Management', () => {
   beforeEach(() => {
     vi.clearAllMocks();

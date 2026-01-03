@@ -67,9 +67,44 @@ export interface CLIFactoryOptions {
 let activeAgent: LLMAgent | null = null;
 
 /**
+ * Get a short, user-friendly error message
+ * Avoids overwhelming users with stack traces unless in debug mode
+ */
+function getShortErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    // Check for common error types and provide helpful messages
+    const msg = error.message.toLowerCase();
+
+    if (msg.includes('api key') || msg.includes('apikey') || msg.includes('unauthorized') || msg.includes('401')) {
+      return 'API key error. Run "setup" command to configure your API key.';
+    }
+    if (msg.includes('network') || msg.includes('enotfound') || msg.includes('econnrefused')) {
+      return 'Network error. Please check your internet connection.';
+    }
+    if (msg.includes('rate limit') || msg.includes('429')) {
+      return 'Rate limit exceeded. Please wait a moment and try again.';
+    }
+    if (msg.includes('timeout')) {
+      return 'Request timed out. Please try again.';
+    }
+    if (msg.includes('permission') || msg.includes('eacces')) {
+      return 'Permission denied. Check file/folder permissions.';
+    }
+
+    // Return first line of error message (truncate if too long)
+    const firstLine = error.message.split('\n')[0];
+    return firstLine.length > 120 ? firstLine.substring(0, 117) + '...' : firstLine;
+  }
+
+  return String(error).substring(0, 120);
+}
+
+/**
  * Setup global handlers
  */
 function setupGlobalHandlers(): void {
+  const isDebug = process.env.DEBUG || process.env.AX_DEBUG;
+
   process.on("SIGTERM", () => {
     if (activeAgent) {
       activeAgent.dispose();
@@ -87,7 +122,14 @@ function setupGlobalHandlers(): void {
   });
 
   process.on("uncaughtException", (error) => {
-    console.error("Uncaught exception:", error);
+    // Show short message by default, full error in debug mode
+    if (isDebug) {
+      console.error("\n❌ Error:", error);
+    } else {
+      console.error("\n❌ Error:", getShortErrorMessage(error));
+      console.error("   (Set DEBUG=1 for full stack trace)");
+    }
+
     if (activeAgent) {
       try {
         activeAgent.dispose();
@@ -99,8 +141,15 @@ function setupGlobalHandlers(): void {
     process.exit(1);
   });
 
-  process.on("unhandledRejection", (reason, promise) => {
-    console.error("Unhandled rejection at:", promise, "reason:", reason);
+  process.on("unhandledRejection", (reason) => {
+    // Show short message by default, full error in debug mode
+    if (isDebug) {
+      console.error("\n❌ Error:", reason);
+    } else {
+      console.error("\n❌ Error:", getShortErrorMessage(reason));
+      console.error("   (Set DEBUG=1 for full stack trace)");
+    }
+
     if (activeAgent) {
       try {
         activeAgent.dispose();
@@ -229,6 +278,10 @@ export function createCLI(options: CLIFactoryOptions): Command {
         const updatedApiKey = manager.getApiKey() || getApiKeyFromEnv(provider);
         if (!updatedApiKey) {
           console.error(`❌ Setup did not complete. Please run: ${cliName} setup`);
+          console.error();
+          console.error(`💡 Or try these commands that work without API key:`);
+          console.error(`   ${cliName} doctor   - Diagnose configuration`);
+          console.error(`   ${cliName} models   - List available models`);
           process.exit(1);
         }
         apiKey = updatedApiKey;
@@ -237,7 +290,16 @@ export function createCLI(options: CLIFactoryOptions): Command {
       if (!apiKey) {
         // SECURITY: This logs the ENV VAR NAME (e.g., "ZAI_API_KEY"), not the actual key value
         // lgtm[js/clear-text-logging]
-        console.error(`❌ Error: API key required. Set ${provider.apiKeyEnvVar} environment variable or use --api-key flag`);
+        console.error(`❌ Error: API key required for interactive/headless mode.`);
+        console.error(`   Set ${provider.apiKeyEnvVar} environment variable or use --api-key flag`);
+        console.error();
+        console.error(`💡 These commands work without API key:`);
+        console.error(`   ${cliName} doctor   - Diagnose configuration`);
+        console.error(`   ${cliName} models   - List available models`);
+        console.error(`   ${cliName} setup    - Configure API key`);
+        console.error(`   ${cliName} status   - View task execution status`);
+        console.error(`   ${cliName} cache    - Manage file analysis caches`);
+        console.error(`   ${cliName} mcp list - List MCP server configurations`);
         process.exit(1);
       }
 
