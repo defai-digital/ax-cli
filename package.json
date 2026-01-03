@@ -154,5 +154,10 @@
     "packages/**/*.{ts,tsx}": [
       "eslint --fix"
     ]
+  },
+  "pnpm": {
+    "overrides": {
+      "qs": ">=6.14.1"
+    }
   }
 }
