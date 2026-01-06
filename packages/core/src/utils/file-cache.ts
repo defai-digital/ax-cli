@@ -549,19 +549,34 @@ export function getFileCache<T = unknown>(
 
 /**
  * Save all cache instances
+ * Uses Promise.allSettled to ensure all caches attempt to save even if some fail
  */
 export async function saveAllCaches(): Promise<void> {
-  await Promise.all(
+  const results = await Promise.allSettled(
     Array.from(cacheInstances.values()).map(cache => cache.save())
   );
+
+  // Log any failures but don't throw - cache saves are best-effort
+  const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+  if (failures.length > 0) {
+    console.warn(`Failed to save ${failures.length} cache(s):`, failures.map(f => f.reason));
+  }
 }
 
 /**
  * Clear all cache instances
+ * Uses Promise.allSettled to ensure all caches attempt to clear even if some fail
  */
 export async function clearAllCaches(): Promise<void> {
-  await Promise.all(
+  const results = await Promise.allSettled(
     Array.from(cacheInstances.values()).map(cache => cache.clear())
   );
+
+  // Log any failures but don't throw - cache clears are best-effort
+  const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+  if (failures.length > 0) {
+    console.warn(`Failed to clear ${failures.length} cache(s):`, failures.map(f => f.reason));
+  }
+
   cacheInstances.clear();
 }
