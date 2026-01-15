@@ -521,15 +521,16 @@ export function useEnhancedInput({
 
   // Handle paste completion
   // Note: No timeout or accumulation needed - Ink batches the entire paste for us
-  // BUG FIX: Create refs to track latest values without causing re-renders
+  // BUG FIX #20: Create refs to track latest values without causing re-renders
+  // These refs are initialized with state values and kept in sync SYNCHRONOUSLY
+  // by all handlers that update state. We intentionally do NOT use useEffect to
+  // sync refs with state because:
+  // 1. useEffect runs asynchronously after render, causing race conditions
+  // 2. When backspace is held down rapidly, the useEffect from a previous render
+  //    can overwrite refs with stale state, causing the "reappear" bug
+  // 3. All handlers already update refs synchronously alongside state updates
   const inputRef = useRef(input);
   const cursorPositionRef = useRef(cursorPosition);
-
-  // Keep refs in sync with state
-  useEffect(() => {
-    inputRef.current = input;
-    cursorPositionRef.current = cursorPosition;
-  }, [input, cursorPosition]);
 
   // BUG FIX: Keep pastedBlocksRef in sync with state
   useEffect(() => {

@@ -26,6 +26,7 @@
 
 ## Inhaltsverzeichnis
 
+- [GLM / Z.AI Benutzer](#glm--zai-benutzer)
 - [Schnellstart](#schnellstart)
 - [Warum AX CLI?](#warum-ax-cli)
 - [Unterstützte Modelle](#unterstützte-modelle)
@@ -42,37 +43,25 @@
 
 ---
 
+## GLM / Z.AI Benutzer
+
+> **Wichtig:** Z.AI hat sein offizielles CLI-Tool **OpenCode** veröffentlicht. Wir empfehlen GLM/Z.AI-Benutzern, OpenCode direkt zu verwenden anstatt ax-glm. Starten Sie mit OpenCode: https://opencode.ai. Das ax-glm Cloud-Paket wurde zugunsten der offiziellen Z.AI-Lösung als veraltet markiert und aus diesem Repository entfernt.
+>
+> **Hinweis:** Lokale GLM-Modelle (GLM-4.6, CodeGeeX4) werden weiterhin vollständig über `ax-cli` für Offline-Inferenz durch Ollama, LMStudio oder vLLM unterstützt. Siehe Abschnitt [Lokale/Offline-Modelle](#lokaleoffline-modelle-ax-cli) unten.
+
+---
+
 <p align="center">
-  <img src=".github/assets/glm.png" alt="AX-GLM" width="400"/>
   <img src=".github/assets/grok.png" alt="AX-Grok" width="400"/>
 </p>
 
 <p align="center">
-  <strong>Enterprise-Grade KI-Codierungsassistent, optimiert für GLM und Grok</strong>
+  <strong>Enterprise-Grade KI-Codierungsassistent, optimiert für Grok</strong>
 </p>
 
 ## Schnellstart
 
-Starten Sie in unter einer Minute. Wählen Sie Ihren KI-Anbieter und installieren Sie die dedizierte CLI:
-
-<table>
-<tr>
-<td width="50%">
-
-### GLM (Z.AI)
-
-```bash
-npm install -g @defai.digital/ax-glm
-ax-glm setup
-ax-glm
-```
-
-**Optimal für:** 200K Kontext, Denkmodus, chinesische Sprachunterstützung
-
-</td>
-<td width="50%">
-
-### Grok (xAI)
+Starten Sie in unter einer Minute:
 
 ```bash
 npm install -g @defai.digital/ax-grok
@@ -82,13 +71,9 @@ ax-grok
 
 **Optimal für:** Live-Websuche, Vision, erweitertes Reasoning
 
-</td>
-</tr>
-</table>
-
 Führen Sie `/init` in der CLI aus, um Ihren Projektkontext zu initialisieren.
 
-> **Welche CLI sollte ich installieren?** Installieren Sie `ax-glm`, wenn Sie einen Z.AI API-Schlüssel haben, oder `ax-grok`, wenn Sie einen xAI API-Schlüssel haben. Beide bieten denselben voll ausgestatteten Codierungsassistenten, optimiert für ihren jeweiligen Anbieter.
+> **GLM/Z.AI-Benutzer:** Bitte verwenden Sie das offizielle [OpenCode CLI](https://opencode.ai) von Z.AI anstelle von ax-glm.
 
 ---
 
@@ -96,7 +81,7 @@ Führen Sie `/init` in der CLI aus, um Ihren Projektkontext zu initialisieren.
 
 | Funktion | Beschreibung |
 |----------|--------------|
-| **Anbieter-Optimiert** | Erstklassige Unterstützung für GLM (Z.AI) und Grok (xAI) mit anbieterspezifischen Parametern |
+| **Anbieter-Optimiert** | Erstklassige Unterstützung für Grok (xAI) mit anbieterspezifischen Parametern |
 | **17 Eingebaute Tools** | Dateibearbeitung, Bash-Ausführung, Suche, Todos und mehr |
 | **Agentisches Verhalten** | ReAct-Reasoning-Schleifen, Selbstkorrektur bei Fehlern, TypeScript-Verifizierung |
 | **AutomatosX-Agenten** | 20+ spezialisierte KI-Agenten für Backend, Frontend, Sicherheit, DevOps und mehr |
@@ -109,26 +94,14 @@ Führen Sie `/init` in der CLI aus, um Ihren Projektkontext zu initialisieren.
 
 ---
 
-### Anbieter-Highlights (GLM + Grok)
+### Grok-Highlights
 
-- **GLM (ax-glm)**: 200K Kontext, **GLM 4.7** mit verbessertem Reasoning und Codierung, thinking_mode-Unterstützung, starke chinesische Sprachleistung, Vision über `glm-4.6v`, schnelle Iterationen über `glm-4-flash`.
 - **Grok (ax-grok)**: Eingebaute Websuche, Vision, reasoning_effort; **Grok 4.1 schnelle Varianten bieten 2M Kontext, parallele Server-Tools, x_search und serverseitige Code-Ausführung**.
-- Beide CLIs teilen dieselbe Toolchain (Dateibearbeitung, MCP, Bash) und Projektspeicher; wählen Sie den Anbieter, der zu Ihrem API-Schlüssel passt.
-- Installieren Sie beide, um parallel mit isoliertem Zustand (`.ax-glm`, `.ax-grok`) für Seite-an-Seite-Vergleiche zu arbeiten.
+- Die CLI teilt dieselbe Toolchain (Dateibearbeitung, MCP, Bash) und Projektspeicher mit dem gemeinsamen Kern.
 
 ---
 
 ## Unterstützte Modelle
-
-### GLM (Z.AI)
-
-| Modell | Kontext | Funktionen | Alias |
-|--------|---------|------------|-------|
-| `glm-4.7` | 200K | **Neuestes Modell**: Verbessertes Reasoning, verbesserte Codierung, beste Gesamtleistung | `glm-latest` |
-| `glm-4.6` | 200K | **Denkmodus**: Detaillierte Denkprozesse und Planung | `glm-thinking` |
-| `glm-4.6v` | 128K | **Vision + Denken**: Neuestes Vision-Modell mit nativem multimodalem Funktionsaufruf | `glm-vision` |
-| `glm-4-flash` | 128K | Schnell, effizient für schnelle Aufgaben | `glm-fast` |
-| `cogview-4` | - | **Bilderzeugung**: Text-zu-Bild mit variablen Auflösungen | `glm-image` |
 
 ### Grok (xAI)
 
@@ -154,15 +127,13 @@ Führen Sie `/init` in der CLI aus, um Ihren Projektkontext zu initialisieren.
 ### Installationsbefehl
 
 ```bash
-# Wählen Sie Ihren Anbieter
-npm install -g @defai.digital/ax-glm    # GLM (Z.AI)
-npm install -g @defai.digital/ax-grok   # Grok (xAI)
+npm install -g @defai.digital/ax-grok
 ```
 
 ### Einrichtung
 
 ```bash
-ax-glm setup   # oder ax-grok setup
+ax-grok setup
 ```
 
 Der Einrichtungsassistent führt Sie durch:
@@ -177,29 +148,29 @@ Der Einrichtungsassistent führt Sie durch:
 ### Interaktiver Modus
 
 ```bash
-ax-glm              # Startet die interaktive CLI-Sitzung
-ax-glm --continue   # Vorherige Konversation fortsetzen
-ax-glm -c           # Kurzform
+ax-grok              # Startet die interaktive CLI-Sitzung
+ax-grok --continue   # Vorherige Konversation fortsetzen
+ax-grok -c           # Kurzform
 ```
 
 ### Headless-Modus
 
 ```bash
-ax-glm -p "analysiere diese Codebasis"
-ax-glm -p "behebe TypeScript-Fehler" -d /pfad/zum/projekt
+ax-grok -p "analysiere diese Codebasis"
+ax-grok -p "behebe TypeScript-Fehler" -d /pfad/zum/projekt
 ```
 
 ### Agentisches Verhalten-Flags
 
 ```bash
 # ReAct-Reasoning-Modus aktivieren (Denken → Handeln → Beobachten-Zyklen)
-ax-glm --react
+ax-grok --react
 
 # TypeScript-Verifizierung nach Planungsphasen aktivieren
-ax-glm --verify
+ax-grok --verify
 
 # Selbstkorrektur bei Fehlern deaktivieren
-ax-glm --no-correction
+ax-grok --no-correction
 ```
 
 Standardmäßig ist die Selbstkorrektur AN (Agent versucht automatisch bei Fehlern mit Reflexion erneut). ReAct und Verifizierung sind standardmäßig AUS, können aber für strukturierteres Reasoning und Qualitätsprüfungen aktiviert werden.
@@ -233,19 +204,16 @@ Standardmäßig ist die Selbstkorrektur AN (Agent versucht automatisch bei Fehle
 
 | Datei | Zweck |
 |-------|-------|
-| `~/.ax-glm/config.json` | Benutzereinstellungen (verschlüsselter API-Schlüssel) |
-| `.ax-glm/settings.json` | Projekt-Überschreibungen |
-| `.ax-glm/CUSTOM.md` | Benutzerdefinierte KI-Anweisungen |
+| `~/.ax-grok/config.json` | Benutzereinstellungen (verschlüsselter API-Schlüssel) |
+| `.ax-grok/settings.json` | Projekt-Überschreibungen |
+| `.ax-grok/CUSTOM.md` | Benutzerdefinierte KI-Anweisungen |
 | `ax.index.json` | Gemeinsamer Projektindex (im Stammverzeichnis, von allen CLIs verwendet) |
-
-> Grok verwendet `~/.ax-grok/` und `.ax-grok/` Verzeichnisse. Die `ax.index.json` wird geteilt.
 
 ### Umgebungsvariablen
 
 ```bash
 # Für CI/CD
-export ZAI_API_KEY=your_key    # GLM
-export XAI_API_KEY=your_key    # Grok
+export XAI_API_KEY=your_key
 ```
 
 ---
@@ -255,9 +223,9 @@ export XAI_API_KEY=your_key    # Grok
 Erweitern Sie die Funktionen mit [Model Context Protocol (MCP)](https://modelcontextprotocol.io) — einem offenen Standard zur Verbindung von KI-Assistenten mit externen Tools, APIs und Datenquellen:
 
 ```bash
-ax-glm mcp add figma --template
-ax-glm mcp add github --template
-ax-glm mcp list
+ax-grok mcp add figma --template
+ax-grok mcp add github --template
+ax-grok mcp list
 ```
 
 **Verfügbare Vorlagen:** Figma, GitHub, Vercel, Puppeteer, Storybook, Sentry, Jira, Confluence, Slack, Google Drive und mehr.
@@ -281,7 +249,7 @@ code --install-extension defai-digital.ax-cli-vscode
 
 AX CLI integriert sich mit [AutomatosX](https://github.com/defai-digital/automatosx) - einem Multi-Agenten-KI-System mit autonomer Fehlerbehebung, intelligentem Refactoring und 20+ spezialisierten Agenten.
 
-Im interaktiven Modus (`ax-glm` oder `ax-grok`) einfach natürlich fragen:
+Im interaktiven Modus (`ax-grok`) einfach natürlich fragen:
 
 ```
 > Bitte scanne und behebe Bugs in dieser Codebasis
@@ -303,8 +271,8 @@ Im interaktiven Modus (`ax-glm` oder `ax-grok`) einfach natürlich fragen:
 Reduzieren Sie Token-Kosten und verbessern Sie den Kontextabruf mit intelligentem Caching, das relevante Projektinformationen speichert und abruft und redundante Verarbeitung vermeidet.
 
 ```bash
-ax-glm memory warmup    # Kontext-Cache generieren
-ax-glm memory status    # Token-Verteilung anzeigen
+ax-grok memory warmup    # Kontext-Cache generieren
+ax-grok memory status    # Token-Verteilung anzeigen
 ```
 
 ---
@@ -324,15 +292,15 @@ AX CLI verwendet eine modulare Architektur mit anbieterspezifischen CLIs, die au
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                   Benutzer-Installation                      │
-├─────────────────────────────┬───────────────────────────────┤
-│      @defai.digital/ax-glm  │    @defai.digital/ax-grok     │
-│         (ax-glm CLI)        │       (ax-grok CLI)           │
-│                             │                               │
-│  • GLM-4.6 Denkmodus        │  • Grok 3 erweitertes Reason. │
-│  • Z.AI API-Defaults        │  • xAI API-Defaults           │
-│  • 200K Kontextfenster      │  • Live-Websuche              │
-│  • ~/.ax-glm/ Konfiguration │  • ~/.ax-grok/ Konfiguration  │
-├─────────────────────────────┴───────────────────────────────┤
+├─────────────────────────────────────────────────────────────┤
+│                  @defai.digital/ax-grok                     │
+│                     (ax-grok CLI)                           │
+│                                                             │
+│  • Grok 3 erweitertes Reasoning                             │
+│  • xAI API-Defaults                                         │
+│  • Live-Websuche                                            │
+│  • ~/.ax-grok/ Konfiguration                                │
+├─────────────────────────────────────────────────────────────┤
 │                   @defai.digital/ax-core                    │
 │                                                             │
 │  Gemeinsame Funktionalität: 17 Tools, MCP-Client, Speicher, │
@@ -346,11 +314,12 @@ AX CLI verwendet eine modulare Architektur mit anbieterspezifischen CLIs, die au
 
 | Paket | Installieren? | Beschreibung |
 |-------|:-------------:|--------------|
-| [@defai.digital/ax-glm](https://www.npmjs.com/package/@defai.digital/ax-glm) | **Ja** | GLM-optimierte CLI mit Websuche, Vision, Bilderzeugung |
 | [@defai.digital/ax-grok](https://www.npmjs.com/package/@defai.digital/ax-grok) | **Ja** | Grok-optimierte CLI mit Websuche, Vision, erweitertem Denken |
 | [@defai.digital/ax-cli](https://www.npmjs.com/package/@defai.digital/ax-cli) | Optional | Local-First CLI für Ollama/LMStudio/vLLM + DeepSeek Cloud |
 | [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | Nein | Gemeinsame Kernbibliothek (automatisch als Abhängigkeit installiert) |
 | [@defai.digital/ax-schemas](https://www.npmjs.com/package/@defai.digital/ax-schemas) | Nein | Gemeinsame Zod-Schemas (automatisch als Abhängigkeit installiert) |
+
+> **Hinweis:** ax-glm wurde zugunsten des offiziellen [OpenCode CLI](https://opencode.ai) von Z.AI als veraltet markiert.
 
 ---
 

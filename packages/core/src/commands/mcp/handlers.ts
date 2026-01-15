@@ -202,26 +202,53 @@ function printMissingEnvVarsError(
 
 /**
  * Connect to server and show available tools
+ * BUG FIX #19: Properly handle connection errors after config is saved
  */
 export async function connectAndShowTools(
   config: MCPServerConfig,
   serverName: string
 ): Promise<void> {
+  // First save the configuration (this always succeeds)
   addMCPServer(config);
-  console.log(chalk.green('Configuration saved'));
+  console.log(chalk.green('✓ Configuration saved'));
 
+  // Try to connect to the server
   console.log(chalk.blue('Connecting to server...'));
   const manager = getMCPManager();
-  await manager.addServer(config);
-  console.log(chalk.green('Connected successfully'));
 
-  const tools = manager.getTools().filter(t => t.serverName === serverName);
-  console.log(chalk.blue(`\nAvailable tools: ${chalk.bold(tools.length.toString())}`));
-  if (tools.length > 0 && tools.length <= 10) {
-    tools.forEach(tool => {
-      const displayName = tool.name.replace(`mcp__${serverName}__`, '');
-      console.log(`   ${displayName}: ${tool.description}`);
-    });
+  try {
+    // MCPManager.addServer throws on failure (legacy API)
+    await manager.addServer(config);
+
+    console.log(chalk.green('✓ Connected successfully'));
+
+    const tools = manager.getTools().filter(t => t.serverName === serverName);
+    console.log(chalk.blue(`\nAvailable tools: ${chalk.bold(tools.length.toString())}`));
+    if (tools.length > 0 && tools.length <= 10) {
+      tools.forEach(tool => {
+        const displayName = tool.name.replace(`mcp__${serverName}__`, '');
+        console.log(`   ${displayName}: ${tool.description}`);
+      });
+    }
+  } catch (error) {
+    // Handle connection errors (timeout, network issues, etc.)
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    console.log(chalk.yellow('\n⚠ Connection failed, but configuration was saved.'));
+    console.log(chalk.gray(`  Error: ${errorMessage}`));
+
+    // Check if it's a timeout error and provide helpful guidance
+    if (errorMessage.toLowerCase().includes('timeout')) {
+      console.log();
+      console.log(chalk.blue('Tip: Some MCP servers (especially those using npx) take longer to start.'));
+      console.log(chalk.gray('  You can increase the timeout in your MCP config by adding:'));
+      console.log(chalk.gray('  "initTimeout": 120000  (120 seconds)'));
+    }
+
+    console.log();
+    console.log(chalk.blue('The server will automatically connect on next startup.'));
+    console.log(chalk.gray(`  You can also run: ${getCliName()} mcp list`));
+    console.log(chalk.gray('  to see server status and retry connection.'));
   }
 }
 

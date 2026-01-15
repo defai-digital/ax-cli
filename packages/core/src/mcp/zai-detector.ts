@@ -175,11 +175,37 @@ export async function validateZAIApiKey(apiKey: string): Promise<boolean> {
 }
 
 /**
- * Get Z.AI API key from config or environment
+ * Module-level API key that can be set via CLI --api-key flag
+ * BUG FIX #30: Allows MCP servers to use API key provided via CLI flag
+ */
+let cliApiKey: string | null = null;
+
+/**
+ * Set the API key from CLI flag
+ * This should be called early in the CLI initialization when --api-key is provided
+ */
+export function setCliApiKey(apiKey: string | null): void {
+  cliApiKey = apiKey;
+}
+
+/**
+ * Get Z.AI API key from CLI flag, config, or environment
+ * Priority: CLI flag > environment variable > config file
  */
 export function getZAIApiKey(): string | null {
+  // BUG FIX #30: Check CLI-provided API key first
+  if (cliApiKey && cliApiKey.trim().length > 0) {
+    return cliApiKey.trim();
+  }
+
+  // Then check environment variable
+  if (process.env.Z_AI_API_KEY && process.env.Z_AI_API_KEY.trim().length > 0) {
+    return process.env.Z_AI_API_KEY.trim();
+  }
+
+  // Finally check settings
   const settings = getSettingsManager();
-  const apiKey = settings.getApiKey() || process.env.Z_AI_API_KEY;
+  const apiKey = settings.getApiKey();
 
   if (apiKey && apiKey.trim().length > 0) {
     return apiKey.trim();

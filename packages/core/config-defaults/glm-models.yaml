@@ -1,5 +1,9 @@
 # GLM Provider Models Configuration (Z.AI)
-# This file defines all available models for ax-glm
+#
+# DEPRECATED: The ax-glm cloud package has been removed in favor of OpenCode (https://opencode.ai)
+# This file is kept for reference only. For local GLM models, use ax-cli with Ollama/LMStudio.
+#
+# This file defines all available models for the deprecated ax-glm cloud provider
 # Edit this file to add/remove models without code changes
 
 provider: glm
@@ -9,7 +13,8 @@ display_name: GLM (Z.AI)
 default_model: glm-4.7
 
 # Fast model for agentic tasks (used by --fast flag)
-fast_model: glm-4-flash
+# NOTE: glm-4-flash was deprecated by Z.AI in 2025. glm-4.5-air is the replacement.
+fast_model: glm-4.5-air
 
 # Default vision model
 default_vision_model: glm-4.6v
@@ -84,16 +89,16 @@ models:
     description: "Standard GLM-4 model"
     tier: stable
 
-  glm-4-flash:
-    name: GLM-4 Flash
+  glm-4.5-air:
+    name: GLM-4.5 Air
     context_window: 128000
-    max_output_tokens: 4000
-    supports_thinking: false
+    max_output_tokens: 8000
+    supports_thinking: true
     supports_vision: false
     supports_search: false
     supports_seed: false
     default_temperature: 0.7
-    description: "Fast, efficient GLM model for quick tasks"
+    description: "Lightweight 106B MoE model (12B active), fast responses for agentic tasks"
     tier: fast
 
   # Image generation model
@@ -112,7 +117,10 @@ models:
 # Model aliases for convenience
 aliases:
   glm-latest: glm-4.7
-  glm-fast: glm-4-flash
+  glm-fast: glm-4.5-air
+  glm-air: glm-4.5-air
   glm-vision: glm-4.6v
   glm-image: cogview-4
   glm-4.6-legacy: glm-4.6
+  # Legacy alias for users who had glm-4-flash configured
+  glm-4-flash: glm-4.5-air

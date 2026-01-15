@@ -1189,9 +1189,9 @@ export interface ProviderAgentOptions extends AgentOptions {
  * with appropriate defaults and feature flags.
  *
  * SECURITY: Credentials must be configured via the appropriate setup command:
- * - For GLM: `ax-glm setup`
  * - For Grok: `ax-grok setup`
- * - For generic: `ax-cli setup`
+ * - For generic/local: `ax-cli setup`
+ * - Note: ax-glm is deprecated, use OpenCode (https://opencode.ai) for Z.AI cloud
  *
  * @param provider - The provider definition (GLM_PROVIDER, GROK_PROVIDER, etc.)
  * @param options - Agent configuration options
@@ -1449,6 +1449,9 @@ export async function createProviderAgent(
 /**
  * Create a GLM-optimized LLM Agent
  *
+ * @deprecated The ax-glm cloud package is deprecated. Use OpenCode (https://opencode.ai)
+ * for Z.AI cloud access. For local GLM models, use ax-cli with Ollama/LMStudio.
+ *
  * Convenience function that creates an agent configured for Z.AI GLM models.
  * Uses settings from `ax-glm setup` or environment variables.
  *
@@ -1457,16 +1460,12 @@ export async function createProviderAgent(
  *
  * @example
  * ```typescript
- * import { createGLMAgent } from '@defai.digital/ax-glm/sdk';
- * // or: import { createGLMAgent } from '@defai.digital/ax-core/sdk';
+ * // For local GLM models via Ollama:
+ * import { createAgent } from '@defai.digital/ax-core/sdk';
  *
- * const agent = await createGLMAgent({
- *   maxToolRounds: 50,
- *   enableThinking: true  // Enable GLM thinking mode
- * });
- *
- * agent.on('stream', (chunk) => {
- *   if (chunk.type === 'content') console.log(chunk.content);
+ * const agent = await createAgent({
+ *   model: 'glm-4.6:9b',  // Local GLM model via Ollama
+ *   maxToolRounds: 50
  * });
  *
  * await agent.processUserMessage('Analyze this codebase');

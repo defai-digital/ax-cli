@@ -116,6 +116,12 @@ export class StatusReporter {
 
     // Add plan info if available
     if (context.plan) {
+      // BUG FIX #22: Handle edge case where phases.length is 0 to avoid NaN/Infinity
+      const totalPhases = context.plan.phases.length;
+      const percentage = totalPhases > 0
+        ? (context.plan.phasesCompleted / totalPhases) * 100
+        : 0;
+
       report.plan = {
         id: context.plan.id,
         name: context.plan.originalPrompt,
@@ -123,8 +129,8 @@ export class StatusReporter {
         progress: {
           completed: context.plan.phasesCompleted,
           failed: context.plan.phasesFailed,
-          total: context.plan.phases.length,
-          percentage: (context.plan.phasesCompleted / context.plan.phases.length) * 100,
+          total: totalPhases,
+          percentage,
         },
         phases: context.plan.phases.map(phase => ({
           name: phase.name,

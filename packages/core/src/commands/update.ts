@@ -54,13 +54,16 @@ export function resetUpdateDependencies(): void {
 
 /**
  * Get package name for a provider
+ * Note: ax-glm is deprecated - GLM users should use OpenCode (https://opencode.ai)
+ * or ax-cli for local GLM models via Ollama/LMStudio
  */
 export function getProviderPackageName(provider?: ProviderDefinition): string {
   if (!provider) return PACKAGE_NAME;
 
   switch (provider.name) {
     case 'glm':
-      return '@defai.digital/ax-glm';
+      // ax-glm is deprecated, fall back to ax-cli for local GLM support
+      return PACKAGE_NAME;
     case 'grok':
       return '@defai.digital/ax-grok';
     default:

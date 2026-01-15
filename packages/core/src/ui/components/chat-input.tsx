@@ -12,7 +12,9 @@ interface ChatInputProps {
   isPasting?: boolean; // v3.8.0: Show "Pasting..." indicator
 }
 
-export function ChatInput({
+// BUG FIX #32/#34: Memoize ChatInput to prevent unnecessary re-renders
+// This reduces UI flickering by only re-rendering when input-related props change
+export const ChatInput = React.memo(function ChatInputComponent({
   input,
   cursorPosition,
   isProcessing,
@@ -302,4 +304,4 @@ export function ChatInput({
       {/* Phase 1: Input mode hint - show when input is not empty */}
     </Box>
   );
-}
+});

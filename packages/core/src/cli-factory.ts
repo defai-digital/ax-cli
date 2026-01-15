@@ -35,6 +35,7 @@ import { getVSCodeIPCClient, disposeVSCodeIPCClient } from "./ipc/index.js";
 import type { ProviderDefinition } from "./provider/config.js";
 import { getApiKeyFromEnv, setActiveProviderConfigPaths, resolveModelAlias } from "./provider/config.js";
 import { createConfigFromFlags } from "./agent/config/agentic-config.js";
+import { setCliApiKey } from "./mcp/zai-detector.js";
 
 // Load environment variables (quiet mode to suppress dotenv v17+ output)
 dotenv.config({ quiet: true });
@@ -230,6 +231,35 @@ export function createCLI(options: CLIFactoryOptions): Command {
 
   // Main action
   cli.action(async (message, cliOptions) => {
+    // BUG FIX #25: Validate CLI arguments BEFORE loading settings
+    // This ensures clear error messages instead of confusing decryption errors
+    if (cliOptions.model) {
+      const { validateModelId } = await import("./utils/input-validator.js");
+      const modelValidation = validateModelId(cliOptions.model);
+      if (!modelValidation.success) {
+        console.error(`❌ Invalid model: ${cliOptions.model}`);
+        console.error(`   ${modelValidation.error}`);
+        if (modelValidation.suggestion) {
+          console.error(`   ${modelValidation.suggestion}`);
+        }
+        console.error(`\n💡 Run '${cliName} models' to see available models`);
+        process.exit(1);
+      }
+    }
+
+    if (cliOptions.baseUrl) {
+      const { validateBaseURL } = await import("./utils/input-validator.js");
+      const urlValidation = validateBaseURL(cliOptions.baseUrl);
+      if (!urlValidation.success) {
+        console.error(`❌ Invalid base URL: ${cliOptions.baseUrl}`);
+        console.error(`   ${urlValidation.error}`);
+        if (urlValidation.suggestion) {
+          console.error(`   ${urlValidation.suggestion}`);
+        }
+        process.exit(1);
+      }
+    }
+
     if (cliOptions.directory) {
       try {
         process.chdir(cliOptions.directory);
@@ -244,6 +274,11 @@ export function createCLI(options: CLIFactoryOptions): Command {
 
       // Get API key: CLI flag > env var > settings
       let apiKey = cliOptions.apiKey || getApiKeyFromEnv(provider) || manager.getApiKey();
+
+      // BUG FIX #30: Set CLI API key for MCP servers to use when --api-key flag is provided
+      if (cliOptions.apiKey) {
+        setCliApiKey(cliOptions.apiKey);
+      }
 
       // Get base URL: CLI flag > settings > provider default
       const baseURL = cliOptions.baseUrl || manager.getBaseURL() || provider.defaultBaseURL;
@@ -587,6 +622,10 @@ async function processPromptHeadless(
     // Configure confirmation service for headless mode
     const confirmationService = ConfirmationService.getInstance();
     confirmationService.setSessionFlag("allOperations", true);
+
+    // BUG FIX #26: Wait for MCP servers to initialize before processing prompt in headless mode
+    // This ensures MCP tools are available for the prompt
+    await agent.waitForMCPReady();
 
     // Build context from flags
     let fullPrompt = prompt;

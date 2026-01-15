@@ -10,7 +10,9 @@ interface LoadingSpinnerProps {
   currentAction?: "thinking" | "searching" | "editing" | "executing" | "reading" | "writing";
 }
 
-export function LoadingSpinner({
+// BUG FIX #32/#34: Memoize LoadingSpinner to prevent unnecessary re-renders
+// When isActive is false, this component returns null and should not cause re-renders
+export const LoadingSpinner = React.memo(function LoadingSpinnerComponent({
   isActive,
   processingTime,
   tokenCount,
@@ -138,4 +140,4 @@ export function LoadingSpinner({
       )}
     </Box>
   );
-}
+});

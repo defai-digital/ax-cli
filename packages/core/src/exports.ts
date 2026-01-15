@@ -1,8 +1,10 @@
 /**
  * @defai.digital/ax-core - Library Exports
  *
- * This file exports all the functionality that ax-glm and ax-grok need
+ * This file exports all the functionality that ax-grok (and other provider CLIs) need
  * to create their provider-specific CLIs.
+ *
+ * Note: ax-glm has been deprecated in favor of OpenCode (https://opencode.ai)
  */
 
 // CLI Factory

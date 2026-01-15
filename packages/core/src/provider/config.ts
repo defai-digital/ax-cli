@@ -139,16 +139,19 @@ export const GLM_PROVIDER: ProviderDefinition = {
   defaultBaseURL: 'https://api.z.ai/api/coding/paas/v4',
   defaultModel: 'glm-4.7',
   defaultVisionModel: 'glm-4.6v',
-  fastModel: 'glm-4-flash', // Fast model for agentic tasks (used by --fast flag)
+  fastModel: 'glm-4.5-air', // Fast model for agentic tasks (used by --fast flag) - glm-4-flash deprecated
   configDirName: '.ax-glm',
   // GLM-specific aliases (only for ax-glm users)
   aliases: {
     'glm-latest': 'glm-4.7',
-    'glm-fast': 'glm-4-flash',
+    'glm-fast': 'glm-4.5-air',
+    'glm-air': 'glm-4.5-air',
     'glm-vision': 'glm-4.6v',
     'glm-image': 'cogview-4',
     // Legacy alias for users still expecting 4.6
     'glm-4.6-legacy': 'glm-4.6',
+    // Legacy alias for deprecated glm-4-flash model
+    'glm-4-flash': 'glm-4.5-air',
   },
   models: {
     // ═══════════════════════════════════════════════════════════════════════
@@ -215,16 +218,16 @@ export const GLM_PROVIDER: ProviderDefinition = {
       defaultTemperature: 0.7,
       description: 'Standard GLM-4 model',
     },
-    'glm-4-flash': {
-      name: 'GLM-4 Flash',
+    'glm-4.5-air': {
+      name: 'GLM-4.5 Air',
       contextWindow: 128000,
-      maxOutputTokens: 4000,
-      supportsThinking: false,
+      maxOutputTokens: 8000,
+      supportsThinking: true,
       supportsVision: false,
       supportsSearch: false,
       supportsSeed: false,
       defaultTemperature: 0.7,
-      description: 'Fast, efficient GLM model for quick tasks',
+      description: 'Lightweight 106B MoE model (12B active), fast responses for agentic tasks',
     },
     // Image generation model
     'cogview-4': {
@@ -509,37 +512,44 @@ export const GROK_PROVIDER: ProviderDefinition = {
 /**
  * AX CLI Provider Definition
  *
- * AX-CLI focuses on LOCAL/OFFLINE inference as primary use case:
+ * AX-CLI focuses on LOCAL/OFFLINE inference via:
  * - Ollama (primary)
  * - LMStudio
  * - vLLM
- * - DeepSeek Cloud (only cloud provider)
  *
- * 2025 Offline Coding LLM Rankings:
- * - T1: Qwen 3 (9.6/10) - Best overall, coding leader
- * - T2: GLM-4.6 (9.4/10) - Best for refactor + docs (9B rivals Qwen 14B!)
- * - T3: DeepSeek-Coder V2 (9.3/10) - Best speed/value
- * - T4: Codestral/Mistral (8.4/10) - Good for C/C++/Rust
- * - T5: Llama (8.1/10) - Best fallback/compatibility
+ * Model families supported (user specifies exact tag in local server):
+ * - Qwen - Best overall for coding
+ * - GLM - Great for refactoring and docs
+ * - DeepSeek - Fast iterations
+ * - Codestral/Mistral - Strong for C/C++/Rust
+ * - Llama - Best compatibility
  *
- * For GLM-specific features, use ax-glm.
- * For Grok-specific features, use ax-grok.
+ * For Grok cloud features, use ax-grok.
+ * For Z.AI cloud, use OpenCode (https://opencode.ai).
  */
 export const AX_CLI_PROVIDER: ProviderDefinition = {
   name: 'ax-cli',
   displayName: 'AX CLI',
   apiKeyEnvVar: 'AX_API_KEY',
-  apiKeyEnvVarAliases: ['AXCLI_API_KEY'],  // Keep provider-agnostic (no DEEPSEEK binding for future ax-deepseek)
+  apiKeyEnvVarAliases: ['AXCLI_API_KEY'],
   defaultBaseURL: 'http://localhost:11434/v1', // Default to Ollama (local)
-  defaultModel: 'qwen3:14b',  // Tier 1: Best overall
-  fastModel: 'deepseek-coder-v2:7b', // Fast model for agentic tasks
+  defaultModel: 'qwen3',  // User specifies exact tag (e.g., qwen3:14b) in their local server
+  fastModel: 'deepseek-coder', // Fast model for agentic tasks
   configDirName: '.ax-cli',
+  // ═══════════════════════════════════════════════════════════════════════
+  // Local/Offline Model Families
+  //
+  // These are generic model family definitions with reasonable defaults.
+  // Users specify the exact model tag (e.g., "qwen3:14b", "glm4:9b") when
+  // configuring their local server (Ollama, LMStudio, vLLM).
+  //
+  // The metadata here provides context window estimates for token counting.
+  // Any model available on your local server will work - not limited to this list.
+  // ═══════════════════════════════════════════════════════════════════════
   models: {
-    // ═══════════════════════════════════════════════════════════════════
-    // TIER 1: QWEN 3 (9.6/10) - Best Overall Offline Coding Model
-    // ═══════════════════════════════════════════════════════════════════
-    'qwen3:72b': {
-      name: 'Qwen 3 72B',
+    // Qwen - Best overall for coding (T1)
+    'qwen': {
+      name: 'Qwen',
       contextWindow: 128000,
       maxOutputTokens: 8192,
       supportsThinking: false,
@@ -547,10 +557,11 @@ export const AX_CLI_PROVIDER: ProviderDefinition = {
       supportsSearch: false,
       supportsSeed: false,
       defaultTemperature: 0.7,
-      description: 'T1 BEST: Most capable, 128K context',
+      description: 'Best overall coding model, 128K context',
     },
-    'qwen3:32b': {
-      name: 'Qwen 3 32B',
+    // GLM - Best for refactoring and docs (T2)
+    'glm': {
+      name: 'GLM',
       contextWindow: 128000,
       maxOutputTokens: 8192,
       supportsThinking: false,
@@ -558,95 +569,11 @@ export const AX_CLI_PROVIDER: ProviderDefinition = {
       supportsSearch: false,
       supportsSeed: false,
       defaultTemperature: 0.7,
-      description: 'T1 BEST: High-quality coding, 128K context',
+      description: 'Great for refactoring and documentation',
     },
-    'qwen3:14b': {
-      name: 'Qwen 3 14B',
-      contextWindow: 128000,
-      maxOutputTokens: 8192,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'T1 BEST: Balanced performance (recommended)',
-    },
-    'qwen3:8b': {
-      name: 'Qwen 3 8B',
-      contextWindow: 128000,
-      maxOutputTokens: 8192,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'T1 BEST: Efficient, great for most tasks',
-    },
-    'qwen2.5-coder:32b': {
-      name: 'Qwen2.5-Coder 32B',
-      contextWindow: 128000,
-      maxOutputTokens: 8192,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'Excellent coding specialist, 128K context',
-    },
-    // ═══════════════════════════════════════════════════════════════════
-    // TIER 2: GLM-4.6 (9.4/10) - Best for Refactor + Docs ★NEW
-    // GLM-4.6 9B rivals Qwen 14B / DeepSeek 16B in quality
-    // Better than DeepSeek on long context reasoning
-    // ═══════════════════════════════════════════════════════════════════
-    'glm-4.6:32b': {
-      name: 'GLM-4.6 32B',
-      contextWindow: 200000,
-      maxOutputTokens: 32000,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'T2 REFACTOR: Large-scale refactor + multi-file editing',
-    },
-    'glm-4.6:9b': {
-      name: 'GLM-4.6 9B',
-      contextWindow: 200000,
-      maxOutputTokens: 32000,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'T2 REFACTOR: Rivals Qwen 14B, excellent long context',
-    },
-    'codegeex4': {
-      name: 'CodeGeeX4',
-      contextWindow: 128000,
-      maxOutputTokens: 8192,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'T2 DOCS: Best for documentation generation',
-    },
-    'glm4:9b': {
-      name: 'GLM-4 9B',
-      contextWindow: 128000,
-      maxOutputTokens: 8192,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'T2: Bilingual code understanding',
-    },
-    // ═══════════════════════════════════════════════════════════════════
-    // TIER 3: DEEPSEEK-CODER V2 (9.3/10) - Best Speed/Value
-    // ═══════════════════════════════════════════════════════════════════
-    'deepseek-coder-v2:16b': {
-      name: 'DeepSeek-Coder-V2 16B',
+    // DeepSeek - Best speed/value (T3)
+    'deepseek': {
+      name: 'DeepSeek',
       contextWindow: 64000,
       maxOutputTokens: 8192,
       supportsThinking: false,
@@ -654,24 +581,11 @@ export const AX_CLI_PROVIDER: ProviderDefinition = {
       supportsSearch: false,
       supportsSeed: false,
       defaultTemperature: 0.7,
-      description: 'T3 FAST: Best speed/quality ratio',
+      description: 'Fast iterations, good speed/quality ratio',
     },
-    'deepseek-coder-v2:7b': {
-      name: 'DeepSeek-Coder-V2 7B',
-      contextWindow: 64000,
-      maxOutputTokens: 8192,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'T3 FAST: 7B performs like 13B, edge-friendly',
-    },
-    // ═══════════════════════════════════════════════════════════════════
-    // TIER 4: CODESTRAL/MISTRAL (8.4/10) - C/C++/Rust
-    // ═══════════════════════════════════════════════════════════════════
-    'codestral:22b': {
-      name: 'Codestral 22B',
+    // Codestral/Mistral - Strong for systems languages (T4)
+    'codestral': {
+      name: 'Codestral',
       contextWindow: 32000,
       maxOutputTokens: 8192,
       supportsThinking: false,
@@ -679,13 +593,11 @@ export const AX_CLI_PROVIDER: ProviderDefinition = {
       supportsSearch: false,
       supportsSeed: false,
       defaultTemperature: 0.7,
-      description: 'T4: Strong in C/C++/Rust',
+      description: 'Strong in C/C++/Rust',
     },
-    // ═══════════════════════════════════════════════════════════════════
-    // TIER 5: LLAMA (8.1/10) - Best Fallback/Compatibility
-    // ═══════════════════════════════════════════════════════════════════
-    'llama3.1:70b': {
-      name: 'Llama 3.1 70B',
+    // Llama - Best compatibility/fallback (T5)
+    'llama': {
+      name: 'Llama',
       contextWindow: 128000,
       maxOutputTokens: 8192,
       supportsThinking: false,
@@ -693,37 +605,8 @@ export const AX_CLI_PROVIDER: ProviderDefinition = {
       supportsSearch: false,
       supportsSeed: false,
       defaultTemperature: 0.7,
-      description: 'T5 FALLBACK: Best compatibility',
+      description: 'Best compatibility, works with all frameworks',
     },
-    'llama3.1:8b': {
-      name: 'Llama 3.1 8B',
-      contextWindow: 128000,
-      maxOutputTokens: 8192,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'T5 FALLBACK: Fast, stable',
-    },
-    'codellama:34b': {
-      name: 'Code Llama 34B',
-      contextWindow: 16000,
-      maxOutputTokens: 4096,
-      supportsThinking: false,
-      supportsVision: false,
-      supportsSearch: false,
-      supportsSeed: false,
-      defaultTemperature: 0.7,
-      description: 'Optimized for code generation',
-    },
-    // ═══════════════════════════════════════════════════════════════════
-    // NOTE: DeepSeek Cloud models removed from ax-cli
-    // ax-cli is LOCAL/OFFLINE FIRST - cloud providers should use dedicated CLIs:
-    // - ax-glm for Z.AI GLM models
-    // - ax-grok for xAI Grok models
-    // - ax-deepseek (future) for DeepSeek cloud models
-    // ═══════════════════════════════════════════════════════════════════
   },
   features: {
     supportsThinking: false,  // No extended thinking in base CLI

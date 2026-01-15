@@ -460,7 +460,9 @@ function CompactStatusBar(props: StatusBarProps & { theme: ThemeColors; t: UITra
   );
 }
 
-export function StatusBar(props: StatusBarProps) {
+// BUG FIX #32/#34: Memoize StatusBar to prevent unnecessary re-renders
+// StatusBar has many props and is rendered frequently - memoization reduces flickering
+export const StatusBar = React.memo(function StatusBarComponent(props: StatusBarProps) {
   const {
     projectName,
     version,
@@ -619,6 +621,6 @@ export function StatusBar(props: StatusBarProps) {
       </Box>
     </Box>
   );
-}
+});
 
 export default StatusBar;

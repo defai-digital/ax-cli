@@ -224,8 +224,13 @@ export class SettingsManager {
         try {
           decryptedApiKey = decrypt(parseResult.data.apiKeyEncrypted);
         } catch (error) {
+          // BUG FIX #31: Changed from error to debug - decryption failure is not critical
+          // when user provides API key via --api-key flag or environment variable.
+          // Only show in debug mode to avoid confusing users.
           const logger = getLogger();
-          logger.error('Failed to decrypt API key', { error: error instanceof Error ? error.message : 'Unknown error' });
+          logger.debug('Failed to decrypt stored API key (will use --api-key or env var if provided)', {
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
           // Fall back to plain-text if decryption fails
           if (parseResult.data.apiKey && typeof parseResult.data.apiKey === 'string') {
             decryptedApiKey = parseResult.data.apiKey;

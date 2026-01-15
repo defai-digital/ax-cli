@@ -510,14 +510,15 @@ export class TaskPlanner extends EventEmitter {
       phase.tokensUsed = result.tokensUsed;
       phase.filesModified = result.filesModified;
 
-      await this.storage.savePlan(plan);
-
+      // BUG FIX #22: Update counters BEFORE saving so progress is persisted
       if (result.success) {
         plan.phasesCompleted++;
+        await this.storage.savePlan(plan);
         options.onPhaseComplete?.(phase, result);
         this.emit("phase:completed", plan, phase, result);
       } else {
         plan.phasesFailed++;
+        await this.storage.savePlan(plan);
         options.onPhaseFailed?.(phase, new Error(result.error || "Unknown error"));
         this.emit("phase:failed", plan, phase, new Error(result.error));
       }

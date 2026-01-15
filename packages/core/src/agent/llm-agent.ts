@@ -304,28 +304,60 @@ export class LLMAgent extends EventEmitter {
   }
 
   /**
+   * BUG FIX #26: Promise that resolves when MCP initialization is complete
+   * Used by waitForMCPReady() for headless mode
+   */
+  private mcpInitPromise: Promise<void> | null = null;
+
+  /**
    * Initialize background services in parallel
    * Both checkpoint and MCP are independent and can run concurrently
    */
   private initializeBackgroundServices(): void {
+    // BUG FIX #26: Store the MCP initialization promise so it can be awaited
+    const mcpInit = this.runSafeAsync('MCP', async () => {
+      const deps = getLLMAgentDependencies();
+      const config = deps.loadMCPConfig();
+      if (config.servers.length === 0) return;
+      await deps.initializeMCPServers(this.mcpClientConfig);
+      // Separate try-catch for prompt update to avoid mislabeled errors
+      if (!this.disposed) {
+        try {
+          this.updateSystemPromptWithMCPTools();
+        } catch (promptError) {
+          console.warn('MCP prompt update failed:', extractErrorMessage(promptError));
+        }
+      }
+    });
+
+    this.mcpInitPromise = mcpInit;
+
     // Run both initialization tasks in parallel - Promise.allSettled never rejects
     Promise.allSettled([
       this.runSafeAsync('Checkpoint', () => this.checkpointManager.initialize()),
-      this.runSafeAsync('MCP', async () => {
-        const deps = getLLMAgentDependencies();
-        const config = deps.loadMCPConfig();
-        if (config.servers.length === 0) return;
-        await deps.initializeMCPServers(this.mcpClientConfig);
-        // Separate try-catch for prompt update to avoid mislabeled errors
-        if (!this.disposed) {
-          try {
-            this.updateSystemPromptWithMCPTools();
-          } catch (promptError) {
-            console.warn('MCP prompt update failed:', extractErrorMessage(promptError));
-          }
-        }
-      }),
+      mcpInit,
     ]);
+  }
+
+  /**
+   * BUG FIX #26: Wait for MCP servers to initialize
+   * Call this before processing prompts in headless mode to ensure MCP tools are available
+   * @param timeoutMs - Maximum time to wait (default: 30000ms)
+   */
+  async waitForMCPReady(timeoutMs: number = 30000): Promise<void> {
+    if (!this.mcpInitPromise) return;
+
+    // Race the MCP init promise against a timeout
+    const timeoutPromise = new Promise<void>((_, reject) => {
+      setTimeout(() => reject(new Error('MCP initialization timed out')), timeoutMs);
+    });
+
+    try {
+      await Promise.race([this.mcpInitPromise, timeoutPromise]);
+    } catch (error) {
+      // Log timeout but don't fail - MCP tools just won't be available
+      console.warn(`MCP initialization warning: ${extractErrorMessage(error)}`);
+    }
   }
 
   /**

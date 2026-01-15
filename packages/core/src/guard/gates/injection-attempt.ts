@@ -50,16 +50,23 @@ const COMMAND_INJECTION_PATTERNS: RegExp[] = [
 
 /**
  * Path traversal patterns
+ * BUG FIX #18: Removed overly-aggressive standalone %2f/%5c pattern
+ * that caused false positives. URL-encoded slashes are only dangerous
+ * when combined with path traversal sequences like %2e%2e (encoded ..)
  */
 const PATH_TRAVERSAL_PATTERNS: RegExp[] = [
   // Basic path traversal - any ../ or ..\ at start or after separator
   /(?:^|[\/\\])\.\.(?:[\/\\]|$)/,
-  // URL encoded traversal
+  // URL encoded traversal with path component
   /(?:%2e%2e|%252e%252e)/i,
-  /(?:%2f|%5c)/i,
-  /(?:\.\.%2f|\.\.%5c)/i,
-  // Null byte injection
-  /(?:%00|%0a|%0d)/i,
+  // URL encoded traversal combined with encoded separators
+  /(?:\.\.%2f|\.\.%5c|%2e%2e%2f|%2e%2e%5c)/i,
+  // Double-encoded traversal
+  /(?:%252e%252e%252f|%252e%252e%255c)/i,
+  // Null byte injection (only at end or before extension - common attack)
+  /(?:%00[^%]|%00$)/i,
+  // Newline injection (for header injection in web contexts)
+  /(?:%0a|%0d).*(?:Set-Cookie|Location|Content-Type)/i,
 ];
 
 /**
@@ -178,10 +185,16 @@ export class InjectionAttemptGate implements GateImplementation {
       const matches = findMatchingPatterns(input, patterns);
 
       if (matches.length > 0) {
+        // BUG FIX #18: Include pattern info in error message for debugging false positives
+        const patternNames = matches.slice(0, 3).map((p) => {
+          const patternStr = p.toString().substring(0, 50);
+          return patternStr.length === 50 ? patternStr + '...' : patternStr;
+        });
+
         // INV-INJ-003: Return details for audit
         return fail(
           'injection_attempt',
-          `Potential injection attack detected`,
+          `Potential injection attack detected (matched: ${patternNames.join(', ')})`,
           startTime,
           {
             matchCount: matches.length,
