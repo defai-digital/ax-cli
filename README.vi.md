@@ -26,7 +26,7 @@
 
 ## Mục lục
 
-- [Người dùng GLM / Z.AI](#người-dùng-glm--zai)
+- [Người dùng GLM](#người-dùng-glm)
 - [Bắt đầu Nhanh](#bắt-đầu-nhanh)
 - [Tại sao AX CLI?](#tại-sao-ax-cli)
 - [Các Mô hình Được Hỗ trợ](#các-mô-hình-được-hỗ-trợ)
@@ -43,9 +43,9 @@
 
 ---
 
-## Người dùng GLM / Z.AI
+## Người dùng GLM
 
-> **Quan trọng:** Z.AI đã phát hành công cụ CLI chính thức của họ có tên **OpenCode**. Chúng tôi khuyến nghị người dùng GLM/Z.AI sử dụng trực tiếp OpenCode thay vì ax-glm. Bắt đầu với OpenCode: https://opencode.ai. Gói ax-glm cloud đã ngừng hỗ trợ và được xóa khỏi kho lưu trữ này để ưu tiên giải pháp chính thức của Z.AI.
+> **Quan trọng:** Gói ax-glm cloud đã ngừng hỗ trợ. Để truy cập API cloud GLM, chúng tôi khuyến nghị sử dụng OpenCode. Bắt đầu với OpenCode: https://opencode.ai.
 >
 > **Lưu ý:** Các mô hình GLM cục bộ (GLM-4.6, CodeGeeX4) vẫn được hỗ trợ đầy đủ thông qua `ax-cli` để suy luận ngoại tuyến qua Ollama, LMStudio hoặc vLLM. Xem phần [Mô hình Cục bộ/Ngoại tuyến](#mô-hình-cục-bộngoại-tuyến-ax-cli) bên dưới.
 
@@ -73,7 +73,7 @@ ax-grok
 
 Chạy `/init` trong CLI để khởi tạo ngữ cảnh dự án của bạn.
 
-> **Người dùng GLM/Z.AI:** Vui lòng sử dụng [OpenCode CLI](https://opencode.ai) chính thức của Z.AI thay vì ax-glm.
+> **Người dùng GLM:** Vui lòng sử dụng [OpenCode CLI](https://opencode.ai) thay vì ax-glm.
 
 ---
 
@@ -319,7 +319,7 @@ AX CLI sử dụng kiến trúc modular với các CLI riêng cho từng nhà cu
 | [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | Không | Thư viện lõi chia sẻ (tự động cài đặt như dependency) |
 | [@defai.digital/ax-schemas](https://www.npmjs.com/package/@defai.digital/ax-schemas) | Không | Schemas Zod chia sẻ (tự động cài đặt như dependency) |
 
-> **Lưu ý:** ax-glm đã ngừng hỗ trợ để ủng hộ [OpenCode CLI](https://opencode.ai) chính thức của Z.AI.
+> **Lưu ý:** ax-glm đã ngừng hỗ trợ. Vui lòng sử dụng [OpenCode CLI](https://opencode.ai).
 
 ---
 

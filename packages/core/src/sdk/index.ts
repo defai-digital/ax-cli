@@ -1191,7 +1191,7 @@ export interface ProviderAgentOptions extends AgentOptions {
  * SECURITY: Credentials must be configured via the appropriate setup command:
  * - For Grok: `ax-grok setup`
  * - For generic/local: `ax-cli setup`
- * - Note: ax-glm is deprecated, use OpenCode (https://opencode.ai) for Z.AI cloud
+ * - Note: ax-glm is deprecated, use OpenCode (https://opencode.ai) for GLM cloud
  *
  * @param provider - The provider definition (GLM_PROVIDER, GROK_PROVIDER, etc.)
  * @param options - Agent configuration options
@@ -1450,9 +1450,9 @@ export async function createProviderAgent(
  * Create a GLM-optimized LLM Agent
  *
  * @deprecated The ax-glm cloud package is deprecated. Use OpenCode (https://opencode.ai)
- * for Z.AI cloud access. For local GLM models, use ax-cli with Ollama/LMStudio.
+ * for GLM cloud access. For local GLM models, use ax-cli with Ollama/LMStudio.
  *
- * Convenience function that creates an agent configured for Z.AI GLM models.
+ * Convenience function that creates an agent configured for GLM models.
  * Uses settings from `ax-glm setup` or environment variables.
  *
  * @param options - Agent configuration options

@@ -26,7 +26,7 @@
 
 ## Índice
 
-- [Usuários GLM / Z.AI](#usuários-glm--zai)
+- [Usuários GLM](#usuários-glm)
 - [Início Rápido](#início-rápido)
 - [Por que AX CLI?](#por-que-ax-cli)
 - [Modelos Suportados](#modelos-suportados)
@@ -43,9 +43,9 @@
 
 ---
 
-## Usuários GLM / Z.AI
+## Usuários GLM
 
-> **Importante:** Z.AI lançou sua ferramenta CLI oficial chamada **OpenCode**. Recomendamos que usuários de GLM/Z.AI usem o OpenCode diretamente em vez de ax-glm. Comece com o OpenCode: https://opencode.ai. O pacote ax-glm na nuvem foi descontinuado e removido deste repositório em favor da solução oficial Z.AI.
+> **Importante:** O pacote ax-glm na nuvem foi descontinuado. Para acesso à API de nuvem do GLM, recomendamos usar o OpenCode. Comece com o OpenCode: https://opencode.ai.
 >
 > **Nota:** Os modelos GLM locais (GLM-4.6, CodeGeeX4) ainda são totalmente suportados via `ax-cli` para inferência offline através de Ollama, LMStudio ou vLLM. Consulte a seção [Modelos Locais/Offline](#modelos-locaisoffline-ax-cli) abaixo.
 
@@ -73,7 +73,7 @@ ax-grok
 
 Execute `/init` dentro da CLI para inicializar o contexto do seu projeto.
 
-> **Usuários GLM/Z.AI:** Por favor, use o [OpenCode CLI](https://opencode.ai) oficial da Z.AI em vez de ax-glm.
+> **Usuários GLM:** Por favor, use o [OpenCode CLI](https://opencode.ai) em vez de ax-glm.
 
 ---
 
@@ -319,7 +319,7 @@ AX CLI usa uma arquitetura modular com CLIs específicas por provedor construíd
 | [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | Não | Biblioteca núcleo compartilhada (instalada automaticamente como dependência) |
 | [@defai.digital/ax-schemas](https://www.npmjs.com/package/@defai.digital/ax-schemas) | Não | Schemas Zod compartilhados (instalados automaticamente como dependência) |
 
-> **Nota:** ax-glm foi descontinuado em favor do [OpenCode CLI](https://opencode.ai) oficial da Z.AI.
+> **Nota:** ax-glm foi descontinuado. Por favor, use o [OpenCode CLI](https://opencode.ai).
 
 ---
 

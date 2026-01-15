@@ -525,7 +525,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
  * - Llama - Best compatibility
  *
  * For Grok cloud features, use ax-grok.
- * For Z.AI cloud, use OpenCode (https://opencode.ai).
+ * For GLM cloud, use OpenCode (https://opencode.ai).
  */
 export const AX_CLI_PROVIDER: ProviderDefinition = {
   name: 'ax-cli',

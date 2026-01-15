@@ -26,7 +26,7 @@
 
 ## Inhaltsverzeichnis
 
-- [GLM / Z.AI Benutzer](#glm--zai-benutzer)
+- [GLM Benutzer](#glm-benutzer)
 - [Schnellstart](#schnellstart)
 - [Warum AX CLI?](#warum-ax-cli)
 - [Unterstützte Modelle](#unterstützte-modelle)
@@ -43,9 +43,9 @@
 
 ---
 
-## GLM / Z.AI Benutzer
+## GLM Benutzer
 
-> **Wichtig:** Z.AI hat sein offizielles CLI-Tool **OpenCode** veröffentlicht. Wir empfehlen GLM/Z.AI-Benutzern, OpenCode direkt zu verwenden anstatt ax-glm. Starten Sie mit OpenCode: https://opencode.ai. Das ax-glm Cloud-Paket wurde zugunsten der offiziellen Z.AI-Lösung als veraltet markiert und aus diesem Repository entfernt.
+> **Wichtig:** Das ax-glm Cloud-Paket wurde als veraltet markiert. Für den Zugriff auf die GLM Cloud-API empfehlen wir die Verwendung von OpenCode. Starten Sie mit OpenCode: https://opencode.ai.
 >
 > **Hinweis:** Lokale GLM-Modelle (GLM-4.6, CodeGeeX4) werden weiterhin vollständig über `ax-cli` für Offline-Inferenz durch Ollama, LMStudio oder vLLM unterstützt. Siehe Abschnitt [Lokale/Offline-Modelle](#lokaleoffline-modelle-ax-cli) unten.
 
@@ -73,7 +73,7 @@ ax-grok
 
 Führen Sie `/init` in der CLI aus, um Ihren Projektkontext zu initialisieren.
 
-> **GLM/Z.AI-Benutzer:** Bitte verwenden Sie das offizielle [OpenCode CLI](https://opencode.ai) von Z.AI anstelle von ax-glm.
+> **GLM-Benutzer:** Bitte verwenden Sie das [OpenCode CLI](https://opencode.ai) anstelle von ax-glm.
 
 ---
 
@@ -319,7 +319,7 @@ AX CLI verwendet eine modulare Architektur mit anbieterspezifischen CLIs, die au
 | [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | Nein | Gemeinsame Kernbibliothek (automatisch als Abhängigkeit installiert) |
 | [@defai.digital/ax-schemas](https://www.npmjs.com/package/@defai.digital/ax-schemas) | Nein | Gemeinsame Zod-Schemas (automatisch als Abhängigkeit installiert) |
 
-> **Hinweis:** ax-glm wurde zugunsten des offiziellen [OpenCode CLI](https://opencode.ai) von Z.AI als veraltet markiert.
+> **Hinweis:** ax-glm wurde als veraltet markiert. Bitte verwenden Sie das [OpenCode CLI](https://opencode.ai).
 
 ---
 

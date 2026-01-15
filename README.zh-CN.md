@@ -26,7 +26,7 @@
 
 ## 目录
 
-- [GLM / Z.AI 用户](#glm--zai-用户)
+- [GLM 用户](#glm-用户)
 - [快速开始](#快速开始)
 - [为什么选择 AX CLI？](#为什么选择-ax-cli)
 - [支持的模型](#支持的模型)
@@ -43,9 +43,9 @@
 
 ---
 
-## GLM / Z.AI 用户
+## GLM 用户
 
-> **重要提示：** 智谱 Z.AI 已发布其官方 CLI 工具 **OpenCode**。我们建议 GLM/Z.AI 用户直接使用 OpenCode，而非 ax-glm。前往 OpenCode 开始使用：https://opencode.ai。ax-glm 云端软件包已被弃用并从本仓库中移除，请改用官方 Z.AI 解决方案。
+> **重要提示：** ax-glm 云端软件包已被弃用。如需 GLM 云端 API 访问，我们建议使用 OpenCode。前往 OpenCode 开始使用：https://opencode.ai。
 >
 > **注意：** 本地 GLM 模型（GLM-4.6、CodeGeeX4）仍然通过 `ax-cli` 完全支持，可通过 Ollama、LMStudio 或 vLLM 进行离线推理。请参阅下方[本地/离线模型](#本地离线模型-ax-cli)部分。
 
@@ -73,7 +73,7 @@ ax-grok
 
 在 CLI 中运行 `/init` 来初始化项目上下文。
 
-> **GLM/Z.AI 用户：** 请使用智谱官方的 [OpenCode CLI](https://opencode.ai) 代替 ax-glm。
+> **GLM 用户：** 请使用 [OpenCode CLI](https://opencode.ai) 代替 ax-glm。
 
 ---
 
@@ -99,7 +99,7 @@ ax-grok
 - **Grok (ax-grok)**：内置网络搜索、视觉、reasoning_effort；**Grok 4.1 快速变体提供 2M 上下文、并行服务器工具、x_search 和服务器端代码执行**。
 - ax-grok 提供完整的工具链（文件编辑、MCP、bash）和项目记忆功能。
 
-> **GLM/Z.AI 用户：** 请使用智谱官方的 [OpenCode CLI](https://opencode.ai)。
+> **GLM 用户：** 请使用 [OpenCode CLI](https://opencode.ai)。
 
 ---
 
@@ -141,7 +141,7 @@ ax-cli setup   # 选择 "Local/Offline"
 npm install -g @defai.digital/ax-grok   # Grok (xAI)
 ```
 
-> **GLM/Z.AI 用户：** 请使用智谱官方的 [OpenCode CLI](https://opencode.ai)。
+> **GLM 用户：** 请使用 [OpenCode CLI](https://opencode.ai)。
 
 ### 初始设置
 
@@ -327,7 +327,7 @@ AX CLI 使用模块化架构，基于共享核心构建：
 └─────────────────────────────────────────────────────────────┘
 ```
 
-> **GLM/Z.AI 用户：** 请使用智谱官方的 [OpenCode CLI](https://opencode.ai)。
+> **GLM 用户：** 请使用 [OpenCode CLI](https://opencode.ai)。
 
 ---
 
@@ -340,7 +340,7 @@ AX CLI 使用模块化架构，基于共享核心构建：
 | [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | 否 | 共享核心库（作为依赖自动安装） |
 | [@defai.digital/ax-schemas](https://www.npmjs.com/package/@defai.digital/ax-schemas) | 否 | 共享 Zod 模式（作为依赖自动安装） |
 
-> **GLM/Z.AI 用户：** ax-glm 已被弃用。请使用智谱官方的 [OpenCode CLI](https://opencode.ai)。
+> **GLM 用户：** ax-glm 已被弃用。请使用 [OpenCode CLI](https://opencode.ai)。
 
 ---
 

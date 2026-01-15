@@ -25,7 +25,7 @@
 ## Table of Contents
 
 - [Quick Start](#quick-start)
-- [GLM / Z.AI Users](#glm--zai-users)
+- [GLM Users](#glm-users)
 - [Why AX CLI?](#why-ax-cli)
 - [Supported Models](#supported-models)
 - [Installation](#installation)
@@ -68,17 +68,13 @@ Run `/init` inside the CLI to initialize your project context.
 
 ---
 
-## GLM / Z.AI Users
+## GLM Users
 
-> **Important:** Z.AI has released their official CLI tool called **OpenCode**.
+> **Note:** The `ax-glm` cloud package has been deprecated.
 >
-> **We recommend GLM/Z.AI users to use OpenCode directly instead of ax-glm.**
->
-> Get started with OpenCode: **https://opencode.ai**
+> **For GLM cloud API access, we recommend using [OpenCode](https://opencode.ai).**
 
-The `ax-glm` cloud package has been deprecated and removed from this repository in favor of the official Z.AI solution.
-
-**Note:** Local GLM models (GLM-4.6, CodeGeeX4) are still fully supported via `ax-cli` for offline inference through Ollama, LMStudio, or vLLM. See [Local/Offline Models](#localoffline-models-ax-cli) below.
+**Local GLM models** (GLM-4.6, CodeGeeX4) are still fully supported via `ax-cli` for offline inference through Ollama, LMStudio, or vLLM. See [Local/Offline Models](#localoffline-models-ax-cli) below.
 
 ---
 
@@ -352,7 +348,7 @@ AX CLI uses a modular architecture with provider-specific CLIs built on a shared
 | [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | No | Shared core library (auto-installed as dependency) |
 | [@defai.digital/ax-schemas](https://www.npmjs.com/package/@defai.digital/ax-schemas) | No | Shared Zod schemas (auto-installed as dependency) |
 
-> **GLM/Z.AI Users:** Please use [OpenCode](https://opencode.ai) - the official CLI from Z.AI.
+> **GLM Cloud Users:** For GLM cloud API, we recommend [OpenCode](https://opencode.ai).
 
 ---
 
@@ -360,7 +356,7 @@ AX CLI uses a modular architecture with provider-specific CLIs built on a shared
 
 | Version | Highlights |
 |---------|------------|
-| **v5.1.13** | Deprecated ax-glm cloud package in favor of Z.AI OpenCode CLI; Local GLM models still supported via ax-cli; Simplified local model config to generic families (qwen, glm, deepseek, etc.) |
+| **v5.1.13** | Deprecated ax-glm cloud package (recommend OpenCode for GLM cloud); Local GLM models still supported via ax-cli; Simplified local model config to generic families (qwen, glm, deepseek, etc.) |
 | **v5.1.10** | Auto-launch setup wizard when CLI not configured; Complete i18n translations for AutomatosX setup (11 languages); Add --silent option for non-interactive setup; Fix: root bin/ax-cli path for monorepo |
 | **v5.1.9** | Add: grok-code-fast-1 as default model for ax-grok (70.8% SWE-bench, 256K context); Fix: checkpoint error handling, type assertion validation, race condition in abort handlers; Fix: ESLint JSX parsing and TypeScript errors |
 | **v5.1.8** | Add: Localized README files for 10 languages (zh-CN, zh-TW, ja, ko, de, es, pt, fr, vi, th); Add: Translation contribution guide |
