@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - 'v*.*.*'           # Main ax-cli: v1.0.0
-      - 'ax-glm@*.*.*'     # ax-glm: ax-glm@1.0.0
       - 'ax-grok@*.*.*'    # ax-grok: ax-grok@1.0.0
       - 'ax-core@*.*.*'    # ax-core: ax-core@1.0.0
       - 'ax-schemas@*.*.*' # ax-schemas: ax-schemas@1.0.0
@@ -16,7 +15,6 @@ on:
         type: choice
         options:
           - ax-cli
-          - ax-glm
           - ax-grok
           - ax-core
           - ax-schemas
@@ -117,8 +115,6 @@ jobs:
           elif [[ "${{ github.ref_name }}" == v*.*.* ]]; then
             # Main version tag (v4.3.1) publishes all packages
             echo "package=all" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref_name }}" == ax-glm@* ]]; then
-            echo "package=ax-glm" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref_name }}" == ax-grok@* ]]; then
             echo "package=ax-grok" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref_name }}" == ax-core@* ]]; then
@@ -148,22 +144,6 @@ jobs:
         if: steps.package.outputs.package == 'ax-core' || steps.package.outputs.package == 'all'
         run: |
           cd packages/core
-          VERSION=$(node -p "require('./package.json').version")
-          PACKAGE_NAME=$(node -p "require('./package.json').name")
-          if npm view $PACKAGE_NAME@$VERSION version 2>/dev/null; then
-            echo "⏭️ $PACKAGE_NAME@$VERSION already exists, skipping"
-          else
-            pnpm publish --provenance --access public --no-git-checks
-            echo "✅ Published $PACKAGE_NAME@$VERSION"
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      # Publish ax-glm (using pnpm to resolve workspace:* correctly)
-      - name: Publish ax-glm
-        if: steps.package.outputs.package == 'ax-glm' || steps.package.outputs.package == 'all'
-        run: |
-          cd packages/ax-glm
           VERSION=$(node -p "require('./package.json').version")
           PACKAGE_NAME=$(node -p "require('./package.json').name")
           if npm view $PACKAGE_NAME@$VERSION version 2>/dev/null; then
@@ -230,18 +210,14 @@ jobs:
 
             ### Installation
             ```bash
-            # For GLM/Z.AI users
-            npm install -g @defai.digital/ax-glm
-
             # For Grok/xAI users
             npm install -g @defai.digital/ax-grok
 
-            # For multi-provider setup
+            # For local/offline models (Ollama, LMStudio, vLLM)
             npm install -g @defai.digital/ax-cli
             ```
 
             ### NPM Packages
-            - [@defai.digital/ax-glm](https://www.npmjs.com/package/@defai.digital/ax-glm)
             - [@defai.digital/ax-grok](https://www.npmjs.com/package/@defai.digital/ax-grok)
             - [@defai.digital/ax-cli](https://www.npmjs.com/package/@defai.digital/ax-cli)
           draft: false
