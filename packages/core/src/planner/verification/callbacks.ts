@@ -70,6 +70,8 @@ async function executeCommand(
     let stdout = '';
     let stderr = '';
     let timedOut = false;
+    // BUG FIX: Track both timeout IDs to prevent timer leaks
+    let forceKillTimeoutId: NodeJS.Timeout | null = null;
 
     const proc = spawn(command, args, {
       cwd: options.cwd || process.cwd(),
@@ -77,23 +79,35 @@ async function executeCommand(
       env: { ...process.env, ...options.env },
     });
 
+    // BUG FIX: Helper to clear all timers
+    const clearAllTimers = (mainTimeoutId: NodeJS.Timeout) => {
+      clearTimeout(mainTimeoutId);
+      if (forceKillTimeoutId) {
+        clearTimeout(forceKillTimeoutId);
+        forceKillTimeoutId = null;
+      }
+    };
+
     // Handle timeout
     const timeoutId = setTimeout(() => {
       timedOut = true;
       proc.kill('SIGTERM');
-      // Force kill after 5 seconds if still running
-      setTimeout(() => {
+      // BUG FIX: Track inner timeout for cleanup
+      forceKillTimeoutId = setTimeout(() => {
         if (!proc.killed) {
           proc.kill('SIGKILL');
         }
       }, 5000);
     }, options.timeout);
 
+    // BUG FIX: Store abort listener reference for cleanup
+    const abortListener = () => {
+      proc.kill('SIGTERM');
+    };
+
     // Handle abort signal
     if (options.abortSignal) {
-      options.abortSignal.addEventListener('abort', () => {
-        proc.kill('SIGTERM');
-      });
+      options.abortSignal.addEventListener('abort', abortListener);
     }
 
     proc.stdout.on('data', (data: Buffer) => {
@@ -105,7 +119,11 @@ async function executeCommand(
     });
 
     proc.on('close', (code) => {
-      clearTimeout(timeoutId);
+      clearAllTimers(timeoutId);
+      // BUG FIX: Remove abort listener to prevent memory leak
+      if (options.abortSignal) {
+        options.abortSignal.removeEventListener('abort', abortListener);
+      }
       resolve({
         stdout,
         stderr,
@@ -115,7 +133,11 @@ async function executeCommand(
     });
 
     proc.on('error', (err) => {
-      clearTimeout(timeoutId);
+      clearAllTimers(timeoutId);
+      // BUG FIX: Remove abort listener to prevent memory leak
+      if (options.abortSignal) {
+        options.abortSignal.removeEventListener('abort', abortListener);
+      }
       resolve({
         stdout,
         stderr: stderr + '\n' + err.message,

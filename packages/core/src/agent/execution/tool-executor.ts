@@ -55,6 +55,9 @@ export class ToolExecutor {
   private onAxAgentStart?: (agentName: string) => void;
   private onAxAgentEnd?: (agentName: string) => void;
 
+  // Abort signal for cancellation - passed to long-running tools
+  private abortSignal?: AbortSignal;
+
   constructor(config?: ToolExecutorConfig) {
     this.textEditor = new TextEditorTool();
     this.bash = new BashTool();
@@ -310,9 +313,12 @@ export class ToolExecutor {
           );
 
         case "bash":
+          // BUG FIX: Pass abort signal with killOnAbort=true so ESC properly cancels
           return await this.bash.execute(getString('command'), {
             background: getBoolean('background'),
             timeout: getNumber('timeout'),
+            signal: this.abortSignal,
+            killOnAbort: true, // Kill process on ESC, don't move to background
           });
 
         case "bash_output":
@@ -667,6 +673,14 @@ export class ToolExecutor {
    */
   getTextEditorTool(): TextEditorTool {
     return this.textEditor;
+  }
+
+  /**
+   * Set the abort signal for tool cancellation
+   * BUG FIX: Allows ESC key to properly cancel long-running tools
+   */
+  setAbortSignal(signal: AbortSignal | undefined): void {
+    this.abortSignal = signal;
   }
 
   /**

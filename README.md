@@ -1,7 +1,7 @@
 # AX CLI - Enterprise-Class Vibe Coding
 
 [![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
-[![Tests](https://img.shields.io/badge/tests-6,084+%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-6,205+%20passing-brightgreen.svg)](#)
 [![macOS](https://img.shields.io/badge/macOS-26.0-blue.svg)](https://www.apple.com/macos)
 [![Windows](https://img.shields.io/badge/Windows-10+-blue.svg)](https://www.microsoft.com/windows)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-blue.svg)](https://ubuntu.com)
@@ -83,7 +83,7 @@ Run `/init` inside the CLI to initialize your project context.
 | **MCP Integration** | Model Context Protocol with 12+ production-ready templates |
 | **Project Memory** | Intelligent context caching with 50% token savings |
 | **Enterprise Security** | AES-256-GCM encryption, no telemetry, CVSS-rated protections |
-| **65% Test Coverage** | 6,084+ tests with strict TypeScript |
+| **65% Test Coverage** | 6,205+ tests with strict TypeScript |
 
 ---
 

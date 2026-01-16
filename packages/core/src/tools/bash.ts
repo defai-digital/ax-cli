@@ -53,6 +53,8 @@ export interface BashExecuteOptions {
   background?: boolean;
   /** Abort signal to cancel execution or move to background */
   signal?: AbortSignal;
+  /** When true, kill the process on abort instead of moving to background (default: false) */
+  killOnAbort?: boolean;
 }
 
 /**
@@ -308,7 +310,7 @@ export class BashTool extends EventEmitter {
       }
 
       // Use spawn for interruptible execution
-      const result = await this.executeWithSpawn(command, timeout, opts.signal);
+      const result = await this.executeWithSpawn(command, timeout, opts.signal, opts.killOnAbort);
 
       // Convert BackgroundTransferResult to ToolResult
       if ('movedToBackground' in result && result.movedToBackground) {
@@ -443,11 +445,13 @@ export class BashTool extends EventEmitter {
   /**
    * Execute command using spawn (interruptible)
    * Returns ToolResult normally, or BackgroundTransferResult if moved to background
+   * @param killOnAbort When true, kills the process on abort instead of backgrounding
    */
   private executeWithSpawn(
     command: string,
     timeout: number,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    killOnAbort?: boolean
   ): Promise<ToolResult | BackgroundTransferResult> {
     return new Promise((resolve, reject) => {
       const stdout: string[] = [];
@@ -517,11 +521,52 @@ export class BashTool extends EventEmitter {
         }
       };
 
-      // Handle abort signal (for Ctrl+B background transfer)
+      // Handle abort signal
+      // If killOnAbort is true (ESC pressed), kill the process immediately
+      // Otherwise (Ctrl+B), move to background
       // Store handler reference for cleanup to prevent memory leaks
       if (signal) {
         abortHandler = () => {
           if (this.currentProcess === childProcess) {
+            // BUG FIX: When killOnAbort is true, kill the process instead of backgrounding
+            // This handles ESC key cancellation properly
+            if (killOnAbort) {
+              clearAllTimers();
+              cleanupAbortListener();
+
+              // Kill the process
+              try {
+                childProcess.kill('SIGTERM');
+                // Give it a moment to terminate gracefully, then force kill
+                setTimeout(() => {
+                  try {
+                    if (!childProcess.killed) {
+                      childProcess.kill('SIGKILL');
+                    }
+                  } catch {
+                    // Process already dead
+                  }
+                }, 500);
+              } catch {
+                // Process already dead
+              }
+
+              // Clear process state
+              if (this.currentProcess === childProcess) {
+                this.currentProcess = null;
+                this.currentCommand = '';
+                this.currentOutput = [];
+              }
+
+              resolve({
+                success: false,
+                error: 'Operation cancelled by user',
+                output: stdout.join('').trim() || undefined,
+              });
+              return;
+            }
+
+            // Default behavior: move to background (for Ctrl+B)
             const taskId = this.moveToBackground();
 
             if (taskId) {
