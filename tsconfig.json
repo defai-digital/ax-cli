@@ -11,7 +11,6 @@
     { "path": "./packages/schemas" },
     { "path": "./packages/core" },
     { "path": "./packages/ax-cli" },
-    { "path": "./packages/ax-glm" },
     { "path": "./packages/ax-grok" }
   ]
 }
