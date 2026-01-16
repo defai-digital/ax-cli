@@ -2317,6 +2317,9 @@ export class LLMAgent extends EventEmitter {
       }
     }
 
+    // BUG FIX: Pass abort signal to tool executor so ESC can cancel long-running tools
+    this.toolExecutor.setAbortSignal(this.abortController?.signal);
+
     // Delegate to ToolExecutor (Phase 2 refactoring)
     return await this.toolExecutor.execute(toolCall);
   }
