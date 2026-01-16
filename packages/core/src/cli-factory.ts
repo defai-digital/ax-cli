@@ -328,6 +328,7 @@ export function createCLI(options: CLIFactoryOptions): Command {
         // lgtm[js/clear-text-logging]
         // codeql[js/clear-text-logging] - false positive: logs env var name, not value
         console.error(`❌ Error: API key required for interactive/headless mode.`);
+        // codeql[js/clear-text-logging] - false positive: envVarName is the env var NAME (e.g., "XAI_API_KEY"), not the secret value
         const envVarName = provider.apiKeyEnvVar; // env var name, not value
         console.error(`   Set ${envVarName} environment variable or use --api-key flag`);
         console.error();
