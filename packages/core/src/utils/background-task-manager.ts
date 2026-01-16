@@ -175,6 +175,8 @@ export class BackgroundTaskManager extends EventEmitter {
     const safeCwd = validateCwd(cwd);
 
     // Use shell to execute command (supports pipes, redirects, etc.)
+    // codeql[js/shell-command-injection-from-environment] - false positive: background task
+    // manager is designed to run user commands with their environment; env pass-through is intentional
     const childProcess = spawn('bash', ['-c', command], {
       cwd: safeCwd,
       detached: false,

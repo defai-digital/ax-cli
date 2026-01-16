@@ -59,6 +59,7 @@ export class TokenCounter {
 
     // For longer texts, use SHA-256 hash to reduce memory footprint
     // A 10KB text becomes a 64-char hash, saving ~9.9KB per cache entry
+    // codeql[js/insufficient-password-hash] - false positive: cache key, not password
     const hash = crypto.createHash('sha256').update(text).digest('hex');
     const cacheKey = modelPrefix + hash;
 

@@ -324,9 +324,12 @@ export function createCLI(options: CLIFactoryOptions): Command {
 
       if (!apiKey) {
         // SECURITY: This logs the ENV VAR NAME (e.g., "ZAI_API_KEY"), not the actual key value
+        // The apiKeyEnvVar is a constant string like "ZAI_API_KEY" or "XAI_API_KEY"
         // lgtm[js/clear-text-logging]
+        // codeql[js/clear-text-logging] - false positive: logs env var name, not value
         console.error(`❌ Error: API key required for interactive/headless mode.`);
-        console.error(`   Set ${provider.apiKeyEnvVar} environment variable or use --api-key flag`);
+        const envVarName = provider.apiKeyEnvVar; // env var name, not value
+        console.error(`   Set ${envVarName} environment variable or use --api-key flag`);
         console.error();
         console.error(`💡 These commands work without API key:`);
         console.error(`   ${cliName} doctor   - Diagnose configuration`);

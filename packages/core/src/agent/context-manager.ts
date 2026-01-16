@@ -148,6 +148,7 @@ export class ContextManager extends EventEmitter {
     }).join('||');
 
     // Hash the signature for efficient cache lookup
+    // codeql[js/insufficient-password-hash] - false positive: cache key, not password
     return crypto.createHash('sha256').update(messageSignature).digest('hex').substring(0, 32);
   }
 

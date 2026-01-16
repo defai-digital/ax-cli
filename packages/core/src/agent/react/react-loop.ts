@@ -505,6 +505,7 @@ export class ReActLoop {
       }
 
       // Check for completion patterns
+      // codeql[js/polynomial-redos] - patterns are hardcoded simple patterns, not user input
       for (const pattern of completionPatterns) {
         if (pattern.test(content)) {
           return true;

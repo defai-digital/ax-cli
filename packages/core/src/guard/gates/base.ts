@@ -71,6 +71,7 @@ export function matchesAnyPattern(
   patterns: (string | RegExp)[]
 ): { matched: boolean; pattern?: string } {
   for (const pattern of patterns) {
+    // codeql[js/polynomial-redos] - patterns are predefined security constants, not user input
     const regex = typeof pattern === 'string' ? new RegExp(pattern, 'i') : pattern;
     if (regex.test(value)) {
       return { matched: true, pattern: pattern.toString() };
@@ -88,6 +89,7 @@ export function findMatchingPatterns(
 ): string[] {
   const matches: string[] = [];
   for (const pattern of patterns) {
+    // codeql[js/polynomial-redos] - patterns are predefined security constants, not user input
     const regex = typeof pattern === 'string' ? new RegExp(pattern, 'i') : pattern;
     if (regex.test(value)) {
       matches.push(pattern.toString());

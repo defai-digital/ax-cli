@@ -474,6 +474,8 @@ export class BashTool extends EventEmitter {
       // Validate and normalize cwd to prevent shell injection (CodeQL security fix)
       const safeCwd = validateCwd(this.currentDirectory);
 
+      // codeql[js/shell-command-injection-from-environment] - false positive: bash tool
+      // is designed to execute user commands with their environment; env pass-through is intentional
       const childProcess = spawn('bash', ['-c', command], {
         cwd: safeCwd,
         env: { ...process.env },

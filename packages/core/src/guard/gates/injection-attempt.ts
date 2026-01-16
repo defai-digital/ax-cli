@@ -82,6 +82,7 @@ const TEMPLATE_INJECTION_PATTERNS: RegExp[] = [
 
 /**
  * Script injection patterns
+ * codeql[js/bad-tag-filter] - intentional: used for detection, not sanitization
  */
 const SCRIPT_INJECTION_PATTERNS: RegExp[] = [
   /<script\b[^>]*>[\s\S]*?<\/script>/i,

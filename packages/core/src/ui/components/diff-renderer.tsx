@@ -182,6 +182,7 @@ const renderDiffContent = (
     baseIndentation = 0;
   }
 
+  // codeql[js/insufficient-password-hash] - false positive: React key, not password
   const key = filename
     ? `diff-box-${filename}`
     : `diff-box-${crypto.createHash('sha1').update(JSON.stringify(parsedLines)).digest('hex')}`;
