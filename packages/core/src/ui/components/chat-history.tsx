@@ -5,7 +5,7 @@ import { DiffRenderer } from "./diff-renderer.js";
 import { MarkdownRenderer } from "../utils/markdown-renderer.js";
 import { ReasoningDisplay } from "./reasoning-display.js";
 import { ToolGroupDisplay } from "./tool-group-display.js";
-import { groupConsecutiveTools, isToolGroup, formatDuration, type GroupedEntry } from "../utils/tool-grouper.js";
+import { groupConsecutiveTools, isToolGroup, formatDuration, parseToolArguments, type GroupedEntry } from "../utils/tool-grouper.js";
 import { getBriefToolSummary } from "../utils/change-summarizer.js";
 import { VerbosityLevel, UI_CONFIG } from "../../constants.js";
 import { getToolActionName, getFilePath } from "./collapsible-tool-result.js";
@@ -133,15 +133,11 @@ const MemoizedChatEntry = React.memo(
         const toolName = entry.toolCall?.function?.name || "unknown";
         const actionName = getToolActionName(toolName);
 
-        // Get full tool arguments for verbose mode
+        // Get full tool arguments for verbose mode (uses cached parser)
         const getToolArguments = (toolCall: any): string => {
-          if (toolCall?.function?.arguments) {
-            try {
-              const args = JSON.parse(toolCall.function.arguments);
-              return JSON.stringify(args, null, 2);
-            } catch {
-              return toolCall.function.arguments || "";
-            }
+          if (toolCall?.function?.arguments && toolCall?.id) {
+            const args = parseToolArguments(toolCall.id, toolCall.function.arguments);
+            return Object.keys(args).length > 0 ? JSON.stringify(args, null, 2) : toolCall.function.arguments;
           }
           return "";
         };

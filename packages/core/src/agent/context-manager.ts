@@ -98,16 +98,23 @@ export class ContextManager extends EventEmitter {
           this.cleanupCache();
           // If still over limit after cleanup, evict oldest entries to 90% capacity
           if (this.tokenCache.size >= this.MAX_CACHE_SIZE) {
+            // PERF FIX: Use iterator directly instead of Array.from() to avoid full copy
             // Remove entries to get back to 90% capacity for headroom
             const targetSize = Math.floor(this.MAX_CACHE_SIZE * 0.9);
-            // CONCURRENCY FIX: Snapshot entries before calculating removals
-            // to prevent iterator invalidation from concurrent modifications
-            const entries = Array.from(this.tokenCache.entries());
-            const entriesToRemove = entries.length - targetSize;
+            const entriesToRemove = this.tokenCache.size - targetSize;
 
-            // Delete using snapshot to avoid race conditions
-            for (let i = 0; i < Math.min(entriesToRemove, entries.length); i++) {
-              this.tokenCache.delete(entries[i][0]);
+            // Collect keys first using iterator (more memory efficient than Array.from)
+            const keysToDelete: string[] = [];
+            let count = 0;
+            for (const key of this.tokenCache.keys()) {
+              if (count >= entriesToRemove) break;
+              keysToDelete.push(key);
+              count++;
+            }
+
+            // Delete after collecting to avoid iterator invalidation
+            for (const key of keysToDelete) {
+              this.tokenCache.delete(key);
             }
           }
         } finally {
@@ -154,13 +161,21 @@ export class ContextManager extends EventEmitter {
 
   /**
    * Clean up expired cache entries
+   * PERF FIX: Collect keys to delete first to avoid modifying Map while iterating
    */
   private cleanupCache(): void {
     const now = Date.now();
+    const keysToDelete: string[] = [];
+
     for (const [key, value] of this.tokenCache.entries()) {
       if (now - value.timestamp > this.CACHE_TTL) {
-        this.tokenCache.delete(key);
+        keysToDelete.push(key);
       }
+    }
+
+    // Delete after iteration to avoid iterator invalidation
+    for (const key of keysToDelete) {
+      this.tokenCache.delete(key);
     }
   }
 

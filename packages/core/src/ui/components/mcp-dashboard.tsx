@@ -84,9 +84,14 @@ export function MCPDashboard({
   // BUG FIX: Track install success timeout for cleanup on unmount
   const installSuccessTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // BUG FIX: Track mounted state to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+
   // BUG FIX: Cleanup timeout on unmount to prevent memory leaks
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (installSuccessTimeoutRef.current) {
         clearTimeout(installSuccessTimeoutRef.current);
         installSuccessTimeoutRef.current = null;
@@ -147,9 +152,13 @@ export function MCPDashboard({
 
       if (serverConfig) {
         await manager.addServer(serverConfig);
+        // BUG FIX: Check mounted state after async operation
+        if (!isMountedRef.current) return;
         handleRefresh();
       }
     } catch {
+      // BUG FIX: Check mounted state after async error
+      if (!isMountedRef.current) return;
       // Failed to reconnect - status will show as failed
       handleRefresh();
     }
@@ -202,6 +211,8 @@ export function MCPDashboard({
       }
 
       if (missingEnvVars.length > 0) {
+        // BUG FIX: Check mounted state before updating state after validation
+        if (!isMountedRef.current) return;
         setInstallError(
           `Missing environment variables: ${missingEnvVars.join(", ")}\n\n` +
           `Set them in your shell:\n${missingEnvVars.map(v => `  export ${v}=<value>`).join("\n")}`
@@ -209,12 +220,18 @@ export function MCPDashboard({
         return;
       }
 
+      // BUG FIX: Check mounted state before updating state after async operations
+      if (!isMountedRef.current) return;
       setInstallStatus("Generating configuration...");
       const config = generateConfigFromTemplate(template.name, envVars);
 
+      if (!isMountedRef.current) return;
       setInstallStatus("Connecting to server...");
       const manager = getMCPManager();
       await manager.addServer(config);
+
+      // BUG FIX: Check mounted state after await
+      if (!isMountedRef.current) return;
 
       // BUG FIX: Save config only after successful connection
       // Previously saved before connection, causing orphaned configs on failure
@@ -226,12 +243,15 @@ export function MCPDashboard({
       // BUG FIX: Track timeout for cleanup on unmount
       // Wait a moment to show success, then return to list
       installSuccessTimeoutRef.current = setTimeout(() => {
+        if (!isMountedRef.current) return;
         installSuccessTimeoutRef.current = null;
         handleRefresh();
         setView("list");
       }, 1500);
 
     } catch (error) {
+      // BUG FIX: Check mounted state before updating state after async error
+      if (!isMountedRef.current) return;
       setInstallError(`Installation failed: ${extractErrorMessage(error)}`);
     }
   }, [handleRefresh]);

@@ -901,11 +901,20 @@ export class LLMAgent extends EventEmitter {
       // CRITICAL FIX: Prevent unbounded memory growth with proper cache eviction
       // When cache exceeds limit, reduce to 80% capacity (not just remove fixed entries)
       if (this.toolCallArgsCache.size > CACHE_CONFIG.TOOL_ARGS_CACHE_MAX_SIZE) {
+        // PERF FIX: Use iterator directly instead of Array.from() to avoid full copy
         const targetSize = Math.floor(CACHE_CONFIG.TOOL_ARGS_CACHE_MAX_SIZE * 0.8);
         const toRemove = this.toolCallArgsCache.size - targetSize;
 
-        // BUG FIX: Don't modify Map while iterating - create array of keys first
-        const keysToDelete = Array.from(this.toolCallArgsCache.keys()).slice(0, toRemove);
+        // Collect keys first using iterator (more memory efficient)
+        const keysToDelete: string[] = [];
+        let count = 0;
+        for (const key of this.toolCallArgsCache.keys()) {
+          if (count >= toRemove) break;
+          keysToDelete.push(key);
+          count++;
+        }
+
+        // Delete after collecting to avoid iterator invalidation
         for (const key of keysToDelete) {
           this.toolCallArgsCache.delete(key);
         }

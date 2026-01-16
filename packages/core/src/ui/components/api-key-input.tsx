@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Box, Text, useInput, useApp } from "ink";
 import { LLMAgent } from "../../agent/llm-agent.js";
 import { getSettingsManager } from "../../utils/settings-manager.js";
@@ -17,6 +17,16 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { exit } = useApp();
+
+  // BUG FIX: Track mounted state to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useInput((inputChar, key) => {
     if (isSubmitting) return;
@@ -85,6 +95,8 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
 
       onApiKeySet(agent);
     } catch {
+      // BUG FIX: Check mounted state before updating state after async operation
+      if (!isMountedRef.current) return;
       setError(uiMessages.error_invalid || "Invalid API key format");
       setIsSubmitting(false);
     }

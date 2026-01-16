@@ -287,9 +287,15 @@ export function formatMergeResult(result: MergedConfigResult): string {
   lines.push('╭─ MCP Config Merge Summary ────────────────────╮');
   lines.push(`│ Total servers: ${result.servers.length}`);
 
-  const axCliCount = Array.from(result.sources.values()).filter(s => s === 'ax-cli').length;
-  const automatosXCount = Array.from(result.sources.values()).filter(s => s === 'automatosx').length;
-  const bothCount = Array.from(result.sources.values()).filter(s => s === 'both').length;
+  // PERF FIX: Single pass over sources instead of 3 separate filter calls
+  let axCliCount = 0;
+  let automatosXCount = 0;
+  let bothCount = 0;
+  for (const source of result.sources.values()) {
+    if (source === 'ax-cli') axCliCount++;
+    else if (source === 'automatosx') automatosXCount++;
+    else if (source === 'both') bothCount++;
+  }
 
   if (axCliCount > 0) {
     lines.push(`│ From ax-cli: ${axCliCount}`);

@@ -79,8 +79,9 @@ function formatTokenCount(tokens: number): string {
  * Uses block characters for smooth visualization
  * Includes accessibility symbols for colorblind users
  * Phase 3: Enhanced with token count display
+ * Memoized to prevent re-renders when props haven't changed
  */
-function ContextBar({
+const ContextBar = React.memo(function ContextBar({
   percentage,
   showAutoPrune,
   currentTokens,
@@ -132,14 +133,15 @@ function ContextBar({
       )}
     </Box>
   );
-}
+});
 
 /**
  * Mode indicator pill component
  * Shows clear "Label: On/Off" or "Label: Value" format for better visibility
  * Supports flash animation on toggle
+ * Memoized to prevent re-renders when props haven't changed
  */
-function ModePill({
+const ModePill = React.memo(function ModePill({
   label,
   enabled,
   value,
@@ -174,7 +176,7 @@ function ModePill({
       </Text>
     </Box>
   );
-}
+});
 
 /** Get localized verbosity name */
 function getVerbosityName(level: VerbosityLevel, t: UITranslations): string {

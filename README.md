@@ -348,28 +348,9 @@ AX CLI uses a modular architecture with provider-specific CLIs built on a shared
 
 | Version | Highlights |
 |---------|------------|
-| **v5.1.18** | Refactor: Replaced hard-coded values with named constants (TOAST_DURATION, TOOL_GROUP_CONFIG, TOOL_RESULT_CONFIG); Unified variable naming across UI components; All 6,205 tests passing |
-| **v5.1.17** | Fix: ESC cancellation bug causing unresponsive UI; Fix: Timer leak in callbacks.ts; Improved MCP timeout handling and CLI error messages |
-| **v5.1.16** | Repository cleanup: Removed 20 files (~1MB) including internal PRDs, backup code, deprecated images, and user-specific configs; Updated .gitignore to prevent re-commit |
-| **v5.1.15** | Codebase health verified: 6,205 tests passing, all security alerts cleared; AX agent code review confirms all bug fixes properly implemented (race conditions, memory leaks, ReDoS protections) |
-| **v5.1.14** | Fix: Security vulnerability in MCP SDK (updated to 1.25.2); Fix: CI/CD failures (removed ax-glm references); Fix: CodeQL false positive alerts; Clean: Removed ax-grok picture from all README files |
-| **v5.1.13** | Deprecated ax-glm cloud package (recommend OpenCode for GLM cloud); Local GLM models still supported via ax-cli; Simplified local model config to generic families (qwen, glm, deepseek, etc.) |
-| **v5.1.10** | Auto-launch setup wizard when CLI not configured; Complete i18n translations for AutomatosX setup (11 languages); Add --silent option for non-interactive setup; Fix: root bin/ax-cli path for monorepo |
-| **v5.1.9** | Add: grok-code-fast-1 as default model for ax-grok (70.8% SWE-bench, 256K context); Fix: checkpoint error handling, type assertion validation, race condition in abort handlers; Fix: ESLint JSX parsing and TypeScript errors |
-| **v5.1.8** | Add: Localized README files for 10 languages (zh-CN, zh-TW, ja, ko, de, es, pt, fr, vi, th); Add: Translation contribution guide |
-| **v5.1.7** | Update: GLM-4.7 model references in package descriptions; Add: .qwen folder protection in .npmignore |
-| **v5.1.6** | Fix: FinalizationRegistry scope bug (stream cleanup), MCP error labeling, searchOptions null guard; Refactor: consolidated error handling, optimized provider caching |
-| **v5.1.5** | Fix: i18n translations now apply immediately after language selection in setup (root cause: translation cache invalidation) |
-| **v5.1.4** | Fix: Added language change notice in setup wizard, clarify i18n scope |
-| **v5.1.3** | Fix: Slash command execution (Tab completion bug), Language selection in setup wizard |
-| **v5.1.2** | Fix: i18n locale files included in build, test fixes for glm-4.7 default |
-| **v5.1.1** | Fix: `/lang` command now works in interactive mode |
-| **v5.1.0** | i18n support (11 languages), `/lang` command, cleaner help & commands |
-| **v5.0.1** | Documentation updates, GLM 4.7 model table |
-| **v5.0.0** | GLM 4.7 support, Command Registry architecture, bug fixes |
-| **v4.5.x** | Shift+Enter newlines, stability & performance improvements |
-| **v4.4.x** | Agentic behaviors (ReAct, self-correction), 6,084+ tests |
-| **v4.3.x** | Grok 4 support, MCP V2 client, deep project analysis |
+| **v5.1.19** | Performance: O(N×M) → O(N+M) dependency analysis, optimized cache eviction, UI bug fixes |
+| **v5.1.18** | Refactoring: Named constants, unified variable naming, 6,205 tests passing |
+| **v5.1.17** | Fix: ESC cancellation bug, timer leaks, MCP timeout handling |
 
 [View full changelog on GitHub →](https://github.com/defai-digital/ax-cli/releases)
 

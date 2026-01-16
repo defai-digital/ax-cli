@@ -175,11 +175,22 @@ export class ProgressTracker {
     // Update cache
     this.bashOutputCache.set(command, outputHash);
 
+    // PERF FIX: Use iterator directly instead of Array.from() to avoid full copy
     // Cleanup old cache entries with 80% target capacity strategy
     if (this.bashOutputCache.size > CACHE_CONFIG.BASH_OUTPUT_CACHE_MAX_SIZE) {
       const targetSize = Math.floor(CACHE_CONFIG.BASH_OUTPUT_CACHE_MAX_SIZE * 0.8);
       const toRemove = this.bashOutputCache.size - targetSize;
-      const keysToDelete = Array.from(this.bashOutputCache.keys()).slice(0, toRemove);
+
+      // Collect keys first using iterator (more memory efficient)
+      const keysToDelete: string[] = [];
+      let count = 0;
+      for (const key of this.bashOutputCache.keys()) {
+        if (count >= toRemove) break;
+        keysToDelete.push(key);
+        count++;
+      }
+
+      // Delete after collecting to avoid iterator invalidation
       for (const key of keysToDelete) {
         this.bashOutputCache.delete(key);
       }

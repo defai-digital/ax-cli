@@ -280,19 +280,39 @@ export class DeepAnalyzer {
       }
     }
 
-    // Calculate fan-in and fan-out
+    // PERF FIX: Build all lookup maps in a single pass over dependencyGraph
+    // Previously iterated N*M*2 times (for each module, filter entire graph twice)
+    // Now iterates M times to build maps, then O(1) lookup per module
     const fanIn = new Map<string, number>();
     const fanOut = new Map<string, number>();
+    const dependenciesMap = new Map<string, string[]>();
+    const dependentsMap = new Map<string, string[]>();
 
     for (const edge of dependencyGraph) {
       fanOut.set(edge.from, (fanOut.get(edge.from) || 0) + 1);
       fanIn.set(edge.to, (fanIn.get(edge.to) || 0) + 1);
+
+      // Build dependencies lookup (from -> [to, to, ...])
+      const deps = dependenciesMap.get(edge.from);
+      if (deps) {
+        deps.push(edge.to);
+      } else {
+        dependenciesMap.set(edge.from, [edge.to]);
+      }
+
+      // Build dependents lookup (to -> [from, from, ...])
+      const depts = dependentsMap.get(edge.to);
+      if (depts) {
+        depts.push(edge.from);
+      } else {
+        dependentsMap.set(edge.to, [edge.from]);
+      }
     }
 
-    // Update modules with dependency info
+    // Update modules with dependency info using O(1) map lookups
     for (const mod of modules) {
-      mod.dependencies = dependencyGraph.filter(e => e.from === mod.path).map(e => e.to);
-      mod.dependents = dependencyGraph.filter(e => e.to === mod.path).map(e => e.from);
+      mod.dependencies = dependenciesMap.get(mod.path) || [];
+      mod.dependents = dependentsMap.get(mod.path) || [];
     }
 
     // Find circular dependencies

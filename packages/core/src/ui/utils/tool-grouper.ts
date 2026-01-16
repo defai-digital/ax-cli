@@ -56,7 +56,7 @@ export function clearToolGroupCache(): void {
  * @param argsStr - JSON string of arguments
  * @returns Parsed arguments object
  */
-function parseToolArguments(toolCallId: string, argsStr: string): Record<string, unknown> {
+export function parseToolArguments(toolCallId: string, argsStr: string): Record<string, unknown> {
   // Check cache first
   const cached = parsedArgsCache.get(toolCallId);
   if (cached !== undefined) {

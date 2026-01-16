@@ -56,10 +56,40 @@ export interface StatusReport extends ContextSummary {
 export class StatusReporter {
   private outputDir: string;
   private sessionStartTime: Date;
+  // PERF FIX: Cache parsed tool arguments to avoid repeated JSON.parse calls
+  private toolArgsCache = new Map<string, Record<string, unknown>>();
 
   constructor(outputDir?: string) {
     this.outputDir = outputDir || CONFIG_PATHS.AUTOMATOSX_TMP;
     this.sessionStartTime = new Date();
+  }
+
+  /**
+   * Parse tool arguments with caching for performance
+   * PERF FIX: Avoids repeated JSON.parse calls for same tool call
+   */
+  private parseToolArgsCached(toolCallId: string, argsString: string): Record<string, unknown> {
+    const cached = this.toolArgsCache.get(toolCallId);
+    if (cached) return cached;
+
+    try {
+      const args = JSON.parse(argsString || '{}');
+      this.toolArgsCache.set(toolCallId, args);
+
+      // Prevent unbounded growth - clear cache if too large
+      if (this.toolArgsCache.size > 500) {
+        // Keep only last 250 entries
+        const entries = Array.from(this.toolArgsCache.entries());
+        this.toolArgsCache.clear();
+        for (let i = entries.length - 250; i < entries.length; i++) {
+          this.toolArgsCache.set(entries[i][0], entries[i][1]);
+        }
+      }
+
+      return args;
+    } catch {
+      return {};
+    }
   }
 
   /**
@@ -167,6 +197,7 @@ export class StatusReporter {
 
   /**
    * Extract key actions from tool results
+   * PERF FIX: Uses cached JSON parsing
    */
   private extractKeyActions(chatHistory: ChatEntry[]): string[] {
     const actions: string[] = [];
@@ -174,29 +205,27 @@ export class StatusReporter {
     for (const entry of chatHistory) {
       if (entry.type === 'tool_result' && entry.toolResult?.success && entry.toolCall) {
         const toolName = entry.toolCall.function.name;
+        const args = this.parseToolArgsCached(
+          entry.toolCall.id,
+          entry.toolCall.function.arguments || '{}'
+        );
 
-        try {
-          const args = JSON.parse(entry.toolCall.function.arguments || '{}');
-
-          if (toolName === 'text_editor_20241022' || toolName === 'text_editor') {
-            if (args.command === 'create') {
-              actions.push(`Created ${args.path}`);
-            } else if (args.command === 'str_replace') {
-              actions.push(`Modified ${args.path}`);
-            } else if (args.command === 'view') {
-              // Don't log view operations (too noisy)
-            }
-          } else if (toolName === 'bash') {
-            const cmd = args.command || '';
-            // Only log meaningful commands
-            if (!cmd.includes('cat') && !cmd.includes('ls') && cmd.length < 100) {
-              actions.push(`Ran: ${cmd}`);
-            }
-          } else if (toolName === 'search') {
-            // Don't log search operations (too noisy)
+        if (toolName === 'text_editor_20241022' || toolName === 'text_editor') {
+          if (args.command === 'create') {
+            actions.push(`Created ${args.path}`);
+          } else if (args.command === 'str_replace') {
+            actions.push(`Modified ${args.path}`);
+          } else if (args.command === 'view') {
+            // Don't log view operations (too noisy)
           }
-        } catch {
-          // Ignore parse errors
+        } else if (toolName === 'bash') {
+          const cmd = (args.command as string) || '';
+          // Only log meaningful commands
+          if (!cmd.includes('cat') && !cmd.includes('ls') && cmd.length < 100) {
+            actions.push(`Ran: ${cmd}`);
+          }
+        } else if (toolName === 'search') {
+          // Don't log search operations (too noisy)
         }
       }
     }
@@ -206,6 +235,7 @@ export class StatusReporter {
 
   /**
    * Extract modified files from tool results
+   * PERF FIX: Uses cached JSON parsing
    */
   private extractFilesModified(chatHistory: ChatEntry[]): Array<{ path: string; type: 'created' | 'modified' | 'deleted' }> {
     const files = new Map<string, 'created' | 'modified' | 'deleted'>();
@@ -213,24 +243,22 @@ export class StatusReporter {
     for (const entry of chatHistory) {
       if (entry.type === 'tool_result' && entry.toolResult?.success && entry.toolCall) {
         const toolName = entry.toolCall.function.name;
+        const args = this.parseToolArgsCached(
+          entry.toolCall.id,
+          entry.toolCall.function.arguments || '{}'
+        );
 
-        try {
-          const args = JSON.parse(entry.toolCall.function.arguments || '{}');
+        if (toolName === 'text_editor_20241022' || toolName === 'text_editor') {
+          const filePath = args.path as string;
+          const command = args.command;
 
-          if (toolName === 'text_editor_20241022' || toolName === 'text_editor') {
-            const filePath = args.path;
-            const command = args.command;
-
-            if (command === 'create') {
-              files.set(filePath, 'created');
-            } else if (command === 'str_replace') {
-              if (!files.has(filePath)) {
-                files.set(filePath, 'modified');
-              }
+          if (command === 'create') {
+            files.set(filePath, 'created');
+          } else if (command === 'str_replace') {
+            if (!files.has(filePath)) {
+              files.set(filePath, 'modified');
             }
           }
-        } catch {
-          // Ignore parse errors
         }
       }
     }
