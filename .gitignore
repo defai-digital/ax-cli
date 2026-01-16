@@ -171,3 +171,24 @@ test-design-check/
 # Coverage report files (large, auto-generated)
 coverage-sdk.json
 coverage*.json
+
+# MCP configuration (contains local paths)
+.mcp.json
+
+# npm lock files in pnpm monorepo (pnpm-lock.yaml is the standard)
+packages/*/package-lock.json
+vscode-extension/package-lock.json
+
+# Backup/deprecated code
+packages/core/provider-backup/
+*-backup/
+
+# Deprecated provider images
+.github/assets/grok.png
+.github/assets/glm.png
+
+# Internal planning documents (PRDs, action plans)
+docs/PRD-*.md
+docs/prd-*.md
+docs/ACTION-PLAN-*.md
+docs/*-ENHANCEMENT-PLAN.md
