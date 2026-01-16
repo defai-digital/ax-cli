@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { DiffRenderer } from "./diff-renderer.js";
+import { UI_CONFIG } from "../../constants.js";
 
 interface ConfirmationDialogProps {
   operation: string;
@@ -118,7 +119,7 @@ export default function ConfirmationDialog({
                   <DiffRenderer
                     diffContent={limitedContent}
                     filename={filename}
-                    terminalWidth={80}
+                    terminalWidth={UI_CONFIG.DEFAULT_TERMINAL_WIDTH}
                   />
                 );
               })()}

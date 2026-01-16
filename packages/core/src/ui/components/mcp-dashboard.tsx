@@ -12,6 +12,7 @@ import { loadMCPConfig, addMCPServer, generateConfigFromTemplate } from "../../m
 import type { MCPTool } from "../../mcp/client.js";
 import { getTemplatesByCategory, type MCPServerTemplate } from "../../mcp/templates.js";
 import { extractErrorMessage } from "../../utils/error-handler.js";
+import { navigateList } from "../utils/command-utils.js";
 
 export interface MCPDashboardProps {
   isVisible: boolean;
@@ -39,22 +40,6 @@ const WIZARD_CATEGORIES = [
   { key: "monitoring", label: "📊 Monitoring", desc: "Sentry, logging, observability" },
   { key: "backend", label: "🗄️ Backend", desc: "Databases, APIs, servers" },
 ] as const;
-
-/**
- * Helper for wrap-around list navigation
- * Simplifies up/down arrow handlers across different views
- */
-function navigateList(
-  direction: "up" | "down",
-  currentIndex: number,
-  listLength: number
-): number {
-  if (listLength === 0) return currentIndex;
-  if (direction === "up") {
-    return currentIndex > 0 ? currentIndex - 1 : listLength - 1;
-  }
-  return (currentIndex + 1) % listLength;
-}
 
 /**
  * Server status styles lookup table for O(1) access

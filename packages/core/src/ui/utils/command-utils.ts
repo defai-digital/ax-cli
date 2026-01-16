@@ -316,3 +316,31 @@ export function getVerbosityDescription(level: VerbosityLevel): string {
       return 'verbose';
   }
 }
+
+/**
+ * Navigate through a list with wrap-around
+ * Useful for keyboard navigation in menus and lists
+ *
+ * @param direction - Direction to navigate ('up' or 'down')
+ * @param currentIndex - Current selected index
+ * @param listLength - Total number of items in the list
+ * @returns New index after navigation
+ *
+ * @example
+ * ```ts
+ * navigateList('down', 0, 5); // 1
+ * navigateList('down', 4, 5); // 0 (wraps around)
+ * navigateList('up', 0, 5);   // 4 (wraps around)
+ * ```
+ */
+export function navigateList(
+  direction: 'up' | 'down',
+  currentIndex: number,
+  listLength: number
+): number {
+  if (listLength === 0) return currentIndex;
+  if (direction === 'up') {
+    return currentIndex > 0 ? currentIndex - 1 : listLength - 1;
+  }
+  return (currentIndex + 1) % listLength;
+}

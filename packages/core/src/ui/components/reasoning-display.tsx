@@ -1,6 +1,16 @@
 import React, { useState } from "react";
 import { Box, Text } from "ink";
 
+/** Display configuration for reasoning content */
+const REASONING_CONFIG = {
+  /** Word count threshold for auto-collapse */
+  AUTO_COLLAPSE_WORDS: 200,
+  /** Character count threshold for auto-collapse */
+  AUTO_COLLAPSE_CHARS: 1000,
+  /** Number of characters to show in collapsed preview */
+  PREVIEW_LENGTH: 80,
+} as const;
+
 export interface ReasoningDisplayProps {
   /**
    * Reasoning content from GLM-4.6 thinking mode
@@ -42,12 +52,15 @@ export function ReasoningDisplay({
   isStreaming = false,
   defaultCollapsed = false,
 }: ReasoningDisplayProps) {
-  // Auto-collapse if content is long (>200 words or >1000 chars) and not explicitly set
+  // Auto-collapse if content exceeds thresholds and not explicitly set
   const trimmedContent = content.trim();
   // BUG FIX: Empty string split returns [""], so check for empty first
   const wordCount = trimmedContent.length === 0 ? 0 : trimmedContent.split(/\s+/).length;
   const charCount = trimmedContent.length;
-  const shouldAutoCollapse = !isStreaming && (wordCount > 200 || charCount > 1000);
+  const shouldAutoCollapse = !isStreaming && (
+    wordCount > REASONING_CONFIG.AUTO_COLLAPSE_WORDS ||
+    charCount > REASONING_CONFIG.AUTO_COLLAPSE_CHARS
+  );
 
   // Note: setCollapsed is available for future interactive toggle feature (Ctrl+R)
   const [collapsed] = useState(defaultCollapsed || shouldAutoCollapse);
@@ -57,10 +70,10 @@ export function ReasoningDisplay({
     return null;
   }
 
-  // Show preview when collapsed (first 80 characters)
+  // Show preview when collapsed
   // BUG FIX: Use trimmedContent for consistent length check
-  const preview = collapsed && trimmedContent.length > 80
-    ? trimmedContent.slice(0, 80) + "..."
+  const preview = collapsed && trimmedContent.length > REASONING_CONFIG.PREVIEW_LENGTH
+    ? trimmedContent.slice(0, REASONING_CONFIG.PREVIEW_LENGTH) + "..."
     : null;
 
   return (

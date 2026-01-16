@@ -246,6 +246,12 @@ export const UI_CONFIG = {
   MAX_SEMANTIC_GROUP_SIZE: settingsYaml.ui.max_semantic_group_size || 30,
   /** Maximum visible tool lines in rolling display (Claude Code-style) */
   MAX_VISIBLE_TOOL_LINES: settingsYaml.ui.max_visible_tool_lines || 3,
+  /** Default terminal width for components that don't receive dynamic width */
+  DEFAULT_TERMINAL_WIDTH: 80,
+  /** Terminal width threshold for compact layout mode */
+  COMPACT_LAYOUT_THRESHOLD: 100,
+  /** Default terminal width for wide layouts (status bar, etc.) */
+  WIDE_LAYOUT_WIDTH: 120,
 } as const;
 
 // Token Counting

@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Box, Text, useInput } from "ink";
+import { navigateList } from "../utils/command-utils.js";
 
 interface QuickAction {
   command: string;
@@ -139,16 +140,12 @@ export function QuickActions({ isVisible, onSelect, onClose }: QuickActionsProps
 
       // Navigation: Arrow keys or vim-style j/k
       if (key.upArrow || (input === 'k' && !searchQuery)) {
-        setSelectedIndex((prev) =>
-          prev > 0 ? prev - 1 : filteredActions.length - 1
-        );
+        setSelectedIndex((prev) => navigateList('up', prev, filteredActions.length));
         return;
       }
 
       if (key.downArrow || (input === 'j' && !searchQuery)) {
-        setSelectedIndex((prev) =>
-          prev < filteredActions.length - 1 ? prev + 1 : 0
-        );
+        setSelectedIndex((prev) => navigateList('down', prev, filteredActions.length));
         return;
       }
 

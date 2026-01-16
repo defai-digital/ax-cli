@@ -8,6 +8,19 @@ import { Box, Text } from "ink";
 import { DiffRenderer } from "./diff-renderer.js";
 import { parseMCPIdentifier } from "../../mcp/index.js";
 import { formatDuration } from "../utils/tool-grouper.js";
+import { UI_CONFIG } from "../../constants.js";
+
+/** Configuration for tool result display */
+const TOOL_RESULT_CONFIG = {
+  /** Max characters for bash output in collapsed summary */
+  BASH_SUMMARY_MAX_LENGTH: 60,
+  /** Max characters for default output in collapsed summary */
+  DEFAULT_SUMMARY_MAX_LENGTH: 80,
+  /** Interval (ms) for updating elapsed time during execution */
+  ELAPSED_TIME_UPDATE_INTERVAL_MS: 100,
+  /** Max file content lines to show in expanded view */
+  MAX_FILE_PREVIEW_LINES: 20,
+} as const;
 
 interface CollapsibleToolResultProps {
   toolName: string;
@@ -120,8 +133,8 @@ function summarizeResult(content: string, toolName: string): string {
 
   // For bash, show truncated output
   if (toolName === "bash") {
-    if (firstLine.length > 60) {
-      return firstLine.substring(0, 60) + "...";
+    if (firstLine.length > TOOL_RESULT_CONFIG.BASH_SUMMARY_MAX_LENGTH) {
+      return firstLine.substring(0, TOOL_RESULT_CONFIG.BASH_SUMMARY_MAX_LENGTH) + "...";
     }
     return firstLine || "Completed";
   }
@@ -135,8 +148,8 @@ function summarizeResult(content: string, toolName: string): string {
   }
 
   // Default: truncate to first line
-  if (firstLine.length > 80) {
-    return firstLine.substring(0, 80) + "...";
+  if (firstLine.length > TOOL_RESULT_CONFIG.DEFAULT_SUMMARY_MAX_LENGTH) {
+    return firstLine.substring(0, TOOL_RESULT_CONFIG.DEFAULT_SUMMARY_MAX_LENGTH) + "...";
   }
   return firstLine || "Completed";
 }
@@ -199,7 +212,7 @@ export function CollapsibleToolResult({
     if (isExecuting && executionStartTime) {
       const interval = setInterval(() => {
         setElapsedMs(Date.now() - executionStartTime.getTime());
-      }, 100);
+      }, TOOL_RESULT_CONFIG.ELAPSED_TIME_UPDATE_INTERVAL_MS);
       return () => clearInterval(interval);
     }
     return undefined;
@@ -267,7 +280,7 @@ export function CollapsibleToolResult({
                   <DiffRenderer
                     diffContent={content}
                     filename={filePath}
-                    terminalWidth={80}
+                    terminalWidth={UI_CONFIG.DEFAULT_TERMINAL_WIDTH}
                   />
                 </Box>
               </>
@@ -281,14 +294,14 @@ export function CollapsibleToolResult({
                   borderColor="gray"
                   paddingX={1}
                 >
-                  {contentLines.slice(0, 20).map((line, i) => (
+                  {contentLines.slice(0, TOOL_RESULT_CONFIG.MAX_FILE_PREVIEW_LINES).map((line, i) => (
                     <Text key={i} color="gray">
                       {line}
                     </Text>
                   ))}
-                  {contentLines.length > 20 && (
+                  {contentLines.length > TOOL_RESULT_CONFIG.MAX_FILE_PREVIEW_LINES && (
                     <Text color="gray" dimColor>
-                      ... {contentLines.length - 20} more lines
+                      ... {contentLines.length - TOOL_RESULT_CONFIG.MAX_FILE_PREVIEW_LINES} more lines
                     </Text>
                   )}
                 </Box>

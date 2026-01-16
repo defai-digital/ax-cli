@@ -5,7 +5,7 @@
 
 import React from "react";
 import { Box, Text } from "ink";
-import { VerbosityLevel } from "../../constants.js";
+import { VerbosityLevel, UI_CONFIG } from "../../constants.js";
 import { getThemeColors, type ThemeColors } from "../utils/colors.js";
 import { useTranslations } from "../hooks/use-translations.js";
 import type { UITranslations } from "../../i18n/types.js";
@@ -62,7 +62,8 @@ function getStatusSymbol(percentage: number): string {
 }
 
 /**
- * Format token count for human-readable display
+ * Format token count for compact display in status bar
+ * Uses no decimals for thousands to save horizontal space in tight layouts
  */
 function formatTokenCount(tokens: number): string {
   // Handle invalid inputs
@@ -320,7 +321,7 @@ function MCPIndicator({
 
 
 /**
- * Compact Status Bar for narrow terminals (< 100 columns)
+ * Compact Status Bar for narrow terminals (< COMPACT_LAYOUT_THRESHOLD)
  * Stacks information vertically to prevent wrapping
  */
 function CompactStatusBar(props: StatusBarProps & { theme: ThemeColors; t: UITranslations }) {
@@ -501,8 +502,8 @@ export const StatusBar = React.memo(function StatusBarComponent(props: StatusBar
   const effectiveVerbosityLevel = getEffectiveVerbosityLevel(verbosityLevel, verboseMode);
   const allActiveAgents = combineActiveAgents(activeAgent, activeAgents);
 
-  // Use compact layout for narrow terminals (< 100 columns)
-  if (terminalWidth < 100) {
+  // Use compact layout for narrow terminals
+  if (terminalWidth < UI_CONFIG.COMPACT_LAYOUT_THRESHOLD) {
     return <CompactStatusBar {...props} theme={theme} t={t} />;
   }
 

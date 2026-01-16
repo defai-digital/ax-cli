@@ -9,6 +9,17 @@
 
 import React from "react";
 import { Box, Text, useInput } from "ink";
+import { formatTokenCount } from "../../utils/token-counter.js";
+
+/** Context usage threshold percentages for status indicators */
+const CONTEXT_THRESHOLDS = {
+  /** Critical: context nearly exhausted */
+  CRITICAL: 95,
+  /** High: context getting full */
+  HIGH: 80,
+  /** Moderate: half capacity */
+  MODERATE: 50,
+} as const;
 
 interface ContextCategory {
   label: string;
@@ -22,15 +33,6 @@ interface ContextBreakdownProps {
   currentTokens: number;
   maxTokens: number;
   categories: ContextCategory[];
-}
-
-/**
- * Format token count for human-readable display
- */
-function formatTokenCount(tokens: number): string {
-  if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
-  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}k`;
-  return tokens.toString();
 }
 
 /**
@@ -80,13 +82,13 @@ function getUsageStatus(percentageUsed: number): {
   color: string;
   symbol: string;
 } {
-  if (percentageUsed >= 95) {
+  if (percentageUsed >= CONTEXT_THRESHOLDS.CRITICAL) {
     return { status: "CRITICAL", color: "red", symbol: "🔴" };
   }
-  if (percentageUsed >= 80) {
+  if (percentageUsed >= CONTEXT_THRESHOLDS.HIGH) {
     return { status: "High", color: "yellow", symbol: "⚠️" };
   }
-  if (percentageUsed >= 50) {
+  if (percentageUsed >= CONTEXT_THRESHOLDS.MODERATE) {
     return { status: "Moderate", color: "yellow", symbol: "📊" };
   }
   return { status: "Good", color: "green", symbol: "✅" };
@@ -167,18 +169,18 @@ export function ContextBreakdown({
       </Box>
 
       {/* Warnings Section */}
-      {percentageUsed >= 80 && (
+      {percentageUsed >= CONTEXT_THRESHOLDS.HIGH && (
         <Box flexDirection="column" marginBottom={1}>
           <Text bold color="red">
             ⚠️  Context Usage Warning:
           </Text>
           <Box paddingLeft={2} flexDirection="column">
-            {percentageUsed >= 95 && (
+            {percentageUsed >= CONTEXT_THRESHOLDS.CRITICAL && (
               <Text color="red">
                 • CRITICAL: Context nearly full! Responses may fail soon.
               </Text>
             )}
-            {percentageUsed >= 80 && percentageUsed < 95 && (
+            {percentageUsed >= CONTEXT_THRESHOLDS.HIGH && percentageUsed < CONTEXT_THRESHOLDS.CRITICAL && (
               <Text color="yellow">
                 • Context getting full. Consider freeing up space soon.
               </Text>
@@ -194,7 +196,7 @@ export function ContextBreakdown({
       )}
 
       {/* Tips Section */}
-      {percentageUsed < 80 && (
+      {percentageUsed < CONTEXT_THRESHOLDS.HIGH && (
         <Box flexDirection="column" marginBottom={1}>
           <Text bold color="green">
             💡 Tips:

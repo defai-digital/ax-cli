@@ -9,6 +9,26 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Text } from "ink";
 
+/** Toast duration configuration */
+const TOAST_DURATION = {
+  /** Very short notifications (e.g., cache hit) */
+  SHORT: 1500,
+  /** Default duration for standard toasts */
+  DEFAULT: 2000,
+  /** Medium duration for more important notifications */
+  MEDIUM: 3000,
+  /** Medium-long duration for task failures */
+  MEDIUM_LONG: 4000,
+  /** Long duration for notifications requiring attention */
+  LONG: 5000,
+  /** Extra long duration for error details */
+  EXTRA_LONG: 6000,
+  /** Minimum time before fade animation starts */
+  MIN_FADE_DELAY_MS: 100,
+  /** Duration of fade animation */
+  FADE_DURATION_MS: 300,
+} as const;
+
 export interface ToastMessage {
   id: string;
   message: string;
@@ -53,11 +73,11 @@ export function ToastNotification({ toast, onDismiss }: ToastNotificationProps) 
     setVisible(true);
     setFadeOut(false);
 
-    const duration = toast.duration || 2000;
+    const duration = toast.duration || TOAST_DURATION.DEFAULT;
 
     // Start fade out slightly before hiding
-    // Ensure fade delay is positive (minimum 100ms before fade starts)
-    const fadeDelay = Math.max(100, duration - 300);
+    // Ensure fade delay is positive (minimum before fade starts)
+    const fadeDelay = Math.max(TOAST_DURATION.MIN_FADE_DELAY_MS, duration - TOAST_DURATION.FADE_DURATION_MS);
     const fadeTimer = setTimeout(() => {
       setFadeOut(true);
     }, fadeDelay);
@@ -234,27 +254,27 @@ export const TOAST_MESSAGES = {
     message: `Memory cached (${tokens.toLocaleString()} tokens)`,
     type: "success" as const,
     icon: "💾",
-    duration: 3000,
+    duration: TOAST_DURATION.MEDIUM,
   }),
   memoryRefreshed: { message: "Memory context refreshed", type: "success" as const, icon: "🔄" },
-  memoryCacheHit: { message: "Using cached memory context", type: "info" as const, icon: "⚡", duration: 1500 },
+  memoryCacheHit: { message: "Using cached memory context", type: "info" as const, icon: "⚡", duration: TOAST_DURATION.SHORT },
 
   // Checkpoint operations
-  checkpointCreated: { message: "Checkpoint saved", type: "success" as const, icon: "💾", duration: 2000 },
-  checkpointRestored: { message: "Checkpoint restored", type: "success" as const, icon: "↩️", duration: 2000 },
+  checkpointCreated: { message: "Checkpoint saved", type: "success" as const, icon: "💾", duration: TOAST_DURATION.DEFAULT },
+  checkpointRestored: { message: "Checkpoint restored", type: "success" as const, icon: "↩️", duration: TOAST_DURATION.DEFAULT },
 
   // Background task notifications
   taskCompleted: (_taskId: string, command: string) => ({
     message: `Task done: ${command.length > 30 ? command.slice(0, 30) + '...' : command}`,
     type: "success" as const,
     icon: "✅",
-    duration: 3000,
+    duration: TOAST_DURATION.MEDIUM,
   }),
   taskFailed: (_taskId: string, command: string) => ({
     message: `Task failed: ${command.length > 30 ? command.slice(0, 30) + '...' : command}`,
     type: "error" as const,
     icon: "❌",
-    duration: 4000,
+    duration: TOAST_DURATION.MEDIUM_LONG,
   }),
 
   // Phase 3: Large paste handling
@@ -262,14 +282,14 @@ export const TOAST_MESSAGES = {
     message: `Paste truncated: ${originalLength.toLocaleString()} → ${truncatedLength.toLocaleString()} chars. Use --file flag for full content.`,
     type: "error" as const,
     icon: "✂️",
-    duration: 6000,
+    duration: TOAST_DURATION.EXTRA_LONG,
   }),
 
   pasteTruncationDisabled: (charCount: number) => ({
     message: `Large paste allowed (${charCount.toLocaleString()} chars). May be truncated by terminal!`,
     type: "warning" as const,
     icon: "⚠️",
-    duration: 5000,
+    duration: TOAST_DURATION.LONG,
   }),
 };
 

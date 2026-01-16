@@ -348,6 +348,8 @@ AX CLI uses a modular architecture with provider-specific CLIs built on a shared
 
 | Version | Highlights |
 |---------|------------|
+| **v5.1.18** | Refactor: Replaced hard-coded values with named constants (TOAST_DURATION, TOOL_GROUP_CONFIG, TOOL_RESULT_CONFIG); Unified variable naming across UI components; All 6,205 tests passing |
+| **v5.1.17** | Fix: ESC cancellation bug causing unresponsive UI; Fix: Timer leak in callbacks.ts; Improved MCP timeout handling and CLI error messages |
 | **v5.1.16** | Repository cleanup: Removed 20 files (~1MB) including internal PRDs, backup code, deprecated images, and user-specific configs; Updated .gitignore to prevent re-commit |
 | **v5.1.15** | Codebase health verified: 6,205 tests passing, all security alerts cleared; AX agent code review confirms all bug fixes properly implemented (race conditions, memory leaks, ReDoS protections) |
 | **v5.1.14** | Fix: Security vulnerability in MCP SDK (updated to 1.25.2); Fix: CI/CD failures (removed ax-glm references); Fix: CodeQL false positive alerts; Clean: Removed ax-grok picture from all README files |

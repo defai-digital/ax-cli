@@ -16,6 +16,7 @@ import { DiffRenderer } from './diff-renderer.js';
 import { MarkdownRenderer } from '../utils/markdown-renderer.js';
 import { ReasoningDisplay } from './reasoning-display.js';
 import { getToolActionName, getFilePath } from './collapsible-tool-result.js';
+import { UI_CONFIG } from '../../constants.js';
 
 interface VirtualizedChatHistoryProps {
   entries: ChatEntry[];
@@ -34,12 +35,17 @@ const MemoizedChatEntry = React.memo(
         <DiffRenderer
           diffContent={diffContent}
           filename={filename}
-          terminalWidth={80}
+          terminalWidth={UI_CONFIG.DEFAULT_TERMINAL_WIDTH}
         />
       );
     };
 
     const renderFileContent = (content: string) => {
+      // BUG FIX: Handle empty/whitespace-only content early
+      if (!content || !content.trim()) {
+        return <Text color="gray" dimColor>(empty file)</Text>;
+      }
+
       const lines = content.split("\n");
 
       // Calculate minimum indentation like DiffRenderer does
@@ -54,14 +60,19 @@ const MemoizedChatEntry = React.memo(
         baseIndentation = 0;
       }
 
-      return lines.map((line, index) => {
-        const displayContent = line.substring(baseIndentation);
-        return (
-          <Text key={index} color="gray">
-            {displayContent}
-          </Text>
-        );
-      });
+      // BUG FIX: Wrap lines in Box with flexDirection="column" to ensure vertical layout
+      return (
+        <Box flexDirection="column">
+          {lines.map((line, lineIdx) => {
+            const displayContent = line.substring(baseIndentation);
+            return (
+              <Text key={`line-${lineIdx}`} color="gray">
+                {displayContent}
+              </Text>
+            );
+          })}
+        </Box>
+      );
     };
 
     switch (entry.type) {
@@ -70,7 +81,8 @@ const MemoizedChatEntry = React.memo(
           <Box key={index} flexDirection="column" marginTop={1}>
             <Box>
               <Text color="gray">
-                {">"} {entry.content ?? ""}
+                {/* BUG FIX: Trim content like assistant messages do */}
+                {">"} {entry.content?.trim() ?? ""}
               </Text>
             </Box>
           </Box>
@@ -80,7 +92,8 @@ const MemoizedChatEntry = React.memo(
         return (
           <Box key={index} flexDirection="column" marginTop={1}>
             {/* Render reasoning content if present (GLM-4.6 thinking mode) */}
-            {entry.reasoningContent && (
+            {/* BUG FIX: Check for non-empty trimmed content to avoid unnecessary component instantiation */}
+            {entry.reasoningContent?.trim() && (
               <ReasoningDisplay
                 content={entry.reasoningContent}
                 visible={true}
@@ -141,6 +154,7 @@ const MemoizedChatEntry = React.memo(
 
         const shouldShowFileContent =
           (entry.toolCall?.function?.name === "view_file" ||
+            entry.toolCall?.function?.name === "read_file" ||  // BUG FIX: Handle read_file
             entry.toolCall?.function?.name === "create_file") &&
           entry.toolResult?.success &&
           !shouldShowDiff;

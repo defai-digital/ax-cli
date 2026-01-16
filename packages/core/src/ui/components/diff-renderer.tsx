@@ -7,6 +7,7 @@ import { Box, Text } from 'ink';
 import { getThemeColors } from '../utils/colors.js';
 import crypto from 'crypto';
 import { MaxSizedBox } from '../shared/max-sized-box.js';
+import { UI_CONFIG } from '../../constants.js';
 
 interface DiffLine {
   type: 'add' | 'del' | 'context' | 'hunk' | 'other';
@@ -102,7 +103,7 @@ export const DiffRenderer = ({
   filename,
   tabWidth = DEFAULT_TAB_WIDTH,
   availableTerminalHeight,
-  terminalWidth = 80,
+  terminalWidth = UI_CONFIG.DEFAULT_TERMINAL_WIDTH,
 }: DiffRendererProps): React.ReactElement => {
   // Get theme colors for theme-aware rendering
   const theme = getThemeColors();

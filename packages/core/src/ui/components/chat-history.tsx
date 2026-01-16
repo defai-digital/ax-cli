@@ -32,7 +32,7 @@ const MemoizedChatEntry = React.memo(
         <DiffRenderer
           diffContent={diffContent}
           filename={filename}
-          terminalWidth={80}
+          terminalWidth={UI_CONFIG.DEFAULT_TERMINAL_WIDTH}
         />
       );
     };

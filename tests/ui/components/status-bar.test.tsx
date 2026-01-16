@@ -124,7 +124,7 @@ describe('StatusBar', () => {
     expect(frame).toContain('Verbosity:');
     expect(frame).toContain('Thinking:');
     expect(frame).toContain('THINKING...');
-    expect(frame).toContain('(1k/4k)'); // token count display rounded
+    expect(frame).toContain('(1k/4k)'); // token count display (compact, no decimals)
     expect(frame).toContain('Backend'); // active agent role mapping
   });
 

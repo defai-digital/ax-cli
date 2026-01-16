@@ -13,6 +13,12 @@ import type { ToolGroup } from '../utils/tool-grouper.js';
 import { getOperationCounts, getGroupDuration, formatDuration } from '../utils/tool-grouper.js';
 import { summarizeChanges } from '../utils/change-summarizer.js';
 
+/** Display configuration for tool groups */
+const TOOL_GROUP_CONFIG = {
+  /** Minimum duration (ms) to display timing info - avoids clutter for fast operations */
+  MIN_DURATION_TO_SHOW_MS: 100,
+} as const;
+
 interface ToolGroupDisplayProps {
   group: ToolGroup;
   index: number;
@@ -195,7 +201,7 @@ export function ToolGroupDisplay({ group, index }: ToolGroupDisplayProps) {
             {" "}{statusIcon}
           </Text>
           {/* BUG FIX: Use yellow for duration to match resource-based groups */}
-          {isComplete && duration >= 100 && (
+          {isComplete && duration >= TOOL_GROUP_CONFIG.MIN_DURATION_TO_SHOW_MS && (
             <Text color="yellow"> {formatDuration(duration)}</Text>
           )}
         </Box>
@@ -224,7 +230,7 @@ export function ToolGroupDisplay({ group, index }: ToolGroupDisplayProps) {
         <Text color={statusColor}>
           {" "}{statusIcon}
         </Text>
-        {isComplete && duration >= 100 && (
+        {isComplete && duration >= TOOL_GROUP_CONFIG.MIN_DURATION_TO_SHOW_MS && (
           <Text color="yellow"> {formatDuration(duration)}</Text>
         )}
       </Box>

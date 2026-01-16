@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Box, Text } from "ink";
 import { formatTokenCount } from "../../utils/token-counter.js";
+import { formatDuration } from "../utils/tool-grouper.js";
 import { useTranslations } from "../hooks/use-translations.js";
 
 interface LoadingSpinnerProps {
@@ -9,6 +10,21 @@ interface LoadingSpinnerProps {
   tokenCount: number;
   currentAction?: "thinking" | "searching" | "editing" | "executing" | "reading" | "writing";
 }
+
+/** Braille spinner animation frames */
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
+
+/** Timing constants for spinner animation */
+const SPINNER_CONFIG = {
+  /** Spinner frame animation interval in milliseconds */
+  FRAME_INTERVAL_MS: 80,
+  /** Loading message rotation interval in milliseconds */
+  MESSAGE_ROTATE_MS: 3000,
+  /** Seconds before operation is considered "long running" (shows yellow) */
+  LONG_RUNNING_SEC: 10,
+  /** Seconds before operation is considered "very long" (shows hint) */
+  VERY_LONG_SEC: 30,
+} as const;
 
 // BUG FIX #32/#34: Memoize LoadingSpinner to prevent unnecessary re-renders
 // When isActive is false, this component returns null and should not cause re-renders
@@ -59,18 +75,16 @@ export const LoadingSpinner = React.memo(function LoadingSpinnerComponent({
   // Get the appropriate loading texts for current action
   const loadingTexts = loadingTextsByAction[currentAction] || defaultLoadingTexts;
 
-  // Phase 3: Determine if this is a long-running operation
-  const isLongRunning = processingTime > 10; // More than 10 seconds
-  const isVeryLong = processingTime > 30; // More than 30 seconds
+  // Determine if this is a long-running operation
+  const isLongRunning = processingTime > SPINNER_CONFIG.LONG_RUNNING_SEC;
+  const isVeryLong = processingTime > SPINNER_CONFIG.VERY_LONG_SEC;
 
   useEffect(() => {
     if (!isActive) return;
 
-    const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-    // Smooth animation at 80ms intervals
     const interval = setInterval(() => {
-      setSpinnerFrame((prev) => (prev + 1) % spinnerFrames.length);
-    }, 80);
+      setSpinnerFrame((prev) => (prev + 1) % SPINNER_FRAMES.length);
+    }, SPINNER_CONFIG.FRAME_INTERVAL_MS);
 
     return () => clearInterval(interval);
   }, [isActive]);
@@ -80,10 +94,9 @@ export const LoadingSpinner = React.memo(function LoadingSpinnerComponent({
 
     setLoadingTextIndex(Math.floor(Math.random() * loadingTexts.length));
 
-    // Rotate messages every 3 seconds
     const interval = setInterval(() => {
       setLoadingTextIndex((prev) => (prev + 1) % loadingTexts.length);
-    }, 3000);
+    }, SPINNER_CONFIG.MESSAGE_ROTATE_MS);
 
     return () => clearInterval(interval);
   }, [isActive, loadingTexts.length]);
@@ -95,21 +108,11 @@ export const LoadingSpinner = React.memo(function LoadingSpinnerComponent({
 
   if (!isActive) return null;
 
-  const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-
-  // Format time display
-  const formatTime = (seconds: number) => {
-    if (seconds < 60) return `${seconds}s`;
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}m ${secs}s`;
-  };
-
   return (
     <Box marginTop={1} flexDirection="column">
       <Box>
         <Text color="cyan" bold>
-          {spinnerFrames[spinnerFrame]}
+          {SPINNER_FRAMES[spinnerFrame]}
         </Text>
         <Text color="cyan"> {loadingTexts[loadingTextIndex % loadingTexts.length] || loadingTexts[0]} </Text>
         {/* Phase 3: Show warning for long-running operations */}
@@ -119,7 +122,7 @@ export const LoadingSpinner = React.memo(function LoadingSpinnerComponent({
       </Box>
       <Box marginLeft={2}>
         <Text color={isLongRunning ? "yellow" : "gray"} dimColor={!isLongRunning}>
-          {formatTime(processingTime)} elapsed
+          {formatDuration(processingTime * 1000)} elapsed
         </Text>
         {tokenCount > 0 && (
           <Text color="gray" dimColor>
