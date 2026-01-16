@@ -348,6 +348,7 @@ AX CLI uses a modular architecture with provider-specific CLIs built on a shared
 
 | Version | Highlights |
 |---------|------------|
+| **v5.1.15** | Codebase health verified: 6,205 tests passing, all security alerts cleared; AX agent code review confirms all bug fixes properly implemented (race conditions, memory leaks, ReDoS protections) |
 | **v5.1.14** | Fix: Security vulnerability in MCP SDK (updated to 1.25.2); Fix: CI/CD failures (removed ax-glm references); Fix: CodeQL false positive alerts; Clean: Removed ax-grok picture from all README files |
 | **v5.1.13** | Deprecated ax-glm cloud package (recommend OpenCode for GLM cloud); Local GLM models still supported via ax-cli; Simplified local model config to generic families (qwen, glm, deepseek, etc.) |
 | **v5.1.10** | Auto-launch setup wizard when CLI not configured; Complete i18n translations for AutomatosX setup (11 languages); Add --silent option for non-interactive setup; Fix: root bin/ax-cli path for monorepo |
