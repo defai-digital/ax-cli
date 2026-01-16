@@ -44,14 +44,6 @@
 
 ---
 
-<p align="center">
-  <img src=".github/assets/grok.png" alt="AX-Grok" width="500"/>
-</p>
-
-<p align="center">
-  <strong>Enterprise-grade AI coding assistant optimized for Grok</strong>
-</p>
-
 ## Quick Start
 
 Get started in under a minute:

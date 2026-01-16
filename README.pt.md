@@ -51,14 +51,6 @@
 
 ---
 
-<p align="center">
-  <img src=".github/assets/grok.png" alt="AX-Grok" width="400"/>
-</p>
-
-<p align="center">
-  <strong>Assistente de codificação com IA de nível empresarial otimizado para Grok</strong>
-</p>
-
 ## Início Rápido
 
 Comece em menos de um minuto:

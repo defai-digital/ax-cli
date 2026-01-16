@@ -51,14 +51,6 @@
 
 ---
 
-<p align="center">
-  <img src=".github/assets/grok.png" alt="AX-Grok" width="400"/>
-</p>
-
-<p align="center">
-  <strong>Enterprise-Grade KI-Codierungsassistent, optimiert für Grok</strong>
-</p>
-
 ## Schnellstart
 
 Starten Sie in unter einer Minute:

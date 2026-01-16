@@ -51,14 +51,6 @@
 
 ---
 
-<p align="center">
-  <img src=".github/assets/grok.png" alt="AX-Grok" width="400"/>
-</p>
-
-<p align="center">
-  <strong>Grok に最適化されたエンタープライズグレードの AI コーディングアシスタント</strong>
-</p>
-
 ## クイックスタート
 
 1分以内に始められます：

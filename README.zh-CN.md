@@ -51,14 +51,6 @@
 
 ---
 
-<p align="center">
-  <img src=".github/assets/grok.png" alt="AX-Grok" width="400"/>
-</p>
-
-<p align="center">
-  <strong>为 Grok 优化的企业级 AI 编程助手</strong>
-</p>
-
 ## 快速开始
 
 一分钟内即可开始使用：

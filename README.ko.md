@@ -51,14 +51,6 @@
 
 ---
 
-<p align="center">
-  <img src=".github/assets/grok.png" alt="AX-Grok" width="400"/>
-</p>
-
-<p align="center">
-  <strong>Grok에 최적화된 엔터프라이즈급 AI 코딩 어시스턴트</strong>
-</p>
-
 ## 빠른 시작
 
 1분 이내에 시작할 수 있습니다:

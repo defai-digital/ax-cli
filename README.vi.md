@@ -51,14 +51,6 @@
 
 ---
 
-<p align="center">
-  <img src=".github/assets/grok.png" alt="AX-Grok" width="400"/>
-</p>
-
-<p align="center">
-  <strong>Trợ lý lập trình AI cấp doanh nghiệp được tối ưu hóa cho Grok</strong>
-</p>
-
 ## Bắt đầu Nhanh
 
 Bắt đầu trong vòng chưa đầy một phút:
