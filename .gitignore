@@ -163,3 +163,11 @@ checkpoints/
 
 # Package-level checkpoint artifacts (should never exist in source)
 packages/*/checkpoints/
+
+# Test fixtures that should not be committed
+root/
+test-design-check/
+
+# Coverage report files (large, auto-generated)
+coverage-sdk.json
+coverage*.json
