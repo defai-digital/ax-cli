@@ -37,7 +37,6 @@ export function handleInit(_args: string, ctx: CommandContext): CommandResult {
     depthLevel = 'security';
   }
 
-  const isRefresh = args.includes('--refresh') || args.includes('-r');
   const isForce = args.includes('--force') || args.includes('-f');
 
   // Add user entry
@@ -64,20 +63,9 @@ export function handleInit(_args: string, ctx: CommandContext): CommandResult {
         const projectRoot = process.cwd();
         const axMdPath = path.join(projectRoot, FILE_NAMES.AX_MD);
 
-        // Check if AX.md exists
+        // Check if AX.md exists - auto-refresh by default
         const axMdExists = fs.existsSync(axMdPath);
-        if (axMdExists && !isRefresh && !isForce) {
-          ctx.setChatHistory((prev) => [
-            ...prev,
-            {
-              type: "assistant",
-              content: `ℹ️ AX.md already exists.\n\nUse \`/init --refresh\` to update or \`/init --force\` to regenerate.`,
-              timestamp: new Date(),
-            },
-          ]);
-          ctx.setIsProcessing(false);
-          return;
-        }
+        const effectiveRefresh = axMdExists && !isForce; // Auto-refresh when file exists
 
         // Check for legacy format and warn about deprecation
         const { detectLegacyFormat } = await import("../init/migrator.js");
@@ -149,7 +137,7 @@ export function handleInit(_args: string, ctx: CommandContext): CommandResult {
         }
 
         // Build success message
-        const action = isRefresh ? 'refreshed' : 'generated';
+        const action = effectiveRefresh ? 'refreshed' : 'generated';
         let successMessage = `🎉 Project ${action} successfully!\n\n`;
 
         successMessage += `📋 Analysis Results:\n`;

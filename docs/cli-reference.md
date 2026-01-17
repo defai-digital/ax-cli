@@ -70,13 +70,12 @@ ax-glm --continue
 Generates `AX.md` at project root with AI-optimized context.
 
 ```bash
-/init                      # Standard analysis (default)
+/init                      # Standard analysis (auto-refreshes if AX.md exists)
 /init --depth=basic        # Quick scan (name, language, stack)
 /init --depth=standard     # + Code stats, tests, docs
 /init --depth=full         # + Architecture, dependencies, hotspots
 /init --depth=security     # + Secret scanning, dangerous APIs
-/init --refresh            # Update existing AX.md
-/init --force              # Regenerate even if exists
+/init --force              # Force complete regeneration
 ```
 
 **Depth levels:**
@@ -92,6 +91,10 @@ Generates `AX.md` at project root with AI-optimized context.
 **Generated files:**
 - `AX.md` - Primary context file (always)
 - `.ax/analysis.json` - Deep analysis data (full/security only)
+
+**Automatic context injection:** When you start a conversation, AX CLI reads `AX.md` and injects its content into the AI's system prompt. The AI immediately understands your project's build commands, tech stack, and conventions.
+
+**Priority order:** AX.md (primary) → ax.summary.json (legacy) → ax.index.json (legacy)
 
 ### Other Commands
 - `/help` - Show all commands

@@ -1,6 +1,6 @@
 # AX CLI - Vibe Coding de Classe Entreprise
 
-> 📖 Cette traduction est basée sur [README.md @ v5.1.19](./README.md)
+> 📖 Cette traduction est basée sur [README.md @ v5.2.0](./README.md)
 
 [![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
 [![Tests](https://img.shields.io/badge/tests-6,205+%20passing-brightgreen.svg)](#)
@@ -32,6 +32,7 @@
 - [Modèles pris en charge](#modèles-pris-en-charge)
 - [Installation](#installation)
 - [Utilisation](#utilisation)
+- [Initialisation du projet](#initialisation-du-projet)
 - [Configuration](#configuration)
 - [Intégration MCP](#intégration-mcp)
 - [Extension VSCode](#extension-vscode)
@@ -196,7 +197,7 @@ Par défaut, l'autocorrection est ACTIVÉE (l'agent réessaie automatiquement av
 
 | Commande | Description |
 |---------|-------------|
-| `/init` | Initialiser le contexte du projet |
+| `/init` | Générer le contexte de projet AX.md (voir [Initialisation du projet](#initialisation-du-projet)) |
 | `/help` | Afficher toutes les commandes |
 | `/model` | Changer le modèle IA |
 | `/lang` | Changer la langue (11 langues) |
@@ -215,6 +216,95 @@ Par défaut, l'autocorrection est ACTIVÉE (l'agent réessaie automatiquement av
 
 ---
 
+## Initialisation du projet
+
+La commande `/init` génère un fichier `AX.md` à la racine du projet — un fichier de contexte complet qui aide l'IA à comprendre votre codebase.
+
+### Utilisation de base
+
+```bash
+ax-grok
+> /init                    # Analyse standard (recommandée)
+> /init --depth=basic      # Scan rapide pour petits projets
+> /init --depth=full       # Analyse profonde avec cartographie d'architecture
+> /init --depth=security   # Inclure audit sécurité (secrets, APIs dangereuses)
+```
+
+### Niveaux de profondeur
+
+| Profondeur | Ce qui est analysé | Idéal pour |
+|------------|--------------------|-----------|
+| `basic` | Nom, langage, stack, scripts | Mise en route rapide, petits projets |
+| `standard` | + Stats de code, analyse des tests, documentation | La plupart des projets (par défaut) |
+| `full` | + Architecture, dépendances, hotspots, guides how-to | Grandes codebases |
+| `security` | + Scan de secrets, détection d'APIs dangereuses, patterns d'auth | Projets sensibles à la sécurité |
+
+### Sortie adaptative
+
+La commande `/init` ajuste automatiquement la verbosité selon la complexité du projet :
+
+| Taille du projet | Fichiers | Sortie typique |
+|------------------|---------|----------------|
+| Petit | <50 fichiers | Concise, essentielle |
+| Moyen | 50-200 fichiers | Documentation standard |
+| Grand | 200-500 fichiers | Detaillée avec notes d'architecture |
+| Enterprise | 500+ fichiers | Complète avec toutes les sections |
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--depth=<level>` | Définir la profondeur (basic, standard, full, security) |
+| `--refresh` | Mettre à jour AX.md existant avec la dernière analyse |
+| `--force` | Régénérer même si AX.md existe |
+
+### Fichiers générés
+
+| Fichier | Rôle |
+|--------|------|
+| `AX.md` | Fichier de contexte IA principal (toujours généré) |
+| `.ax/analysis.json` | Données d'analyse profonde (full/security seulement) |
+
+### Comment fonctionne l'injection de contexte
+
+Lorsque vous démarrez une conversation, AX CLI lit automatiquement votre fichier `AX.md` et l'injecte dans la fenêtre de contexte de l'IA. Cela signifie :
+
+1. **L'IA connaît votre projet** - commandes de build, stack, conventions
+2. **Pas d'explications répétées** - l'IA se souvient de la structure
+3. **Meilleures suggestions de code** - suit vos patterns et règles existants
+
+```
+You run: ax-grok
+         ↓
+System reads: AX.md from project root
+         ↓
+AI receives: <project-context source="AX.md">
+             # Your Project
+             ## Build Commands
+             pnpm build
+             ...
+             </project-context>
+         ↓
+AI understands your project before you ask anything!
+```
+
+**Ordre de priorité** (si plusieurs fichiers de contexte existent) :
+1. `AX.md` (recommandé) - Nouveau format en fichier unique
+2. `ax.summary.json` (legacy) - Résumé JSON
+3. `ax.index.json` (legacy) - Index JSON complet
+
+### Migration depuis le format legacy
+
+Si vous avez des fichiers legacy (`.ax-grok/CUSTOM.md`, `ax.index.json`, `ax.summary.json`), exécutez :
+
+```bash
+> /init --force
+```
+
+Cela génère le nouveau format de fichier unique `AX.md`. Les fichiers legacy peuvent ensuite être supprimés.
+
+---
+
 ## Configuration
 
 ### Fichiers de configuration
@@ -223,8 +313,7 @@ Par défaut, l'autocorrection est ACTIVÉE (l'agent réessaie automatiquement av
 |--------|------|
 | `~/.ax-grok/config.json` | Paramètres utilisateur (clé API chiffrée) |
 | `.ax-grok/settings.json` | Overrides projet |
-| `.ax-grok/CUSTOM.md` | Instructions IA personnalisées |
-| `ax.index.json` | Index partagé du projet (à la racine) |
+| `AX.md` | Fichier de contexte projet (généré par `/init`) |
 
 ### Variables d'environnement
 
@@ -327,7 +416,7 @@ AX CLI utilise une architecture modulaire avec des CLIs spécifiques par fournis
 │                   @defai.digital/ax-core                    │
 │                                                             │
 │  Fonctionnalités partagées : 17 outils, client MCP,          │
-│  mémoire, checkpoints, UI React/Ink, opérations de fichiers, │
+│  mémoire, checkpoints, UI React/Ink, opérations de fichiers, |
 │  support git                                                │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -351,6 +440,7 @@ AX CLI utilise une architecture modulaire avec des CLIs spécifiques par fournis
 
 | Version | Highlights |
 |---------|------------|
+| **v5.2.0** | Feature : injection de contexte AX.md - l'IA comprend automatiquement votre projet au démarrage |
 | **v5.1.19** | Performance : analyse des dépendances O(N×M) → O(N+M), éviction de cache optimisée, corrections UI |
 | **v5.1.18** | Refactorisation : constantes nommées, noms de variables unifiés, 6,205 tests réussis |
 | **v5.1.17** | Fix : bug d'annulation ESC, fuites de timer, gestion des timeouts MCP |

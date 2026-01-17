@@ -25,6 +25,13 @@ This document lists the capabilities that are actually supported today. It repla
 - Deep analysis mode (full/security) generates `.ax/analysis.json` with dependency graphs and hotspots.
 - Migration support: replaces legacy 3-file format (CUSTOM.md, ax.index.json, ax.summary.json).
 
+## Automatic context injection
+- When starting a conversation, `AX.md` is automatically read and injected into the AI's system prompt.
+- Content is wrapped in `<project-context source="AX.md">` tags for clear delineation.
+- HTML metadata comments (generation date, etc.) are stripped to save tokens.
+- Priority: `AX.md` (primary) → `ax.summary.json` (legacy) → `ax.index.json` (legacy).
+- Benefits: AI understands your project's build commands, tech stack, and conventions from the start.
+
 ## Configuration and security
 - Encrypted API key storage created by `ax-<provider> setup`; env var overrides for CI.
 - Precedence: flags > env (`AI_MODEL`, `AI_BASE_URL`, provider key) > project settings (`.ax-<provider>/settings.json`) > user settings (`~/.ax-<provider>/config.json`) > defaults.

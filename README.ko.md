@@ -1,6 +1,6 @@
 # AX CLI - 엔터프라이즈급 Vibe Coding
 
-> 📖 이 번역은 [README.md @ v5.1.19](./README.md) 를 기반으로 합니다
+> 📖 이 번역은 [README.md @ v5.2.0](./README.md) 를 기반으로 합니다
 
 [![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
 [![Tests](https://img.shields.io/badge/tests-6,205+%20passing-brightgreen.svg)](#)
@@ -32,6 +32,7 @@
 - [지원 모델](#지원-모델)
 - [설치](#설치)
 - [사용법](#사용법)
+- [프로젝트 초기화](#프로젝트-초기화)
 - [구성](#구성)
 - [MCP 통합](#mcp-통합)
 - [VSCode 확장](#vscode-확장)
@@ -196,7 +197,7 @@ ax-grok --no-correction
 
 | 명령어 | 설명 |
 |--------|------|
-| `/init` | 프로젝트 컨텍스트 초기화 |
+| `/init` | AX.md 프로젝트 컨텍스트 생성 ([프로젝트 초기화](#프로젝트-초기화) 참조) |
 | `/help` | 모든 명령어 표시 |
 | `/model` | AI 모델 전환 |
 | `/lang` | 표시 언어 변경 (11개 언어) |
@@ -215,6 +216,95 @@ ax-grok --no-correction
 
 ---
 
+## 프로젝트 초기화
+
+`/init` 명령은 프로젝트 루트에 `AX.md` 파일을 생성합니다. AI가 코드베이스를 이해하도록 돕는 종합 컨텍스트 파일입니다.
+
+### 기본 사용법
+
+```bash
+ax-grok
+> /init                    # 표준 분석(권장)
+> /init --depth=basic      # 소규모 프로젝트용 빠른 스캔
+> /init --depth=full       # 아키텍처 매핑 포함 심층 분석
+> /init --depth=security   # 보안 감사 포함 (secrets, 위험 API)
+```
+
+### 깊이 레벨
+
+| 깊이 | 분석 내용 | 적합한 대상 |
+|------|----------|-------------|
+| `basic` | 이름, 언어, 기술 스택, 스크립트 | 빠른 설정, 소규모 프로젝트 |
+| `standard` | + 코드 통계, 테스트 분석, 문서 | 대부분의 프로젝트(기본값) |
+| `full` | + 아키텍처, 의존성, 핫스팟, 사용 가이드 | 대규모 코드베이스 |
+| `security` | + 시크릿 스캔, 위험 API 탐지, 인증 패턴 | 보안 민감 프로젝트 |
+
+### 적응형 출력
+
+`/init` 명령은 프로젝트 복잡도에 따라 출력 상세도를 자동 조정합니다:
+
+| 프로젝트 규모 | 파일 수 | 일반 출력 |
+|-------------|--------|----------|
+| 소형 | <50 파일 | 간결, 핵심만 |
+| 중형 | 50-200 파일 | 표준 문서화 |
+| 대형 | 200-500 파일 | 아키텍처 노트 포함 상세 |
+| Enterprise | 500+ 파일 | 모든 섹션 포함 종합 |
+
+### 옵션
+
+| 옵션 | 설명 |
+|------|------|
+| `--depth=<level>` | 분석 깊이 설정 (basic, standard, full, security) |
+| `--refresh` | 기존 AX.md를 최신 분석으로 업데이트 |
+| `--force` | AX.md가 있어도 재생성 |
+
+### 생성 파일
+
+| 파일 | 목적 |
+|------|------|
+| `AX.md` | AI 컨텍스트 기본 파일 (항상 생성) |
+| `.ax/analysis.json` | 심층 분석 데이터 (full/security만) |
+
+### 컨텍스트 주입 방식
+
+대화를 시작하면 AX CLI가 자동으로 `AX.md`를 읽어 AI 컨텍스트 윈도우에 주입합니다. 즉:
+
+1. **AI가 프로젝트를 이해** - 빌드 명령, 기술 스택, 규칙
+2. **반복 설명 불필요** - 프로젝트 구조를 기억
+3. **더 나은 코드 제안** - 기존 패턴과 규칙을 따름
+
+```
+You run: ax-grok
+         ↓
+System reads: AX.md from project root
+         ↓
+AI receives: <project-context source="AX.md">
+             # Your Project
+             ## Build Commands
+             pnpm build
+             ...
+             </project-context>
+         ↓
+AI understands your project before you ask anything!
+```
+
+**우선순위** (여러 컨텍스트 파일이 있는 경우):
+1. `AX.md` (권장) - 새로운 단일 파일 형식
+2. `ax.summary.json` (legacy) - JSON 요약
+3. `ax.index.json` (legacy) - 전체 JSON 인덱스
+
+### 레거시 형식에서 마이그레이션
+
+레거시 파일(`.ax-grok/CUSTOM.md`, `ax.index.json`, `ax.summary.json`)이 있다면 다음을 실행하세요:
+
+```bash
+> /init --force
+```
+
+새 단일 파일 형식 `AX.md`가 생성됩니다. 이후 레거시 파일을 제거할 수 있습니다.
+
+---
+
 ## 구성
 
 ### 구성 파일
@@ -223,8 +313,7 @@ ax-grok --no-correction
 |------|------|
 | `~/.ax-grok/config.json` | 사용자 설정(암호화된 API 키) |
 | `.ax-grok/settings.json` | 프로젝트 오버라이드 |
-| `.ax-grok/CUSTOM.md` | 사용자 지정 AI 지시사항 |
-| `ax.index.json` | 공유 프로젝트 인덱스(루트) |
+| `AX.md` | 프로젝트 컨텍스트 파일(`/init`으로 생성) |
 
 ### 환경 변수
 
@@ -350,6 +439,7 @@ AX CLI는 공유 코어 위에 프로바이더별 CLI를 둔 모듈형 아키텍
 
 | 버전 | 하이라이트 |
 |------|-----------|
+| **v5.2.0** | Feature: AX.md 컨텍스트 주입 - 시작 시 프로젝트 자동 이해 |
 | **v5.1.19** | 성능: 의존성 분석 O(N×M) → O(N+M), 캐시 제거 최적화, UI 버그 수정 |
 | **v5.1.18** | 리팩터링: 명명된 상수, 변수명 통일, 6,205 테스트 통과 |
 | **v5.1.17** | 수정: ESC 취소 버그, 타이머 누수, MCP 타임아웃 처리 |

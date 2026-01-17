@@ -253,8 +253,9 @@ The `/init` command automatically adjusts output verbosity based on your project
 | Option | Description |
 |--------|-------------|
 | `--depth=<level>` | Set analysis depth (basic, standard, full, security) |
-| `--refresh` | Update existing AX.md with latest analysis |
-| `--force` | Regenerate even if AX.md exists |
+| `--force` | Force complete regeneration (default: auto-refresh if exists) |
+
+> **Note:** Running `/init` when `AX.md` already exists will automatically refresh it. Use `--force` for a complete regeneration.
 
 ### Generated Files
 
@@ -262,6 +263,34 @@ The `/init` command automatically adjusts output verbosity based on your project
 |------|---------|
 | `AX.md` | Primary AI context file (always generated) |
 | `.ax/analysis.json` | Deep analysis data (full/security depth only) |
+
+### How Context Injection Works
+
+When you start a conversation, AX CLI automatically reads your `AX.md` file and injects it into the AI's context window. This means:
+
+1. **The AI knows your project** - Build commands, tech stack, conventions
+2. **No repeated explanations** - The AI remembers your project structure
+3. **Better code suggestions** - Follows your existing patterns and rules
+
+```
+You run: ax-grok
+         ↓
+System reads: AX.md from project root
+         ↓
+AI receives: <project-context source="AX.md">
+             # Your Project
+             ## Build Commands
+             pnpm build
+             ...
+             </project-context>
+         ↓
+AI understands your project before you ask anything!
+```
+
+**Priority order** (if multiple context files exist):
+1. `AX.md` (recommended) - New single-file format
+2. `ax.summary.json` (legacy) - JSON summary
+3. `ax.index.json` (legacy) - Full JSON index
 
 ### Migration from Legacy Format
 
@@ -409,6 +438,7 @@ AX CLI uses a modular architecture with provider-specific CLIs built on a shared
 
 | Version | Highlights |
 |---------|------------|
+| **v5.2.0** | Feature: AX.md context injection, auto-refresh `/init`, complexity scoring, adaptive output |
 | **v5.1.19** | Performance: O(N×M) → O(N+M) dependency analysis, optimized cache eviction, UI bug fixes |
 | **v5.1.18** | Refactoring: Named constants, unified variable naming, 6,205 tests passing |
 | **v5.1.17** | Fix: ESC cancellation bug, timer leaks, MCP timeout handling |

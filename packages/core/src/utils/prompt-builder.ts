@@ -2,7 +2,7 @@
  * System Prompt Builder
  * Builds AI assistant prompts from YAML configuration
  * Integrates project memory for z.ai GLM-4.6 caching
- * Includes project index (ax.index.json) for project understanding
+ * Includes project context (AX.md or legacy ax.index.json) for project understanding
  * Includes priority-based tool selection guidance
  * Includes user language preference for multilingual responses
  */
@@ -33,8 +33,9 @@ export function buildSystemPrompt(options: {
   const config = loadPromptsConfig();
   const sections: string[] = [];
 
-  // Project Index Context (ax.index.json) - project structure and tech stack
+  // Project Context (AX.md preferred, falls back to ax.index.json)
   // This helps the AI understand the project before starting
+  // Priority: AX.md > ax.summary.json > ax.index.json
   const includeProjectIndex = options.includeProjectIndex !== false;
   if (includeProjectIndex) {
     const indexManager = getProjectIndexManager();

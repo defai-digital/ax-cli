@@ -123,15 +123,13 @@ export function createInitCommand(): Command {
           process.exit(1);
         }
 
-        // Check for existing AX.md
+        // Check for existing AX.md - auto-refresh by default
         const axMdPath = join(projectRoot, outputFile);
         const axMdExists = existsSync(axMdPath);
+        const effectiveRefresh = axMdExists && !options.force; // Auto-refresh when file exists
 
-        if (axMdExists && !options.force && !options.refresh) {
-          prompts.log.info(`${outputFile} already exists.`);
-          prompts.log.info('Use --refresh to update or --force to regenerate.');
-          prompts.outro(chalk.yellow('Use --refresh or --force to update'));
-          return;
+        if (effectiveRefresh && options.verbose) {
+          prompts.log.info(`${outputFile} exists, refreshing...`);
         }
 
         // Check for legacy format and suggest migration
@@ -276,7 +274,7 @@ export function createInitCommand(): Command {
         }
 
         // Show completion summary
-        const action = options.refresh ? 'refreshed' : 'created';
+        const action = effectiveRefresh ? 'refreshed' : 'created';
         const summaryContent = projectInfo
           ? `Project: ${projectInfo.name}\nType: ${projectInfo.projectType}\nLanguage: ${projectInfo.primaryLanguage}\nDepth: ${depthLevel}`
           : `Output: ${outputFile}`;
