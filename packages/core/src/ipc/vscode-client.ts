@@ -184,13 +184,29 @@ export class VSCodeIPCClient extends EventEmitter {
       }, CONNECTION_TIMEOUT);
 
       try {
-        this.ws = new WebSocket(`ws://127.0.0.1:${this.port}`);
+        // BUG FIX: Clean up any existing WebSocket before creating a new one
+        // This prevents listener accumulation and race conditions where old
+        // WebSocket's 'close' handler could null out the new WebSocket reference
+        if (this.ws) {
+          this.ws.removeAllListeners();
+          try {
+            this.ws.close();
+          } catch {
+            // Ignore close errors on old WebSocket
+          }
+          this.ws = null;
+        }
 
-        this.ws.on('open', () => {
+        const ws = new WebSocket(`ws://127.0.0.1:${this.port}`);
+        this.ws = ws;
+
+        // BUG FIX: Capture ws reference in closures to ensure handlers only
+        // affect the WebSocket they were attached to, not a newer one
+        ws.on('open', () => {
           safeResolve(true);
         });
 
-        this.ws.on('message', (data) => {
+        ws.on('message', (data) => {
           try {
             const response: IPCResponse = JSON.parse(data.toString());
             this.handleResponse(response);
@@ -199,13 +215,18 @@ export class VSCodeIPCClient extends EventEmitter {
           }
         });
 
-        this.ws.on('close', () => {
+        ws.on('close', () => {
           clearTimeout(timeout);
-          this.handleDisconnect();
+          // BUG FIX: Only call handleDisconnect if this is still the current WebSocket
+          // This prevents race condition where old WebSocket's close handler
+          // nulls out a newer WebSocket reference
+          if (this.ws === ws) {
+            this.handleDisconnect();
+          }
           safeResolve(false);
         });
 
-        this.ws.on('error', () => {
+        ws.on('error', () => {
           safeResolve(false);
         });
 

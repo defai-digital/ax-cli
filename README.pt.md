@@ -1,6 +1,6 @@
 # AX CLI - Vibe Coding de Classe Empresarial
 
-> 📖 Esta tradução é baseada no [README.md @ v5.1.19](./README.md)
+> 📖 Esta tradução é baseada no [README.md @ v5.2.0](./README.md)
 
 [![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
 [![Tests](https://img.shields.io/badge/tests-6,205+%20passing-brightgreen.svg)](#)
@@ -32,6 +32,7 @@
 - [Modelos Suportados](#modelos-suportados)
 - [Instalação](#instalação)
 - [Uso](#uso)
+- [Inicialização do Projeto](#inicialização-do-projeto)
 - [Configuração](#configuração)
 - [Integração MCP](#integração-mcp)
 - [Extensão VSCode](#extensão-vscode)
@@ -40,7 +41,6 @@
 - [Segurança](#segurança)
 - [Arquitetura](#arquitetura)
 - [Pacotes](#pacotes)
-- [Changelog](#changelog)
 - [Documentação](#documentação)
 - [Enterprise](#enterprise)
 
@@ -196,7 +196,7 @@ Por padrão, a autocorreção está LIGADA (o agente tenta novamente com reflex�
 
 | Comando | Descrição |
 |---------|-----------|
-| `/init` | Inicializar contexto do projeto |
+| `/init` | Gerar contexto do projeto AX.md (ver [Inicialização do Projeto](#inicialização-do-projeto)) |
 | `/help` | Mostrar todos os comandos |
 | `/model` | Trocar modelo de IA |
 | `/lang` | Mudar idioma (11 idiomas) |
@@ -215,6 +215,95 @@ Por padrão, a autocorreção está LIGADA (o agente tenta novamente com reflex�
 
 ---
 
+## Inicialização do Projeto
+
+O comando `/init` gera um arquivo `AX.md` na raiz do projeto — um arquivo de contexto completo que ajuda a IA a entender seu codebase.
+
+### Uso básico
+
+```bash
+ax-grok
+> /init                    # Análise padrão (recomendada)
+> /init --depth=basic      # Scan rápido para projetos pequenos
+> /init --depth=full       # Análise profunda com mapeamento de arquitetura
+> /init --depth=security   # Incluir auditoria de segurança (secrets, APIs perigosas)
+```
+
+### Níveis de profundidade
+
+| Profundidade | O que é analisado | Melhor para |
+|------------|--------------------|-----------|
+| `basic` | Nome, linguagem, stack, scripts | Configuração rápida, projetos pequenos |
+| `standard` | + Estatísticas de código, análise de testes, documentação | A maioria dos projetos (padrão) |
+| `full` | + Arquitetura, dependências, hotspots, guias de uso | Codebases grandes |
+| `security` | + Scan de secrets, detecção de APIs perigosas, padrões de auth | Projetos sensíveis à segurança |
+
+### Saída adaptativa
+
+O comando `/init` ajusta automaticamente a verbosidade de saída conforme a complexidade do projeto:
+
+| Tamanho do projeto | Arquivos | Saída típica |
+|-------------------|---------|--------------|
+| Pequeno | <50 arquivos | Concisa, apenas o essencial |
+| Médio | 50-200 arquivos | Documentação padrão |
+| Grande | 200-500 arquivos | Detalhada com notas de arquitetura |
+| Enterprise | 500+ arquivos | Completa com todas as seções |
+
+### Opções
+
+| Opção | Descrição |
+|------|-----------|
+| `--depth=<level>` | Definir profundidade (basic, standard, full, security) |
+| `--refresh` | Atualizar AX.md existente com a análise mais recente |
+| `--force` | Regenerar mesmo se AX.md existir |
+
+### Arquivos gerados
+
+| Arquivo | Finalidade |
+|--------|------------|
+| `AX.md` | Arquivo principal de contexto IA (sempre gerado) |
+| `.ax/analysis.json` | Dados de análise profunda (somente full/security) |
+
+### Como funciona a injeção de contexto
+
+Quando você inicia uma conversa, o AX CLI lê automaticamente seu arquivo `AX.md` e o injeta na janela de contexto da IA. Isso significa:
+
+1. **A IA conhece seu projeto** - comandos de build, stack, convenções
+2. **Sem explicações repetidas** - a IA lembra a estrutura do projeto
+3. **Melhores sugestões de código** - segue seus padrões e regras existentes
+
+```
+You run: ax-grok
+         ↓
+System reads: AX.md from project root
+         ↓
+AI receives: <project-context source="AX.md">
+             # Your Project
+             ## Build Commands
+             pnpm build
+             ...
+             </project-context>
+         ↓
+AI understands your project before you ask anything!
+```
+
+**Ordem de prioridade** (se houver múltiplos arquivos de contexto):
+1. `AX.md` (recomendado) - Novo formato de arquivo único
+2. `ax.summary.json` (legacy) - Resumo JSON
+3. `ax.index.json` (legacy) - Índice JSON completo
+
+### Migração do formato legacy
+
+Se você tiver arquivos legacy (`.ax-grok/CUSTOM.md`, `ax.index.json`, `ax.summary.json`), execute:
+
+```bash
+> /init --force
+```
+
+Isso gera o novo formato de arquivo único `AX.md`. Os arquivos legacy podem ser removidos em seguida.
+
+---
+
 ## Configuração
 
 ### Arquivos de configuração
@@ -223,8 +312,7 @@ Por padrão, a autocorreção está LIGADA (o agente tenta novamente com reflex�
 |--------|------------|
 | `~/.ax-grok/config.json` | Configurações do usuário (chave API criptografada) |
 | `.ax-grok/settings.json` | Substituições de projeto |
-| `.ax-grok/CUSTOM.md` | Instruções personalizadas de IA |
-| `ax.index.json` | Índice compartilhado do projeto (raiz) |
+| `AX.md` | Arquivo de contexto do projeto (gerado por `/init`) |
 
 ### Variáveis de ambiente
 
@@ -347,17 +435,6 @@ AX CLI usa uma arquitetura modular com CLIs específicas por provedor sobre um n
 
 ---
 
-## Changelog
-
-| Versão | Destaques |
-|-------|-----------|
-| **v5.1.19** | Performance: análise de dependências O(N×M) → O(N+M), expulsão de cache otimizada, correções de UI |
-| **v5.1.18** | Refatoração: constantes nomeadas, nomes de variáveis unificados, 6.205 testes passando |
-| **v5.1.17** | Correção: bug de cancelamento ESC, vazamentos de timer, tratamento de timeout MCP |
-
-[Ver changelog completo no GitHub →](https://github.com/defai-digital/ax-cli/releases)
-
----
 
 ## Documentação
 

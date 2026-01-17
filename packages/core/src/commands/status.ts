@@ -133,7 +133,9 @@ export function createStatusCommand(): Command {
           }, refreshSeconds * 1000);
 
           // Handle graceful shutdown
-          process.on('SIGINT', () => {
+          // BUG FIX: Use 'once' instead of 'on' to prevent listener accumulation
+          // if this command is called multiple times (e.g., in tests or after restart)
+          process.once('SIGINT', () => {
             clearInterval(intervalId);
             console.log();
             console.log(chalk.gray('Refresh stopped.'));

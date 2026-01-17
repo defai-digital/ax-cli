@@ -1,7 +1,7 @@
 # AX CLI - Enterprise-Class Vibe Coding
 
 [![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
-[![Tests](https://img.shields.io/badge/tests-6,205+%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-6,202%20passing-brightgreen.svg)](#)
 [![macOS](https://img.shields.io/badge/macOS-26.0-blue.svg)](https://www.apple.com/macos)
 [![Windows](https://img.shields.io/badge/Windows-10+-blue.svg)](https://www.microsoft.com/windows)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-blue.svg)](https://ubuntu.com)
@@ -39,7 +39,6 @@
 - [Security](#security)
 - [Architecture](#architecture)
 - [Packages](#packages)
-- [Changelog](#changelog)
 - [Documentation](#documentation)
 - [Enterprise](#enterprise)
 
@@ -84,7 +83,7 @@ Run `/init` inside the CLI to initialize your project context.
 | **MCP Integration** | Model Context Protocol with 12+ production-ready templates |
 | **Project Memory** | Intelligent context caching with 50% token savings |
 | **Enterprise Security** | AES-256-GCM encryption, no telemetry, CVSS-rated protections |
-| **65% Test Coverage** | 6,205+ tests with strict TypeScript |
+| **65% Test Coverage** | 6,202 tests with strict TypeScript |
 
 ---
 
@@ -434,18 +433,6 @@ AX CLI uses a modular architecture with provider-specific CLIs built on a shared
 
 ---
 
-## Changelog
-
-| Version | Highlights |
-|---------|------------|
-| **v5.2.0** | Feature: AX.md context injection, auto-refresh `/init`, complexity scoring, adaptive output |
-| **v5.1.19** | Performance: O(N×M) → O(N+M) dependency analysis, optimized cache eviction, UI bug fixes |
-| **v5.1.18** | Refactoring: Named constants, unified variable naming, 6,205 tests passing |
-| **v5.1.17** | Fix: ESC cancellation bug, timer leaks, MCP timeout handling |
-
-[View full changelog on GitHub →](https://github.com/defai-digital/ax-cli/releases)
-
----
 
 ## Documentation
 

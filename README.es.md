@@ -41,7 +41,6 @@
 - [Seguridad](#seguridad)
 - [Arquitectura](#arquitectura)
 - [Paquetes](#paquetes)
-- [Changelog](#changelog)
 - [Documentación](#documentación)
 - [Enterprise](#enterprise)
 
@@ -436,18 +435,6 @@ AX CLI usa una arquitectura modular con CLIs específicas por proveedor sobre un
 
 ---
 
-## Changelog
-
-| Versión | Highlights |
-|---------|------------|
-| **v5.2.0** | Feature: inyección de contexto AX.md - la IA ahora entiende tu proyecto automáticamente al iniciar |
-| **v5.1.19** | Rendimiento: O(N×M) → O(N+M) en análisis de dependencias, expulsión de caché optimizada, fixes de UI |
-| **v5.1.18** | Refactorización: constantes nombradas, nombres de variables unificados, 6,205 pruebas pasando |
-| **v5.1.17** | Fix: bug de cancelación ESC, fugas de temporizador, manejo de timeouts MCP |
-
-[Ver changelog completo en GitHub →](https://github.com/defai-digital/ax-cli/releases)
-
----
 
 ## Documentación
 
