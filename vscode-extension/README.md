@@ -2,7 +2,7 @@
 
 > AI-powered coding assistant with multi-provider flexibility and VS Code integration
 
-[![Version](https://img.shields.io/badge/version-0.3.4-blue.svg)](https://github.com/defai-digital/ax-cli)
+[![Version](https://img.shields.io/badge/version-5.2.2-blue.svg)](https://github.com/defai-digital/ax-cli)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/defai-digital/ax-cli/blob/main/LICENSE)
 
 ## Features
@@ -77,7 +77,7 @@ npm install -g @defai.digital/ax-cli
 
 **Option 1: VSIX Install**
 ```bash
-code --install-extension ax-cli-vscode-0.3.4.vsix
+code --install-extension ax-cli-vscode-5.2.2.vsix
 ```
 
 **Option 2: Development Mode**
@@ -207,7 +207,7 @@ npm run test:watch     # Watch mode
 ### Package VSIX
 ```bash
 npm run package:vsix
-# Creates: ax-cli-vscode-0.3.4.vsix
+# Creates: ax-cli-vscode-5.2.2.vsix
 ```
 
 ---
@@ -243,21 +243,28 @@ The extension communicates with AX CLI via WebSocket IPC:
 
 ---
 
-## What's New in v0.3.4
+## What's New in v5.2.2
+
+### Security Enhancements
+- **Command injection protection**: Dangerous command patterns blocked in hooks system with user warnings
+- **Sensitive path protection**: Blocked access to `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube` and other credential directories
+- **Atomic port file writes**: Prevents race conditions and symlink attacks on IPC port file
+- **IPC payload validation**: All incoming WebSocket messages validated with size limits and type checking
+- **Secure git execution**: Replaced shell exec with spawn for safer command execution
 
 ### Bug Fixes
-- Fixed command injection vulnerability in hooks system
-- Fixed file search exclude pattern format
-- Fixed session rename not updating UI
-- Fixed partial hunk acceptance behavior (now warns user)
-- Fixed list rendering in chat markdown
-- Fixed restore state not saving properly
-- Improved sort logic for file search
-- Removed unused variables and dead code
+- Fixed ConcurrentModificationException in checkpoint cleanup during iteration
+- Fixed ConcurrentModificationException in session enforcement during deletion
+- Fixed iterator modification in IPC server stop method
+- Fixed non-atomic checkpoint creation with proper rollback on failure
+- Fixed auth bypass edge case with strict nonce type validation
+- Added error boundaries to stream chunk handling
+- Fixed race condition in setSession message ordering
 
 ### Improvements
-- Added validation for session and checkpoint data on load
-- Better error handling throughout the extension
+- Enhanced IPC authentication with 64-char hex nonce format validation
+- Added detailed logging for blocked security threats
+- Improved error feedback when dangerous hooks are detected
 
 ---
 

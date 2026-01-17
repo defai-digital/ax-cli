@@ -59,6 +59,28 @@ export interface HookContext {
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 const HOOKS_CONFIG_FILE = '.ax-cli/hooks.json';
 
+/**
+ * Dangerous command patterns that could cause system damage
+ * These are blocked to prevent malicious hooks from untrusted workspaces
+ */
+const DANGEROUS_COMMAND_PATTERNS: RegExp[] = [
+  /rm\s+(-[rf]+\s+)*[\/~]/i,           // rm with root or home paths
+  /rm\s+-rf\s+\*/i,                     // rm -rf *
+  /mkfs/i,                              // filesystem formatting
+  /dd\s+if=.*of=\/dev\//i,              // dd to devices
+  />\s*\/dev\/(sd|hd|nvme)/i,           // redirect to block devices
+  /chmod\s+(-R\s+)?777\s+[\/~]/i,       // chmod 777 on system paths
+  /chown\s+(-R\s+)?root/i,              // chown to root
+  /curl\s+.*\|\s*(bash|sh|zsh)/i,       // curl pipe to shell
+  /wget\s+.*\|\s*(bash|sh|zsh)/i,       // wget pipe to shell
+  /eval\s+.*\$\(/i,                     // eval with command substitution
+  /:(){ :|:& };:/,                      // fork bomb
+  />\s*\/etc\//i,                       // write to /etc
+  />\s*\/usr\//i,                       // write to /usr
+  />\s*\/bin\//i,                       // write to /bin
+  />\s*\/sbin\//i,                      // write to /sbin
+];
+
 export class HooksManager implements vscode.Disposable {
   private hooks: Map<string, Hook> = new Map();
   private disposables: vscode.Disposable[] = [];
@@ -84,6 +106,19 @@ export class HooksManager implements vscode.Disposable {
   }
 
   /**
+   * Validate a hook command for dangerous patterns
+   * Returns null if safe, or the matched pattern description if dangerous
+   */
+  private validateHookCommand(command: string): string | null {
+    for (const pattern of DANGEROUS_COMMAND_PATTERNS) {
+      if (pattern.test(command)) {
+        return pattern.source;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Load hooks from workspace config
    */
   private loadHooks(): void {
@@ -97,10 +132,19 @@ export class HooksManager implements vscode.Disposable {
         const config = JSON.parse(data);
 
         this.hooks.clear();
+        const blockedHooks: string[] = [];
 
         if (Array.isArray(config.hooks)) {
           for (const hook of config.hooks) {
             if (hook.id && hook.event && hook.command) {
+              // Security: Validate command for dangerous patterns
+              const dangerousPattern = this.validateHookCommand(hook.command);
+              if (dangerousPattern) {
+                console.warn(`[AX Hooks] BLOCKED dangerous hook "${hook.name || hook.id}": matches pattern ${dangerousPattern}`);
+                blockedHooks.push(hook.name || hook.id);
+                continue;
+              }
+
               this.hooks.set(hook.id, {
                 id: hook.id,
                 name: hook.name || hook.id,
@@ -116,6 +160,20 @@ export class HooksManager implements vscode.Disposable {
         }
 
         console.log(`[AX Hooks] Loaded ${this.hooks.size} hooks`);
+
+        // Warn user about blocked hooks
+        if (blockedHooks.length > 0) {
+          vscode.window.showWarningMessage(
+            `AX CLI blocked ${blockedHooks.length} potentially dangerous hook(s): ${blockedHooks.join(', ')}. ` +
+            `Review your .ax-cli/hooks.json file for security.`,
+            'Open Hooks File'
+          ).then(selection => {
+            if (selection === 'Open Hooks File') {
+              const configUri = vscode.Uri.file(configPath);
+              vscode.window.showTextDocument(configUri);
+            }
+          });
+        }
       }
     } catch (error) {
       console.error('[AX Hooks] Failed to load hooks:', error);
@@ -229,9 +287,9 @@ export class HooksManager implements vscode.Disposable {
         duration
       };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       const duration = Date.now() - startTime;
-      const errorMessage = error.message || String(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
 
       this.outputChannel.appendLine(`[${hook.name}] Failed: ${errorMessage}`);
 
@@ -265,12 +323,29 @@ export class HooksManager implements vscode.Disposable {
 
   /**
    * Update an existing hook
+   * Only allows updating known Hook properties to prevent state corruption
    */
   updateHook(id: string, updates: Partial<Hook>): boolean {
     const hook = this.hooks.get(id);
     if (!hook) return false;
 
-    Object.assign(hook, updates);
+    // Whitelist of allowed properties to update - prevents injection of unexpected properties
+    const allowedKeys: (keyof Hook)[] = ['name', 'event', 'command', 'enabled', 'workingDir', 'timeout', 'continueOnError'];
+
+    // Create a sanitized updates object with only valid properties
+    const sanitizedUpdates: Partial<Hook> = {};
+    for (const key of allowedKeys) {
+      if (key in updates && updates[key] !== undefined) {
+        // Type-safe assignment using indexed access
+        (sanitizedUpdates as Record<string, unknown>)[key] = updates[key];
+      }
+    }
+
+    // Preserve the id - never allow it to be changed
+    sanitizedUpdates.id = undefined;
+
+    // Apply sanitized updates
+    Object.assign(hook, sanitizedUpdates);
     this.saveHooks();
 
     return true;

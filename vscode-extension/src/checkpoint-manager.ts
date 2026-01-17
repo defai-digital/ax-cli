@@ -154,15 +154,35 @@ export class CheckpointManager implements vscode.Disposable {
       files: checkpointFiles
     };
 
-    // Save checkpoint data
+    // Save checkpoint data with rollback on failure
     const checkpointPath = path.join(CHECKPOINT_DIR, `${checkpointId}.json`);
     try {
+      // Step 1: Write checkpoint file
       fs.writeFileSync(checkpointPath, JSON.stringify(checkpoint, null, 2));
-      this.checkpoints.set(checkpointId, checkpoint);
-      this.saveIndex();
 
-      // Enforce max checkpoints limit
-      this.enforceMaxCheckpoints();
+      // Step 2: Update in-memory state
+      this.checkpoints.set(checkpointId, checkpoint);
+
+      // Step 3: Save index - if this fails, rollback
+      try {
+        this.saveIndex();
+      } catch (indexError) {
+        // Rollback: remove from memory and delete file
+        this.checkpoints.delete(checkpointId);
+        try {
+          fs.unlinkSync(checkpointPath);
+        } catch {
+          // Best effort cleanup
+        }
+        throw indexError;
+      }
+
+      // Step 4: Enforce max checkpoints (non-critical, log but don't fail)
+      try {
+        this.enforceMaxCheckpoints();
+      } catch (enforceError) {
+        console.warn('[AX Checkpoint] Failed to enforce max checkpoints:', enforceError);
+      }
 
       console.log(`[AX Checkpoint] Created checkpoint ${checkpointId} with ${files.length} files`);
     } catch (error) {
@@ -281,10 +301,21 @@ export class CheckpointManager implements vscode.Disposable {
   private cleanupOldCheckpoints(): void {
     const cutoff = Date.now() - (CHECKPOINT_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
+    // Collect IDs to delete first to avoid modifying Map during iteration
+    const toDelete: string[] = [];
     for (const [id, cp] of this.checkpoints) {
       if (new Date(cp.timestamp).getTime() < cutoff) {
-        this.deleteCheckpoint(id);
+        toDelete.push(id);
       }
+    }
+
+    // Now delete collected checkpoints
+    for (const id of toDelete) {
+      this.deleteCheckpoint(id);
+    }
+
+    if (toDelete.length > 0) {
+      console.log(`[AX Checkpoint] Cleaned up ${toDelete.length} expired checkpoint(s)`);
     }
   }
 

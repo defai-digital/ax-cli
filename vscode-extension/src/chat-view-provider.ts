@@ -59,10 +59,31 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         return;
       }
 
-      switch (data.type) {
-        case 'sendMessage':
-          await this.handleUserMessage(data.message, data.context);
+      try {
+        switch (data.type) {
+          case 'sendMessage': {
+          // Convert webview context format to EditorContext
+          type WebviewFile = string | { path: string; name: string };
+          type WebviewImage = { path: string; name?: string; dataUri?: string };
+
+          const context: EditorContext | undefined = data.context ? {
+            // Files come as array of paths from webview, convert to FileAttachment
+            files: data.context.files?.map((f: WebviewFile) =>
+              typeof f === 'string'
+                ? { path: f, name: f.split('/').pop() || f }
+                : { path: f.path, name: f.name }
+            ),
+            // Images come with dataUri from webview
+            images: data.context.images?.map((i: WebviewImage) => ({
+              path: i.path,
+              name: i.name || i.path.split('/').pop() || 'image',
+              dataUri: i.dataUri
+            })),
+            extendedThinking: data.context.extendedThinking
+          } : undefined;
+          await this.handleUserMessage(data.message, context);
           break;
+        }
 
         case 'approveDiff':
           // User clicked Accept in diff viewer
@@ -145,6 +166,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           // User wants to manage hooks
           vscode.commands.executeCommand('ax-cli.manageHooks');
           break;
+        }
+      } catch (error) {
+        // Log and show error to user - prevents unhandled promise rejection
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('[ChatView] Message handler error:', error);
+        vscode.window.showErrorMessage(`Chat error: ${errorMessage}`);
       }
     });
   }
@@ -258,25 +285,33 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
    */
   public setSession(session: ChatSession): void {
     this.currentSession = session;
-    // Convert session messages to local format
+    // Deep copy session messages to prevent race conditions if session manager
+    // modifies the original session while we're processing
     this.messages = session.messages.map(m => ({
       id: m.id,
       role: m.role,
       content: m.content,
       timestamp: m.timestamp,
-      files: m.files,
-      images: m.images
+      // Deep copy arrays to prevent shared references
+      files: m.files ? m.files.map(f => ({ ...f })) : undefined,
+      images: m.images ? m.images.map(i => ({ ...i })) : undefined
     }));
-    this.updateWebview();
 
-    // Update session indicator in webview
+    // Batch both updates atomically to prevent race conditions
+    // when setSession is called rapidly
     if (this._view) {
+      // Send session change first so webview knows context before messages arrive
       this._view.webview.postMessage({
         type: 'sessionChanged',
         session: {
           id: session.id,
           name: session.name
         }
+      });
+      // Then send messages - order is guaranteed for same webview
+      this._view.webview.postMessage({
+        type: 'updateMessages',
+        messages: this.messages,
       });
     }
   }
@@ -293,27 +328,40 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
    * Forwards to webview for real-time display
    */
   public handleStreamChunk(payload: StreamChunkPayload): void {
-    if (!this._view) return;
+    if (!this._view) {
+      console.debug('[Chat View] Stream chunk ignored: no active webview');
+      return;
+    }
 
-    // Forward to webview
-    this._view.webview.postMessage({
-      type: 'streamChunk',
-      chunk: {
-        sessionId: payload.sessionId,
-        type: payload.type,
-        content: payload.content,
-        toolCall: payload.toolCall,
-        toolResult: payload.toolResult,
-        error: payload.error
-      }
-    });
-
-    // If this is the 'done' chunk, also update loading state
-    if (payload.type === 'done' || payload.type === 'error') {
+    try {
+      // Forward to webview
       this._view.webview.postMessage({
-        type: 'loading',
-        value: false
+        type: 'streamChunk',
+        chunk: {
+          sessionId: payload.sessionId,
+          type: payload.type,
+          content: payload.content,
+          toolCall: payload.toolCall,
+          toolResult: payload.toolResult,
+          error: payload.error
+        }
       });
+
+      // If this is the 'done' chunk, also update loading state
+      if (payload.type === 'done' || payload.type === 'error') {
+        this._view.webview.postMessage({
+          type: 'loading',
+          value: false
+        });
+      }
+    } catch (error) {
+      console.error('[Chat View] Failed to forward stream chunk:', error);
+      // Try to reset loading state on error
+      try {
+        this._view?.webview.postMessage({ type: 'loading', value: false });
+      } catch {
+        // Webview may be disposed, ignore
+      }
     }
   }
 
@@ -349,12 +397,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const change = this.pendingChanges.get(changeId);
     if (!change) {
       console.error('[Chat View] Change not found:', changeId);
+      vscode.window.showWarningMessage('Change not found - it may have expired');
       return;
     }
 
     // Use unique scheme per diff to avoid conflicts with global provider in extension.ts
     const uniqueScheme = `ax-cli-chat-diff-${changeId}`;
     let registration: vscode.Disposable | undefined;
+    let editorCloseListener: vscode.Disposable | undefined;
 
     try {
       // Create temporary URIs for diff viewer with unique scheme
@@ -379,12 +429,32 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         { preview: true }
       );
 
+      // Track if user made a decision to avoid orphaned changes
+      let decisionMade = false;
+
+      // Listen for editor close to handle cases where user dismisses without action
+      editorCloseListener = vscode.window.onDidChangeVisibleTextEditors((editors) => {
+        // Check if the diff editor is still open
+        const diffStillOpen = editors.some(e =>
+          e.document.uri.scheme === uniqueScheme
+        );
+        // If diff was closed and no decision was made, reject the change
+        if (!diffStillOpen && !decisionMade && this.pendingChanges.has(changeId)) {
+          console.log('[Chat View] Diff closed without decision, auto-rejecting:', changeId);
+          this.cliBridge.approveChange(changeId, false);
+          this.pendingChanges.delete(changeId);
+          this.updateWebview();
+        }
+      });
+
       // Show info message with action buttons
       const action = await vscode.window.showInformationMessage(
         `Review changes to ${change.file}`,
         'Accept',
         'Reject'
       );
+
+      decisionMade = true;
 
       if (action === 'Accept') {
         this.cliBridge.approveChange(changeId, true);
@@ -394,18 +464,31 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         this.cliBridge.approveChange(changeId, false);
         this.pendingChanges.delete(changeId);
         vscode.window.showInformationMessage(`Changes rejected for ${change.file}`);
+      } else {
+        // User dismissed the dialog without choosing - treat as reject
+        this.cliBridge.approveChange(changeId, false);
+        this.pendingChanges.delete(changeId);
+        console.log('[Chat View] User dismissed diff dialog without action, change rejected');
       }
-      // Note: If user dismisses without action, change remains in pendingChanges
-      // This is intentional - they can retry from the chat view
+
+      this.updateWebview();
 
     } catch (error) {
       console.error('[Chat View] Error showing native diff:', error);
       vscode.window.showErrorMessage(`Failed to show diff: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Clean up orphaned change on error
+      if (this.pendingChanges.has(changeId)) {
+        this.cliBridge.approveChange(changeId, false);
+        this.pendingChanges.delete(changeId);
+        this.updateWebview();
+      }
     } finally {
-      // Always clean up the registration immediately after dialog closes
-      // The diff view may still be open, but VS Code caches the content
+      // Always clean up the registration and listener
       if (registration) {
         registration.dispose();
+      }
+      if (editorCloseListener) {
+        editorCloseListener.dispose();
       }
     }
   }
@@ -417,6 +500,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       content: prompt,
       timestamp: new Date().toISOString(),
       context,
+      files: context?.files?.map(f => ({ path: f.path, name: f.name })),
+      images: context?.images?.map(i => ({ path: i.path, name: i.name, dataUri: i.dataUri })),
     };
 
     this.messages.push(userMessage);
@@ -429,7 +514,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     });
 
     try {
-      // Build CLI request
+      // Load file contents for attached files
+      const filesWithContent = await this.loadFileContents(context?.files);
+
+      // Build CLI request with files and images
       const request: CLIRequest = {
         id: this.generateId(),
         prompt,
@@ -438,6 +526,16 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           selection: context.selection,
           lineRange: context.lineRange,
           gitDiff: context.gitDiff,
+          // Include file attachments with content
+          files: filesWithContent,
+          // Include image attachments with base64 data
+          images: context.images?.map(img => ({
+            path: img.path,
+            name: img.name,
+            dataUri: img.dataUri,
+            mimeType: img.mimeType
+          })),
+          extendedThinking: context.extendedThinking,
         } : undefined,
       };
 
@@ -465,6 +563,33 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         value: false,
       });
     }
+  }
+
+  /**
+   * Load file contents for attached files
+   */
+  private async loadFileContents(files?: Array<{ path: string; name: string }>): Promise<Array<{ path: string; name: string; content?: string }> | undefined> {
+    if (!files || files.length === 0) return undefined;
+
+    const result: Array<{ path: string; name: string; content?: string }> = [];
+
+    for (const file of files) {
+      try {
+        const uri = vscode.Uri.file(file.path);
+        const content = await vscode.workspace.fs.readFile(uri);
+        result.push({
+          path: file.path,
+          name: file.name,
+          content: Buffer.from(content).toString('utf-8')
+        });
+      } catch (error) {
+        console.warn(`[ChatView] Failed to read file ${file.path}:`, error);
+        // Include file without content
+        result.push({ path: file.path, name: file.name });
+      }
+    }
+
+    return result;
   }
 
   private isError(response: CLIResponse | CLIError): response is CLIError {
@@ -509,7 +634,69 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Search for files in workspace matching query
+   * Calculate fuzzy match score between query and target string
+   * Returns score (higher is better) and match positions
+   */
+  private fuzzyMatch(query: string, target: string): { score: number; positions: number[] } {
+    if (!query) return { score: 1, positions: [] };
+
+    const queryLower = query.toLowerCase();
+    const targetLower = target.toLowerCase();
+    const positions: number[] = [];
+
+    let queryIndex = 0;
+    let score = 0;
+    let consecutiveBonus = 0;
+    let prevMatchIndex = -1;
+
+    for (let i = 0; i < targetLower.length && queryIndex < queryLower.length; i++) {
+      if (targetLower[i] === queryLower[queryIndex]) {
+        positions.push(i);
+
+        // Base score for match
+        score += 1;
+
+        // Consecutive character bonus
+        if (prevMatchIndex === i - 1) {
+          consecutiveBonus += 2;
+          score += consecutiveBonus;
+        } else {
+          consecutiveBonus = 0;
+        }
+
+        // Bonus for matching at word boundary (after . / - _ or start)
+        if (i === 0 || /[.\-_\/\\]/.test(target[i - 1])) {
+          score += 5;
+        }
+
+        // Bonus for exact case match
+        if (target[i] === query[queryIndex]) {
+          score += 1;
+        }
+
+        prevMatchIndex = i;
+        queryIndex++;
+      }
+    }
+
+    // Only count as match if all query characters were found
+    if (queryIndex < queryLower.length) {
+      return { score: 0, positions: [] };
+    }
+
+    // Bonus for shorter targets (more precise matches)
+    score += Math.max(0, 20 - target.length);
+
+    // Bonus for match starting earlier in the string
+    if (positions.length > 0) {
+      score += Math.max(0, 10 - positions[0]);
+    }
+
+    return { score, positions };
+  }
+
+  /**
+   * Search for files in workspace matching query with fuzzy matching
    */
   private async handleFileSearch(query: string): Promise<void> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -522,47 +709,68 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
 
     try {
-      // Search for files matching the query
-      const pattern = query ? `**/*${query}*` : '**/*';
-      // Use glob brace syntax for multiple exclude patterns
-      const excludePattern = '{**/node_modules/**,**/.git/**,**/dist/**,**/build/**}';
-
-      const files = await vscode.workspace.findFiles(pattern, excludePattern, 50);
+      // Get all files (limit for performance)
+      const excludePattern = '{**/node_modules/**,**/.git/**,**/dist/**,**/build/**,**/.next/**,**/coverage/**,**/__pycache__/**,**/*.pyc}';
+      const files = await vscode.workspace.findFiles('**/*', excludePattern, 1000);
 
       const workspaceRoot = workspaceFolders[0].uri.fsPath;
-      const fileList = files.map(file => {
-        // Use path.relative for cross-platform compatibility (Windows/macOS/Linux)
-        const relativePath = path.relative(workspaceRoot, file.fsPath);
-        const name = path.basename(file.fsPath);
-        return {
-          path: file.fsPath,
-          name,
-          relativePath
-        };
-      });
 
-      // Sort by relevance (exact matches first, then by path length)
-      const queryLower = query.toLowerCase();
-      fileList.sort((a, b) => {
-        // Skip exact match comparison if query is empty
-        if (queryLower) {
-          const aExact = a.name.toLowerCase() === queryLower;
-          const bExact = b.name.toLowerCase() === queryLower;
-          if (aExact && !bExact) return -1;
-          if (!aExact && bExact) return 1;
-        }
-        return a.relativePath.length - b.relativePath.length;
-      });
+      // Define scored file type
+      interface ScoredFile {
+        path: string;
+        name: string;
+        relativePath: string;
+        score: number;
+        positions: number[];
+      }
+
+      // Score and filter files
+      const scoredFiles: ScoredFile[] = files
+        .map((file): ScoredFile => {
+          const relativePath = path.relative(workspaceRoot, file.fsPath);
+          const name = path.basename(file.fsPath);
+
+          // Try matching against filename first, then full path
+          const nameMatch = this.fuzzyMatch(query, name);
+          const pathMatch = this.fuzzyMatch(query, relativePath);
+
+          // Use better score (filename matches are preferred)
+          const score = Math.max(nameMatch.score * 1.5, pathMatch.score);
+
+          return {
+            path: file.fsPath,
+            name,
+            relativePath,
+            score,
+            positions: nameMatch.score >= pathMatch.score ? nameMatch.positions : pathMatch.positions
+          };
+        })
+        .filter((f: ScoredFile) => f.score > 0 || !query) // Keep all files if no query
+        .sort((a: ScoredFile, b: ScoredFile) => {
+          // Sort by score descending
+          if (b.score !== a.score) return b.score - a.score;
+          // Tie-breaker: shorter paths first
+          return a.relativePath.length - b.relativePath.length;
+        })
+        .slice(0, 50); // Limit results
 
       this._view?.webview.postMessage({
         type: 'filesResult',
-        files: fileList
+        files: scoredFiles.map((f: ScoredFile) => ({
+          path: f.path,
+          name: f.name,
+          relativePath: f.relativePath
+        }))
       });
     } catch (error) {
       console.error('[ChatView] File search error:', error);
+      // Provide user feedback about the error
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      vscode.window.showWarningMessage(`File search failed: ${errorMessage}`);
       this._view?.webview.postMessage({
         type: 'filesResult',
-        files: []
+        files: [],
+        error: errorMessage
       });
     }
   }
@@ -635,27 +843,37 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private async applyCodeChanges(code: string, filePath?: string) {
-    if (!filePath) {
-      // Create new file
-      const doc = await vscode.workspace.openTextDocument({
-        content: code,
-        language: 'typescript',
-      });
-      await vscode.window.showTextDocument(doc);
-    } else {
-      // Apply to existing file
-      const uri = vscode.Uri.file(filePath);
-      const doc = await vscode.workspace.openTextDocument(uri);
-      const edit = new vscode.WorkspaceEdit();
-      const fullRange = new vscode.Range(
-        doc.lineAt(0).range.start,
-        doc.lineAt(doc.lineCount - 1).range.end
-      );
-      edit.replace(uri, fullRange, code);
-      await vscode.workspace.applyEdit(edit);
-      await vscode.window.showTextDocument(doc);
-      vscode.window.showInformationMessage('Code applied successfully');
+  private async applyCodeChanges(code: string, filePath?: string): Promise<void> {
+    try {
+      if (!filePath) {
+        // Create new file
+        const doc = await vscode.workspace.openTextDocument({
+          content: code,
+          language: 'typescript',
+        });
+        await vscode.window.showTextDocument(doc);
+        vscode.window.showInformationMessage('New file created with code');
+      } else {
+        // Apply to existing file
+        const uri = vscode.Uri.file(filePath);
+        const doc = await vscode.workspace.openTextDocument(uri);
+        const edit = new vscode.WorkspaceEdit();
+        const fullRange = new vscode.Range(
+          doc.lineAt(0).range.start,
+          doc.lineAt(doc.lineCount - 1).range.end
+        );
+        edit.replace(uri, fullRange, code);
+        const success = await vscode.workspace.applyEdit(edit);
+        if (!success) {
+          throw new Error('Failed to apply edit - workspace rejected the changes');
+        }
+        await vscode.window.showTextDocument(doc);
+        vscode.window.showInformationMessage('Code applied successfully');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[ChatView] Failed to apply code changes:', error);
+      vscode.window.showErrorMessage(`Failed to apply code: ${errorMessage}`);
     }
   }
 

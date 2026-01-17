@@ -1,11 +1,35 @@
 import * as vscode from 'vscode';
 
+/**
+ * Image attachment with optional base64 data
+ */
+export interface ImageAttachment {
+  path: string;
+  name: string;
+  dataUri?: string;  // Base64 data URI for sending to LLM
+  mimeType?: string;
+}
+
+/**
+ * File attachment
+ */
+export interface FileAttachment {
+  path: string;
+  name: string;
+  content?: string;  // File content (loaded on demand)
+}
+
 export interface EditorContext {
   file?: string;
   selection?: string;
   lineRange?: string;
   gitDiff?: boolean;
   diagnostics?: vscode.Diagnostic[];
+  // New: attached files and images
+  files?: FileAttachment[];
+  images?: ImageAttachment[];
+  // Extended thinking mode
+  extendedThinking?: boolean;
 }
 
 export class ContextProvider {
@@ -79,13 +103,35 @@ export class ContextProvider {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (workspaceFolder) {
       try {
-        const { exec } = await import('child_process');
-        const { promisify } = await import('util');
-        const execAsync = promisify(exec);
+        // Use spawn with array arguments instead of exec with string command
+        // This is safer as it doesn't invoke a shell and handles special characters in cwd
+        const { spawn } = await import('child_process');
 
-        const { stdout } = await execAsync('git diff --stat', { cwd: workspaceFolder.uri.fsPath });
+        const result = await new Promise<string>((resolve, reject) => {
+          const child = spawn('git', ['diff', '--stat'], {
+            cwd: workspaceFolder.uri.fsPath,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            timeout: 10000  // 10 second timeout
+          });
+
+          let stdout = '';
+          let stderr = '';
+
+          child.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
+          child.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); });
+
+          child.on('error', reject);
+          child.on('close', (code) => {
+            if (code === 0) {
+              resolve(stdout);
+            } else {
+              reject(new Error(stderr || `git exited with code ${code}`));
+            }
+          });
+        });
+
         // Only set gitDiff to true if there are actual changes
-        context.gitDiff = stdout.trim().length > 0;
+        context.gitDiff = result.trim().length > 0;
       } catch {
         // Git command failed (not a git repo, git not installed, etc.)
         context.gitDiff = false;

@@ -124,7 +124,16 @@ async function startIPCServer(context: vscode.ExtensionContext) {
 async function showDiffPreview(payload: DiffPayload): Promise<boolean> {
   // Use path module to handle both Windows and Unix paths
   const path = await import('path');
-  const fileName = path.basename(payload.file) || payload.file;
+
+  // Validate file path to prevent path traversal attacks
+  const validPath = validateFilePath(payload.file);
+  if (!validPath) {
+    console.error(`[AX] Invalid file path rejected in diff preview: ${payload.file}`);
+    vscode.window.showErrorMessage(`Rejected suspicious file path: ${payload.file}`);
+    return false;
+  }
+
+  const fileName = path.basename(validPath) || validPath;
 
   if (!diffContentProvider) {
     // Fallback: auto-approve if provider not initialized
@@ -198,15 +207,20 @@ function showTaskSummary(payload: TaskSummaryPayload) {
   const message = `${statusIcon} Task ${payload.status}: ${filesChanged} file(s) changed, +${payload.changes.totalLinesAdded}/-${payload.changes.totalLinesRemoved} lines (${duration}s)`;
 
   // Show notification with option to see details
-  // Use void to explicitly ignore the promise result (VS Code's Thenable doesn't have catch)
-  void vscode.window.showInformationMessage(
-    message,
-    'Show Details'
-  ).then(selection => {
-    if (selection === 'Show Details') {
-      showTaskSummaryPanel(payload);
+  // Wrap in async IIFE with try-catch to handle potential errors
+  (async () => {
+    try {
+      const selection = await vscode.window.showInformationMessage(
+        message,
+        'Show Details'
+      );
+      if (selection === 'Show Details') {
+        showTaskSummaryPanel(payload);
+      }
+    } catch (error) {
+      console.error('[AX] Error showing task summary notification:', error);
     }
-  });
+  })();
 }
 
 /**
@@ -224,18 +238,133 @@ function showTaskSummaryPanel(payload: TaskSummaryPayload) {
 }
 
 /**
+ * Sensitive directories that should never be accessed via file operations.
+ * These contain credentials, keys, or system configurations.
+ */
+function getSensitivePaths(): string[] {
+  const os = require('os');
+  const path = require('path');
+  const homeDir = os.homedir();
+
+  return [
+    path.join(homeDir, '.ssh'),
+    path.join(homeDir, '.aws'),
+    path.join(homeDir, '.gnupg'),
+    path.join(homeDir, '.gpg'),
+    path.join(homeDir, '.config', 'gcloud'),
+    path.join(homeDir, '.azure'),
+    path.join(homeDir, '.kube'),
+    path.join(homeDir, '.docker', 'config.json'),
+    path.join(homeDir, '.npmrc'),
+    path.join(homeDir, '.pypirc'),
+    path.join(homeDir, '.netrc'),
+    path.join(homeDir, '.git-credentials'),
+    path.join(homeDir, '.env'),
+    '/etc/passwd',
+    '/etc/shadow',
+    '/etc/sudoers',
+  ];
+}
+
+/**
+ * Check if a path is within a sensitive directory
+ */
+function isInSensitivePath(normalizedPath: string): boolean {
+  const path = require('path');
+  const sensitivePaths = getSensitivePaths();
+
+  for (const sensitive of sensitivePaths) {
+    // Check if path is the sensitive path or inside it
+    if (normalizedPath === sensitive ||
+        normalizedPath.startsWith(sensitive + path.sep)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Validate that a file path is within an allowed workspace folder.
+ * Prevents path traversal attacks (e.g., ../../etc/passwd).
+ * Also blocks access to sensitive directories (e.g., ~/.ssh, ~/.aws).
+ * Returns the normalized path if valid, null if invalid.
+ */
+function validateFilePath(filePath: string): string | null {
+  const path = require('path');
+
+  // Normalize the path to resolve any .. or .
+  const normalizedPath = path.normalize(filePath);
+
+  // Check for path traversal attempts
+  if (normalizedPath.includes('..')) {
+    console.warn(`[AX] Path traversal detected: ${filePath}`);
+    return null;
+  }
+
+  // Security: Block access to sensitive directories
+  if (isInSensitivePath(normalizedPath)) {
+    console.warn(`[AX] Access to sensitive path blocked: ${filePath}`);
+    return null;
+  }
+
+  // Get workspace folders
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders || workspaceFolders.length === 0) {
+    // No workspace - allow paths in user's home directory (excluding sensitive)
+    const homeDir = require('os').homedir();
+    if (normalizedPath.startsWith(homeDir)) {
+      return normalizedPath;
+    }
+    console.warn(`[AX] Path outside home directory: ${filePath}`);
+    return null;
+  }
+
+  // Check if path is within any workspace folder
+  for (const folder of workspaceFolders) {
+    const workspaceRoot = folder.uri.fsPath;
+    if (normalizedPath.startsWith(workspaceRoot + path.sep) || normalizedPath === workspaceRoot) {
+      return normalizedPath;
+    }
+  }
+
+  // Also allow paths in common locations like /tmp, user's home
+  const homeDir = require('os').homedir();
+  const allowedPrefixes = [
+    homeDir,
+    '/tmp',
+    require('os').tmpdir(),
+  ];
+
+  for (const prefix of allowedPrefixes) {
+    if (normalizedPath.startsWith(prefix + path.sep) || normalizedPath === prefix) {
+      return normalizedPath;
+    }
+  }
+
+  console.warn(`[AX] Path outside allowed locations: ${filePath}`);
+  return null;
+}
+
+/**
  * Reveal/open a file in VS Code editor after it's been written.
  * This provides the same UX as Claude Code showing files in the IDE.
  */
 async function revealFileInEditor(payload: FileRevealPayload): Promise<void> {
   try {
-    const uri = vscode.Uri.file(payload.file);
+    // Validate path to prevent path traversal attacks
+    const validPath = validateFilePath(payload.file);
+    if (!validPath) {
+      console.error(`[AX] Invalid file path rejected: ${payload.file}`);
+      return;
+    }
+
+    const uri = vscode.Uri.file(validPath);
 
     // Check if file exists
     try {
       await vscode.workspace.fs.stat(uri);
     } catch {
-      console.warn(`[AX] File not found for reveal: ${payload.file}`);
+      console.warn(`[AX] File not found for reveal: ${validPath}`);
       return;
     }
 
@@ -253,7 +382,7 @@ async function revealFileInEditor(payload: FileRevealPayload): Promise<void> {
       vscode.commands.executeCommand('revealInExplorer', uri);
     }
 
-    console.log(`[AX] Revealed file: ${payload.file}`);
+    console.log(`[AX] Revealed file: ${validPath}`);
   } catch (error) {
     console.error(`[AX] Failed to reveal file ${payload.file}:`, error);
   }

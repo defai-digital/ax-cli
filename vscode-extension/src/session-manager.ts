@@ -306,13 +306,15 @@ export class SessionManager implements vscode.Disposable {
     const sessions = this.getAllSessions();
 
     if (sessions.length > MAX_SESSIONS) {
-      const toDelete = sessions.slice(MAX_SESSIONS);
+      // Collect IDs to delete first to avoid issues with Map modification
+      // during deleteSession's internal getAllSessions() call
+      const idsToDelete = sessions.slice(MAX_SESSIONS).map(s => s.id);
 
-      for (const session of toDelete) {
-        this.deleteSession(session.id);
+      for (const sessionId of idsToDelete) {
+        this.deleteSession(sessionId);
       }
 
-      console.log(`[AX Sessions] Deleted ${toDelete.length} old sessions`);
+      console.log(`[AX Sessions] Deleted ${idsToDelete.length} old sessions`);
     }
   }
 
