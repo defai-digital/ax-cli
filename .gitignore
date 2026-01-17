@@ -188,6 +188,7 @@ packages/core/provider-backup/
 .github/assets/glm.png
 
 # Internal planning documents (PRDs, action plans)
+PRD/
 docs/PRD-*.md
 docs/prd-*.md
 docs/ACTION-PLAN-*.md
