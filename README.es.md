@@ -1,9 +1,9 @@
-# AX CLI - Codificación con IA de Clase Empresarial
+# AX CLI - Vibe Coding de Clase Empresarial
 
-> 📖 Esta traducción está basada en [README.md @ v5.1.9](./README.md)
+> 📖 Esta traducción está basada en [README.md @ v5.1.19](./README.md)
 
 [![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
-[![Tests](https://img.shields.io/badge/tests-6,084+%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-6,205+%20passing-brightgreen.svg)](#)
 [![macOS](https://img.shields.io/badge/macOS-26.0-blue.svg)](https://www.apple.com/macos)
 [![Windows](https://img.shields.io/badge/Windows-10+-blue.svg)](https://www.microsoft.com/windows)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-blue.svg)](https://ubuntu.com)
@@ -26,28 +26,23 @@
 
 ## Tabla de Contenidos
 
-- [Usuarios de GLM](#usuarios-de-glm)
 - [Inicio Rápido](#inicio-rápido)
+- [Usuarios de GLM](#usuarios-de-glm)
 - [¿Por qué AX CLI?](#por-qué-ax-cli)
-- [Modelos Soportados](#modelos-soportados)
+- [Modelos Compatibles](#modelos-compatibles)
 - [Instalación](#instalación)
 - [Uso](#uso)
 - [Configuración](#configuración)
 - [Integración MCP](#integración-mcp)
-- [Extensión VSCode](#extensión-vscode)
-- [Integración AutomatosX](#integración-automatosx)
+- [Extensión de VSCode](#extensión-de-vscode)
+- [Integración con AutomatosX](#integración-con-automatosx)
 - [Memoria del Proyecto](#memoria-del-proyecto)
 - [Seguridad](#seguridad)
 - [Arquitectura](#arquitectura)
 - [Paquetes](#paquetes)
-
----
-
-## Usuarios de GLM
-
-> **Importante:** El paquete ax-glm en la nube ha sido descontinuado. Para acceso a la API de GLM en la nube, recomendamos usar OpenCode. Comienza con OpenCode: https://opencode.ai.
->
-> **Nota:** Los modelos GLM locales (GLM-4.6, CodeGeeX4) siguen siendo totalmente compatibles a través de `ax-cli` para inferencia sin conexión mediante Ollama, LMStudio o vLLM. Consulta la sección [Modelos Locales/Sin Conexión](#modelos-localessin-conexión-ax-cli) a continuación.
+- [Changelog](#changelog)
+- [Documentación](#documentación)
+- [Enterprise](#enterprise)
 
 ---
 
@@ -61,51 +56,81 @@ ax-grok setup
 ax-grok
 ```
 
-**Ideal para:** Búsqueda web en vivo, visión, razonamiento extendido
+**Ideal para:** búsqueda web en vivo, visión, razonamiento extendido, ventana de contexto de 2M
 
-Ejecuta `/init` dentro de la CLI para inicializar el contexto de tu proyecto.
+Ejecuta `/init` dentro de la CLI para inicializar el contexto del proyecto.
 
-> **Usuarios de GLM:** Por favor usa el [OpenCode CLI](https://opencode.ai) en lugar de ax-glm.
+---
+
+## Usuarios de GLM
+
+> **Nota:** El paquete en la nube `ax-glm` ha sido descontinuado.
+>
+> **Para acceso a la API de GLM en la nube, recomendamos usar [OpenCode](https://opencode.ai).**
+
+**Modelos GLM locales** (GLM-4.6, CodeGeeX4) siguen siendo totalmente compatibles a través de `ax-cli` para inferencia offline con Ollama, LMStudio o vLLM. Consulta [Modelos locales/offline](#modelos-localesoffline-ax-cli) abajo.
 
 ---
 
 ## ¿Por qué AX CLI?
 
-| Característica | Descripción |
-|----------------|-------------|
-| **Optimizado por Proveedor** | Soporte de primera clase para Grok (xAI) con parámetros específicos del proveedor |
-| **17 Herramientas Integradas** | Edición de archivos, ejecución bash, búsqueda, todos y más |
-| **Comportamientos Agénticos** | Bucles de razonamiento ReAct, auto-corrección en fallos, verificación TypeScript |
-| **Agentes AutomatosX** | 20+ agentes de IA especializados para backend, frontend, seguridad, DevOps y más |
-| **Corrección Autónoma de Bugs** | Escanea y corrige automáticamente fugas de temporizadores, problemas de recursos, errores de tipo con seguridad de rollback |
-| **Refactorización Inteligente** | Eliminación de código muerto, correcciones de seguridad de tipos, reducción de complejidad con verificación |
+| Función | Descripción |
+|---------|-------------|
+| **Optimizado por proveedor** | Soporte de primera clase para Grok (xAI) con parámetros específicos del proveedor |
+| **17 herramientas integradas** | Edición de archivos, ejecución de bash, búsqueda, tareas y más |
+| **Comportamientos agenticos** | Bucles de razonamiento ReAct, autocorrección ante fallos, verificación TypeScript |
+| **Agentes AutomatosX** | 20+ agentes especializados para backend, frontend, seguridad, DevOps y más |
+| **Corrección automática de bugs** | Escanea y corrige fugas de temporizador, problemas de recursos, errores de tipos con seguridad de rollback |
+| **Refactorización inteligente** | Elimina código muerto, corrige seguridad de tipos, reduce complejidad con verificación |
 | **Integración MCP** | Model Context Protocol con 12+ plantillas listas para producción |
-| **Memoria del Proyecto** | Caché de contexto inteligente con 50% de ahorro en tokens |
-| **Seguridad Empresarial** | Cifrado AES-256-GCM, sin telemetría, protecciones con clasificación CVSS |
-| **65% Cobertura de Tests** | 6,084+ tests con TypeScript estricto |
+| **Memoria del proyecto** | Caché inteligente de contexto con 50% de ahorro de tokens |
+| **Seguridad empresarial** | Cifrado AES-256-GCM, sin telemetría, protecciones con CVSS |
+| **65% de cobertura de pruebas** | 6,205+ pruebas con TypeScript estricto |
 
 ---
 
 ### Destacados de Grok
 
-- **Grok (ax-grok)**: Búsqueda web integrada, visión, reasoning_effort; **Las variantes rápidas de Grok 4.1 incluyen contexto de 2M, herramientas de servidor paralelas, x_search y ejecución de código del lado del servidor**.
-- La CLI comparte la misma cadena de herramientas (edición de archivos, MCP, bash) y memoria del proyecto con el núcleo compartido.
+- **Grok (ax-grok)**: búsqueda web integrada, visión, reasoning_effort; **las variantes rápidas de Grok 4.1 ofrecen 2M de contexto, herramientas de servidor en paralelo, x_search y ejecución de código en el servidor**. Consulta `docs/grok-4.1-advanced-features.md` para detalles.
 
 ---
 
-## Modelos Soportados
+## Modelos Compatibles
 
 ### Grok (xAI)
 
-| Modelo | Contexto | Características | Alias |
-|--------|----------|-----------------|-------|
-| `grok-4.1` | 131K | Predeterminado equilibrado con razonamiento, visión y búsqueda integrados | `grok-latest` |
-| `grok-4.1-fast-reasoning` | 2M | Ideal para sesiones agénticas/intensivas en herramientas con razonamiento | `grok-fast` |
-| `grok-4.1-fast-non-reasoning` | 2M | Ejecuciones agénticas más rápidas sin razonamiento extendido | `grok-fast-nr` |
-| `grok-4-0709` | 131K | Versión original de Grok 4 (compatible) | `grok-4` |
-| `grok-2-image-1212` | 32K | **Generación de imágenes**: Texto a imagen | `grok-image` |
+> **Grok 4.1 avanzado**: ax-grok habilita las herramientas agenticas del servidor de Grok 4.1 (web_search, x_search, code_execution) con function calling en paralelo y variantes rápidas de 2M de contexto. Consulta la guía completa en `docs/grok-4.1-advanced-features.md`.
 
-> **Alias de Modelos**: Usa alias convenientes como `ax-grok -m grok-latest` en lugar de nombres completos de modelos.
+| Modelo | Contexto | Funciones | Alias |
+|-------|---------|----------|-------|
+| `grok-4.1` | 131K | Equilibrado con razonamiento, visión, búsqueda integrados | `grok-latest` |
+| `grok-4.1-fast-reasoning` | 2M | Ideal para sesiones agenticas/herramientas con razonamiento | `grok-fast` |
+| `grok-4.1-fast-non-reasoning` | 2M | Máxima velocidad sin razonamiento extendido | `grok-fast-nr` |
+| `grok-4-0709` | 131K | Lanzamiento original de Grok 4 (compatible) | `grok-4` |
+| `grok-2-image-1212` | 32K | **Generación de imágenes**: texto a imagen | `grok-image` |
+
+> **Aliases de modelos**: usa alias como `ax-grok -m grok-latest` en lugar de nombres completos.
+
+### Modelos Locales/Offline (ax-cli)
+
+Para inferencia local vía Ollama, LMStudio o vLLM, usa `ax-cli`:
+
+```bash
+npm install -g @defai.digital/ax-cli
+ax-cli setup   # Configura la URL de tu servidor local
+```
+
+ax-cli funciona con **cualquier modelo** disponible en tu servidor local. Solo especifica el tag del modelo al configurar (p. ej., `qwen3:14b`, `glm4:9b`).
+
+**Familias de modelos recomendadas:**
+
+| Modelo | Mejor para |
+|-------|-----------|
+| **Qwen** | Mejor en general para tareas de código |
+| **GLM** | Refactorización y documentación |
+| **DeepSeek** | Iteraciones rápidas, buen equilibrio velocidad/calidad |
+| **Codestral** | C/C++/Rust y programación de sistemas |
+| **Llama** | Mejor compatibilidad y fallback |
 
 ---
 
@@ -116,10 +141,10 @@ Ejecuta `/init` dentro de la CLI para inicializar el contexto de tu proyecto.
 - Node.js 24.0.0+
 - macOS 14+, Windows 11+ o Ubuntu 24.04+
 
-### Comando de Instalación
+### Instalar
 
 ```bash
-npm install -g @defai.digital/ax-grok
+npm install -g @defai.digital/ax-grok   # Grok (xAI)
 ```
 
 ### Configuración
@@ -128,91 +153,91 @@ npm install -g @defai.digital/ax-grok
 ax-grok setup
 ```
 
-El asistente de configuración te guiará a través de:
-1. Cifrar y almacenar de forma segura tu clave API (usando cifrado AES-256-GCM)
-2. Configurar tu modelo de IA predeterminado y otras preferencias
-3. Validar tu configuración para asegurar que todo esté configurado correctamente
+El asistente de configuración te guiará para:
+1. Cifrar y almacenar tu clave API de forma segura (con cifrado AES-256-GCM).
+2. Configurar tu modelo de IA predeterminado y otras preferencias.
+3. Validar tu configuración para asegurarse de que todo esté correctamente configurado.
 
 ---
 
 ## Uso
 
-### Modo Interactivo
+### Modo interactivo
 
 ```bash
-ax-grok              # Inicia la sesión CLI interactiva
-ax-grok --continue   # Reanudar conversación anterior
+ax-grok              # Inicia la sesión interactiva del CLI
+ax-grok --continue   # Reanuda la conversación previa
 ax-grok -c           # Forma corta
 ```
 
-### Modo Headless
+### Modo headless
 
 ```bash
-ax-grok -p "analiza este código base"
-ax-grok -p "corrige errores TypeScript" -d /ruta/al/proyecto
+ax-grok -p "analiza esta base de código"
+ax-grok -p "corrige errores de TypeScript" -d /ruta/al/proyecto
 ```
 
-### Banderas de Comportamiento Agéntico
+### Flags de comportamiento agentico
 
 ```bash
-# Habilitar modo de razonamiento ReAct (ciclos Pensamiento → Acción → Observación)
+# Habilitar modo ReAct (Pensar → Acción → Observación)
 ax-grok --react
 
 # Habilitar verificación TypeScript después de fases de planificación
 ax-grok --verify
 
-# Deshabilitar auto-corrección en fallos
+# Desactivar autocorrección ante fallos
 ax-grok --no-correction
 ```
 
-Por defecto, la auto-corrección está ACTIVADA (el agente reintenta automáticamente en fallos con reflexión). ReAct y verificación están DESACTIVADOS por defecto pero pueden habilitarse para razonamiento más estructurado y verificaciones de calidad.
+Por defecto, la autocorrección está ACTIVADA (el agente reintenta automáticamente con reflexión). ReAct y verificación están DESACTIVADOS por defecto, pero pueden activarse para un razonamiento más estructurado y mejores comprobaciones de calidad.
 
-### Comandos Esenciales
+### Comandos esenciales
 
 | Comando | Descripción |
 |---------|-------------|
 | `/init` | Inicializar contexto del proyecto |
 | `/help` | Mostrar todos los comandos |
 | `/model` | Cambiar modelo de IA |
-| `/lang` | Cambiar idioma de visualización (11 idiomas) |
+| `/lang` | Cambiar idioma de interfaz (11 idiomas) |
 | `/doctor` | Ejecutar diagnósticos |
-| `/exit` | Salir de la CLI |
+| `/exit` | Salir del CLI |
 
-### Atajos de Teclado
+### Atajos de teclado
 
 | Atajo | Acción | Descripción |
 |-------|--------|-------------|
 | `Ctrl+O` | Alternar verbosidad | Mostrar u ocultar logs detallados y procesos internos |
-| `Ctrl+K` | Acciones rápidas | Abrir menú de acciones rápidas para comandos comunes |
-| `Ctrl+B` | Modo segundo plano | Ejecutar tarea actual en segundo plano |
-| `Shift+Tab` | Auto-edición | Activar sugerencias de código impulsadas por IA |
-| `Esc` ×2 | Cancelar | Limpiar entrada actual o cancelar operación en curso |
+| `Ctrl+K` | Acciones rápidas | Abrir el menú de acciones rápidas |
+| `Ctrl+B` | Modo en segundo plano | Ejecutar la tarea actual en segundo plano |
+| `Shift+Tab` | Auto-edición | Activar sugerencias de código con IA |
+| `Esc` ×2 | Cancelar | Limpiar la entrada o cancelar la operación |
 
 ---
 
 ## Configuración
 
-### Archivos de Configuración
+### Archivos de configuración
 
 | Archivo | Propósito |
-|---------|-----------|
-| `~/.ax-grok/config.json` | Configuración del usuario (clave API cifrada) |
+|--------|-----------|
+| `~/.ax-grok/config.json` | Ajustes de usuario (clave API cifrada) |
 | `.ax-grok/settings.json` | Anulaciones del proyecto |
-| `.ax-grok/CUSTOM.md` | Instrucciones personalizadas de IA |
-| `ax.index.json` | Índice compartido del proyecto (en raíz, usado por todas las CLIs) |
+| `.ax-grok/CUSTOM.md` | Instrucciones de IA personalizadas |
+| `ax.index.json` | Índice compartido del proyecto (en la raíz) |
 
-### Variables de Entorno
+### Variables de entorno
 
 ```bash
 # Para CI/CD
-export XAI_API_KEY=your_key
+export XAI_API_KEY=your_key    # Grok
 ```
 
 ---
 
 ## Integración MCP
 
-Extiende capacidades con [Model Context Protocol (MCP)](https://modelcontextprotocol.io) — un estándar abierto para conectar asistentes de IA con herramientas externas, APIs y fuentes de datos:
+Extiende las capacidades con [Model Context Protocol (MCP)](https://modelcontextprotocol.io), un estándar abierto para conectar asistentes de IA con herramientas externas, APIs y fuentes de datos:
 
 ```bash
 ax-grok mcp add figma --template
@@ -220,47 +245,53 @@ ax-grok mcp add github --template
 ax-grok mcp list
 ```
 
-**Plantillas Disponibles:** Figma, GitHub, Vercel, Puppeteer, Storybook, Sentry, Jira, Confluence, Slack, Google Drive y más.
+**Plantillas disponibles:** Figma, GitHub, Vercel, Puppeteer, Storybook, Sentry, Jira, Confluence, Slack, Google Drive y más.
 
 ---
 
-## Extensión VSCode
+## Extensión de VSCode
 
 ```bash
 code --install-extension defai-digital.ax-cli-vscode
 ```
 
-- Panel de chat en barra lateral
-- Vista previa de diferencias para cambios de archivos
-- Comandos conscientes del contexto
-- Sistema de checkpoints y retroceso
+- Panel de chat en la barra lateral
+- Vista previa de diff para cambios de archivos
+- Comandos con contexto
+- Sistema de checkpoints y rebobinado
 
 ---
 
-## Integración AutomatosX
+## Integración con AutomatosX
 
-AX CLI se integra con [AutomatosX](https://github.com/defai-digital/automatosx) - un sistema de IA multi-agente con corrección autónoma de bugs, refactorización inteligente y 20+ agentes especializados.
+AX CLI se integra con [AutomatosX](https://github.com/defai-digital/automatosx), un sistema multiagente con corrección automática de bugs, refactorización inteligente y 20+ agentes especializados.
 
-En modo interactivo (`ax-grok`), simplemente pregunta de forma natural:
+En modo interactivo (`ax-grok`), solo pregunta de forma natural:
 
 ```
-> por favor escanea y corrige bugs en este código base
+> por favor escanea y corrige bugs en esta base de código
 
 > refactoriza el módulo de autenticación, enfócate en eliminar código muerto
 
 > usa el agente de seguridad para auditar los endpoints de la API
+
+> revisa este PRD y trabaja con el agente de producto para mejorarlo
+
+> pide a los agentes de backend y frontend que implementen juntos el registro de usuarios
 ```
 
 **Lo que obtienes:**
-- **Corrección de bugs**: Detecta fugas de temporizadores, limpieza faltante, problemas de recursos - corrige automáticamente con seguridad de rollback
-- **Refactorización**: Elimina código muerto, corrige seguridad de tipos, reduce complejidad - verificado por chequeo de tipos
+- **Corrección de bugs**: Detecta fugas de temporizador, falta de limpieza, problemas de recursos - auto-corrección con seguridad de rollback
+- **Refactorización**: Elimina código muerto, corrige seguridad de tipos, reduce complejidad - verificado por typecheck
 - **20+ agentes**: Backend, frontend, seguridad, arquitectura, DevOps, datos y más
+
+Consulta la [Guía de AutomatosX](docs/AutomatosX-Integration.md) para lista de agentes, opciones avanzadas y configuración
 
 ---
 
 ## Memoria del Proyecto
 
-Reduce costos de tokens y mejora el recuerdo de contexto con caché inteligente que almacena y recupera información relevante del proyecto, evitando procesamiento redundante.
+Reduce costos de tokens y mejora el recuerdo del contexto con caché inteligente que almacena y recupera información relevante del proyecto, evitando procesamiento redundante.
 
 ```bash
 ax-grok memory warmup    # Generar caché de contexto
@@ -271,32 +302,33 @@ ax-grok memory status    # Ver distribución de tokens
 
 ## Seguridad
 
-- **Cifrado de Clave API:** AES-256-GCM con PBKDF2 (600K iteraciones)
-- **Sin Telemetría:** Cero recolección de datos
-- **Protecciones CVSS:** Salvaguardas robustas contra vulnerabilidades comunes como Inyección de Comandos (CVSS 9.8), Path Traversal (CVSS 8.6) y SSRF (CVSS 7.5)
+- **Cifrado de clave API:** AES-256-GCM con PBKDF2 (600K iteraciones)
+- **Sin telemetría:** Cero recolección de datos
+- **Protecciones CVSS:** Salvaguardas robustas contra vulnerabilidades comunes como Command Injection (CVSS 9.8), Path Traversal (CVSS 8.6) y SSRF (CVSS 7.5).
 
 ---
 
 ## Arquitectura
 
-AX CLI usa una arquitectura modular con CLIs específicas por proveedor construidas sobre un núcleo compartido:
+AX CLI usa una arquitectura modular con CLIs específicas por proveedor sobre un núcleo compartido:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   Instalación del Usuario                    │
+│                      User Installs                          │
 ├─────────────────────────────────────────────────────────────┤
-│                  @defai.digital/ax-grok                     │
-│                     (ax-grok CLI)                           │
+│                 @defai.digital/ax-grok                      │
+│                    (ax-grok CLI)                            │
 │                                                             │
-│  • Razonamiento extendido Grok 3                            │
-│  • Valores por defecto xAI                                  │
+│  • Grok 4.1 razonamiento extendido                           │
+│  • xAI API defaults                                         │
 │  • Búsqueda web en vivo                                     │
-│  • Configuración ~/.ax-grok/                                │
+│  • ~/.ax-grok/ configuración                                │
 ├─────────────────────────────────────────────────────────────┤
 │                   @defai.digital/ax-core                    │
 │                                                             │
 │  Funcionalidad compartida: 17 herramientas, cliente MCP,    │
-│  memoria, checkpoints, React/Ink UI, operaciones de archivo │
+│  memoria, checkpoints, UI React/Ink, operaciones de archivo,│
+│  soporte git                                                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -308,19 +340,57 @@ AX CLI usa una arquitectura modular con CLIs específicas por proveedor construi
 |---------|:----------:|-------------|
 | [@defai.digital/ax-grok](https://www.npmjs.com/package/@defai.digital/ax-grok) | **Sí** | CLI optimizada para Grok con búsqueda web, visión, pensamiento extendido |
 | [@defai.digital/ax-cli](https://www.npmjs.com/package/@defai.digital/ax-cli) | Opcional | CLI local-first para Ollama/LMStudio/vLLM + DeepSeek Cloud |
-| [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | No | Biblioteca núcleo compartida (instalada automáticamente como dependencia) |
-| [@defai.digital/ax-schemas](https://www.npmjs.com/package/@defai.digital/ax-schemas) | No | Esquemas Zod compartidos (instalados automáticamente como dependencia) |
+| [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | No | Biblioteca central compartida (auto-instalada como dependencia) |
+| [@defai.digital/ax-schemas](https://www.npmjs.com/package/@defai.digital/ax-schemas) | No | Esquemas Zod compartidos (auto-instalados como dependencia) |
 
-> **Nota:** ax-glm ha sido descontinuado. Por favor usa el [OpenCode CLI](https://opencode.ai).
+> **Usuarios de GLM Cloud:** Para la API de GLM Cloud, recomendamos [OpenCode](https://opencode.ai).
+
+---
+
+## Changelog
+
+| Versión | Highlights |
+|---------|------------|
+| **v5.1.19** | Rendimiento: O(N×M) → O(N+M) en análisis de dependencias, expulsión de caché optimizada, fixes de UI |
+| **v5.1.18** | Refactorización: constantes nombradas, nombres de variables unificados, 6,205 pruebas pasando |
+| **v5.1.17** | Fix: bug de cancelación ESC, fugas de temporizador, manejo de timeouts MCP |
+
+[Ver changelog completo en GitHub →](https://github.com/defai-digital/ax-cli/releases)
+
+---
+
+## Documentación
+
+- [Funciones](docs/features.md)
+- [Configuración](docs/configuration.md)
+- [Referencia CLI](docs/cli-reference.md)
+- [Integración MCP](docs/mcp.md)
+- [Guía AutomatosX](docs/AutomatosX-Integration.md)
+- [Guía VSCode](docs/vscode-integration-guide.md)
+- [Integración Figma](docs/figma-guide.md)
+- [Solución de problemas](docs/troubleshooting.md)
+
+---
+
+## Enterprise
+
+Para equipos que requieren capacidades avanzadas:
+
+- Reportes de cumplimiento (SOC2, HIPAA)
+- Registro de auditoría avanzado
+- Integración SSO/SAML
+- Soporte prioritario (SLA 24 horas)
+
+Contacto: **sales@defai.digital**
 
 ---
 
 ## Licencia
 
-Licencia MIT - ver [LICENSE](LICENSE)
+Licencia MIT - consulta [LICENSE](LICENSE)
 
 ---
 
 <p align="center">
-  Hecho con amor por <a href="https://github.com/defai-digital">DEFAI Digital</a>
+  Hecho con ❤️ por <a href="https://github.com/defai-digital">DEFAI Digital</a>
 </p>

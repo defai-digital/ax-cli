@@ -16,6 +16,15 @@ This document lists the capabilities that are actually supported today. It repla
 - Structured output for editor/automation via `--json` and VSCode-friendly formatting via `--vscode`.
 - Deterministic mode (`--deterministic`/`--seed`) and sampling control (`--top-p`, `temperature`).
 
+## Project initialization (`/init`)
+- Generates `AX.md` at project root - a single-file AI context document.
+- Four depth levels: `basic` (quick scan), `standard` (default), `full` (architecture), `security` (audit).
+- Adaptive output: verbosity scales with project complexity (file count, LOC, dependencies).
+- Parses existing rules from `.cursorrules`, `.editorconfig`, and similar files.
+- Complexity scoring categorizes projects as small/medium/large/enterprise.
+- Deep analysis mode (full/security) generates `.ax/analysis.json` with dependency graphs and hotspots.
+- Migration support: replaces legacy 3-file format (CUSTOM.md, ax.index.json, ax.summary.json).
+
 ## Configuration and security
 - Encrypted API key storage created by `ax-<provider> setup`; env var overrides for CI.
 - Precedence: flags > env (`AI_MODEL`, `AI_BASE_URL`, provider key) > project settings (`.ax-<provider>/settings.json`) > user settings (`~/.ax-<provider>/config.json`) > defaults.

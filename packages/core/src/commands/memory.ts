@@ -586,11 +586,9 @@ export function createMemoryCommand(): Command {
         }
 
         const generator = new LLMOptimizedInstructionGenerator({
-          compressionLevel: 'moderate',
-          hierarchyEnabled: true,
-          criticalRulesCount: 5,
-          includeDODONT: true,
+          depth: 'standard',
           includeTroubleshooting: true,
+          includeCodePatterns: true,
         });
 
         const instructions = generator.generateInstructions(result.projectInfo);

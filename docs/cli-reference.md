@@ -64,9 +64,48 @@ ax-cli -p "rename foo to bar in src/index.ts" --model qwen3:14b --base-url http:
 ax-glm --continue
 ```
 
+## Slash Commands (Interactive Mode)
+
+### /init - Project Initialization
+Generates `AX.md` at project root with AI-optimized context.
+
+```bash
+/init                      # Standard analysis (default)
+/init --depth=basic        # Quick scan (name, language, stack)
+/init --depth=standard     # + Code stats, tests, docs
+/init --depth=full         # + Architecture, dependencies, hotspots
+/init --depth=security     # + Secret scanning, dangerous APIs
+/init --refresh            # Update existing AX.md
+/init --force              # Regenerate even if exists
+```
+
+**Depth levels:**
+| Level | Includes |
+|-------|----------|
+| `basic` | Project name, language, tech stack, scripts |
+| `standard` | + Code statistics, test coverage, documentation analysis |
+| `full` | + Architecture mapping, dependency graph, hotspots, how-to guides |
+| `security` | + Secret detection, dangerous API usage, auth pattern analysis |
+
+**Adaptive output:** Verbosity automatically adjusts based on project complexity (file count, LOC, dependencies).
+
+**Generated files:**
+- `AX.md` - Primary context file (always)
+- `.ax/analysis.json` - Deep analysis data (full/security only)
+
+### Other Commands
+- `/help` - Show all commands
+- `/model <name>` - Switch AI model
+- `/lang <code>` - Change language (en, zh-CN, zh-TW, ja, ko, de, es, pt, fr, vi, th)
+- `/doctor` - Run diagnostics
+- `/mcp list` - List MCP servers
+- `/mcp add <name> --template` - Add MCP server from template
+- `/exit` - Exit CLI
+
 ## Exit codes
 - `0` success, `1` error or validation failure.
 
 ## Tips
 - Use CLI flags for one-offs; use project settings (`.ax-<provider>/settings.json`) for repo defaults; use env vars for CI/secrets.
-- If a model does not support thinking, `--think` is ignored.***
+- If a model does not support thinking, `--think` is ignored.
+- Run `/init` when starting a new project to generate context for better AI assistance.

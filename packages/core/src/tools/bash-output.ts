@@ -1,6 +1,7 @@
 import { ToolResult } from '../types/index.js';
 import { getBackgroundTaskManager } from '../utils/background-task-manager.js';
 import { TIMEOUT_CONFIG } from '../constants.js';
+import { extractErrorMessage } from '../utils/error-handler.js';
 
 /**
  * BashOutputTool - Retrieve output from background tasks
@@ -87,10 +88,10 @@ export class BashOutputTool {
         success: true,
         output: result.trim()
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        error: `Failed to get task output: ${error.message}`
+        error: `Failed to get task output: ${extractErrorMessage(error)}`
       };
     }
   }

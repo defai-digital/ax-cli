@@ -15,6 +15,8 @@ import type {
   CodeConventions,
   AnalysisResult,
   ProjectScripts,
+  ComplexityScore,
+  ComplexityLevel,
 } from '../types/project-analysis.js';
 import { parseJsonFile } from './json-utils.js';
 import { normalizePath } from './path-utils.js';
@@ -171,6 +173,9 @@ export class ProjectAnalyzer {
         runtimeTargets: this.detectRuntimeTargets(),
       };
 
+      // Calculate complexity score (always included for adaptive output)
+      projectInfo.complexity = this.calculateComplexity(projectInfo);
+
       // Deep analysis for Tier 2+
       if (this.options.tier && this.options.tier >= 2) {
         const deepAnalyzer = new DeepAnalyzer({
@@ -187,6 +192,9 @@ export class ProjectAnalyzer {
           projectInfo.testing = await deepAnalyzer.analyzeTests();
           projectInfo.documentation = await deepAnalyzer.analyzeDocumentation();
           projectInfo.technicalDebt = await deepAnalyzer.analyzeTechnicalDebt();
+
+          // Recalculate complexity with actual codeStats for more accurate scoring
+          projectInfo.complexity = this.calculateComplexity(projectInfo);
         } catch (error) {
           this.warnings.push(`Tier 2 analysis partial failure: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
@@ -610,5 +618,122 @@ export class ProjectAnalyzer {
     }
 
     return gotchas.length > 0 ? gotchas : undefined;
+  }
+
+  /**
+   * Calculate project complexity score for adaptive output verbosity
+   *
+   * Scoring factors:
+   * - File count: < 20 small, 20-100 medium, 100-500 large, 500+ enterprise
+   * - Lines of code: contributes to score
+   * - Dependency count: more deps = more complexity
+   * - Tech stack diversity: more technologies = more complexity
+   */
+  private calculateComplexity(projectInfo: ProjectInfo): ComplexityScore {
+    const packageJson = this.getPackageJson();
+
+    // Count source files (quick scan)
+    let fileCount = 0;
+    let estimatedLoc = 0;
+    const sourceDir = projectInfo.directories.source || 'src';
+    const sourcePath = path.join(this.projectRoot, sourceDir);
+
+    if (fs.existsSync(sourcePath)) {
+      fileCount = this.countSourceFiles(sourcePath);
+      // Rough LOC estimate: average 50 lines per file
+      estimatedLoc = fileCount * 50;
+    }
+
+    // If we have actual codeStats from Tier 2+, use those
+    if (projectInfo.codeStats) {
+      fileCount = projectInfo.codeStats.totalFiles;
+      estimatedLoc = projectInfo.codeStats.totalLinesOfCode;
+    }
+
+    // Count dependencies
+    const deps = packageJson?.dependencies || {};
+    const devDeps = packageJson?.devDependencies || {};
+    const dependencyCount = Object.keys(deps).length + Object.keys(devDeps).length;
+
+    // Calculate complexity score (0-100)
+    let score = 0;
+
+    // File count contribution (0-40 points)
+    if (fileCount < 20) score += 10;
+    else if (fileCount < 100) score += 25;
+    else if (fileCount < 500) score += 35;
+    else score += 40;
+
+    // LOC contribution (0-30 points)
+    if (estimatedLoc < 1000) score += 5;
+    else if (estimatedLoc < 10000) score += 15;
+    else if (estimatedLoc < 50000) score += 25;
+    else score += 30;
+
+    // Dependency count contribution (0-20 points)
+    if (dependencyCount < 10) score += 5;
+    else if (dependencyCount < 30) score += 10;
+    else if (dependencyCount < 100) score += 15;
+    else score += 20;
+
+    // Tech stack diversity contribution (0-10 points)
+    const stackSize = projectInfo.techStack.length;
+    if (stackSize < 3) score += 2;
+    else if (stackSize < 7) score += 5;
+    else score += 10;
+
+    // Determine level
+    let level: ComplexityLevel;
+    if (score < 25) level = 'small';
+    else if (score < 50) level = 'medium';
+    else if (score < 75) level = 'large';
+    else level = 'enterprise';
+
+    // Recommended token counts based on complexity
+    const tokenMap: Record<ComplexityLevel, number> = {
+      small: 300,
+      medium: 600,
+      large: 1000,
+      enterprise: 1500,
+    };
+
+    return {
+      level,
+      score,
+      fileCount,
+      linesOfCode: estimatedLoc,
+      dependencyCount,
+      recommendedTokens: tokenMap[level],
+    };
+  }
+
+  /**
+   * Recursively count source files in a directory
+   */
+  private countSourceFiles(dirPath: string, count: number = 0): number {
+    const sourceExtensions = ['.ts', '.js', '.tsx', '.jsx', '.py', '.go', '.rs', '.java', '.kt'];
+
+    try {
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        // Skip common non-source directories
+        if (entry.isDirectory()) {
+          if (['node_modules', 'dist', 'build', '.git', 'coverage', '__pycache__'].includes(entry.name)) {
+            continue;
+          }
+          count = this.countSourceFiles(path.join(dirPath, entry.name), count);
+        } else if (entry.isFile()) {
+          const ext = path.extname(entry.name).toLowerCase();
+          if (sourceExtensions.includes(ext)) {
+            count++;
+          }
+        }
+      }
+    } catch {
+      // Ignore directory read errors
+    }
+
+    return count;
   }
 }

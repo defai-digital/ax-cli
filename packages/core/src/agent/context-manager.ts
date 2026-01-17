@@ -6,7 +6,8 @@
 import { EventEmitter } from 'events';
 import type { LLMMessage } from '../llm/client.js';
 import type { TokenCounter } from '../utils/token-counter.js';
-import { GLM_MODELS, TIMEOUT_CONFIG } from '../constants.js';
+import { LRUCache } from '../utils/cache.js';
+import { GLM_MODELS } from '../constants.js';
 import * as crypto from 'crypto';
 
 export interface ContextManagerOptions {
@@ -38,13 +39,10 @@ export class ContextManager extends EventEmitter {
   private keepFirstMessages: number;
   private reservedTokens: number;
 
-  // Memoization cache for token counting
-  // Use Map with JSON serialized messages as key for cache lookup
-  private tokenCache = new Map<string, { count: number; timestamp: number }>();
-  private readonly CACHE_TTL = 60000; // 1 minute TTL
-  private readonly MAX_CACHE_SIZE = 100; // Maximum cache entries before cleanup
-  private cleanupTimer: NodeJS.Timeout | null = null;
-  private cleanupInProgress = false; // RACE CONDITION FIX: Lock to prevent concurrent cleanup
+  // Token cache using LRUCache for consistent caching behavior
+  private static readonly CACHE_TTL = 60000; // 1 minute TTL
+  private static readonly MAX_CACHE_SIZE = 100; // Maximum cache entries
+  private tokenCache: LRUCache<string, number>;
 
   constructor(options: ContextManagerOptions) {
     super(); // Initialize EventEmitter
@@ -57,75 +55,29 @@ export class ContextManager extends EventEmitter {
     this.keepFirstMessages = options.keepFirstMessages || 2;
     this.reservedTokens = options.reservedTokens || 3000;
 
-    // Periodic cleanup to prevent memory leak (configurable interval)
-    this.cleanupTimer = setInterval(() => {
-      this.cleanupCache();
-    }, TIMEOUT_CONFIG.CONTEXT_CLEANUP_INTERVAL);
-
-    // Don't keep process alive just for cleanup
-    this.cleanupTimer.unref();
+    // Initialize LRU cache with TTL - handles eviction automatically
+    this.tokenCache = new LRUCache<string, number>({
+      maxSize: ContextManager.MAX_CACHE_SIZE,
+      ttl: ContextManager.CACHE_TTL,
+    });
   }
 
   /**
-   * Memoized token counting with cache and lazy cleanup
-   * Uses message content hash as cache key
+   * Memoized token counting with LRU cache
+   * LRUCache handles TTL expiration and LRU eviction automatically
    */
   private getCachedTokenCount(messages: LLMMessage[], tokenCounter: TokenCounter): number {
-    // Create cache key from message array
-    // Use a simplified hash based on message count, roles, and content lengths
     const cacheKey = this.createMessageCacheKey(messages);
 
-    // Lazy cleanup: check if cached entry exists and is valid
-    const now = Date.now();
+    // LRUCache.get() handles TTL expiration and LRU reordering
     const cached = this.tokenCache.get(cacheKey);
-
-    if (cached) {
-      if (now - cached.timestamp < this.CACHE_TTL) {
-        return cached.count;
-      } else {
-        // Expired, remove it
-        this.tokenCache.delete(cacheKey);
-      }
-    }
-
-    // Perform incremental cache cleanup if cache is getting too large
-    // Instead of sorting all entries, just remove oldest 10-20% incrementally
-    if (this.tokenCache.size >= this.MAX_CACHE_SIZE) {
-      // RACE CONDITION FIX: Skip if cleanup already in progress
-      if (!this.cleanupInProgress) {
-        this.cleanupInProgress = true;
-        try {
-          this.cleanupCache();
-          // If still over limit after cleanup, evict oldest entries to 90% capacity
-          if (this.tokenCache.size >= this.MAX_CACHE_SIZE) {
-            // PERF FIX: Use iterator directly instead of Array.from() to avoid full copy
-            // Remove entries to get back to 90% capacity for headroom
-            const targetSize = Math.floor(this.MAX_CACHE_SIZE * 0.9);
-            const entriesToRemove = this.tokenCache.size - targetSize;
-
-            // Collect keys first using iterator (more memory efficient than Array.from)
-            const keysToDelete: string[] = [];
-            let count = 0;
-            for (const key of this.tokenCache.keys()) {
-              if (count >= entriesToRemove) break;
-              keysToDelete.push(key);
-              count++;
-            }
-
-            // Delete after collecting to avoid iterator invalidation
-            for (const key of keysToDelete) {
-              this.tokenCache.delete(key);
-            }
-          }
-        } finally {
-          this.cleanupInProgress = false;
-        }
-      }
+    if (cached !== undefined) {
+      return cached;
     }
 
     // Count tokens and cache result
     const count = tokenCounter.countMessageTokens(messages);
-    this.tokenCache.set(cacheKey, { count, timestamp: now });
+    this.tokenCache.set(cacheKey, count);
 
     return count;
   }
@@ -160,26 +112,6 @@ export class ContextManager extends EventEmitter {
   }
 
   /**
-   * Clean up expired cache entries
-   * PERF FIX: Collect keys to delete first to avoid modifying Map while iterating
-   */
-  private cleanupCache(): void {
-    const now = Date.now();
-    const keysToDelete: string[] = [];
-
-    for (const [key, value] of this.tokenCache.entries()) {
-      if (now - value.timestamp > this.CACHE_TTL) {
-        keysToDelete.push(key);
-      }
-    }
-
-    // Delete after iteration to avoid iterator invalidation
-    for (const key of keysToDelete) {
-      this.tokenCache.delete(key);
-    }
-  }
-
-  /**
    * Clear the token cache (useful for testing)
    */
   clearCache(): void {
@@ -187,13 +119,10 @@ export class ContextManager extends EventEmitter {
   }
 
   /**
-   * Dispose of resources (cleanup timer, caches)
+   * Dispose of resources
+   * LRUCache handles cleanup automatically, just clear the cache
    */
   dispose(): void {
-    if (this.cleanupTimer) {
-      clearInterval(this.cleanupTimer);
-      this.cleanupTimer = null;
-    }
     this.tokenCache.clear();
   }
 

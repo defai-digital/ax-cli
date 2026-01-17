@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import { z } from 'zod';
+import { extractErrorMessage } from './error-handler.js';
 
 /**
  * Path validation schema
@@ -174,10 +175,10 @@ export async function resolveAndValidatePath(
       success: true,
       path: resolved
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error: `Invalid path: ${error.message}`
+      error: `Invalid path: ${extractErrorMessage(error)}`
     };
   }
 }

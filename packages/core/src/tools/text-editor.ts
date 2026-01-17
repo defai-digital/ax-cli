@@ -8,7 +8,7 @@ import { getMessageOptimizer } from "../utils/message-optimizer.js";
 import { isDestructiveFileOperation } from "../utils/safety-rules.js";
 import { getAutoAcceptLogger } from "../utils/auto-accept-logger.js";
 import { getSettingsManager } from "../utils/settings-manager.js";
-import { ErrorCategory, createToolError } from "../utils/error-handler.js";
+import { ErrorCategory, createToolError, extractErrorMessage } from "../utils/error-handler.js";
 import { getVSCodeIPCClient } from "../ipc/index.js";
 
 // Configuration constants
@@ -191,7 +191,7 @@ export class TextEditorTool {
           error: ERROR_MESSAGES.PATH_NOT_FOUND(filePath),
         };
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       return createToolError(
         ErrorCategory.FILE_OPERATION,
         `View file`,
@@ -373,7 +373,7 @@ export class TextEditorTool {
         success: true,
         output: diffContent,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return createToolError(
         ErrorCategory.FILE_OPERATION,
         `Replace text`,
@@ -489,7 +489,7 @@ export class TextEditorTool {
         success: true,
         output: diff,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return createToolError(
         ErrorCategory.FILE_OPERATION,
         `Create file`,
@@ -594,7 +594,7 @@ export class TextEditorTool {
         success: true,
         output: diff,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return createToolError(
         ErrorCategory.FILE_OPERATION,
         `Replace lines`,
@@ -690,7 +690,7 @@ export class TextEditorTool {
         success: true,
         output: diffContent,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return createToolError(
         ErrorCategory.FILE_OPERATION,
         `Insert content`,
@@ -886,7 +886,7 @@ export class TextEditorTool {
         success: true,
         output: diffContent,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return createToolError(
         ErrorCategory.FILE_OPERATION,
         `Multi-edit file`,
@@ -947,10 +947,10 @@ export class TextEditorTool {
         success: true,
         output: `Successfully undid ${lastEdit.command} operation`,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        error: `Error undoing edit: ${error.message}`,
+        error: `Error undoing edit: ${extractErrorMessage(error)}`,
       };
     }
   }

@@ -1,148 +1,249 @@
 /**
  * LLM-Optimized Instruction Generator
  * Generates token-efficient, comprehension-optimized project instructions
+ *
+ * Refactored to:
+ * - Generate AX.md output (single file at project root)
+ * - Remove hardcoded automatosx/ paths
+ * - Support depth levels (basic, standard, full, security)
+ * - Adaptive output based on project complexity
+ * - Focus on project-specific rules derived from analysis
  */
 
-import type { ProjectInfo } from '../types/project-analysis.js';
+import type { ProjectInfo, ComplexityLevel } from '../types/project-analysis.js';
 
-interface OptimizationConfig {
-  compressionLevel: 'none' | 'moderate' | 'aggressive';
-  hierarchyEnabled: boolean;
-  criticalRulesCount: number;
-  includeDODONT: boolean;
+/** Depth levels for generated output */
+export type DepthLevel = 'basic' | 'standard' | 'full' | 'security';
+
+/** Configuration for instruction generation */
+export interface GeneratorConfig {
+  /** Output depth level */
+  depth: DepthLevel;
+  /** Include troubleshooting section */
   includeTroubleshooting: boolean;
+  /** Include code patterns with examples */
+  includeCodePatterns: boolean;
+  /** External rules parsed from .cursorrules, .editorconfig, etc. */
+  externalRules?: string[];
+  /** Use adaptive output based on project complexity (default: true) */
+  adaptiveOutput?: boolean;
 }
 
-export class LLMOptimizedInstructionGenerator {
-  private config: OptimizationConfig;
+/** Default configuration */
+const DEFAULT_CONFIG: GeneratorConfig = {
+  depth: 'standard',
+  includeTroubleshooting: true,
+  includeCodePatterns: true,
+  adaptiveOutput: true,
+};
 
-  constructor(config: Partial<OptimizationConfig> = {}) {
-    this.config = {
-      compressionLevel: config.compressionLevel || 'moderate',
-      hierarchyEnabled: config.hierarchyEnabled ?? true,
-      criticalRulesCount: config.criticalRulesCount || 5,
-      includeDODONT: config.includeDODONT ?? true,
-      includeTroubleshooting: config.includeTroubleshooting ?? true,
-    };
+export class LLMOptimizedInstructionGenerator {
+  private config: GeneratorConfig;
+
+  constructor(config: Partial<GeneratorConfig> = {}) {
+    this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
   /**
-   * Generate LLM-optimized custom instructions
+   * Generate AX.md instructions
+   * Single-file output for ax-cli and ax-grok
+   *
+   * Uses adaptive output based on project complexity when enabled:
+   * - small: ~300 tokens (minimal sections)
+   * - medium: ~600 tokens (standard sections)
+   * - large: ~1000 tokens (detailed sections)
+   * - enterprise: ~1500 tokens (comprehensive)
    */
-  generateInstructions(projectInfo: ProjectInfo): string {
+  generateAxMd(projectInfo: ProjectInfo): string {
     const sections: string[] = [];
 
-    // Header (compressed)
-    sections.push(this.generateHeader(projectInfo));
+    // Get effective depth - may be adjusted based on complexity
+    const effectiveDepth = this.getEffectiveDepth(projectInfo);
+    const complexity = projectInfo.complexity?.level || 'medium';
 
-    // Critical Rules (front-loaded)
-    if (this.config.hierarchyEnabled) {
-      sections.push(this.generateCriticalRules(projectInfo));
+    // Metadata header (HTML comment)
+    sections.push(this.generateMetadataHeader(projectInfo));
+
+    // Project header
+    sections.push(this.generateProjectHeader(projectInfo));
+
+    // Build & Development commands (always included)
+    sections.push(this.generateBuildCommands(projectInfo));
+
+    // Architecture overview (standard+ or medium+ complexity)
+    if (effectiveDepth !== 'basic' || complexity !== 'small') {
+      sections.push(this.generateArchitectureOverview(projectInfo));
     }
 
-    // File Organization (standardized output paths)
-    sections.push(this.generateFileOrganization());
+    // Project-specific rules (always included)
+    sections.push(this.generateProjectRules(projectInfo));
 
-    // Project Overview (compressed)
-    sections.push(this.generateProjectOverview(projectInfo));
-
-    // Code Patterns with DO/DON'T
-    sections.push(this.generateCodePatterns(projectInfo));
-
-    // Development Workflow (compressed, tool-agnostic)
-    sections.push(this.generateWorkflow(projectInfo));
-
-    // Troubleshooting
-    if (this.config.includeTroubleshooting) {
-      sections.push(this.generateTroubleshooting(projectInfo));
+    // Code patterns (full+ depth or large+ complexity)
+    const includeCodePatterns = this.config.includeCodePatterns &&
+      (effectiveDepth === 'full' || effectiveDepth === 'security' ||
+       complexity === 'large' || complexity === 'enterprise');
+    if (includeCodePatterns) {
+      sections.push(this.generateCodePatterns(projectInfo));
     }
 
-    // Gotchas/Tips section
-    const gotchasSection = this.generateGotchas(projectInfo);
-    if (gotchasSection) {
-      sections.push(gotchasSection);
+    // Development tips (include more for complex projects)
+    const tipsSection = this.generateDevelopmentTips(projectInfo, complexity);
+    if (tipsSection) {
+      sections.push(tipsSection);
     }
 
-    return sections.join('\n\n---\n\n');
+    // Troubleshooting (standard+ or medium+ complexity)
+    if (this.config.includeTroubleshooting && (effectiveDepth !== 'basic' || complexity !== 'small')) {
+      const troubleshootingSection = this.generateTroubleshooting(projectInfo);
+      if (troubleshootingSection) {
+        sections.push(troubleshootingSection);
+      }
+    }
+
+    return sections.filter(Boolean).join('\n\n');
   }
 
-  private generateGotchas(projectInfo: ProjectInfo): string | null {
-    const { gotchas } = projectInfo;
-    if (!gotchas || gotchas.length === 0) return null;
-
-    const lines = ['## 💡 Development Tips'];
-    for (const tip of gotchas) {
-      lines.push(`- ${tip}`);
+  /**
+   * Get effective depth level, potentially adjusted by complexity
+   */
+  private getEffectiveDepth(projectInfo: ProjectInfo): DepthLevel {
+    if (!this.config.adaptiveOutput) {
+      return this.config.depth;
     }
+
+    const complexity = projectInfo.complexity?.level;
+    if (!complexity) {
+      return this.config.depth;
+    }
+
+    // For adaptive mode, upgrade depth for complex projects
+    const depthOrder: DepthLevel[] = ['basic', 'standard', 'full', 'security'];
+    const complexityUpgrade: Record<ComplexityLevel, number> = {
+      small: 0,
+      medium: 0,
+      large: 1,
+      enterprise: 2,
+    };
+
+    const currentIndex = depthOrder.indexOf(this.config.depth);
+    const upgrade = complexityUpgrade[complexity];
+    const newIndex = Math.min(currentIndex + upgrade, depthOrder.length - 1);
+
+    return depthOrder[newIndex];
+  }
+
+  /**
+   * Generate instructions (backward compatible alias for generateAxMd)
+   */
+  generateInstructions(projectInfo: ProjectInfo): string {
+    return this.generateAxMd(projectInfo);
+  }
+
+  /**
+   * Generate metadata header as HTML comment
+   */
+  private generateMetadataHeader(projectInfo: ProjectInfo): string {
+    const now = new Date().toISOString().split('T')[0];
+    const complexity = projectInfo.complexity;
+    const complexityInfo = complexity
+      ? `\nComplexity: ${complexity.level} (${complexity.fileCount} files, ~${complexity.linesOfCode} LOC)`
+      : '';
+    return `<!--
+Generated by: ax-cli / ax-grok
+Last updated: ${now}${complexityInfo}
+Refresh: Run \`/init\` or \`ax init --refresh\` to update
+-->`;
+  }
+
+  /**
+   * Generate project header with essential info
+   */
+  private generateProjectHeader(projectInfo: ProjectInfo): string {
+    const parts: string[] = [`# ${projectInfo.name}`];
+
+    // Metadata line
+    const meta: string[] = [];
+    meta.push(`**Type:** ${projectInfo.projectType}`);
+    meta.push(`**Language:** ${projectInfo.primaryLanguage}`);
+    if (projectInfo.packageManager) {
+      meta.push(`**PM:** ${projectInfo.packageManager}`);
+    }
+    if (projectInfo.version) {
+      meta.push(`**Version:** ${projectInfo.version}`);
+    }
+    parts.push(meta.join(' | '));
+
+    // Tech stack (if not empty)
+    if (projectInfo.techStack.length > 0) {
+      parts.push(`\n**Stack:** ${projectInfo.techStack.slice(0, 8).join(', ')}`);
+    }
+
+    // Description (if available)
+    if (projectInfo.description) {
+      parts.push(`\n${projectInfo.description}`);
+    }
+
+    return parts.join('\n');
+  }
+
+  /**
+   * Generate build & development commands section
+   */
+  private generateBuildCommands(projectInfo: ProjectInfo): string {
+    const { scripts, packageManager } = projectInfo;
+    const lines: string[] = ['## Build & Development'];
+
+    // Determine command prefix
+    const run = packageManager === 'npm' ? 'npm run' : (packageManager || 'npm run');
+    const install = packageManager === 'npm' ? 'npm install' : `${packageManager} install`;
+
+    const commands: string[] = [];
+    commands.push(`${install}    # Install dependencies`);
+
+    if (scripts.build) {
+      commands.push(`${run} build   # Build project`);
+    }
+    if (scripts.test) {
+      const testCmd = packageManager === 'npm' ? 'npm test' : `${run} test`;
+      commands.push(`${testCmd}    # Run tests`);
+    }
+    if (scripts.lint) {
+      commands.push(`${run} lint    # Lint code`);
+    }
+    if (scripts.dev) {
+      commands.push(`${run} dev     # Development mode`);
+    }
+    if (scripts.typecheck) {
+      commands.push(`${run} typecheck  # Type check`);
+    }
+
+    if (commands.length > 0) {
+      lines.push('```bash');
+      lines.push(...commands);
+      lines.push('```');
+    }
+
+    // Add custom scripts if available (limit to 5)
+    if (scripts.custom && Object.keys(scripts.custom).length > 0) {
+      const customEntries = Object.entries(scripts.custom).slice(0, 5);
+      if (customEntries.length > 0) {
+        lines.push('\n**Additional scripts:**');
+        for (const [name, cmd] of customEntries) {
+          lines.push(`- \`${run} ${name}\` - ${cmd}`);
+        }
+      }
+    }
+
     return lines.join('\n');
   }
 
-  private generateHeader(projectInfo: ProjectInfo): string {
-    // Compressed header with description
-    const version = projectInfo.version ? ` v${projectInfo.version}` : '';
-    const stack = projectInfo.techStack.length > 0
-      ? `\n**Stack:** ${projectInfo.techStack.join(', ')}`
-      : '';
-    const description = projectInfo.description
-      ? `\n\n${projectInfo.description}`
-      : '';
-    const cicd = projectInfo.cicdPlatform
-      ? ` | **CI:** ${projectInfo.cicdPlatform}`
-      : '';
+  /**
+   * Generate architecture overview section
+   */
+  private generateArchitectureOverview(projectInfo: ProjectInfo): string {
+    const lines: string[] = ['## Architecture'];
 
-    return `# ${projectInfo.name} - Quick Reference
-
-**Type:** ${projectInfo.projectType} | **Lang:** ${projectInfo.primaryLanguage}${version ? ` | **Ver:** ${version}` : ''}${cicd}${stack}${description}`;
-  }
-
-  private generateCriticalRules(projectInfo: ProjectInfo): string {
-    const { conventions, primaryLanguage, scripts } = projectInfo;
-    const rules: string[] = [];
-
-    // Build rules based on project configuration
-    if (conventions.importExtension === '.js') {
-      rules.push('**ESM Imports:** Always use `.js` extension: `import { x } from \'./y.js\'`');
-    }
-    if (conventions.validation) {
-      rules.push(`**Validation:** Use ${conventions.validation} for all external inputs`);
-    }
-    if (primaryLanguage === 'TypeScript') {
-      rules.push('**Types:** Explicit return types required on all functions');
-    }
-    if (scripts.test) {
-      rules.push('**Testing:** 80%+ coverage, test error paths');
-    }
-    if (conventions.moduleSystem === 'esm') {
-      rules.push('**Modules:** Use `import/export` (not `require/module.exports`)');
-    }
-    rules.push('**File Organization:** Follow standardized output paths (see below)');
-
-    const topRules = rules.slice(0, Math.max(this.config.criticalRulesCount, 6));
-    if (topRules.length === 0) return '';
-
-    return `## 🎯 Critical Rules\n\n${topRules.map((rule, i) => `${i + 1}. ${rule}`).join('\n')}`;
-  }
-
-  private generateProjectOverview(projectInfo: ProjectInfo): string {
-    const parts: string[] = [`## 📋 Project Overview`];
-
-    // Tech details (compressed)
-    const details: string[] = [];
-    if (projectInfo.entryPoint) {
-      details.push(`**Entry:** \`${projectInfo.entryPoint}\``);
-    }
-    if (projectInfo.packageManager) {
-      details.push(`**PM:** ${projectInfo.packageManager}`);
-    }
-    if (projectInfo.conventions.moduleSystem) {
-      details.push(`**Module:** ${projectInfo.conventions.moduleSystem.toUpperCase()}`);
-    }
-
-    if (details.length > 0) {
-      parts.push(details.join(' | '));
-    }
-
-    // Directories (compressed)
+    // Key directories
     const dirs: string[] = [];
     if (projectInfo.directories.source) {
       dirs.push(`- \`${projectInfo.directories.source}/\` - Source code`);
@@ -150,227 +251,259 @@ export class LLMOptimizedInstructionGenerator {
     if (projectInfo.directories.tests) {
       dirs.push(`- \`${projectInfo.directories.tests}/\` - Tests`);
     }
-    if (projectInfo.directories.tools) {
-      dirs.push(`- \`${projectInfo.directories.tools}/\` - Tools`);
+    if (projectInfo.directories.docs) {
+      dirs.push(`- \`${projectInfo.directories.docs}/\` - Documentation`);
     }
-
-    // Add typical subdirectories for CLI/API
-    if (projectInfo.projectType === 'cli' || projectInfo.projectType === 'api') {
-      if (projectInfo.directories.source) {
-        dirs.push(`- \`${projectInfo.directories.source}/commands/\` - Commands`);
-        dirs.push(`- \`${projectInfo.directories.source}/utils/\` - Utilities`);
-      }
+    if (projectInfo.directories.config) {
+      dirs.push(`- \`${projectInfo.directories.config}/\` - Configuration`);
+    }
+    if (projectInfo.directories.dist) {
+      dirs.push(`- \`${projectInfo.directories.dist}/\` - Build output`);
     }
 
     if (dirs.length > 0) {
-      parts.push('\n**Directories:**\n' + dirs.join('\n'));
+      lines.push('### Key Directories');
+      lines.push(...dirs);
     }
 
-    return parts.join('\n\n');
-  }
-
-  private generateCodePatterns(projectInfo: ProjectInfo): string {
-    const { primaryLanguage, conventions, projectType } = projectInfo;
-    const sections: string[] = ['## 🔧 Code Patterns'];
-
-    // TypeScript patterns with DO/DON'T
-    if (primaryLanguage === 'TypeScript' && this.config.includeDODONT) {
-      const doCode = [
-        '// Explicit types',
-        'function process(x: string): Promise<Result> { }',
-        ...(conventions.importExtension === '.js' ? ['\n// ESM imports with .js extension', "import { foo } from './bar.js';"] : []),
-      ];
-      const dontCode = [
-        '// No any types',
-        'function process(x: any) { }  // ❌',
-        ...(conventions.importExtension === '.js' ? ['\n// Missing .js extension', "import { foo } from './bar';  // ❌"] : []),
-      ];
-      sections.push(
-        '### TypeScript\n',
-        '✅ **DO:**',
-        '```typescript',
-        doCode.join('\n'),
-        '```\n',
-        '❌ **DON\'T:**',
-        '```typescript',
-        dontCode.join('\n'),
-        '```'
-      );
+    // Entry point
+    if (projectInfo.entryPoint) {
+      lines.push(`\n**Entry point:** \`${projectInfo.entryPoint}\``);
     }
 
-    // Validation patterns
-    if (conventions.validation && this.config.includeDODONT) {
-      sections.push(
-        `### Validation (${conventions.validation})\n`,
-        '✅ **DO:**',
-        '```typescript',
-        'const result = schema.safeParse(data);',
-        'if (!result.success) {',
-        '  return { success: false, error: result.error };',
-        '}',
-        '```'
-      );
-    }
-
-    // Project-specific patterns
-    const typePatterns: Record<string, { title: string; items: string[] }> = {
-      cli: {
-        title: '### CLI Commands\nCommands should:',
-        items: ['Accept options via flags (`-f, --flag <value>`)', 'Validate input before execution', 'Provide clear error messages', 'Return exit codes (0 = success, 1+ = error)'],
-      },
-      api: {
-        title: '### API Endpoints\nEndpoints should:',
-        items: ['Validate request body/params', 'Use proper HTTP status codes', 'Handle errors with consistent format', 'Document with OpenAPI/Swagger'],
-      },
-      library: {
-        title: '### Library API\nPublic API should:',
-        items: ['Have clear, typed interfaces', 'Validate all inputs', 'Avoid breaking changes', 'Document all exports'],
-      },
-    };
-
-    const pattern = typePatterns[projectType];
-    if (pattern) {
-      sections.push(`${pattern.title}\n${pattern.items.map(i => `- ${i}`).join('\n')}`);
-    }
-
-    return sections.join('\n');
-  }
-
-  private generateWorkflow(projectInfo: ProjectInfo): string {
-    const { scripts, packageManager } = projectInfo;
-    const sections: string[] = [
-      '## 🔄 Workflow',
-      '**Before:**',
-      '- Read files to understand implementation',
-      '- Search for related patterns',
-      '- Review tests for expected behavior',
-      '',
-      '**Changes:**',
-      '- Edit existing files (never recreate)',
-      '- Keep changes focused and atomic',
-      '- Preserve code style',
-      '- Update tests when changing functionality',
-    ];
-
-    // After steps
-    const afterSteps = [
-      scripts.lint && `Lint: \`${scripts.lint}\``,
-      scripts.test && `Test: \`${scripts.test}\``,
-      scripts.build && `Build: \`${scripts.build}\``,
-    ].filter(Boolean) as string[];
-
-    if (afterSteps.length > 0) {
-      sections.push('', '**After:**', ...afterSteps.map((step, i) => `${i + 1}. ${step}`));
-    }
-
-    // Quick commands
-    if (packageManager && Object.keys(scripts).length > 0) {
-      const run = packageManager === 'npm' ? 'npm run' : packageManager;
-      const test = packageManager === 'npm' ? 'npm' : packageManager;
-      const cmds = [
-        scripts.dev && `${run} dev     # Development`,
-        scripts.test && `${test} test    # Run tests`,
-        scripts.build && `${run} build   # Production build`,
-      ].filter((cmd): cmd is string => Boolean(cmd));
-
-      if (cmds.length > 0) {
-        sections.push('', '**Quick Commands:**', '```bash', ...cmds, '```');
+    // Key files (limit to 5 most important)
+    const keyFiles = Object.entries(projectInfo.keyFiles || {}).slice(0, 5);
+    if (keyFiles.length > 0) {
+      lines.push('\n### Key Files');
+      for (const [file, description] of keyFiles) {
+        lines.push(`- \`${file}\` - ${description}`);
       }
     }
 
-    return sections.join('\n');
-  }
-
-  private generateTroubleshooting(projectInfo: ProjectInfo): string {
-    const { conventions, primaryLanguage } = projectInfo;
-    type Issue = { problem: string; solution: string; code?: string };
-    const issues: Issue[] = [];
-
-    // Conditionally add issues based on project config
-    if (conventions.importExtension === '.js') {
-      issues.push({
-        problem: '"Module not found" errors',
-        solution: 'Add `.js` extension to imports (ESM requirement)',
-        code: "// ✅ Correct\nimport { x } from './y.js';\n\n// ❌ Wrong\nimport { x } from './y';  // Missing .js",
-      });
-    }
-    if (conventions.validation) {
-      issues.push({
-        problem: `${conventions.validation} validation errors`,
-        solution: 'Use `.safeParse()` for detailed error messages. Check schema matches data structure.',
-      });
-    }
-    if (conventions.testFramework) {
-      issues.push({
-        problem: 'Tests fail locally but pass in CI',
-        solution: 'Check Node version, clear node_modules, check environment-specific code',
-      });
-    }
-    if (primaryLanguage === 'TypeScript') {
-      issues.push({
-        problem: 'TypeScript compilation errors',
-        solution: 'Check `tsconfig.json` settings, ensure all types are imported, verify `moduleResolution`',
-      });
-    }
-
-    if (issues.length === 0) return '';
-
-    const sections = ['## 🐛 Troubleshooting'];
-    for (const { problem, solution, code } of issues) {
-      sections.push(`### ${problem}`, `**Solution:** ${solution}`);
-      if (code) sections.push(`\`\`\`typescript\n${code}\n\`\`\``);
-    }
-    return sections.join('\n\n');
+    return lines.join('\n');
   }
 
   /**
-   * Generate pre-computed summary JSON for prompt injection (~500 tokens)
-   * This summary is loaded directly into prompts without runtime computation.
-   * References ax.index.json for full details.
+   * Generate project-specific rules section
+   * These are derived from analysis, not generic templates
+   */
+  private generateProjectRules(projectInfo: ProjectInfo): string {
+    const { conventions, primaryLanguage } = projectInfo;
+    const lines: string[] = ['## Project-Specific Rules'];
+    const rules: string[] = [];
+
+    // ESM import extension requirement
+    if (conventions.importExtension === '.js') {
+      rules.push('ESM imports require `.js` extension: `import { x } from \'./y.js\'`');
+    }
+
+    // Module system
+    if (conventions.moduleSystem === 'esm') {
+      rules.push('Use ES modules (`import/export`), not CommonJS (`require`)');
+    }
+
+    // Validation library
+    if (conventions.validation) {
+      rules.push(`Use ${conventions.validation} for input validation`);
+    }
+
+    // Test framework
+    if (conventions.testFramework) {
+      const testDir = projectInfo.directories.tests || 'tests';
+      rules.push(`Tests use ${conventions.testFramework} - files in \`${testDir}/\``);
+    }
+
+    // Linter
+    if (conventions.linter) {
+      rules.push(`Code style enforced by ${conventions.linter}`);
+    }
+
+    // TypeScript-specific
+    if (primaryLanguage === 'TypeScript') {
+      rules.push('TypeScript strict mode - explicit types required');
+    }
+
+    // Package manager specific
+    if (projectInfo.packageManager === 'pnpm') {
+      rules.push('Use pnpm for package management (not npm/yarn)');
+    }
+
+    // Monorepo hint
+    const hasWorkspaces = projectInfo.keyFiles?.['pnpm-workspace.yaml'] ||
+                          projectInfo.keyFiles?.['lerna.json'];
+    if (hasWorkspaces) {
+      rules.push('Monorepo: use workspace commands to target specific packages');
+    }
+
+    // Add external rules if provided
+    if (this.config.externalRules && this.config.externalRules.length > 0) {
+      rules.push(...this.config.externalRules);
+    }
+
+    if (rules.length > 0) {
+      lines.push(...rules.map((rule, i) => `${i + 1}. ${rule}`));
+    } else {
+      lines.push('No specific rules detected. Follow standard practices for the language/framework.');
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Generate code patterns section (for full/security depth)
+   */
+  private generateCodePatterns(projectInfo: ProjectInfo): string {
+    const { primaryLanguage, conventions } = projectInfo;
+    const lines: string[] = ['## Code Patterns'];
+
+    // TypeScript patterns
+    if (primaryLanguage === 'TypeScript') {
+      lines.push('### TypeScript');
+      lines.push('```typescript');
+      lines.push('// Explicit return types');
+      lines.push('function processData(input: string): Promise<Result> {');
+      lines.push('  // ...');
+      lines.push('}');
+      if (conventions.importExtension === '.js') {
+        lines.push('');
+        lines.push('// ESM imports with .js extension');
+        lines.push("import { helper } from './utils/helper.js';");
+      }
+      lines.push('```');
+    }
+
+    // Validation patterns
+    if (conventions.validation === 'zod') {
+      lines.push('\n### Validation (Zod)');
+      lines.push('```typescript');
+      lines.push('const schema = z.object({ name: z.string() });');
+      lines.push('const result = schema.safeParse(input);');
+      lines.push('if (!result.success) {');
+      lines.push('  return { error: result.error.format() };');
+      lines.push('}');
+      lines.push('```');
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Generate development tips section
+   * Shows more tips for complex projects
+   */
+  private generateDevelopmentTips(projectInfo: ProjectInfo, complexity: ComplexityLevel = 'medium'): string | null {
+    const tips = projectInfo.gotchas || [];
+    if (tips.length === 0) return null;
+
+    // Adjust number of tips based on complexity
+    const tipLimits: Record<ComplexityLevel, number> = {
+      small: 3,
+      medium: 5,
+      large: 7,
+      enterprise: 10,
+    };
+    const tipLimit = tipLimits[complexity];
+
+    const lines: string[] = ['## Development Tips'];
+    for (const tip of tips.slice(0, tipLimit)) {
+      lines.push(`- ${tip}`);
+    }
+    return lines.join('\n');
+  }
+
+  /**
+   * Generate troubleshooting section
+   */
+  private generateTroubleshooting(projectInfo: ProjectInfo): string | null {
+    const { conventions, primaryLanguage } = projectInfo;
+    interface Issue { problem: string; solution: string }
+    const issues: Issue[] = [];
+
+    // ESM module issues
+    if (conventions.importExtension === '.js') {
+      issues.push({
+        problem: 'Module not found errors',
+        solution: 'Add `.js` extension to imports (required for ESM)',
+      });
+    }
+
+    // TypeScript issues
+    if (primaryLanguage === 'TypeScript') {
+      issues.push({
+        problem: 'TypeScript compilation errors',
+        solution: 'Check `tsconfig.json` settings, verify `moduleResolution`',
+      });
+    }
+
+    // Test framework issues
+    if (conventions.testFramework) {
+      issues.push({
+        problem: 'Tests pass locally but fail in CI',
+        solution: 'Check Node version, clear caches, verify environment variables',
+      });
+    }
+
+    if (issues.length === 0) return null;
+
+    const lines: string[] = ['## Troubleshooting'];
+    for (const { problem, solution } of issues) {
+      lines.push(`\n**${problem}**`);
+      lines.push(`- ${solution}`);
+    }
+    return lines.join('\n');
+  }
+
+  /**
+   * Generate deep analysis JSON for .ax/analysis.json
+   * Contains Tier 3/4 analysis data for tool-accessible retrieval
+   */
+  generateDeepAnalysis(projectInfo: ProjectInfo): string {
+    // Spread projectInfo first, then override schemaVersion and add generatedAt
+    const analysis: Record<string, unknown> = {
+      ...projectInfo,
+      schemaVersion: '2.0', // Override any existing schemaVersion
+      generatedAt: new Date().toISOString(),
+    };
+
+    return JSON.stringify(analysis, null, 2);
+  }
+
+  /**
+   * Generate project index JSON (backward compatible)
+   * @deprecated Use generateDeepAnalysis() instead
+   */
+  generateIndex(projectInfo: ProjectInfo): string {
+    return this.generateDeepAnalysis(projectInfo);
+  }
+
+  /**
+   * Generate summary JSON (backward compatible)
+   * @deprecated Summary is now embedded in CLAUDE.md header
    */
   generateSummary(projectInfo: ProjectInfo): string {
-    // Extract only essential fields for prompt injection
-    const summary: Record<string, unknown> = {
+    const summary = {
       schemaVersion: '1.0',
       generatedAt: new Date().toISOString(),
-
-      // Core project identity
       project: {
         name: projectInfo.name,
         type: projectInfo.projectType,
         language: projectInfo.primaryLanguage,
         version: projectInfo.version,
-        techStack: projectInfo.techStack.slice(0, 8), // Limit to 8 items
+        techStack: projectInfo.techStack.slice(0, 8),
+        entryPoint: projectInfo.entryPoint,
+        packageManager: projectInfo.packageManager,
       },
-
-      // Key directories (top 5)
       directories: this.extractTopDirectories(projectInfo.directories, 5),
-
-      // Essential commands only
       commands: this.extractEssentialCommands(projectInfo.scripts),
-
-      // Top 3 gotchas (most important warnings)
       gotchas: (projectInfo.gotchas || []).slice(0, 3),
-
-      // Reference to full index
-      indexFile: 'ax.index.json',
+      note: 'This file is deprecated. Context is now in CLAUDE.md at project root.',
     };
-
-    // Add entry point if available
-    if (projectInfo.entryPoint) {
-      (summary.project as Record<string, unknown>).entryPoint = projectInfo.entryPoint;
-    }
-
-    // Add package manager if available
-    if (projectInfo.packageManager) {
-      (summary.project as Record<string, unknown>).packageManager = projectInfo.packageManager;
-    }
 
     return JSON.stringify(summary, null, 2);
   }
 
   /**
-   * Extract top N directories for summary
+   * Extract top N directories
    */
   private extractTopDirectories(
     directories: ProjectInfo['directories'],
@@ -380,7 +513,6 @@ export class LLMOptimizedInstructionGenerator {
     const result: Record<string, string> = {};
     let count = 0;
 
-    // First, add priority directories
     for (const key of priorityKeys) {
       if (count >= limit) break;
       const value = directories[key as keyof typeof directories];
@@ -390,173 +522,21 @@ export class LLMOptimizedInstructionGenerator {
       }
     }
 
-    // Then add any remaining directories up to limit
-    for (const [key, value] of Object.entries(directories)) {
-      if (count >= limit) break;
-      if (!result[key] && value) {
-        result[key] = value;
-        count++;
-      }
-    }
-
     return result;
   }
 
   /**
-   * Extract essential commands (build, test, lint, dev)
+   * Extract essential commands
    */
   private extractEssentialCommands(
     scripts: ProjectInfo['scripts']
   ): Record<string, string> {
     const result: Record<string, string> = {};
-
-    // Only extract string-valued script fields
     if (scripts.build) result.build = scripts.build;
     if (scripts.test) result.test = scripts.test;
     if (scripts.lint) result.lint = scripts.lint;
     if (scripts.dev) result.dev = scripts.dev;
     if (scripts.typecheck) result.typecheck = scripts.typecheck;
-
     return result;
   }
-
-  /**
-   * Generate project index JSON (v2.0 schema with deep analysis)
-   */
-  generateIndex(projectInfo: ProjectInfo): string {
-    // Build the index with all available tiers of analysis
-    const index: Record<string, unknown> = {
-      // Schema version for compatibility
-      schemaVersion: '2.0',
-
-      // Tier 1: Basic project info
-      name: projectInfo.name,
-      version: projectInfo.version,
-      description: projectInfo.description,
-      primaryLanguage: projectInfo.primaryLanguage,
-      techStack: projectInfo.techStack,
-      projectType: projectInfo.projectType,
-      entryPoint: projectInfo.entryPoint,
-      directories: projectInfo.directories,
-      keyFiles: projectInfo.keyFiles, // Now includes descriptions
-      conventions: projectInfo.conventions,
-      scripts: projectInfo.scripts,
-      packageManager: projectInfo.packageManager,
-      cicdPlatform: projectInfo.cicdPlatform,
-      gotchas: projectInfo.gotchas,
-      runtimeTargets: projectInfo.runtimeTargets,
-      lastAnalyzed: projectInfo.lastAnalyzed,
-    };
-
-    // Tier 2: Quality metrics (if available)
-    if (projectInfo.codeStats) {
-      index.codeStats = projectInfo.codeStats;
-    }
-    if (projectInfo.testing) {
-      index.testing = projectInfo.testing;
-    }
-    if (projectInfo.documentation) {
-      index.documentation = projectInfo.documentation;
-    }
-    if (projectInfo.technicalDebt) {
-      index.technicalDebt = projectInfo.technicalDebt;
-    }
-
-    // Tier 3: Architecture analysis (if available)
-    if (projectInfo.architecture) {
-      index.architecture = projectInfo.architecture;
-    }
-
-    // Tier 4: Security analysis (if available)
-    if (projectInfo.security) {
-      index.security = projectInfo.security;
-    }
-
-    return JSON.stringify(index, null, 2);
-  }
-
-  /**
-   * Generate file organization section
-   */
-  private generateFileOrganization(): string {
-    return `## 📁 Project File Organization
-
-### Standard Output Paths
-
-All AI-generated and project artifacts must follow this structure:
-
-\`\`\`
-automatosx/
-├── PRD/              # Product Requirement Documents
-│   ├── features/     # Feature specifications
-│   ├── api/          # API documentation
-│   └── archive/      # Old/deprecated PRDs
-├── REPORT/           # Project reports and analysis
-│   ├── status/       # Status reports
-│   ├── plans/        # Implementation plans
-│   ├── analysis/     # Code analysis reports
-│   └── metrics/      # Performance and quality metrics
-└── tmp/              # Temporary files and drafts
-    ├── logs/         # Debug and execution logs
-    ├── cache/        # Cached data
-    └── scratch/      # Temporary work files
-\`\`\`
-
-### Path Usage Guidelines
-
-**PRD (Product Requirement Documents):**
-- **Path:** \`./automatosx/PRD/\`
-- **Purpose:** Feature specs, requirements, architecture decisions
-- **Naming:** \`YYYY-MM-DD-feature-name.md\` or \`feature-name-v1.md\`
-- **Example:**
-  \`\`\`bash
-  automatosx/PRD/features/2025-11-20-mcp-integration.md
-  automatosx/PRD/api/rest-api-spec.md
-  \`\`\`
-
-**REPORT (Plans & Status):**
-- **Path:** \`./automatosx/REPORT/\`
-- **Purpose:** Implementation plans, status reports, analysis
-- **Naming:** \`YYYY-MM-DD-report-type.md\`
-- **Example:**
-  \`\`\`bash
-  automatosx/REPORT/status/2025-11-20-weekly-status.md
-  automatosx/REPORT/plans/authentication-implementation-plan.md
-  automatosx/REPORT/analysis/code-quality-report.md
-  \`\`\`
-
-**tmp (Temporary Files):**
-- **Path:** \`./automatosx/tmp/\`
-- **Purpose:** Logs, cache, scratch work, debug output
-- **Auto-cleanup:** Files older than 7 days can be deleted
-- **Example:**
-  \`\`\`bash
-  automatosx/tmp/logs/ai-session-2025-11-20.log
-  automatosx/tmp/cache/api-response-cache.json
-  automatosx/tmp/scratch/debugging-notes.md
-  \`\`\`
-
-### File Naming Conventions
-
-1. **Use kebab-case:** \`feature-name.md\` (not \`Feature_Name.md\`)
-2. **Include dates:** \`YYYY-MM-DD-\` prefix for time-sensitive docs
-3. **Be descriptive:** \`user-auth-flow.md\` (not \`flow.md\`)
-4. **Version when needed:** \`api-spec-v2.md\`
-
-### .gitignore Rules
-
-\`\`\`gitignore
-# Temporary files (not tracked)
-automatosx/tmp/
-
-# Keep structure but ignore content
-automatosx/PRD/.gitkeep
-automatosx/REPORT/.gitkeep
-
-# Track important PRDs and reports
-!automatosx/PRD/**/*.md
-!automatosx/REPORT/**/*.md
-\`\`\``;
-  }
-
 }

@@ -21,15 +21,19 @@ export const FILE_NAMES = {
   USER_CONFIG: 'config.json',
   /** Project settings file name */
   PROJECT_SETTINGS: 'settings.json',
-  /** Custom instructions file name */
+  /** Custom instructions file name (legacy, in provider-specific dir) */
   CUSTOM_MD: 'CUSTOM.md',
-  /** Root project context file (like CLAUDE.md) */
+  /** Root project context file - primary output of /init */
   AX_MD: 'AX.md',
+  /** Unified config directory name (replaces .ax-grok/, .ax-cli/) */
+  UNIFIED_CONFIG_DIR: '.ax',
+  /** Deep analysis file name (in .ax/ directory) */
+  ANALYSIS_JSON: 'analysis.json',
   /** Project index file name (in provider-specific dir) */
   INDEX_JSON: 'index.json',
-  /** Shared project index at root (used by all CLIs) */
+  /** Shared project index at root (used by all CLIs) - legacy */
   AX_INDEX_JSON: 'ax.index.json',
-  /** Pre-computed summary for prompt injection (references ax.index.json) */
+  /** Pre-computed summary for prompt injection (references ax.index.json) - legacy */
   AX_SUMMARY_JSON: 'ax.summary.json',
   /** Project memory file name */
   MEMORY_JSON: 'memory.json',
@@ -55,19 +59,25 @@ export const CONFIG_PATHS = {
   USER_DIR: join(homedir(), CONFIG_DIR_NAME),
   /** User-level configuration file */
   USER_CONFIG: join(homedir(), CONFIG_DIR_NAME, FILE_NAMES.USER_CONFIG),
-  /** Project-level settings directory */
+  /** Project-level settings directory (provider-specific, legacy) */
   PROJECT_DIR: join(process.cwd(), CONFIG_DIR_NAME),
   /** Project-level settings file */
   PROJECT_SETTINGS: join(process.cwd(), CONFIG_DIR_NAME, FILE_NAMES.PROJECT_SETTINGS),
-  /** Custom instructions file path (project-level) */
+  /** Custom instructions file path (provider-specific, legacy) */
   CUSTOM_MD: join(process.cwd(), CONFIG_DIR_NAME, FILE_NAMES.CUSTOM_MD),
-  /** Root project context file path (like CLAUDE.md) */
+  /** Root project context file path - primary output of /init */
   AX_MD: join(process.cwd(), FILE_NAMES.AX_MD),
+  /** Unified config directory (replaces .ax-grok/, .ax-cli/) */
+  UNIFIED_DIR: join(process.cwd(), FILE_NAMES.UNIFIED_CONFIG_DIR),
+  /** Deep analysis file path (in .ax/ directory, gitignored) */
+  ANALYSIS_JSON: join(process.cwd(), FILE_NAMES.UNIFIED_CONFIG_DIR, FILE_NAMES.ANALYSIS_JSON),
+  /** Unified config file path (in .ax/ directory) */
+  UNIFIED_CONFIG: join(process.cwd(), FILE_NAMES.UNIFIED_CONFIG_DIR, FILE_NAMES.USER_CONFIG),
   /** Project index file path (provider-specific dir, legacy) */
   INDEX_JSON: join(process.cwd(), CONFIG_DIR_NAME, FILE_NAMES.INDEX_JSON),
-  /** Shared project index at root (used by all CLIs) */
+  /** Shared project index at root (used by all CLIs) - legacy */
   AX_INDEX_JSON: join(process.cwd(), FILE_NAMES.AX_INDEX_JSON),
-  /** Pre-computed summary at root (used by all CLIs) */
+  /** Pre-computed summary at root (used by all CLIs) - legacy */
   AX_SUMMARY_JSON: join(process.cwd(), FILE_NAMES.AX_SUMMARY_JSON),
   /** Project memory file path (project-level) */
   MEMORY_JSON: join(process.cwd(), CONFIG_DIR_NAME, FILE_NAMES.MEMORY_JSON),
@@ -79,13 +89,14 @@ export const CONFIG_PATHS = {
   USER_HISTORY: join(homedir(), CONFIG_DIR_NAME, FILE_NAMES.HISTORY_JSON),
   /** User sessions directory */
   USER_SESSIONS_DIR: join(homedir(), CONFIG_DIR_NAME, FILE_NAMES.SESSIONS_DIR),
-  /** AutomatosX base directory (project-local) */
+  // Legacy AutomatosX paths (deprecated - now dynamically detected)
+  /** @deprecated AutomatosX base directory - use dynamic detection instead */
   AUTOMATOSX_DIR: join(process.cwd(), 'automatosx'),
-  /** AutomatosX PRD directory (project-local) */
+  /** @deprecated AutomatosX PRD directory - use dynamic detection instead */
   AUTOMATOSX_PRD: join(process.cwd(), 'automatosx', 'PRD'),
-  /** AutomatosX REPORT directory (project-local) */
+  /** @deprecated AutomatosX REPORT directory - use dynamic detection instead */
   AUTOMATOSX_REPORT: join(process.cwd(), 'automatosx', 'REPORT'),
-  /** AutomatosX temporary files directory (project-local) */
+  /** @deprecated AutomatosX temporary files directory - use dynamic detection instead */
   AUTOMATOSX_TMP: join(process.cwd(), 'automatosx', 'tmp'),
 } as const;
 

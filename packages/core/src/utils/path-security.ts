@@ -11,6 +11,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import os from 'os';
 import { CONFIG_DIR_NAME } from '../constants.js';
+import { extractErrorMessage } from './error-handler.js';
 
 /**
  * Result of path validation
@@ -261,10 +262,10 @@ export async function validatePathSecure(
       success: true,
       path: resolved,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error: `Path validation error: ${error.message}`,
+      error: `Path validation error: ${extractErrorMessage(error)}`,
     };
   }
 }
@@ -333,10 +334,10 @@ export function validatePathSecureSync(
       success: true,
       path: resolved,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error: error.message,
+      error: extractErrorMessage(error),
     };
   }
 }

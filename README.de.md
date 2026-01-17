@@ -1,9 +1,9 @@
-# AX CLI - Enterprise-Klasse KI-Codierung
+# AX CLI - Enterprise-Klasse Vibe Coding
 
-> 📖 Diese Übersetzung basiert auf [README.md @ v5.1.9](./README.md)
+> 📖 Diese Übersetzung basiert auf [README.md @ v5.1.19](./README.md)
 
 [![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
-[![Tests](https://img.shields.io/badge/tests-6,084+%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-6,205+%20passing-brightgreen.svg)](#)
 [![macOS](https://img.shields.io/badge/macOS-26.0-blue.svg)](https://www.apple.com/macos)
 [![Windows](https://img.shields.io/badge/Windows-10+-blue.svg)](https://www.microsoft.com/windows)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-blue.svg)](https://ubuntu.com)
@@ -26,8 +26,8 @@
 
 ## Inhaltsverzeichnis
 
-- [GLM Benutzer](#glm-benutzer)
 - [Schnellstart](#schnellstart)
+- [GLM Benutzer](#glm-benutzer)
 - [Warum AX CLI?](#warum-ax-cli)
 - [Unterstützte Modelle](#unterstützte-modelle)
 - [Installation](#installation)
@@ -40,20 +40,15 @@
 - [Sicherheit](#sicherheit)
 - [Architektur](#architektur)
 - [Pakete](#pakete)
-
----
-
-## GLM Benutzer
-
-> **Wichtig:** Das ax-glm Cloud-Paket wurde als veraltet markiert. Für den Zugriff auf die GLM Cloud-API empfehlen wir die Verwendung von OpenCode. Starten Sie mit OpenCode: https://opencode.ai.
->
-> **Hinweis:** Lokale GLM-Modelle (GLM-4.6, CodeGeeX4) werden weiterhin vollständig über `ax-cli` für Offline-Inferenz durch Ollama, LMStudio oder vLLM unterstützt. Siehe Abschnitt [Lokale/Offline-Modelle](#lokaleoffline-modelle-ax-cli) unten.
+- [Changelog](#changelog)
+- [Dokumentation](#dokumentation)
+- [Enterprise](#enterprise)
 
 ---
 
 ## Schnellstart
 
-Starten Sie in unter einer Minute:
+Loslegen in unter einer Minute:
 
 ```bash
 npm install -g @defai.digital/ax-grok
@@ -61,35 +56,42 @@ ax-grok setup
 ax-grok
 ```
 
-**Optimal für:** Live-Websuche, Vision, erweitertes Reasoning
+**Optimal für:** Live-Websuche, Vision, erweitertes Reasoning, 2M Kontextfenster
 
 Führen Sie `/init` in der CLI aus, um Ihren Projektkontext zu initialisieren.
 
-> **GLM-Benutzer:** Bitte verwenden Sie das [OpenCode CLI](https://opencode.ai) anstelle von ax-glm.
+---
+
+## GLM Benutzer
+
+> **Hinweis:** Das `ax-glm` Cloud-Paket wurde als veraltet markiert.
+>
+> **Für GLM Cloud-API-Zugriff empfehlen wir [OpenCode](https://opencode.ai).**
+
+**Lokale GLM-Modelle** (GLM-4.6, CodeGeeX4) werden weiterhin vollständig über `ax-cli` für Offline-Inferenz durch Ollama, LMStudio oder vLLM unterstützt. Siehe [Lokale/Offline-Modelle](#lokaleoffline-modelle-ax-cli) unten.
 
 ---
 
 ## Warum AX CLI?
 
 | Funktion | Beschreibung |
-|----------|--------------|
+|---------|--------------|
 | **Anbieter-Optimiert** | Erstklassige Unterstützung für Grok (xAI) mit anbieterspezifischen Parametern |
 | **17 Eingebaute Tools** | Dateibearbeitung, Bash-Ausführung, Suche, Todos und mehr |
 | **Agentisches Verhalten** | ReAct-Reasoning-Schleifen, Selbstkorrektur bei Fehlern, TypeScript-Verifizierung |
 | **AutomatosX-Agenten** | 20+ spezialisierte KI-Agenten für Backend, Frontend, Sicherheit, DevOps und mehr |
 | **Autonome Fehlerbehebung** | Scannt und behebt automatisch Timer-Lecks, Ressourcenprobleme, Typfehler mit Rollback-Sicherheit |
-| **Intelligentes Refactoring** | Entfernung von totem Code, Typensicherheitskorrekturen, Komplexitätsreduzierung mit Verifizierung |
+| **Intelligentes Refactoring** | Entfernt toten Code, behebt Typensicherheit, reduziert Komplexität mit Verifizierung |
 | **MCP-Integration** | Model Context Protocol mit 12+ produktionsbereiten Vorlagen |
 | **Projekt-Speicher** | Intelligentes Kontext-Caching mit 50% Token-Einsparung |
 | **Enterprise-Sicherheit** | AES-256-GCM-Verschlüsselung, keine Telemetrie, CVSS-bewertete Schutzmaßnahmen |
-| **65% Testabdeckung** | 6.084+ Tests mit striktem TypeScript |
+| **65% Testabdeckung** | 6,205+ Tests mit striktem TypeScript |
 
 ---
 
 ### Grok-Highlights
 
-- **Grok (ax-grok)**: Eingebaute Websuche, Vision, reasoning_effort; **Grok 4.1 schnelle Varianten bieten 2M Kontext, parallele Server-Tools, x_search und serverseitige Code-Ausführung**.
-- Die CLI teilt dieselbe Toolchain (Dateibearbeitung, MCP, Bash) und Projektspeicher mit dem gemeinsamen Kern.
+- **Grok (ax-grok)**: Eingebaute Websuche, Vision, reasoning_effort; **Grok 4.1 schnelle Varianten bieten 2M Kontext, parallele Server-Tools, x_search und serverseitige Code-Ausführung**. Siehe `docs/grok-4.1-advanced-features.md` für Details.
 
 ---
 
@@ -97,8 +99,10 @@ Führen Sie `/init` in der CLI aus, um Ihren Projektkontext zu initialisieren.
 
 ### Grok (xAI)
 
+> **Grok 4.1 advanced**: ax-grok aktiviert die serverseitigen Agent-Tools von Grok 4.1 (web_search, x_search, code_execution) mit parallelem Function-Calling und 2M-Kontext-Fast-Varianten. Siehe die vollständige Anleitung in `docs/grok-4.1-advanced-features.md`.
+
 | Modell | Kontext | Funktionen | Alias |
-|--------|---------|------------|-------|
+|-------|---------|----------|-------|
 | `grok-4.1` | 131K | Ausgewogener Standard mit eingebautem Reasoning, Vision, Suche | `grok-latest` |
 | `grok-4.1-fast-reasoning` | 2M | Optimal für agentische/tool-intensive Sitzungen mit Reasoning | `grok-fast` |
 | `grok-4.1-fast-non-reasoning` | 2M | Schnellste agentische Läufe ohne erweitertes Reasoning | `grok-fast-nr` |
@@ -106,6 +110,27 @@ Führen Sie `/init` in der CLI aus, um Ihren Projektkontext zu initialisieren.
 | `grok-2-image-1212` | 32K | **Bilderzeugung**: Text-zu-Bild | `grok-image` |
 
 > **Modell-Aliase**: Verwenden Sie praktische Aliase wie `ax-grok -m grok-latest` anstelle vollständiger Modellnamen.
+
+### Lokale/Offline-Modelle (ax-cli)
+
+Für lokale Inferenz via Ollama, LMStudio oder vLLM verwenden Sie `ax-cli`:
+
+```bash
+npm install -g @defai.digital/ax-cli
+ax-cli setup   # Konfigurieren Sie Ihre lokale Server-URL
+```
+
+ax-cli funktioniert mit **jedem Modell**, das auf Ihrem lokalen Server verfügbar ist. Geben Sie einfach den Modell-Tag bei der Konfiguration an (z. B. `qwen3:14b`, `glm4:9b`).
+
+**Empfohlene Modelfamilien:**
+
+| Modell | Optimal für |
+|-------|-------------|
+| **Qwen** | Insgesamt am besten für Coding-Aufgaben |
+| **GLM** | Refactoring und Dokumentation |
+| **DeepSeek** | Schnelle Iterationen, gutes Tempo/Qualität |
+| **Codestral** | C/C++/Rust und Systemprogrammierung |
+| **Llama** | Beste Kompatibilität und Fallback |
 
 ---
 
@@ -119,7 +144,7 @@ Führen Sie `/init` in der CLI aus, um Ihren Projektkontext zu initialisieren.
 ### Installationsbefehl
 
 ```bash
-npm install -g @defai.digital/ax-grok
+npm install -g @defai.digital/ax-grok   # Grok (xAI)
 ```
 
 ### Einrichtung
@@ -129,9 +154,9 @@ ax-grok setup
 ```
 
 Der Einrichtungsassistent führt Sie durch:
-1. Sichere Verschlüsselung und Speicherung Ihres API-Schlüssels (mit AES-256-GCM-Verschlüsselung)
-2. Konfiguration Ihres Standard-KI-Modells und anderer Einstellungen
-3. Validierung Ihrer Konfiguration, um sicherzustellen, dass alles korrekt eingerichtet ist
+1. Sichere Verschlüsselung und Speicherung Ihres API-Schlüssels (mit AES-256-GCM-Verschlüsselung).
+2. Konfiguration Ihres Standard-KI-Modells und anderer Einstellungen.
+3. Validierung Ihrer Konfiguration, um sicherzustellen, dass alles korrekt eingerichtet ist.
 
 ---
 
@@ -170,7 +195,7 @@ Standardmäßig ist die Selbstkorrektur AN (Agent versucht automatisch bei Fehle
 ### Wesentliche Befehle
 
 | Befehl | Beschreibung |
-|--------|--------------|
+|---------|-------------|
 | `/init` | Projektkontext initialisieren |
 | `/help` | Alle Befehle anzeigen |
 | `/model` | KI-Modell wechseln |
@@ -205,7 +230,7 @@ Standardmäßig ist die Selbstkorrektur AN (Agent versucht automatisch bei Fehle
 
 ```bash
 # Für CI/CD
-export XAI_API_KEY=your_key
+export XAI_API_KEY=your_key    # Grok
 ```
 
 ---
@@ -249,12 +274,18 @@ Im interaktiven Modus (`ax-grok`) einfach natürlich fragen:
 > Refaktoriere das Authentifizierungsmodul, konzentriere dich auf die Entfernung von totem Code
 
 > Verwende den Sicherheitsagenten, um die API-Endpunkte zu prüfen
+
+> Prüfe dieses PRD und arbeite mit dem Produktagenten, um es zu verbessern
+
+> Bitte die Backend- und Frontend-Agenten, gemeinsam die Benutzerregistrierung zu implementieren
 ```
 
 **Was Sie erhalten:**
 - **Fehlerbehebung**: Erkennt Timer-Lecks, fehlende Bereinigung, Ressourcenprobleme - automatische Behebung mit Rollback-Sicherheit
 - **Refactoring**: Entfernt toten Code, behebt Typensicherheit, reduziert Komplexität - verifiziert durch Typprüfung
 - **20+ Agenten**: Backend, Frontend, Sicherheit, Architektur, DevOps, Daten und mehr
+
+Siehe [AutomatosX Guide](docs/AutomatosX-Integration.md) für Agentenliste, erweiterte Optionen und Konfiguration
 
 ---
 
@@ -273,7 +304,7 @@ ax-grok memory status    # Token-Verteilung anzeigen
 
 - **API-Schlüssel-Verschlüsselung:** AES-256-GCM mit PBKDF2 (600K Iterationen)
 - **Keine Telemetrie:** Keine Datensammlung
-- **CVSS-Schutzmaßnahmen:** Robuste Sicherheitsvorkehrungen gegen häufige Schwachstellen wie Command Injection (CVSS 9.8), Path Traversal (CVSS 8.6) und SSRF (CVSS 7.5)
+- **CVSS-Schutzmaßnahmen:** Robuste Sicherheitsvorkehrungen gegen häufige Schwachstellen wie Command Injection (CVSS 9.8), Path Traversal (CVSS 8.6) und SSRF (CVSS 7.5).
 
 ---
 
@@ -283,12 +314,12 @@ AX CLI verwendet eine modulare Architektur mit anbieterspezifischen CLIs, die au
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   Benutzer-Installation                      │
+│                      User Installs                          │
 ├─────────────────────────────────────────────────────────────┤
-│                  @defai.digital/ax-grok                     │
-│                     (ax-grok CLI)                           │
+│                 @defai.digital/ax-grok                      │
+│                    (ax-grok CLI)                            │
 │                                                             │
-│  • Grok 3 erweitertes Reasoning                             │
+│  • Grok 4.1 erweitertes Reasoning                            │
 │  • xAI API-Defaults                                         │
 │  • Live-Websuche                                            │
 │  • ~/.ax-grok/ Konfiguration                                │
@@ -311,7 +342,45 @@ AX CLI verwendet eine modulare Architektur mit anbieterspezifischen CLIs, die au
 | [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | Nein | Gemeinsame Kernbibliothek (automatisch als Abhängigkeit installiert) |
 | [@defai.digital/ax-schemas](https://www.npmjs.com/package/@defai.digital/ax-schemas) | Nein | Gemeinsame Zod-Schemas (automatisch als Abhängigkeit installiert) |
 
-> **Hinweis:** ax-glm wurde als veraltet markiert. Bitte verwenden Sie das [OpenCode CLI](https://opencode.ai).
+> **GLM Cloud-Benutzer:** Für die GLM Cloud-API empfehlen wir [OpenCode](https://opencode.ai).
+
+---
+
+## Changelog
+
+| Version | Highlights |
+|---------|------------|
+| **v5.1.19** | Performance: O(N×M) → O(N+M) Abhängigkeitsanalyse, optimierte Cache-Eviction, UI-Bugfixes |
+| **v5.1.18** | Refactoring: Benannte Konstanten, einheitliche Variablennamen, 6.205 Tests erfolgreich |
+| **v5.1.17** | Fix: ESC-Abbruch-Bug, Timer-Lecks, MCP-Timeout-Handling |
+
+[Volles Changelog auf GitHub ansehen →](https://github.com/defai-digital/ax-cli/releases)
+
+---
+
+## Dokumentation
+
+- [Features](docs/features.md)
+- [Konfiguration](docs/configuration.md)
+- [CLI-Referenz](docs/cli-reference.md)
+- [MCP-Integration](docs/mcp.md)
+- [AutomatosX Guide](docs/AutomatosX-Integration.md)
+- [VSCode Guide](docs/vscode-integration-guide.md)
+- [Figma-Integration](docs/figma-guide.md)
+- [Troubleshooting](docs/troubleshooting.md)
+
+---
+
+## Enterprise
+
+Für Teams mit erweiterten Anforderungen:
+
+- Compliance-Berichte (SOC2, HIPAA)
+- Erweiterte Audit-Logs
+- SSO/SAML-Integration
+- Priority Support (24-Stunden-SLA)
+
+Kontakt: **sales@defai.digital**
 
 ---
 
@@ -322,5 +391,5 @@ MIT-Lizenz - siehe [LICENSE](LICENSE)
 ---
 
 <p align="center">
-  Mit Liebe erstellt von <a href="https://github.com/defai-digital">DEFAI Digital</a>
+  Mit ❤️ erstellt von <a href="https://github.com/defai-digital">DEFAI Digital</a>
 </p>

@@ -34,7 +34,7 @@ export interface ToolDefinition {
   category: ToolCategory;
 
   /** Tool execution function */
-  execute: (args: any) => Promise<ToolResult>;
+  execute: (args: Record<string, unknown>) => Promise<ToolResult>;
 
   /** JSON Schema for tool parameters */
   schema: {
@@ -210,7 +210,7 @@ export class ToolRegistry {
    * @param args Tool arguments
    * @returns Tool result
    */
-  async execute(name: string, args: any): Promise<ToolResult> {
+  async execute(name: string, args: Record<string, unknown>): Promise<ToolResult> {
     const tool = this.tools.get(name);
     if (!tool) {
       return {

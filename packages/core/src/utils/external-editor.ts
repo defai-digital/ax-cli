@@ -11,8 +11,22 @@ import { writeFile, readFile, unlink } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { extractErrorMessage } from './error-handler.js';
 
 const execAsync = promisify(exec);
+
+/**
+ * Type guard for exec errors with additional properties
+ */
+interface ExecError extends Error {
+  code?: number;
+  signal?: string;
+  killed?: boolean;
+}
+
+function isExecError(error: unknown): error is ExecError {
+  return error instanceof Error;
+}
 
 /**
  * Result of external editor operation
@@ -107,22 +121,24 @@ export async function openExternalEditor(
       await execAsync(editorCommand, {
         timeout,
       });
-    } catch (error: any) {
-      // Check if user cancelled (typical error code)
-      if (error.code === 130 || error.signal === 'SIGINT') {
-        return {
-          success: false,
-          cancelled: true,
-          error: 'Editor cancelled by user',
-        };
-      }
+    } catch (error: unknown) {
+      if (isExecError(error)) {
+        // Check if user cancelled (typical error code)
+        if (error.code === 130 || error.signal === 'SIGINT') {
+          return {
+            success: false,
+            cancelled: true,
+            error: 'Editor cancelled by user',
+          };
+        }
 
-      // Check for timeout
-      if (error.killed && error.signal === 'SIGTERM') {
-        return {
-          success: false,
-          error: `Editor timeout after ${timeout / 1000} seconds`,
-        };
+        // Check for timeout
+        if (error.killed && error.signal === 'SIGTERM') {
+          return {
+            success: false,
+            error: `Editor timeout after ${timeout / 1000} seconds`,
+          };
+        }
       }
 
       // Editor might return non-zero exit code but still saved file
@@ -155,10 +171,10 @@ export async function openExternalEditor(
       content,
     };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
-      error: `Failed to open editor: ${error.message}`,
+      error: `Failed to open editor: ${extractErrorMessage(error)}`,
     };
   } finally {
     // Clean up temp file

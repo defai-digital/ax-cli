@@ -10,6 +10,7 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import type { ToolResult } from '../types/index.js';
+import { extractErrorMessage } from './error-handler.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -240,10 +241,10 @@ export async function executeSafeCommand(
       success: true,
       output: stdout || stderr || 'Command completed successfully',
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle execution errors
-    const errorMessage = error.message || String(error);
-    const exitCode = error.code || 'unknown';
+    const errorMessage = extractErrorMessage(error);
+    const exitCode = error instanceof Error && 'code' in error ? (error as NodeJS.ErrnoException).code : 'unknown';
 
     return {
       success: false,

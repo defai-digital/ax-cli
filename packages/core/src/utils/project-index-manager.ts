@@ -270,11 +270,9 @@ export class ProjectIndexManager {
 
       // Generate LLM-optimized index and summary
       const generator = new LLMOptimizedInstructionGenerator({
-        compressionLevel: 'moderate',
-        hierarchyEnabled: true,
-        criticalRulesCount: 5,
-        includeDODONT: true,
+        depth: 'standard',
         includeTroubleshooting: true,
+        includeCodePatterns: true,
       });
 
       const index = generator.generateIndex(result.projectInfo);

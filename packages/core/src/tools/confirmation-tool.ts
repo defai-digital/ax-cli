@@ -51,7 +51,7 @@ export class ConfirmationTool {
           error: result.feedback || `User rejected: ${request.operation}(${request.filename})`
         };
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
         error: `Confirmation error: ${extractErrorMessage(error)}`
@@ -72,7 +72,7 @@ export class ConfirmationTool {
           hasAnyAcceptance: sessionFlags.fileOperations || sessionFlags.bashCommands || sessionFlags.allOperations
         }
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
         error: `Error checking session acceptance: ${extractErrorMessage(error)}`

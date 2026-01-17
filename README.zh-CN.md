@@ -1,9 +1,9 @@
-# AX CLI - 企业级智能编程助手
+# AX CLI - 企业级 Vibe Coding
 
-> 📖 本翻译基于 [README.md @ v5.1.9](./README.md)
+> 📖 本翻译基于 [README.md @ v5.1.19](./README.md)
 
 [![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
-[![Tests](https://img.shields.io/badge/tests-6,084+%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-6,205+%20passing-brightgreen.svg)](#)
 [![macOS](https://img.shields.io/badge/macOS-26.0-blue.svg)](https://www.apple.com/macos)
 [![Windows](https://img.shields.io/badge/Windows-10+-blue.svg)](https://www.microsoft.com/windows)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-blue.svg)](https://ubuntu.com)
@@ -26,34 +26,29 @@
 
 ## 目录
 
-- [GLM 用户](#glm-用户)
 - [快速开始](#快速开始)
+- [GLM 用户](#glm-用户)
 - [为什么选择 AX CLI？](#为什么选择-ax-cli)
 - [支持的模型](#支持的模型)
 - [安装](#安装)
-- [使用方法](#使用方法)
+- [使用](#使用)
 - [配置](#配置)
 - [MCP 集成](#mcp-集成)
 - [VSCode 扩展](#vscode-扩展)
 - [AutomatosX 集成](#automatosx-集成)
 - [项目记忆](#项目记忆)
-- [安全性](#安全性)
+- [安全](#安全)
 - [架构](#架构)
-- [软件包](#软件包)
-
----
-
-## GLM 用户
-
-> **重要提示：** ax-glm 云端软件包已被弃用。如需 GLM 云端 API 访问，我们建议使用 OpenCode。前往 OpenCode 开始使用：https://opencode.ai。
->
-> **注意：** 本地 GLM 模型（GLM-4.6、CodeGeeX4）仍然通过 `ax-cli` 完全支持，可通过 Ollama、LMStudio 或 vLLM 进行离线推理。请参阅下方[本地/离线模型](#本地离线模型-ax-cli)部分。
+- [包](#包)
+- [更新日志](#更新日志)
+- [文档](#文档)
+- [Enterprise](#enterprise)
 
 ---
 
 ## 快速开始
 
-一分钟内即可开始使用：
+一分钟内上手：
 
 ```bash
 npm install -g @defai.digital/ax-grok
@@ -61,37 +56,42 @@ ax-grok setup
 ax-grok
 ```
 
-**最适合：** 实时网络搜索、视觉能力、扩展推理
+**最佳适用：**实时网页搜索、视觉、扩展推理、2M 上下文窗口
 
-在 CLI 中运行 `/init` 来初始化项目上下文。
+在 CLI 中运行 `/init` 以初始化项目上下文。
 
-> **GLM 用户：** 请使用 [OpenCode CLI](https://opencode.ai) 代替 ax-glm。
+---
+
+## GLM 用户
+
+> **说明：** `ax-glm` 云端包已弃用。
+>
+> **如需 GLM 云端 API，推荐使用 [OpenCode](https://opencode.ai)。**
+
+**本地 GLM 模型**（GLM-4.6、CodeGeeX4）仍可通过 `ax-cli` 在 Ollama、LMStudio 或 vLLM 上离线推理。参见下方 [本地/离线模型](#本地离线模型-ax-cli)。
 
 ---
 
 ## 为什么选择 AX CLI？
 
-| 功能 | 描述 |
+| 特性 | 说明 |
 |------|------|
-| **提供商优化** | 为 Grok (xAI) 提供一流支持，带有提供商特定参数 |
-| **17 个内置工具** | 文件编辑、bash 执行、搜索、待办事项等 |
-| **智能行为** | ReAct 推理循环、失败时自动纠正、TypeScript 验证 |
-| **AutomatosX 智能体** | 20+ 专业 AI 智能体，覆盖后端、前端、安全、DevOps 等领域 |
-| **自主修复 Bug** | 扫描并自动修复定时器泄漏、资源问题、类型错误，支持回滚 |
-| **智能重构** | 死代码删除、类型安全修复、复杂度降低，带验证 |
-| **MCP 集成** | 模型上下文协议，12+ 个生产就绪模板 |
-| **项目记忆** | 智能上下文缓存，节省 50% Token 消耗 |
-| **企业级安全** | AES-256-GCM 加密，无遥测数据收集，CVSS 级别防护 |
-| **65% 测试覆盖** | 6,084+ 测试用例，严格 TypeScript |
+| **提供商优化** | 针对 Grok (xAI) 的一等支持，含提供商专用参数 |
+| **17 个内置工具** | 文件编辑、bash 执行、搜索、TODO 等 |
+| **智能体行为** | ReAct 推理循环、失败自修复、TypeScript 验证 |
+| **AutomatosX 智能体** | 20+ 专业智能体覆盖后端、前端、安全、DevOps 等 |
+| **自动修 Bug** | 扫描并修复计时器泄漏、资源问题、类型错误，支持回滚保护 |
+| **智能重构** | 移除无用代码、修复类型安全、降低复杂度并验证 |
+| **MCP 集成** | Model Context Protocol，提供 12+ 生产级模板 |
+| **项目记忆** | 智能上下文缓存，节省 50% Token |
+| **企业级安全** | AES-256-GCM 加密、零遥测、CVSS 级别保护 |
+| **65% 测试覆盖率** | 6,205+ 测试，严格 TypeScript |
 
 ---
 
-### 提供商亮点 (Grok)
+### Grok 亮点
 
-- **Grok (ax-grok)**：内置网络搜索、视觉、reasoning_effort；**Grok 4.1 快速变体提供 2M 上下文、并行服务器工具、x_search 和服务器端代码执行**。
-- ax-grok 提供完整的工具链（文件编辑、MCP、bash）和项目记忆功能。
-
-> **GLM 用户：** 请使用 [OpenCode CLI](https://opencode.ai)。
+- **Grok (ax-grok)**：内置网页搜索、视觉、reasoning_effort；**Grok 4.1 快速版提供 2M 上下文、并行服务器工具、x_search 与服务端代码执行**。详见 `docs/grok-4.1-advanced-features.md`。
 
 ---
 
@@ -99,107 +99,119 @@ ax-grok
 
 ### Grok (xAI)
 
-| 模型 | 上下文 | 功能 | 别名 |
-|------|--------|------|------|
-| `grok-4.1` | 131K | 平衡默认模型，内置推理、视觉、搜索 | `grok-latest` |
-| `grok-4.1-fast-reasoning` | 2M | 最适合智能体/工具密集型会话，带推理 | `grok-fast` |
-| `grok-4.1-fast-non-reasoning` | 2M | 最快的智能体运行，无扩展推理 | `grok-fast-nr` |
-| `grok-4-0709` | 131K | 原始 Grok 4 版本（兼容） | `grok-4` |
-| `grok-2-image-1212` | 32K | **图像生成**：文生图 | `grok-image` |
+> **Grok 4.1 advanced**：ax-grok 启用 Grok 4.1 的服务端智能体工具（web_search、x_search、code_execution），支持并行函数调用与 2M 上下文快速版本。详见 `docs/grok-4.1-advanced-features.md`。
 
-> **模型别名**：使用便捷别名，如 `ax-grok -m grok-latest` 代替完整模型名称。
+| 模型 | 上下文 | 特性 | 别名 |
+|------|------|------|------|
+| `grok-4.1` | 131K | 默认均衡，内置推理、视觉、搜索 | `grok-latest` |
+| `grok-4.1-fast-reasoning` | 2M | 适合高工具/智能体场景，带推理 | `grok-fast` |
+| `grok-4.1-fast-non-reasoning` | 2M | 最快，无扩展推理 | `grok-fast-nr` |
+| `grok-4-0709` | 131K | Grok 4 初始版本（兼容） | `grok-4` |
+| `grok-2-image-1212` | 32K | **图像生成**：文本到图像 | `grok-image` |
+
+> **模型别名**：可使用 `ax-grok -m grok-latest` 等别名。
 
 ### 本地/离线模型 (ax-cli)
 
-通过 Ollama、LMStudio 或 vLLM 进行本地推理，使用 `ax-cli`：
+本地通过 Ollama、LMStudio 或 vLLM 推理请使用 `ax-cli`：
 
 ```bash
 npm install -g @defai.digital/ax-cli
-ax-cli setup   # 选择 "Local/Offline"
+ax-cli setup   # 配置本地服务器 URL
 ```
+
+ax-cli 可对接本地服务器上的 **任意模型**。配置时指定模型标签（如 `qwen3:14b`、`glm4:9b`）。
+
+**推荐模型家族：**
+
+| 模型 | 最佳用途 |
+|------|--------|
+| **Qwen** | 编码任务综合表现最佳 |
+| **GLM** | 重构与文档编写 |
+| **DeepSeek** | 迭代快速，速度/质量均衡 |
+| **Codestral** | C/C++/Rust 与系统编程 |
+| **Llama** | 兼容性与兜底最佳 |
 
 ---
 
 ## 安装
 
-### 系统要求
+### 要求
 
 - Node.js 24.0.0+
 - macOS 14+、Windows 11+ 或 Ubuntu 24.04+
 
-### 安装命令
+### 安装
 
 ```bash
 npm install -g @defai.digital/ax-grok   # Grok (xAI)
 ```
 
-> **GLM 用户：** 请使用 [OpenCode CLI](https://opencode.ai)。
-
-### 初始设置
+### 配置
 
 ```bash
 ax-grok setup
 ```
 
-设置向导将指导您完成：
-1. 安全加密并存储您的 API 密钥（使用 AES-256-GCM 加密）
-2. 配置默认 AI 模型和其他偏好设置
-3. 验证配置以确保一切设置正确
+安装向导将引导你完成：
+1. 安全加密并保存 API Key（AES-256-GCM）。
+2. 配置默认 AI 模型与其他偏好。
+3. 验证配置，确保设置正确。
 
 ---
 
-## 使用方法
+## 使用
 
 ### 交互模式
 
 ```bash
 ax-grok              # 启动交互式 CLI 会话
-ax-grok --continue   # 恢复上一次对话
-ax-grok -c           # 简写形式
+ax-grok --continue   # 继续上一次对话
+ax-grok -c           # 简写
 ```
 
-### 无头模式
+### 无交互模式
 
 ```bash
 ax-grok -p "分析这个代码库"
 ax-grok -p "修复 TypeScript 错误" -d /path/to/project
 ```
 
-### 智能行为标志
+### 智能体行为开关
 
 ```bash
-# 启用 ReAct 推理模式（思考 → 行动 → 观察循环）
+# 启用 ReAct 推理模式（思考 → 行动 → 观察）
 ax-grok --react
 
-# 在计划阶段后启用 TypeScript 验证
+# 在规划阶段后启用 TypeScript 验证
 ax-grok --verify
 
-# 禁用失败时自动纠正
+# 禁用失败时自我修复
 ax-grok --no-correction
 ```
 
-默认情况下，自动纠正开启（智能体在失败时自动反思并重试）。ReAct 和验证默认关闭，但可以启用以获得更结构化的推理和质量检查。
+默认开启自我修复（失败后会反思并重试）。ReAct 与验证默认关闭，可按需开启以获得更结构化的推理和更好的质量检查。
 
 ### 常用命令
 
-| 命令 | 描述 |
+| 命令 | 说明 |
 |------|------|
 | `/init` | 初始化项目上下文 |
-| `/help` | 显示所有命令 |
+| `/help` | 显示全部命令 |
 | `/model` | 切换 AI 模型 |
-| `/lang` | 更改显示语言（11 种语言） |
+| `/lang` | 切换显示语言（11 种语言） |
 | `/doctor` | 运行诊断 |
 | `/exit` | 退出 CLI |
 
-### 键盘快捷键
+### 快捷键
 
-| 快捷键 | 操作 | 描述 |
-|--------|------|------|
-| `Ctrl+O` | 切换详细模式 | 显示或隐藏详细日志和内部过程 |
-| `Ctrl+K` | 快捷操作 | 打开常用命令的快捷操作菜单 |
-| `Ctrl+B` | 后台模式 | 在后台运行当前任务 |
-| `Shift+Tab` | 自动编辑 | 触发 AI 驱动的代码建议 |
-| `Esc` ×2 | 取消 | 清除当前输入或取消正在进行的操作 |
+| 快捷键 | 动作 | 说明 |
+|-------|------|------|
+| `Ctrl+O` | 切换详细模式 | 显示/隐藏详细日志与内部流程 |
+| `Ctrl+K` | 快速操作 | 打开快速操作菜单 |
+| `Ctrl+B` | 后台模式 | 将当前任务转到后台运行 |
+| `Shift+Tab` | 自动编辑 | 触发 AI 代码建议 |
+| `Esc` ×2 | 取消 | 清除输入或取消当前操作 |
 
 ---
 
@@ -209,10 +221,10 @@ ax-grok --no-correction
 
 | 文件 | 用途 |
 |------|------|
-| `~/.ax-grok/config.json` | 用户设置（加密的 API 密钥） |
-| `.ax-grok/settings.json` | 项目覆盖设置 |
+| `~/.ax-grok/config.json` | 用户设置（加密 API Key） |
+| `.ax-grok/settings.json` | 项目级覆盖配置 |
 | `.ax-grok/CUSTOM.md` | 自定义 AI 指令 |
-| `ax.index.json` | 共享项目索引（在根目录） |
+| `ax.index.json` | 共享项目索引（根目录） |
 
 ### 环境变量
 
@@ -225,7 +237,7 @@ export XAI_API_KEY=your_key    # Grok
 
 ## MCP 集成
 
-通过 [模型上下文协议 (MCP)](https://modelcontextprotocol.io) 扩展功能 — 一个连接 AI 助手与外部工具、API 和数据源的开放标准：
+通过 [Model Context Protocol (MCP)](https://modelcontextprotocol.io) 扩展能力 — 一个用于连接 AI 助手与外部工具、API、数据源的开放标准：
 
 ```bash
 ax-grok mcp add figma --template
@@ -233,7 +245,7 @@ ax-grok mcp add github --template
 ax-grok mcp list
 ```
 
-**可用模板：** Figma、GitHub、Vercel、Puppeteer、Storybook、Sentry、Jira、Confluence、Slack、Google Drive 等。
+**可用模板：**Figma、GitHub、Vercel、Puppeteer、Storybook、Sentry、Jira、Confluence、Slack、Google Drive 等。
 
 ---
 
@@ -244,42 +256,42 @@ code --install-extension defai-digital.ax-cli-vscode
 ```
 
 - 侧边栏聊天面板
-- 文件更改差异预览
+- 文件变更的差异预览
 - 上下文感知命令
-- 检查点和回滚系统
+- Checkpoint & Rewind 系统
 
 ---
 
 ## AutomatosX 集成
 
-AX CLI 与 [AutomatosX](https://github.com/defai-digital/automatosx) 集成 - 一个多智能体 AI 系统，具有自主修复 Bug、智能重构和 20+ 专业智能体。
+AX CLI 可与 [AutomatosX](https://github.com/defai-digital/automatosx) 集成，这是一个多智能体 AI 系统，具备自动修复、智能重构与 20+ 专业智能体。
 
-在交互模式（`ax-grok`）中，只需自然地提问：
+在交互模式 (`ax-grok`) 下，直接自然地提出需求：
 
 ```
-> 请扫描并修复这个代码库中的 bug
+> 请扫描并修复这个代码库中的漏洞
 
-> 重构认证模块，重点删除死代码
+> 重构认证模块，重点移除无用代码
 
 > 使用安全智能体审计 API 端点
 
-> 审查这个 PRD 并与产品智能体合作改进它
+> 审阅这份 PRD，并与产品智能体协作改进
 
-> 让后端和前端智能体一起实现用户注册功能
+> 请后端与前端智能体协作实现用户注册
 ```
 
-**您将获得：**
-- **Bug 修复**：检测定时器泄漏、缺失清理、资源问题 - 自动修复并支持回滚
-- **重构**：删除死代码、修复类型安全、降低复杂度 - 通过类型检查验证
+**你将获得：**
+- **修复 Bug**：检测计时器泄漏、缺失清理、资源问题 — 自动修复并支持回滚
+- **重构**：移除无用代码、修复类型安全、降低复杂度 — 通过 typecheck 验证
 - **20+ 智能体**：后端、前端、安全、架构、DevOps、数据等
 
-详见 [AutomatosX 指南](docs/AutomatosX-Integration.md) 了解智能体列表、高级选项和配置
+查看 [AutomatosX Guide](docs/AutomatosX-Integration.md) 了解智能体列表、高级选项与配置
 
 ---
 
 ## 项目记忆
 
-通过智能缓存减少 Token 成本并提高上下文召回率，存储和检索相关项目信息，避免冗余处理。
+通过智能缓存存储并检索相关项目信息，避免重复处理，降低 Token 成本并提升上下文回忆。
 
 ```bash
 ax-grok memory warmup    # 生成上下文缓存
@@ -288,70 +300,80 @@ ax-grok memory status    # 查看 Token 分布
 
 ---
 
-## 安全性
+## 安全
 
-- **API 密钥加密：** AES-256-GCM，使用 PBKDF2（60 万次迭代）
-- **无遥测：** 零数据收集
-- **CVSS 防护：** 针对命令注入（CVSS 9.8）、路径遍历（CVSS 8.6）和 SSRF（CVSS 7.5）等常见漏洞的强大防护
+- **API Key 加密：** AES-256-GCM + PBKDF2（600K 次迭代）
+- **零遥测：**不收集任何数据
+- **CVSS 保护：**防护常见漏洞，如命令注入（CVSS 9.8）、路径遍历（CVSS 8.6）、SSRF（CVSS 7.5）等
 
 ---
 
 ## 架构
 
-AX CLI 使用模块化架构，基于共享核心构建：
+AX CLI 使用模块化架构：不同提供商的 CLI 建于共享核心之上：
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      用户安装                                │
+│                      User Installs                          │
 ├─────────────────────────────────────────────────────────────┤
-│                  @defai.digital/ax-grok                     │
-│                     (ax-grok CLI)                           │
+│                 @defai.digital/ax-grok                      │
+│                    (ax-grok CLI)                            │
 │                                                             │
-│  • Grok 3 扩展推理                                           │
-│  • xAI API 默认设置                                          │
-│  • 实时网络搜索                                              │
+│  • Grok 4.1 扩展推理                                         │
+│  • xAI API defaults                                         │
+│  • 实时网页搜索                                             │
 │  • ~/.ax-grok/ 配置                                         │
 ├─────────────────────────────────────────────────────────────┤
 │                   @defai.digital/ax-core                    │
 │                                                             │
-│  共享功能：17 个工具、MCP 客户端、记忆、检查点、              │
-│  React/Ink UI、文件操作、git 支持                            │
+│  共享功能：17 工具、MCP 客户端、记忆、checkpoints、          │
+│  React/Ink UI、文件操作、Git 支持                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-> **GLM 用户：** 请使用 [OpenCode CLI](https://opencode.ai)。
+---
+
+## 包
+
+| 包 | 安装？ | 说明 |
+|----|:----:|-----|
+| [@defai.digital/ax-grok](https://www.npmjs.com/package/@defai.digital/ax-grok) | **是** | Grok 优化版 CLI，含网页搜索、视觉、扩展思考 |
+| [@defai.digital/ax-cli](https://www.npmjs.com/package/@defai.digital/ax-cli) | 可选 | 本地优先 CLI，适配 Ollama/LMStudio/vLLM + DeepSeek Cloud |
+| [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | 否 | 共享核心库（作为依赖自动安装） |
+| [@defai.digital/ax-schemas](https://www.npmjs.com/package/@defai.digital/ax-schemas) | 否 | 共享 Zod schema（作为依赖自动安装） |
+
+> **GLM Cloud 用户：**如需 GLM 云 API，推荐 [OpenCode](https://opencode.ai)。
 
 ---
 
-## 软件包
+## 更新日志
 
-| 软件包 | 安装？ | 描述 |
-|--------|:------:|------|
-| [@defai.digital/ax-grok](https://www.npmjs.com/package/@defai.digital/ax-grok) | **是** | Grok 优化的 CLI，带网络搜索、视觉、扩展思维 |
-| [@defai.digital/ax-cli](https://www.npmjs.com/package/@defai.digital/ax-cli) | 可选 | 本地优先 CLI，支持 Ollama/LMStudio/vLLM + DeepSeek Cloud |
-| [@defai.digital/ax-core](https://www.npmjs.com/package/@defai.digital/ax-core) | 否 | 共享核心库（作为依赖自动安装） |
-| [@defai.digital/ax-schemas](https://www.npmjs.com/package/@defai.digital/ax-schemas) | 否 | 共享 Zod 模式（作为依赖自动安装） |
+| 版本 | 亮点 |
+|------|------|
+| **v5.1.19** | 性能：依赖分析 O(N×M) → O(N+M)，缓存清理优化，UI 修复 |
+| **v5.1.18** | 重构：命名常量、变量命名统一，6,205 个测试通过 |
+| **v5.1.17** | 修复：ESC 取消 bug、计时器泄漏、MCP 超时处理 |
 
-> **GLM 用户：** ax-glm 已被弃用。请使用 [OpenCode CLI](https://opencode.ai)。
+[在 GitHub 查看完整更新日志 →](https://github.com/defai-digital/ax-cli/releases)
 
 ---
 
 ## 文档
 
-- [功能](docs/features.md)
+- [功能特性](docs/features.md)
 - [配置](docs/configuration.md)
 - [CLI 参考](docs/cli-reference.md)
 - [MCP 集成](docs/mcp.md)
 - [AutomatosX 指南](docs/AutomatosX-Integration.md)
 - [VSCode 指南](docs/vscode-integration-guide.md)
 - [Figma 集成](docs/figma-guide.md)
-- [故障排除](docs/troubleshooting.md)
+- [故障排查](docs/troubleshooting.md)
 
 ---
 
-## 企业版
+## Enterprise
 
-适用于需要高级功能的团队：
+适用于需要高级能力的团队：
 
 - 合规报告（SOC2、HIPAA）
 - 高级审计日志
@@ -364,10 +386,10 @@ AX CLI 使用模块化架构，基于共享核心构建：
 
 ## 许可证
 
-MIT 许可证 - 详见 [LICENSE](LICENSE)
+MIT 许可证 - 见 [LICENSE](LICENSE)
 
 ---
 
 <p align="center">
-  由 <a href="https://github.com/defai-digital">DEFAI Digital</a> 用心打造
+  由 <a href="https://github.com/defai-digital">DEFAI Digital</a> 用 ❤️ 制作
 </p>

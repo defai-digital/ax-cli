@@ -1,7 +1,12 @@
 /**
  * Init Command Handler
  *
- * Handler for /init - project initialization with smart analysis
+ * Handler for /init - project initialization with AX.md output
+ *
+ * Refactored to:
+ * - Generate single AX.md at project root
+ * - Support depth levels (basic, standard, full, security)
+ * - Parse existing rules from .cursorrules, .editorconfig, etc.
  *
  * @packageDocumentation
  */
@@ -15,23 +20,37 @@ import * as path from "path";
 /**
  * /init command handler
  *
- * Analyzes the project and generates:
- * - ax.index.json: Full project index at root
- * - ax.summary.json: LLM-optimized summary for prompts
- * - CUSTOM.md: Provider-specific custom instructions (only if doesn't exist)
+ * Generates:
+ * - AX.md: Primary context file at project root (always)
+ * - .ax/analysis.json: Deep analysis for full/security depth (optional)
  */
 export function handleInit(_args: string, ctx: CommandContext): CommandResult {
-  // Add user entry first
+  // Parse arguments for depth level
+  const args = _args.trim().toLowerCase();
+  let depthLevel: 'basic' | 'standard' | 'full' | 'security' = 'standard';
+
+  if (args.includes('--depth=basic') || args.includes('-d basic')) {
+    depthLevel = 'basic';
+  } else if (args.includes('--depth=full') || args.includes('-d full')) {
+    depthLevel = 'full';
+  } else if (args.includes('--depth=security') || args.includes('-d security')) {
+    depthLevel = 'security';
+  }
+
+  const isRefresh = args.includes('--refresh') || args.includes('-r');
+  const isForce = args.includes('--force') || args.includes('-f');
+
+  // Add user entry
   const userEntry = {
     type: "user" as const,
-    content: "/init",
+    content: `/init${args ? ' ' + args : ''}`,
     timestamp: new Date(),
   };
 
   // Add initial analyzing message
   const analyzingEntry = {
     type: "assistant" as const,
-    content: "🔍 Analyzing project with deep analysis (Tier 3)...\n",
+    content: `🔍 Analyzing project (depth: ${depthLevel})...\n`,
     timestamp: new Date(),
   };
 
@@ -43,21 +62,45 @@ export function handleInit(_args: string, ctx: CommandContext): CommandResult {
     asyncAction: async () => {
       try {
         const projectRoot = process.cwd();
+        const axMdPath = path.join(projectRoot, FILE_NAMES.AX_MD);
 
-        // Get provider-specific config paths
-        const configDirName = ctx.configPaths.DIR_NAME;
-        const axCliDir = path.join(projectRoot, configDirName);
-        const customMdPath = path.join(axCliDir, FILE_NAMES.CUSTOM_MD);
-        const sharedIndexPath = path.join(projectRoot, FILE_NAMES.AX_INDEX_JSON);
-        const sharedSummaryPath = path.join(projectRoot, FILE_NAMES.AX_SUMMARY_JSON);
+        // Check if AX.md exists
+        const axMdExists = fs.existsSync(axMdPath);
+        if (axMdExists && !isRefresh && !isForce) {
+          ctx.setChatHistory((prev) => [
+            ...prev,
+            {
+              type: "assistant",
+              content: `ℹ️ AX.md already exists.\n\nUse \`/init --refresh\` to update or \`/init --force\` to regenerate.`,
+              timestamp: new Date(),
+            },
+          ]);
+          ctx.setIsProcessing(false);
+          return;
+        }
 
-        // Check if CUSTOM.md exists
-        const customMdExists = fs.existsSync(customMdPath);
-        const willSkipCustomMd = customMdExists;
+        // Check for legacy format and warn about deprecation
+        const { detectLegacyFormat } = await import("../init/migrator.js");
+        const legacyFormat = detectLegacyFormat(projectRoot);
+        if (legacyFormat.hasLegacyFiles) {
+          ctx.setChatHistory((prev) => [
+            ...prev,
+            {
+              type: "assistant",
+              content: `⚠️ **Deprecation Warning**: Legacy format detected\n\nFound: ${legacyFormat.files.join(', ')}\n\nThe 3-file format is deprecated. Run \`/init --migrate\` to convert to the new single-file format (AX.md).`,
+              timestamp: new Date(),
+            },
+          ]);
+        }
 
-        // Analyze project with deep analysis
+        // Parse existing rules
+        const { parseProjectRules, getRulesSummary } = await import("../../utils/rules-parser.js");
+        const rulesResult = parseProjectRules(projectRoot);
+
+        // Analyze project
         const { ProjectAnalyzer } = await import("../../utils/project-analyzer.js");
-        const analyzer = new ProjectAnalyzer(projectRoot);
+        const tier = depthLevel === 'basic' ? 1 : depthLevel === 'standard' ? 2 : depthLevel === 'full' ? 3 : 4;
+        const analyzer = new ProjectAnalyzer(projectRoot, { tier: tier as 1 | 2 | 3 | 4 });
         const result = await analyzer.analyze();
 
         if (!result.success || !result.projectInfo) {
@@ -75,65 +118,65 @@ export function handleInit(_args: string, ctx: CommandContext): CommandResult {
 
         const projectInfo = result.projectInfo;
 
-        // Generate LLM-optimized instructions
+        // Generate AX.md content
         const { LLMOptimizedInstructionGenerator } = await import(
           "../../utils/llm-optimized-instruction-generator.js"
         );
         const generator = new LLMOptimizedInstructionGenerator({
-          compressionLevel: "moderate",
-          hierarchyEnabled: true,
-          criticalRulesCount: 5,
-          includeDODONT: true,
-          includeTroubleshooting: true,
+          depth: depthLevel,
+          includeTroubleshooting: depthLevel !== 'basic',
+          includeCodePatterns: depthLevel === 'full' || depthLevel === 'security',
+          externalRules: rulesResult.allRules,
         });
 
-        const instructions = generator.generateInstructions(projectInfo);
-        const index = generator.generateIndex(projectInfo);
-        const summary = generator.generateSummary(projectInfo);
+        const axMdContent = generator.generateAxMd(projectInfo);
 
-        // Create provider-specific directory
-        if (!fs.existsSync(axCliDir)) {
-          fs.mkdirSync(axCliDir, { recursive: true });
+        // Write AX.md
+        fs.writeFileSync(axMdPath, axMdContent, "utf-8");
+
+        // Generate deep analysis for full/security depth
+        let analysisGenerated = false;
+        if (depthLevel === 'full' || depthLevel === 'security') {
+          const axDir = path.join(projectRoot, FILE_NAMES.UNIFIED_CONFIG_DIR);
+          if (!fs.existsSync(axDir)) {
+            fs.mkdirSync(axDir, { recursive: true });
+          }
+
+          const analysisPath = path.join(axDir, FILE_NAMES.ANALYSIS_JSON);
+          const analysisContent = generator.generateDeepAnalysis(projectInfo);
+          fs.writeFileSync(analysisPath, analysisContent, "utf-8");
+          analysisGenerated = true;
         }
 
-        // Write custom instructions (provider-specific) - only if doesn't exist
-        if (!willSkipCustomMd) {
-          fs.writeFileSync(customMdPath, instructions, "utf-8");
-        }
-
-        // Always write shared project index and summary at root
-        fs.writeFileSync(sharedIndexPath, index, "utf-8");
-        fs.writeFileSync(sharedSummaryPath, summary, "utf-8");
-
-        // Display success
-        const cliName = ctx.provider.branding.cliName;
-        let successMessage = willSkipCustomMd
-          ? `🔄 Project index rebuilt!\n\n`
-          : `🎉 Project initialized successfully!\n\n`;
+        // Build success message
+        const action = isRefresh ? 'refreshed' : 'generated';
+        let successMessage = `🎉 Project ${action} successfully!\n\n`;
 
         successMessage += `📋 Analysis Results:\n`;
         successMessage += `   Name: ${projectInfo.name}\n`;
         successMessage += `   Type: ${projectInfo.projectType}\n`;
         successMessage += `   Language: ${projectInfo.primaryLanguage}\n`;
+        successMessage += `   Depth: ${depthLevel}\n`;
 
         if (projectInfo.techStack.length > 0) {
-          successMessage += `   Stack: ${projectInfo.techStack.join(", ")}\n`;
+          successMessage += `   Stack: ${projectInfo.techStack.slice(0, 5).join(", ")}\n`;
         }
+
+        if (rulesResult.parsedFiles.length > 0) {
+          successMessage += `   Rules: ${getRulesSummary(rulesResult)}\n`;
+        }
+
         if (result.duration) {
           successMessage += `   Analysis time: ${result.duration}ms\n`;
         }
 
-        successMessage += `\n✅ Rebuilt project index: ${sharedIndexPath}\n`;
-        successMessage += `✅ Rebuilt prompt summary: ${sharedSummaryPath}\n`;
+        successMessage += `\n✅ Generated: ${FILE_NAMES.AX_MD}\n`;
 
-        if (willSkipCustomMd) {
-          successMessage += `⏭️  Skipped CUSTOM.md (already exists): ${customMdPath}\n`;
-          successMessage += `   Use '${cliName} init --force' from terminal to regenerate CUSTOM.md\n`;
-        } else {
-          successMessage += `✅ Generated custom instructions: ${customMdPath}\n`;
+        if (analysisGenerated) {
+          successMessage += `✅ Generated: ${FILE_NAMES.UNIFIED_CONFIG_DIR}/${FILE_NAMES.ANALYSIS_JSON} (deep analysis)\n`;
         }
 
-        successMessage += `\n💡 ax.summary.json is loaded into prompts, ax.index.json has full details`;
+        successMessage += `\n💡 Review AX.md and customize as needed. Commit to version control.`;
 
         ctx.setChatHistory((prev) => [
           ...prev,
@@ -165,7 +208,7 @@ export function handleInit(_args: string, ctx: CommandContext): CommandResult {
 export const initCommands: CommandDefinition[] = [
   {
     name: "init",
-    description: "Initialize project with smart analysis",
+    description: "Initialize project with AX.md (use --depth=basic|standard|full|security)",
     category: "project",
     handler: handleInit,
   },

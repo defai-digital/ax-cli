@@ -11,6 +11,25 @@
 // TIER 1: Basic Project Info
 // ═══════════════════════════════════════════════════════════════════════════
 
+/** Project complexity level for adaptive output */
+export type ComplexityLevel = 'small' | 'medium' | 'large' | 'enterprise';
+
+/** Project complexity scoring */
+export interface ComplexityScore {
+  /** Overall complexity level */
+  level: ComplexityLevel;
+  /** Numeric score (0-100) */
+  score: number;
+  /** Total source files */
+  fileCount: number;
+  /** Total lines of code */
+  linesOfCode: number;
+  /** Number of dependencies */
+  dependencyCount: number;
+  /** Recommended output verbosity (tokens) */
+  recommendedTokens: number;
+}
+
 export interface ProjectInfo {
   /** Schema version for future compatibility */
   schemaVersion: '2.0';
@@ -28,6 +47,8 @@ export interface ProjectInfo {
   projectType: string;
   /** Main entry point file */
   entryPoint?: string;
+  /** Project complexity score for adaptive output */
+  complexity?: ComplexityScore;
   /** Key directories */
   directories: {
     source?: string;

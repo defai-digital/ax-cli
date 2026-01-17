@@ -17,14 +17,14 @@ import {
   SearchTool,
 } from "../../tools/index.js";
 import { BashOutputTool } from "../../tools/bash-output.js";
-import { getAskUserTool, type Question } from "../../tools/ask-user.js";
-import { executeAxAgent, executeAxAgentsParallel, type AxAgentOptions, type AxAgentsParallelOptions } from "../../tools/ax-agent.js";
 import { extractErrorMessage } from "../../utils/error-handler.js";
+import { isString } from "../../utils/index.js";
 import type { ToolParseResult } from "../core/types.js";
 import { getHooksManager } from "../../hooks/index.js";
 import { getDefaultGuard } from "../../guard/index.js";
 import { getSettingsManager } from "../../utils/settings-manager.js";
 import type { GateContext } from "@defai.digital/ax-schemas";
+import { getToolHandler, type ToolHandlerContext } from "./tool-handlers.js";
 
 /**
  * Tool executor configuration
@@ -150,7 +150,7 @@ export class ToolExecutor {
           const pathArgs = ['path', 'file_path', 'filePath', 'file', 'filename', 'target'];
           for (const argName of pathArgs) {
             const value = args[argName];
-            if (typeof value === 'string') {
+            if (isString(value)) {
               return value;
             }
           }
@@ -165,9 +165,9 @@ export class ToolExecutor {
           // Extract file path if present (for file operations)
           filePath: extractFilePath(),
           // Extract command if present (for bash operations)
-          command: typeof args.command === 'string' ? args.command : undefined,
+          command: isString(args.command) ? args.command : undefined,
           // Extract content if present (for content operations)
-          content: typeof args.content === 'string' ? args.content : undefined,
+          content: isString(args.content) ? args.content : undefined,
         };
 
         // Check for tool-specific policy override from settings
@@ -258,180 +258,43 @@ export class ToolExecutor {
         }
       }
 
-      // Helper to safely get string argument with validation
-      const getString = (key: string, required = true): string => {
-        const value = args[key];
-        if (typeof value !== 'string') {
-          if (required) throw new Error(`Tool argument '${key}' must be a string, got ${typeof value}`);
-          return '';
-        }
-        return value;
-      };
+      // Use handler registry pattern instead of switch statement
+      const toolName = toolCall.function.name;
+      const handler = getToolHandler(toolName);
 
-      // Helper to safely get number argument
-      const getNumber = (key: string): number | undefined => {
-        const value = args[key];
-        if (value === undefined || value === null) return undefined;
-        if (typeof value !== 'number') return undefined;
-        return value;
-      };
-
-      // Helper to safely get boolean argument
-      const getBoolean = (key: string): boolean | undefined => {
-        const value = args[key];
-        if (value === undefined || value === null) return undefined;
-        if (typeof value !== 'boolean') return undefined;
-        return value;
-      };
-
-      switch (toolCall.function.name) {
-        case "view_file": {
-          const startLine = getNumber('start_line');
-          const endLine = getNumber('end_line');
-          const range: [number, number] | undefined =
-            startLine !== undefined && endLine !== undefined
-              ? [startLine, endLine]
-              : undefined;
-          return await this.textEditor.view(getString('path'), range);
-        }
-
-        case "create_file":
-          return await this.textEditor.create(getString('path'), getString('content'));
-
-        case "str_replace_editor":
-          return await this.textEditor.strReplace(
-            getString('path'),
-            getString('old_str'),
-            getString('new_str'),
-            getBoolean('replace_all') ?? false
-          );
-
-        case "multi_edit":
-          return await this.textEditor.multiEdit(
-            getString('path'),
-            Array.isArray(args.edits) ? args.edits : []
-          );
-
-        case "bash":
-          // BUG FIX: Pass abort signal with killOnAbort=true so ESC properly cancels
-          return await this.bash.execute(getString('command'), {
-            background: getBoolean('background'),
-            timeout: getNumber('timeout'),
-            signal: this.abortSignal,
-            killOnAbort: true, // Kill process on ESC, don't move to background
-          });
-
-        case "bash_output":
-          return await this.bashOutput.execute(
-            getString('task_id'),
-            getBoolean('wait'),
-            getNumber('timeout')
-          );
-
-        case "create_todo_list":
-          return await this.todoTool.createTodoList(Array.isArray(args.todos) ? args.todos : []);
-
-        case "update_todo_list":
-          return await this.todoTool.updateTodoList(Array.isArray(args.updates) ? args.updates : []);
-
-        case "search": {
-          const searchTypeValue = args.search_type;
-          const validSearchType = (searchTypeValue === 'text' || searchTypeValue === 'files' || searchTypeValue === 'both') ? searchTypeValue : undefined;
-          // BUG FIX: Validate that file_types array contains only strings
-          const fileTypes = Array.isArray(args.file_types)
-            ? args.file_types.filter((ft): ft is string => typeof ft === 'string')
-            : undefined;
-          return await this.search.search(getString('query'), {
-            searchType: validSearchType,
-            includePattern: typeof args.include_pattern === 'string' ? args.include_pattern : undefined,
-            excludePattern: typeof args.exclude_pattern === 'string' ? args.exclude_pattern : undefined,
-            caseSensitive: getBoolean('case_sensitive'),
-            wholeWord: getBoolean('whole_word'),
-            regex: getBoolean('regex'),
-            maxResults: getNumber('max_results'),
-            fileTypes: fileTypes && fileTypes.length > 0 ? fileTypes : undefined,
-            includeHidden: getBoolean('include_hidden'),
-          });
-        }
-
-        case "ask_user": {
-          const validQuestions = this.validateAskUserQuestions(args.questions);
-          if (!validQuestions) {
-            return {
-              success: false,
-              error: "ask_user requires a 'questions' array with valid questions (each needs question string, 2+ options with labels)",
-            };
-          }
-
-          const askUserTool = getAskUserTool();
-          return await askUserTool.execute(validQuestions);
-        }
-
-        // =====================================================================
-        // AutomatosX Agent Invocation
-        // =====================================================================
-        case "ax_agent": {
-          const agent = getString('agent');
-          const task = getString('task');
-          const formatValue = args.format;
-          const validFormat = (formatValue === 'text' || formatValue === 'markdown') ? formatValue : 'markdown';
-          const save = typeof args.save === 'string' ? args.save : undefined;
-
-          const options: AxAgentOptions = {
-            agent,
-            task,
-            format: validFormat,
-            save,
-          };
-
-          // Notify that agent is starting
-          this.onAxAgentStart?.(agent);
-
-          try {
-            const result = await executeAxAgent(options);
-            return result;
-          } finally {
-            // Always notify agent has ended, even on error
-            this.onAxAgentEnd?.(agent);
-          }
-        }
-
-        case "ax_agents_parallel": {
-          const validation = this.validateAgentsArray(args.agents);
-          if ('error' in validation) {
-            return { success: false, error: validation.error };
-          }
-
-          const { agents } = validation;
-          const agentNames = agents.map(a => a.agent).join(', ');
-
-          this.onAxAgentStart?.(`parallel: ${agentNames}`);
-          try {
-            return await executeAxAgentsParallel({ agents });
-          } finally {
-            this.onAxAgentEnd?.(`parallel: ${agentNames}`);
-          }
-        }
-
-        default:
-          // Check if this is an MCP tool
-          if (toolCall.function.name.startsWith("mcp__")) {
-            const mcpResult = await this.executeMCPTool(toolCall);
-            // Execute PostToolUse hooks (fire-and-forget)
-            hooksManager.executePostToolHooks(
-              toolCall.function.name,
-              args as Record<string, unknown>,
-              toolCall.id,
-              mcpResult
-            );
-            return mcpResult;
-          }
-
-          return {
-            success: false,
-            error: `Unknown tool: ${toolCall.function.name}`,
-          };
+      if (handler) {
+        // Create context for the handler
+        const ctx: ToolHandlerContext = {
+          args,
+          textEditor: this.textEditor,
+          bash: this.bash,
+          bashOutput: this.bashOutput,
+          todoTool: this.todoTool,
+          search: this.search,
+          abortSignal: this.abortSignal,
+          onAxAgentStart: this.onAxAgentStart,
+          onAxAgentEnd: this.onAxAgentEnd,
+        };
+        return await handler(ctx);
       }
+
+      // Check if this is an MCP tool
+      if (toolName.startsWith("mcp__")) {
+        const mcpResult = await this.executeMCPTool(toolCall);
+        // Execute PostToolUse hooks (fire-and-forget)
+        hooksManager.executePostToolHooks(
+          toolName,
+          args as Record<string, unknown>,
+          toolCall.id,
+          mcpResult
+        );
+        return mcpResult;
+      }
+
+      return {
+        success: false,
+        error: `Unknown tool: ${toolName}`,
+      };
     } catch (error: unknown) {
       const errorMsg = extractErrorMessage(error);
       return {
@@ -439,79 +302,6 @@ export class ToolExecutor {
         error: `Tool execution error: ${errorMsg}`,
       };
     }
-  }
-
-  /**
-   * Validate and transform ask_user questions array
-   * @returns Valid questions array or null if validation fails
-   */
-  private validateAskUserQuestions(questions: unknown): Question[] | null {
-    if (!Array.isArray(questions)) return null;
-
-    const validQuestions: Question[] = [];
-
-    for (const q of questions) {
-      if (typeof q !== 'object' || q === null) continue;
-
-      const qObj = q as Record<string, unknown>;
-      if (typeof qObj.question !== 'string' || !Array.isArray(qObj.options)) continue;
-
-      const validOptions = (qObj.options as unknown[])
-        .filter((opt): opt is { label: string; description?: string } =>
-          typeof opt === 'object' && opt !== null && typeof (opt as Record<string, unknown>).label === 'string'
-        )
-        .map(opt => ({
-          label: opt.label,
-          description: typeof opt.description === 'string' ? opt.description : undefined,
-        }));
-
-      // Skip questions with fewer than 2 valid options
-      if (validOptions.length < 2) continue;
-
-      validQuestions.push({
-        question: qObj.question,
-        header: typeof qObj.header === 'string' ? qObj.header : undefined,
-        options: validOptions,
-        multiSelect: typeof qObj.multiSelect === 'boolean' ? qObj.multiSelect : false,
-      });
-    }
-
-    return validQuestions.length > 0 ? validQuestions : null;
-  }
-
-  /**
-   * Validate and transform ax_agents_parallel agents array
-   * @returns Validated agents array or error message
-   */
-  private validateAgentsArray(agentsArg: unknown): { agents: AxAgentsParallelOptions['agents'] } | { error: string } {
-    if (!Array.isArray(agentsArg) || agentsArg.length === 0) {
-      return { error: "agents parameter must be a non-empty array of {agent, task} objects" };
-    }
-
-    const agents: AxAgentsParallelOptions['agents'] = [];
-
-    for (const item of agentsArg) {
-      if (typeof item !== 'object' || item === null) {
-        return { error: "Each agent entry must be an object with agent and task properties" };
-      }
-
-      const agentItem = item as Record<string, unknown>;
-      if (typeof agentItem.agent !== 'string' || typeof agentItem.task !== 'string') {
-        return { error: "Each agent entry must have string 'agent' and 'task' properties" };
-      }
-
-      const formatValue = agentItem.format;
-      const validFormat = (formatValue === 'text' || formatValue === 'markdown') ? formatValue : undefined;
-
-      agents.push({
-        agent: agentItem.agent,
-        task: agentItem.task,
-        format: validFormat,
-        save: typeof agentItem.save === 'string' ? agentItem.save : undefined,
-      });
-    }
-
-    return { agents };
   }
 
   /**

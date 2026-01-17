@@ -128,6 +128,12 @@ export * from './terminal-state.js';
 export * from './input-validator.js';
 
 // ============================================================================
+// Type Guards & Tool Arguments
+// ============================================================================
+export * from './type-guards.js';
+export * from './tool-args.js';
+
+// ============================================================================
 // Project Index Management
 // ============================================================================
 export * from './project-index-manager.js';

@@ -309,11 +309,12 @@ export class AuditLogger {
 
     try {
       writeFileSync(this.currentLogFile, logLine, { flag: 'a' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Check for permission errors (EPERM, EACCES, EROFS)
-      const isPermissionError = error?.code === 'EPERM' ||
-                                 error?.code === 'EACCES' ||
-                                 error?.code === 'EROFS';
+      const errorCode = error instanceof Error && 'code' in error ? (error as NodeJS.ErrnoException).code : undefined;
+      const isPermissionError = errorCode === 'EPERM' ||
+                                 errorCode === 'EACCES' ||
+                                 errorCode === 'EROFS';
 
       if (isPermissionError) {
         // Silently skip logging on permission errors to prevent crashes
