@@ -8,6 +8,7 @@ import { CheckpointManager } from './checkpoint-manager.js';
 import { AutoErrorRecovery } from './auto-error-recovery.js';
 import { SessionManager } from './session-manager.js';
 import { HooksManager } from './hooks-manager.js';
+import { CONFIG_NAMESPACE, DEFAULT_MODEL } from './constants.js';
 
 let cliBridge: CLIBridgeSDK | undefined;
 let chatProvider: ChatViewProvider | undefined;
@@ -797,7 +798,7 @@ function registerCommands(context: vscode.ExtensionContext) {
       });
 
       if (selected && selected.model) {
-        const config = vscode.workspace.getConfiguration('ax-cli');
+        const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
         await config.update('model', selected.model, vscode.ConfigurationTarget.Global);
         vscode.window.showInformationMessage(`Model changed to: ${selected.label}`);
         statusBar?.updateModel(selected.model);
@@ -808,15 +809,15 @@ function registerCommands(context: vscode.ExtensionContext) {
   // Configure settings
   context.subscriptions.push(
     vscode.commands.registerCommand('ax-cli.configure', () => {
-      vscode.commands.executeCommand('workbench.action.openSettings', 'ax-cli');
+      vscode.commands.executeCommand('workbench.action.openSettings', CONFIG_NAMESPACE);
     })
   );
 
   // Set API Key - show help on how to configure via environment variables
   context.subscriptions.push(
     vscode.commands.registerCommand('ax-cli.setApiKey', async () => {
-      const config = vscode.workspace.getConfiguration('ax-cli');
-      const model = config.get<string>('model', 'grok-4-0709');
+      const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
+      const model = config.get<string>('model', DEFAULT_MODEL);
 
       // Determine which env var to use based on model
       let envVar = 'XAI_API_KEY';
@@ -1101,11 +1102,20 @@ interface InlineDiff {
   rejectedHunks: Set<string>;
   editor?: vscode.TextEditor;
   resolveCallback?: (accepted: boolean) => void;
+  timestamp: number;  // Track creation time for cleanup
 }
 
 class InlineDiffDecorator implements vscode.Disposable {
   private diffs: Map<string, InlineDiff> = new Map();
   private disposables: vscode.Disposable[] = [];
+  private cleanupIntervalId: ReturnType<typeof setInterval> | null = null;
+
+  // Maximum age for inline diffs (15 minutes) - user likely forgot about them
+  private static readonly MAX_AGE_MS = 15 * 60 * 1000;
+  // Maximum number of concurrent diffs to prevent memory bloat
+  private static readonly MAX_DIFFS = 20;
+  // Cleanup interval (every 3 minutes)
+  private static readonly CLEANUP_INTERVAL_MS = 3 * 60 * 1000;
 
   // Decoration types for added/removed/modified lines
   private addedDecoration: vscode.TextEditorDecorationType;
@@ -1187,6 +1197,61 @@ class InlineDiffDecorator implements vscode.Disposable {
         provideTextDocumentContent: (uri) => this.provideInlineDiffContent(uri)
       })
     );
+
+    // Start periodic cleanup to remove stale diffs
+    // Use .unref() to prevent timer from blocking process exit
+    this.cleanupIntervalId = setInterval(() => this.cleanupStaleDiffs(), InlineDiffDecorator.CLEANUP_INTERVAL_MS);
+    this.cleanupIntervalId.unref();
+  }
+
+  /**
+   * Remove diffs older than MAX_AGE_MS that were never resolved
+   */
+  private cleanupStaleDiffs(): void {
+    const now = Date.now();
+    const staleIds: string[] = [];
+
+    for (const [id, diff] of this.diffs) {
+      if (now - diff.timestamp > InlineDiffDecorator.MAX_AGE_MS) {
+        staleIds.push(id);
+      }
+    }
+
+    for (const id of staleIds) {
+      const diff = this.diffs.get(id);
+      if (diff) {
+        // Reject stale diffs and notify via callback
+        console.log(`[AX InlineDiff] Cleaning up stale diff: ${id}`);
+        this.clearDiff(id);
+        diff.resolveCallback?.(false);
+      }
+    }
+
+    if (staleIds.length > 0) {
+      console.log(`[AX InlineDiff] Cleaned up ${staleIds.length} stale diff(s)`);
+    }
+  }
+
+  /**
+   * Remove oldest diff to make room for new ones
+   */
+  private removeOldestDiff(): void {
+    let oldestId: string | null = null;
+    let oldestTimestamp = Infinity;
+
+    for (const [id, diff] of this.diffs) {
+      if (diff.timestamp < oldestTimestamp) {
+        oldestTimestamp = diff.timestamp;
+        oldestId = id;
+      }
+    }
+
+    if (oldestId) {
+      const diff = this.diffs.get(oldestId);
+      console.log(`[AX InlineDiff] Removing oldest diff to make room: ${oldestId}`);
+      this.clearDiff(oldestId);
+      diff?.resolveCallback?.(false);
+    }
   }
 
   /**
@@ -1378,6 +1443,11 @@ class InlineDiffDecorator implements vscode.Disposable {
    * Show an inline diff in the editor with multi-hunk support
    */
   async showInlineDiff(payload: DiffPayload): Promise<boolean> {
+    // Enforce max diffs limit by removing oldest if needed
+    if (this.diffs.size >= InlineDiffDecorator.MAX_DIFFS) {
+      this.removeOldestDiff();
+    }
+
     const hunks = this.parseHunks(payload.oldContent, payload.newContent);
 
     return new Promise((resolve) => {
@@ -1389,7 +1459,8 @@ class InlineDiffDecorator implements vscode.Disposable {
         hunks,
         acceptedHunks: new Set(),
         rejectedHunks: new Set(),
-        resolveCallback: resolve
+        resolveCallback: resolve,
+        timestamp: Date.now()  // Track creation time for cleanup
       };
 
       this.diffs.set(payload.id, diff);
@@ -1713,6 +1784,12 @@ class InlineDiffDecorator implements vscode.Disposable {
    * Dispose resources
    */
   dispose(): void {
+    // Stop cleanup timer
+    if (this.cleanupIntervalId) {
+      clearInterval(this.cleanupIntervalId);
+      this.cleanupIntervalId = null;
+    }
+
     this.addedDecoration.dispose();
     this.removedDecoration.dispose();
     this.modifiedDecoration.dispose();

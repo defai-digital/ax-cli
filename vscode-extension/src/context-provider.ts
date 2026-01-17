@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import { AX_CLI_DIR } from './utils.js';
+import { GIT_COMMAND_TIMEOUT_MS, CONFIG_NAMESPACE } from './constants.js';
 
 /**
  * Image attachment with optional base64 data
@@ -34,7 +36,7 @@ export interface EditorContext {
 
 export class ContextProvider {
   async getCurrentFileContext(editor: vscode.TextEditor): Promise<EditorContext> {
-    const config = vscode.workspace.getConfiguration('ax-cli');
+    const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
     const autoIncludeFile = config.get<boolean>('autoIncludeFile', true);
     const autoIncludeDiagnostics = config.get<boolean>('autoIncludeDiagnostics', true);
 
@@ -71,7 +73,7 @@ export class ContextProvider {
     }
 
     // Include diagnostics for selected range
-    const config = vscode.workspace.getConfiguration('ax-cli');
+    const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
     if (config.get<boolean>('autoIncludeDiagnostics', true)) {
       try {
         const allDiagnostics = vscode.languages.getDiagnostics(editor.document.uri);
@@ -110,18 +112,32 @@ export class ContextProvider {
         const result = await new Promise<string>((resolve, reject) => {
           const child = spawn('git', ['diff', '--stat'], {
             cwd: workspaceFolder.uri.fsPath,
-            stdio: ['ignore', 'pipe', 'pipe'],
-            timeout: 10000  // 10 second timeout
+            stdio: ['ignore', 'pipe', 'pipe']
+            // Note: spawn doesn't support 'timeout' option - we implement manual timeout below
           });
 
           let stdout = '';
           let stderr = '';
+          let killed = false;
+
+          // Manual timeout implementation since spawn doesn't support timeout option
+          const timeoutId = setTimeout(() => {
+            killed = true;
+            child.kill('SIGTERM');
+            reject(new Error(`git command timed out after ${GIT_COMMAND_TIMEOUT_MS}ms`));
+          }, GIT_COMMAND_TIMEOUT_MS);
 
           child.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
           child.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); });
 
-          child.on('error', reject);
+          child.on('error', (err) => {
+            clearTimeout(timeoutId);
+            reject(err);
+          });
+
           child.on('close', (code) => {
+            clearTimeout(timeoutId);
+            if (killed) return; // Already rejected by timeout
             if (code === 0) {
               resolve(stdout);
             } else {
@@ -133,7 +149,7 @@ export class ContextProvider {
         // Only set gitDiff to true if there are actual changes
         context.gitDiff = result.trim().length > 0;
       } catch {
-        // Git command failed (not a git repo, git not installed, etc.)
+        // Git command failed (not a git repo, git not installed, timeout, etc.)
         context.gitDiff = false;
       }
     } else {
@@ -172,7 +188,7 @@ export class ContextProvider {
 
     try {
       // Check for .ax-cli/index.json (from ax-cli init)
-      const indexUri = vscode.Uri.joinPath(workspaceFolders[0].uri, '.ax-cli', 'index.json');
+      const indexUri = vscode.Uri.joinPath(workspaceFolders[0].uri, AX_CLI_DIR, 'index.json');
       const indexContent = await vscode.workspace.fs.readFile(indexUri);
       const projectInfo = JSON.parse(indexContent.toString());
 
@@ -182,7 +198,7 @@ export class ContextProvider {
         customInstructions: projectInfo.customInstructions,
       };
     } catch {
-      // .ax-cli/index.json doesn't exist
+      // index.json doesn't exist in project config directory
       return {};
     }
   }

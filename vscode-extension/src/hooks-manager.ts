@@ -11,6 +11,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { generateId, escapeShellArg, AX_CLI_DIR } from './utils.js';
+import { HOOK_TIMEOUT_MS } from './constants.js';
 
 const execAsync = promisify(exec);
 
@@ -56,8 +58,7 @@ export interface HookContext {
   error?: string;
 }
 
-const DEFAULT_TIMEOUT = 30000; // 30 seconds
-const HOOKS_CONFIG_FILE = '.ax-cli/hooks.json';
+const HOOKS_CONFIG_FILE = `${AX_CLI_DIR}/hooks.json`;
 
 /**
  * Dangerous command patterns that could cause system damage
@@ -90,15 +91,19 @@ export class HooksManager implements vscode.Disposable {
   constructor() {
     this.workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     this.outputChannel = vscode.window.createOutputChannel('AX CLI Hooks');
-    this.loadHooks();
+
+    // Load hooks asynchronously to avoid blocking extension activation
+    this.loadHooksAsync().catch(err => {
+      console.error('[AX Hooks] Failed to load hooks:', err);
+    });
 
     // Watch for hooks config changes
     if (this.workspaceRoot) {
       const configPath = path.join(this.workspaceRoot, HOOKS_CONFIG_FILE);
       const watcher = vscode.workspace.createFileSystemWatcher(configPath);
 
-      watcher.onDidChange(() => this.loadHooks());
-      watcher.onDidCreate(() => this.loadHooks());
+      watcher.onDidChange(() => this.loadHooksAsync().catch(err => console.error('[AX Hooks] Failed to reload hooks:', err)));
+      watcher.onDidCreate(() => this.loadHooksAsync().catch(err => console.error('[AX Hooks] Failed to reload hooks:', err)));
       watcher.onDidDelete(() => this.hooks.clear());
 
       this.disposables.push(watcher);
@@ -119,64 +124,66 @@ export class HooksManager implements vscode.Disposable {
   }
 
   /**
-   * Load hooks from workspace config
+   * Load hooks from workspace config asynchronously
+   * Uses async file operations to avoid blocking the extension host
    */
-  private loadHooks(): void {
+  private async loadHooksAsync(): Promise<void> {
     if (!this.workspaceRoot) return;
 
     const configPath = path.join(this.workspaceRoot, HOOKS_CONFIG_FILE);
 
     try {
-      if (fs.existsSync(configPath)) {
-        const data = fs.readFileSync(configPath, 'utf-8');
-        const config = JSON.parse(data);
+      // Check if config file exists
+      try {
+        await fs.promises.access(configPath);
+      } catch {
+        // Config file doesn't exist yet - nothing to load
+        return;
+      }
 
-        this.hooks.clear();
-        const blockedHooks: string[] = [];
+      const data = await fs.promises.readFile(configPath, 'utf-8');
+      const config = JSON.parse(data);
 
-        if (Array.isArray(config.hooks)) {
-          for (const hook of config.hooks) {
-            if (hook.id && hook.event && hook.command) {
-              // Security: Validate command for dangerous patterns
-              const dangerousPattern = this.validateHookCommand(hook.command);
-              if (dangerousPattern) {
-                console.warn(`[AX Hooks] BLOCKED dangerous hook "${hook.name || hook.id}": matches pattern ${dangerousPattern}`);
-                blockedHooks.push(hook.name || hook.id);
-                continue;
-              }
+      this.hooks.clear();
+      const blockedHooks: string[] = [];
 
-              this.hooks.set(hook.id, {
-                id: hook.id,
-                name: hook.name || hook.id,
-                event: hook.event,
-                command: hook.command,
-                enabled: hook.enabled !== false,
-                workingDir: hook.workingDir,
-                timeout: hook.timeout || DEFAULT_TIMEOUT,
-                continueOnError: hook.continueOnError ?? true
-              });
+      if (Array.isArray(config.hooks)) {
+        for (const hook of config.hooks) {
+          if (hook.id && hook.event && hook.command) {
+            // Security: Validate command for dangerous patterns
+            const dangerousPattern = this.validateHookCommand(hook.command);
+            if (dangerousPattern) {
+              console.warn(`[AX Hooks] BLOCKED dangerous hook "${hook.name || hook.id}": matches pattern ${dangerousPattern}`);
+              blockedHooks.push(hook.name || hook.id);
+              continue;
             }
+
+            this.hooks.set(hook.id, {
+              id: hook.id,
+              name: hook.name || hook.id,
+              event: hook.event,
+              command: hook.command,
+              enabled: hook.enabled !== false,
+              workingDir: hook.workingDir,
+              timeout: hook.timeout || HOOK_TIMEOUT_MS,
+              continueOnError: hook.continueOnError ?? true
+            });
           }
         }
+      }
 
-        console.log(`[AX Hooks] Loaded ${this.hooks.size} hooks`);
+      console.log(`[AX Hooks] Loaded ${this.hooks.size} hooks`);
 
-        // Warn user about blocked hooks
-        if (blockedHooks.length > 0) {
-          Promise.resolve(
-            vscode.window.showWarningMessage(
-              `AX CLI blocked ${blockedHooks.length} potentially dangerous hook(s): ${blockedHooks.join(', ')}. ` +
-              `Review your .ax-cli/hooks.json file for security.`,
-              'Open Hooks File'
-            )
-          ).then(selection => {
-            if (selection === 'Open Hooks File') {
-              const configUri = vscode.Uri.file(configPath);
-              vscode.window.showTextDocument(configUri);
-            }
-          }).catch((err: unknown) => {
-            console.warn('[AX Hooks] Failed to show warning or open file:', err);
-          });
+      // Warn user about blocked hooks
+      if (blockedHooks.length > 0) {
+        const selection = await vscode.window.showWarningMessage(
+          `AX CLI blocked ${blockedHooks.length} potentially dangerous hook(s): ${blockedHooks.join(', ')}. ` +
+          `Review your .ax-cli/hooks.json file for security.`,
+          'Open Hooks File'
+        );
+        if (selection === 'Open Hooks File') {
+          const configUri = vscode.Uri.file(configPath);
+          await vscode.window.showTextDocument(configUri);
         }
       }
     } catch (error) {
@@ -236,15 +243,6 @@ export class HooksManager implements vscode.Disposable {
   }
 
   /**
-   * Escape a string for safe use in shell commands
-   * Wraps the value in single quotes and escapes any single quotes within
-   */
-  private escapeShellArg(arg: string): string {
-    // Replace single quotes with escaped version and wrap in single quotes
-    return `'${arg.replace(/'/g, "'\\''")}'`;
-  }
-
-  /**
    * Execute a single hook
    */
   private async executeHook(hook: Hook, context: HookContext): Promise<HookResult> {
@@ -255,19 +253,28 @@ export class HooksManager implements vscode.Disposable {
     try {
       // Replace placeholders in command with escaped values to prevent command injection
       let command = hook.command;
-      command = command.replace(/\$\{file\}/g, context.file ? this.escapeShellArg(context.file) : '');
-      command = command.replace(/\$\{files\}/g, (context.files || []).map(f => this.escapeShellArg(f)).join(' '));
-      command = command.replace(/\$\{message\}/g, context.message ? this.escapeShellArg(context.message) : '');
-      command = command.replace(/\$\{taskId\}/g, context.taskId ? this.escapeShellArg(context.taskId) : '');
-      command = command.replace(/\$\{error\}/g, context.error ? this.escapeShellArg(context.error) : '');
+      command = command.replace(/\$\{file\}/g, context.file ? escapeShellArg(context.file) : '');
+      command = command.replace(/\$\{files\}/g, (context.files || []).map(f => escapeShellArg(f)).join(' '));
+      command = command.replace(/\$\{message\}/g, context.message ? escapeShellArg(context.message) : '');
+      command = command.replace(/\$\{taskId\}/g, context.taskId ? escapeShellArg(context.taskId) : '');
+      command = command.replace(/\$\{error\}/g, context.error ? escapeShellArg(context.error) : '');
 
-      const workingDir = hook.workingDir
-        ? path.resolve(this.workspaceRoot || '', hook.workingDir)
-        : this.workspaceRoot;
+      // Resolve working directory with path traversal protection
+      let workingDir = this.workspaceRoot;
+      if (hook.workingDir) {
+        const resolvedDir = path.resolve(this.workspaceRoot || '', hook.workingDir);
+        // SECURITY: Ensure workingDir stays within workspace to prevent path traversal attacks
+        // e.g., workingDir: "../../etc" would resolve outside workspace
+        if (this.workspaceRoot && !resolvedDir.startsWith(this.workspaceRoot + path.sep) && resolvedDir !== this.workspaceRoot) {
+          console.warn(`[AX Hooks] Blocked path traversal attempt: ${hook.workingDir} -> ${resolvedDir}`);
+          throw new Error(`Hook workingDir must be within workspace: ${hook.workingDir}`);
+        }
+        workingDir = resolvedDir;
+      }
 
       const { stdout, stderr } = await execAsync(command, {
         cwd: workingDir,
-        timeout: hook.timeout || DEFAULT_TIMEOUT,
+        timeout: hook.timeout || HOOK_TIMEOUT_MS,
         env: {
           ...process.env,
           AX_HOOK_EVENT: context.event,
@@ -310,12 +317,12 @@ export class HooksManager implements vscode.Disposable {
    * Add a new hook
    */
   addHook(hook: Omit<Hook, 'id'>): Hook {
-    const id = `hook-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const id = generateId('hook');
     const newHook: Hook = {
       ...hook,
       id,
       enabled: hook.enabled !== false,
-      timeout: hook.timeout || DEFAULT_TIMEOUT,
+      timeout: hook.timeout || HOOK_TIMEOUT_MS,
       continueOnError: hook.continueOnError ?? true
     };
 
@@ -334,6 +341,7 @@ export class HooksManager implements vscode.Disposable {
     if (!hook) return false;
 
     // Whitelist of allowed properties to update - prevents injection of unexpected properties
+    // Note: 'id' is intentionally excluded to prevent changing the hook's identity
     const allowedKeys: (keyof Hook)[] = ['name', 'event', 'command', 'enabled', 'workingDir', 'timeout', 'continueOnError'];
 
     // Create a sanitized updates object with only valid properties
@@ -345,10 +353,7 @@ export class HooksManager implements vscode.Disposable {
       }
     }
 
-    // Preserve the id - never allow it to be changed
-    sanitizedUpdates.id = undefined;
-
-    // Apply sanitized updates
+    // Apply sanitized updates (id is never included since it's not in allowedKeys)
     Object.assign(hook, sanitizedUpdates);
     this.saveHooks();
 
@@ -623,7 +628,7 @@ export class HooksManager implements vscode.Disposable {
     }
 
     fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
-    this.loadHooks();
+    await this.loadHooksAsync();
 
     vscode.window.showInformationMessage('Default hooks config created');
 

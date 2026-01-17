@@ -1,5 +1,10 @@
 import { spawn, ChildProcess, execFileSync } from 'child_process';
 import * as vscode from 'vscode';
+import type { CLIRequest, CLIResponse, CLIError } from './types.js';
+import { CLI_REQUEST_TIMEOUT_MS, CONFIG_NAMESPACE } from './constants.js';
+
+// Re-export types for consumers of this module
+export type { CLIRequest, CLIResponse, CLIError };
 
 /**
  * Check if a command exists in PATH (cross-platform).
@@ -13,36 +18,6 @@ function findOnPathSync(command: string): string | null {
   } catch {
     return null;
   }
-}
-
-export interface CLIRequest {
-  id: string;
-  prompt: string;
-  context?: {
-    file?: string;
-    selection?: string;
-    lineRange?: string;
-    gitDiff?: boolean;
-  };
-}
-
-export interface CLIResponse {
-  id: string;
-  messages: Array<{
-    role: string;
-    content: string;
-  }>;
-  model: string;
-  timestamp: string;
-}
-
-export interface CLIError {
-  id: string;
-  error: {
-    message: string;
-    type: string;
-  };
-  timestamp: string;
 }
 
 export class CLIBridge {
@@ -74,7 +49,7 @@ export class CLIBridge {
       this.requestCallbacks.set(request.id, resolve);
 
       // Build command
-      const config = vscode.workspace.getConfiguration('ax-cli');
+      const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
       const args = [
         '--prompt', request.prompt,
         '--json',
@@ -118,9 +93,14 @@ export class CLIBridge {
         }
       }
 
-      // Spawn process
+      // Spawn process with fallback cwd to prevent undefined
+      // Priority: workspace folder > home directory > process cwd
+      const workspaceCwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      const homeCwd = require('os').homedir();
+      const cwd = workspaceCwd || homeCwd || process.cwd();
+
       const cliProcess = spawn('ax-cli', args, {
-        cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+        cwd,
       });
 
       // Track the process so dispose() can kill it
@@ -128,7 +108,7 @@ export class CLIBridge {
 
       let stdout = '';
       let stderr = '';
-      let timeoutHandle: NodeJS.Timeout | null = null;
+      let timeoutId: NodeJS.Timeout | null = null;
 
       cliProcess.stdout?.on('data', (data: Buffer) => {
         stdout += data.toString();
@@ -140,9 +120,9 @@ export class CLIBridge {
 
       cliProcess.on('close', (code) => {
         // Clear timeout to prevent memory leak
-        if (timeoutHandle) {
-          clearTimeout(timeoutHandle);
-          timeoutHandle = null;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
         }
 
         // Clean up process tracking
@@ -187,9 +167,9 @@ export class CLIBridge {
 
       cliProcess.on('error', (error) => {
         // Clear timeout to prevent memory leak
-        if (timeoutHandle) {
-          clearTimeout(timeoutHandle);
-          timeoutHandle = null;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
         }
 
         // Clean up process tracking on error
@@ -207,15 +187,15 @@ export class CLIBridge {
         this.requestCallbacks.delete(request.id);
       });
 
-      // Timeout after 5 minutes
-      timeoutHandle = setTimeout(() => {
+      // Timeout after configured duration
+      timeoutId = setTimeout(() => {
         if (this.requestCallbacks.has(request.id)) {
           cliProcess.kill();
           this.activeProcesses.delete(request.id);
           const errorResponse: CLIError = {
             id: request.id,
             error: {
-              message: 'Request timeout after 5 minutes',
+              message: 'Request timeout',
               type: 'TimeoutError',
             },
             timestamp: new Date().toISOString(),
@@ -223,7 +203,7 @@ export class CLIBridge {
           resolve(errorResponse);
           this.requestCallbacks.delete(request.id);
         }
-      }, 5 * 60 * 1000);
+      }, CLI_REQUEST_TIMEOUT_MS);
     });
   }
 

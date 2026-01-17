@@ -6,6 +6,7 @@
  */
 
 import * as vscode from 'vscode';
+import { ERROR_RECOVERY_DELAY_MS } from './constants.js';
 
 export interface RecoveryResult {
   success: boolean;
@@ -22,7 +23,6 @@ export interface RecoveryOptions {
 }
 
 const DEFAULT_MAX_ATTEMPTS = 3;
-const DEFAULT_DELAY_MS = 1000;
 
 export class AutoErrorRecovery implements vscode.Disposable {
   private disposables: vscode.Disposable[] = [];
@@ -70,7 +70,7 @@ export class AutoErrorRecovery implements vscode.Disposable {
    */
   async attemptAutoFix(options: RecoveryOptions = {}): Promise<RecoveryResult> {
     const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
-    const delay = options.delayBetweenAttempts ?? DEFAULT_DELAY_MS;
+    const delay = options.delayBetweenAttempts ?? ERROR_RECOVERY_DELAY_MS;
 
     const result: RecoveryResult = {
       success: false,

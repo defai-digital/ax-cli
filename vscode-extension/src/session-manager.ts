@@ -8,7 +8,8 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
+import { generateId, getAppConfigDir } from './utils.js';
+import { MAX_SESSIONS } from './constants.js';
 
 export interface ChatMessage {
   id: string;
@@ -29,8 +30,7 @@ export interface ChatSession {
   isActive: boolean;
 }
 
-const SESSIONS_DIR = path.join(os.homedir(), '.ax-cli', 'sessions');
-const MAX_SESSIONS = 20;
+const SESSIONS_DIR = path.join(getAppConfigDir(), 'sessions');
 
 export class SessionManager implements vscode.Disposable {
   private sessions: Map<string, ChatSession> = new Map();
@@ -41,7 +41,10 @@ export class SessionManager implements vscode.Disposable {
 
   constructor() {
     this.ensureSessionsDir();
-    this.loadSessions();
+    // Load sessions asynchronously to avoid blocking extension activation
+    this.loadSessionsAsync().catch(err => {
+      console.error('[AX Sessions] Failed to load sessions:', err);
+    });
   }
 
   /**
@@ -58,38 +61,58 @@ export class SessionManager implements vscode.Disposable {
   }
 
   /**
-   * Load existing sessions from disk
+   * Load existing sessions from disk asynchronously
+   * Uses parallel file reads with Promise.all for better startup performance
    */
-  private loadSessions(): void {
+  private async loadSessionsAsync(): Promise<void> {
     try {
-      const files = fs.readdirSync(SESSIONS_DIR);
+      const files = await fs.promises.readdir(SESSIONS_DIR);
+      const jsonFiles = files.filter(f => f.endsWith('.json'));
 
-      for (const file of files) {
-        if (!file.endsWith('.json')) continue;
-
+      // Read all session files in parallel
+      const sessionPromises = jsonFiles.map(async (file): Promise<ChatSession | null> => {
         try {
           const filePath = path.join(SESSIONS_DIR, file);
-          const data = fs.readFileSync(filePath, 'utf-8');
+          const data = await fs.promises.readFile(filePath, 'utf-8');
           const session: ChatSession = JSON.parse(data);
 
           // Validate required session fields
           if (!session.id || !session.name || !Array.isArray(session.messages)) {
             console.warn(`[AX Sessions] Skipping invalid session file ${file}: missing required fields`);
-            continue;
+            return null;
           }
 
-          this.sessions.set(session.id, session);
+          return session;
         } catch (error) {
           console.error(`[AX Sessions] Failed to load session ${file}:`, error);
+          return null;
+        }
+      });
+
+      const sessions = await Promise.all(sessionPromises);
+
+      // Add valid sessions to the map
+      // Reset all isActive flags to ensure only one session is active
+      for (const session of sessions) {
+        if (session) {
+          session.isActive = false;  // Reset on load
+          this.sessions.set(session.id, session);
         }
       }
 
       console.log(`[AX Sessions] Loaded ${this.sessions.size} sessions`);
 
       // Activate the most recent session
-      const sessions = this.getAllSessions();
-      if (sessions.length > 0) {
-        this.activeSessionId = sessions[0].id;
+      // Note: We don't call setActiveSession() during initialization because
+      // event listeners may not be set up yet. Instead, we manually set the
+      // isActive flag and activeSessionId.
+      const allSessions = this.getAllSessions();
+      if (allSessions.length > 0) {
+        const mostRecent = allSessions[0];
+        mostRecent.isActive = true;
+        this.activeSessionId = mostRecent.id;
+        // Save to persist the corrected isActive state
+        this.saveSession(mostRecent);
       }
     } catch (error) {
       console.error('[AX Sessions] Failed to load sessions:', error);
@@ -112,7 +135,7 @@ export class SessionManager implements vscode.Disposable {
    * Create a new session
    */
   createSession(name?: string, workspaceFolder?: string): ChatSession {
-    const sessionId = `session-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+    const sessionId = generateId('session');
     const now = new Date().toISOString();
 
     // Default name based on workspace or timestamp

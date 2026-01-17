@@ -2,7 +2,7 @@
 
 > AI-powered coding assistant with multi-provider flexibility and VS Code integration
 
-[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/defai-digital/ax-cli)
+[![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)](https://github.com/defai-digital/ax-cli)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/defai-digital/ax-cli/blob/main/LICENSE)
 
 ## Features
@@ -77,7 +77,7 @@ npm install -g @defai.digital/ax-cli
 
 **Option 1: VSIX Install**
 ```bash
-code --install-extension ax-cli-vscode-1.0.1.vsix
+code --install-extension ax-cli-vscode-1.0.2.vsix
 ```
 
 **Option 2: Development Mode**
@@ -207,7 +207,7 @@ npm run test:watch     # Watch mode
 ### Package VSIX
 ```bash
 npm run package:vsix
-# Creates: ax-cli-vscode-1.0.1.vsix
+# Creates: ax-cli-vscode-1.0.2.vsix
 ```
 
 ---
@@ -240,6 +240,24 @@ The extension communicates with AX CLI via WebSocket IPC:
 - **Session Manager** (`session-manager.ts`) - Multiple chat session management
 - **Hooks Manager** (`hooks-manager.ts`) - Pre/post operation hooks
 - **Auto Error Recovery** (`auto-error-recovery.ts`) - Error monitoring and auto-fix
+
+---
+
+## What's New in v1.0.2
+
+### Bug Fixes
+- **Fixed IPC message handler**: Changed from `once()` to `on()` for WebSocket message handling, preventing missed messages when multiple responses arrive
+- **Fixed race condition in diff dialog**: Added guard to prevent double-processing when editor close listener auto-rejects while user dialog is still open
+- **Fixed terminal interrupt check**: Now verifies terminal is still active before sending Ctrl+C interrupt signal
+- **Fixed session isActive flag**: Session `isActive` flags are now properly reset on load to ensure only one session appears active
+- **Fixed checkpoint blocking**: Converted synchronous checkpoint loading to async to prevent extension host blocking
+- **Fixed hooks updateHook bug**: Removed code that was incorrectly setting hook `id` to `undefined` during updates
+- **Fixed hooks loading blocking**: Converted synchronous hooks loading to async operations
+- **Fixed git spawn timeout**: Implemented manual timeout handling for `spawn()` since it doesn't support the `timeout` option
+
+### Performance Improvements
+- Async file operations in SessionManager, CheckpointManager, and HooksManager
+- Non-blocking extension activation with deferred loading
 
 ---
 

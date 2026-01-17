@@ -8,7 +8,8 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
+import { generateId, getAppConfigDir } from './utils.js';
+import { MAX_CHECKPOINTS, CHECKPOINT_RETENTION_DAYS } from './constants.js';
 
 export interface Checkpoint {
   id: string;
@@ -23,9 +24,7 @@ export interface CheckpointFile {
   exists: boolean;
 }
 
-const CHECKPOINT_DIR = path.join(os.homedir(), '.ax-cli', 'checkpoints');
-const MAX_CHECKPOINTS = 50;
-const CHECKPOINT_RETENTION_DAYS = 7;
+const CHECKPOINT_DIR = path.join(getAppConfigDir(), 'checkpoints');
 
 export class CheckpointManager implements vscode.Disposable {
   private checkpoints: Map<string, Checkpoint> = new Map();
@@ -34,8 +33,12 @@ export class CheckpointManager implements vscode.Disposable {
   constructor() {
     this.workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     this.ensureCheckpointDir();
-    this.loadCheckpoints();
-    this.cleanupOldCheckpoints();
+    // Load checkpoints asynchronously to avoid blocking extension activation
+    this.loadCheckpointsAsync().then(() => {
+      this.cleanupOldCheckpoints();
+    }).catch(err => {
+      console.error('[AX Checkpoint] Failed to load checkpoints:', err);
+    });
   }
 
   /**
@@ -52,24 +55,34 @@ export class CheckpointManager implements vscode.Disposable {
   }
 
   /**
-   * Load existing checkpoints from disk
+   * Load existing checkpoints from disk asynchronously
+   * Uses async file operations to avoid blocking the extension host
    */
-  private loadCheckpoints(): void {
+  private async loadCheckpointsAsync(): Promise<void> {
     try {
       const indexPath = this.getIndexPath();
-      if (fs.existsSync(indexPath)) {
-        const data = fs.readFileSync(indexPath, 'utf-8');
-        const checkpointList: Checkpoint[] = JSON.parse(data);
-        for (const cp of checkpointList) {
-          // Validate required checkpoint fields
-          if (!cp.id || !cp.timestamp || !cp.description || !Array.isArray(cp.files)) {
-            console.warn(`[AX Checkpoint] Skipping invalid checkpoint: missing required fields`);
-            continue;
-          }
-          this.checkpoints.set(cp.id, cp);
-        }
-        console.log(`[AX Checkpoint] Loaded ${this.checkpoints.size} checkpoints`);
+
+      // Check if index file exists
+      try {
+        await fs.promises.access(indexPath);
+      } catch {
+        // Index file doesn't exist yet - nothing to load
+        return;
       }
+
+      const data = await fs.promises.readFile(indexPath, 'utf-8');
+      const checkpointList: Checkpoint[] = JSON.parse(data);
+
+      for (const cp of checkpointList) {
+        // Validate required checkpoint fields
+        if (!cp.id || !cp.timestamp || !cp.description || !Array.isArray(cp.files)) {
+          console.warn(`[AX Checkpoint] Skipping invalid checkpoint: missing required fields`);
+          continue;
+        }
+        this.checkpoints.set(cp.id, cp);
+      }
+
+      console.log(`[AX Checkpoint] Loaded ${this.checkpoints.size} checkpoints`);
     } catch (error) {
       console.error('[AX Checkpoint] Failed to load checkpoints:', error);
     }
@@ -124,28 +137,28 @@ export class CheckpointManager implements vscode.Disposable {
    * Create a checkpoint before making changes
    */
   async createCheckpoint(files: string[], description: string): Promise<string> {
-    const checkpointId = `cp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // Use shared generateId utility for consistent, collision-resistant IDs
+    const checkpointId = generateId('cp');
 
-    const checkpointFiles: CheckpointFile[] = [];
-
-    for (const filePath of files) {
+    // Read all files in parallel using async operations to avoid blocking extension host
+    const filePromises = files.map(async (filePath): Promise<CheckpointFile> => {
       try {
-        const exists = fs.existsSync(filePath);
+        const stat = await fs.promises.stat(filePath).catch(() => null);
+        const exists = stat !== null;
         let content = '';
 
         if (exists) {
-          content = fs.readFileSync(filePath, 'utf-8');
+          content = await fs.promises.readFile(filePath, 'utf-8');
         }
 
-        checkpointFiles.push({
-          path: filePath,
-          content,
-          exists
-        });
+        return { path: filePath, content, exists };
       } catch (error) {
         console.error(`[AX Checkpoint] Failed to read file ${filePath}:`, error);
+        return { path: filePath, content: '', exists: false };
       }
-    }
+    });
+
+    const checkpointFiles = await Promise.all(filePromises);
 
     const checkpoint: Checkpoint = {
       id: checkpointId,
@@ -217,15 +230,56 @@ export class CheckpointManager implements vscode.Disposable {
     }
 
     // Create a backup checkpoint before rewinding
+    // IMPORTANT: Verify backup succeeded before proceeding with destructive restore
     const affectedFiles = fullCheckpoint.files.map(f => f.path);
-    await this.createCheckpoint(affectedFiles, `Backup before rewind to ${checkpointId}`);
+    const backupId = await this.createCheckpoint(affectedFiles, `Backup before rewind to ${checkpointId}`);
 
-    // Restore each file
+    if (!backupId) {
+      vscode.window.showErrorMessage('Failed to create backup checkpoint. Aborting rewind to prevent data loss.');
+      return false;
+    }
+
+    // Phase 1: Validate all operations can succeed (dry run)
+    // Check that we can read/write all target files before making any changes
+    const validationErrors: string[] = [];
+    for (const file of fullCheckpoint.files) {
+      try {
+        if (file.exists) {
+          const dir = path.dirname(file.path);
+          // Check if we can create the directory
+          if (!fs.existsSync(dir)) {
+            // Test if parent exists and is writable
+            const parentDir = path.dirname(dir);
+            if (!fs.existsSync(parentDir)) {
+              validationErrors.push(`Parent directory does not exist: ${parentDir}`);
+              continue;
+            }
+          }
+        }
+      } catch (error) {
+        validationErrors.push(`Cannot access ${file.path}: ${error}`);
+      }
+    }
+
+    if (validationErrors.length > 0) {
+      console.error('[AX Checkpoint] Validation errors:', validationErrors);
+      vscode.window.showErrorMessage(
+        `Cannot restore checkpoint: ${validationErrors.length} file(s) inaccessible. Backup saved as ${backupId}.`
+      );
+      return false;
+    }
+
+    // Phase 2: Apply changes with tracking for potential rollback
     let restored = 0;
     let failed = 0;
+    const appliedChanges: Array<{ path: string; originalContent: string | null; originalExists: boolean }> = [];
 
     for (const file of fullCheckpoint.files) {
       try {
+        // Track original state for potential rollback
+        const originalExists = fs.existsSync(file.path);
+        const originalContent = originalExists ? fs.readFileSync(file.path, 'utf-8') : null;
+
         if (file.exists) {
           // Ensure directory exists
           const dir = path.dirname(file.path);
@@ -241,9 +295,31 @@ export class CheckpointManager implements vscode.Disposable {
             restored++;
           }
         }
+
+        appliedChanges.push({ path: file.path, originalContent, originalExists });
       } catch (error) {
         console.error(`[AX Checkpoint] Failed to restore ${file.path}:`, error);
         failed++;
+
+        // If we fail partway through, attempt rollback of already-applied changes
+        if (appliedChanges.length > 0) {
+          console.log(`[AX Checkpoint] Attempting rollback of ${appliedChanges.length} changes...`);
+          for (const change of appliedChanges) {
+            try {
+              if (change.originalExists && change.originalContent !== null) {
+                fs.writeFileSync(change.path, change.originalContent);
+              } else if (!change.originalExists && fs.existsSync(change.path)) {
+                fs.unlinkSync(change.path);
+              }
+            } catch (rollbackError) {
+              console.error(`[AX Checkpoint] Rollback failed for ${change.path}:`, rollbackError);
+            }
+          }
+          vscode.window.showErrorMessage(
+            `Restore failed at ${file.path}. Attempted rollback. Backup checkpoint: ${backupId}`
+          );
+          return false;
+        }
       }
     }
 
@@ -253,7 +329,7 @@ export class CheckpointManager implements vscode.Disposable {
       );
     } else {
       vscode.window.showWarningMessage(
-        `Restored ${restored} file(s), ${failed} failed`
+        `Restored ${restored} file(s), ${failed} failed. Backup: ${backupId}`
       );
     }
 

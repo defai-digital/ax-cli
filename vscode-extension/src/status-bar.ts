@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { DEFAULT_MODEL, STATUS_BAR_PRIORITY, STATUS_RESET_TIMEOUT_MS, CONFIG_NAMESPACE } from './constants.js';
 
 export class StatusBarManager {
   private statusBarItem: vscode.StatusBarItem;
@@ -9,7 +10,7 @@ export class StatusBarManager {
   constructor() {
     this.statusBarItem = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right,
-      100
+      STATUS_BAR_PRIORITY
     );
     this.statusBarItem.command = 'ax-cli.selectModel';
 
@@ -19,7 +20,7 @@ export class StatusBarManager {
       if (this.isDisposed) {
         return;
       }
-      if (e.affectsConfiguration('ax-cli.model')) {
+      if (e.affectsConfiguration(`${CONFIG_NAMESPACE}.model`)) {
         this.updateDisplay();
       }
     });
@@ -33,8 +34,8 @@ export class StatusBarManager {
       return;
     }
 
-    const config = vscode.workspace.getConfiguration('ax-cli');
-    const model = config.get<string>('model', 'grok-4-0709');
+    const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
+    const model = config.get<string>('model', DEFAULT_MODEL);
 
     this.statusBarItem.text = `$(robot) AX: ${this.formatModelName(model)}`;
     this.statusBarItem.tooltip = `AX CLI - Click to change model\nCurrent: ${model}`;
@@ -76,9 +77,9 @@ export class StatusBarManager {
   /**
    * Temporarily show a status message, then revert to model display
    * @param status - The status message to show
-   * @param autoResetMs - Time in ms before reverting to model display (default: 5000, 0 = no auto-reset)
+   * @param autoResetMs - Time in ms before reverting to model display (default: STATUS_RESET_TIMEOUT_MS, 0 = no auto-reset)
    */
-  updateStatus(status: string, autoResetMs = 5000): void {
+  updateStatus(status: string, autoResetMs = STATUS_RESET_TIMEOUT_MS): void {
     // Guard against updates after disposal
     if (this.isDisposed) {
       return;

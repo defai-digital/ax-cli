@@ -4,6 +4,15 @@ import { CLIBridgeSDK, CLIRequest, CLIResponse, CLIError, PendingChange } from '
 import { EditorContext } from './context-provider.js';
 import type { StreamChunkPayload } from './ipc-server.js';
 import type { ChatSession } from './session-manager.js';
+import { generateId, generateNonce } from './utils.js';
+import {
+  FILE_SEARCH_DEBOUNCE_MS,
+  MAX_WORKSPACE_FILES,
+  MAX_GIT_DIFF_LENGTH,
+  MAX_FILE_PICKER_RESULTS,
+  MAX_CHAT_MESSAGES,
+  COMPACT_HISTORY_KEEP_COUNT
+} from './constants.js';
 
 interface Message {
   id: string;
@@ -18,11 +27,14 @@ interface Message {
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'ax-cli.chatView';
 
+  // Maximum messages imported from constants for memory management
+
   private _view?: vscode.WebviewView;
   private messages: Message[] = [];
   private pendingChanges: Map<string, PendingChange> = new Map();
   private messageListener?: vscode.Disposable;
   private currentSession: ChatSession | null = null;
+  private fileSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -46,7 +58,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       localResourceRoots: [this._extensionUri]
     };
 
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+    webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
 
     // Dispose previous listener if view is being re-resolved
     this.messageListener?.dispose();
@@ -119,7 +131,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
         case 'requestFiles':
           // User is searching for files with @-mention
-          await this.handleFileSearch(data.query);
+          // Debounce to prevent excessive workspace searches on every keystroke
+          this.debouncedFileSearch(data.query);
           break;
 
         case 'selectModel':
@@ -177,14 +190,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   // Extended thinking state (used when sending messages)
-  private _extendedThinking = false;
+  private extendedThinkingEnabled = false;
 
   private get extendedThinking(): boolean {
-    return this._extendedThinking;
+    return this.extendedThinkingEnabled;
   }
 
   private set extendedThinking(value: boolean) {
-    this._extendedThinking = value;
+    this.extendedThinkingEnabled = value;
   }
 
   public sendMessage(prompt: string, context?: EditorContext) {
@@ -329,7 +342,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
    */
   public handleStreamChunk(payload: StreamChunkPayload): void {
     if (!this._view) {
-      console.debug('[Chat View] Stream chunk ignored: no active webview');
+      console.debug('[ChatView] Stream chunk ignored: no active webview');
       return;
     }
 
@@ -355,7 +368,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         });
       }
     } catch (error) {
-      console.error('[Chat View] Failed to forward stream chunk:', error);
+      console.error('[ChatView] Failed to forward stream chunk:', error);
       // Try to reset loading state on error
       try {
         this._view?.webview.postMessage({ type: 'loading', value: false });
@@ -370,7 +383,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
    * Called by CLI Bridge when agent wants to modify a file
    */
   private showDiffPreview(change: PendingChange): void {
-    console.log('[Chat View] Showing diff preview for:', change.file);
+    console.log('[ChatView] Showing diff preview for:', change.file);
 
     this.pendingChanges.set(change.id, change);
 
@@ -396,7 +409,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private async showNativeDiff(changeId: string): Promise<void> {
     const change = this.pendingChanges.get(changeId);
     if (!change) {
-      console.error('[Chat View] Change not found:', changeId);
+      console.error('[ChatView] Change not found:', changeId);
       vscode.window.showWarningMessage('Change not found - it may have expired');
       return;
     }
@@ -440,7 +453,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         );
         // If diff was closed and no decision was made, reject the change
         if (!diffStillOpen && !decisionMade && this.pendingChanges.has(changeId)) {
-          console.log('[Chat View] Diff closed without decision, auto-rejecting:', changeId);
+          console.log('[ChatView] Diff closed without decision, auto-rejecting:', changeId);
           this.cliBridge.approveChange(changeId, false);
           this.pendingChanges.delete(changeId);
           this.updateWebview();
@@ -456,6 +469,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
       decisionMade = true;
 
+      // Check if change still exists (may have been auto-rejected by editorCloseListener)
+      if (!this.pendingChanges.has(changeId)) {
+        console.log('[ChatView] Change already processed (likely auto-rejected on editor close)');
+        return;
+      }
+
       if (action === 'Accept') {
         this.cliBridge.approveChange(changeId, true);
         this.pendingChanges.delete(changeId);
@@ -468,13 +487,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         // User dismissed the dialog without choosing - treat as reject
         this.cliBridge.approveChange(changeId, false);
         this.pendingChanges.delete(changeId);
-        console.log('[Chat View] User dismissed diff dialog without action, change rejected');
+        console.log('[ChatView] User dismissed diff dialog without action, change rejected');
       }
 
       this.updateWebview();
 
     } catch (error) {
-      console.error('[Chat View] Error showing native diff:', error);
+      console.error('[ChatView] Error showing native diff:', error);
       vscode.window.showErrorMessage(`Failed to show diff: ${error instanceof Error ? error.message : 'Unknown error'}`);
       // Clean up orphaned change on error
       if (this.pendingChanges.has(changeId)) {
@@ -495,7 +514,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   private async handleUserMessage(prompt: string, context?: EditorContext) {
     const userMessage: Message = {
-      id: this.generateId(),
+      id: generateId(),
       role: 'user',
       content: prompt,
       timestamp: new Date().toISOString(),
@@ -504,7 +523,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       images: context?.images?.map(i => ({ path: i.path, name: i.name, dataUri: i.dataUri })),
     };
 
-    this.messages.push(userMessage);
+    this.addMessage(userMessage);
     this.updateWebview();
 
     // Show loading state
@@ -519,7 +538,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
       // Build CLI request with files and images
       const request: CLIRequest = {
-        id: this.generateId(),
+        id: generateId(),
         prompt,
         context: context ? {
           file: context.file,
@@ -601,12 +620,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     for (const msg of response.messages) {
       if (msg.role === 'assistant') {
         const assistantMessage: Message = {
-          id: this.generateId(),
+          id: generateId(),
           role: 'assistant',
           content: msg.content,
           timestamp: new Date().toISOString(),
         };
-        this.messages.push(assistantMessage);
+        this.addMessage(assistantMessage);
       }
     }
 
@@ -615,13 +634,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   private handleError(error: CLIError) {
     const errorMessage: Message = {
-      id: this.generateId(),
+      id: generateId(),
       role: 'system',
       content: `Error: ${error.error.message}`,
       timestamp: new Date().toISOString(),
     };
 
-    this.messages.push(errorMessage);
+    this.addMessage(errorMessage);
     this.updateWebview();
 
     vscode.window.showErrorMessage(`AX CLI Error: ${error.error.message}`);
@@ -696,6 +715,25 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   /**
+   * Debounced file search to prevent excessive workspace searches
+   * Waits 150ms after last keystroke before triggering search
+   */
+  private debouncedFileSearch(query: string): void {
+    // Clear any pending search
+    if (this.fileSearchDebounceTimer) {
+      clearTimeout(this.fileSearchDebounceTimer);
+    }
+
+    // Schedule new search after debounce delay
+    this.fileSearchDebounceTimer = setTimeout(() => {
+      this.fileSearchDebounceTimer = null;
+      this.handleFileSearch(query).catch(err => {
+        console.error('[ChatView] File search error:', err);
+      });
+    }, FILE_SEARCH_DEBOUNCE_MS);
+  }
+
+  /**
    * Search for files in workspace matching query with fuzzy matching
    */
   private async handleFileSearch(query: string): Promise<void> {
@@ -711,7 +749,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     try {
       // Get all files (limit for performance)
       const excludePattern = '{**/node_modules/**,**/.git/**,**/dist/**,**/build/**,**/.next/**,**/coverage/**,**/__pycache__/**,**/*.pyc}';
-      const files = await vscode.workspace.findFiles('**/*', excludePattern, 1000);
+      const files = await vscode.workspace.findFiles('**/*', excludePattern, MAX_WORKSPACE_FILES);
 
       const workspaceRoot = workspaceFolders[0].uri.fsPath;
 
@@ -752,7 +790,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           // Tie-breaker: shorter paths first
           return a.relativePath.length - b.relativePath.length;
         })
-        .slice(0, 50); // Limit results
+        .slice(0, MAX_FILE_PICKER_RESULTS);
 
       this._view?.webview.postMessage({
         type: 'filesResult',
@@ -779,19 +817,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
    * Compact conversation history by summarizing older messages
    */
   private compactHistory(): void {
-    if (this.messages.length <= 10) {
+    if (this.messages.length <= COMPACT_HISTORY_KEEP_COUNT) {
       vscode.window.showInformationMessage('Conversation is already compact');
       return;
     }
 
-    // Keep last 10 messages, summarize the rest
-    const keepCount = 10;
+    // Keep recent messages, summarize the rest
+    const keepCount = COMPACT_HISTORY_KEEP_COUNT;
     const oldMessages = this.messages.slice(0, -keepCount);
     const recentMessages = this.messages.slice(-keepCount);
 
     // Create a summary message
     const summaryMessage: Message = {
-      id: this.generateId(),
+      id: generateId(),
       role: 'system',
       content: `[Conversation compacted: ${oldMessages.length} earlier messages summarized]`,
       timestamp: new Date().toISOString(),
@@ -829,13 +867,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
       // Add diff as a system message
       const diffMessage: Message = {
-        id: this.generateId(),
+        id: generateId(),
         role: 'system',
-        content: `**Git Diff (uncommitted changes):**\n\`\`\`diff\n${stdout.substring(0, 5000)}${stdout.length > 5000 ? '\n... (truncated)' : ''}\n\`\`\``,
+        content: `**Git Diff (uncommitted changes):**\n\`\`\`diff\n${stdout.substring(0, MAX_GIT_DIFF_LENGTH)}${stdout.length > MAX_GIT_DIFF_LENGTH ? '\n... (truncated)' : ''}\n\`\`\``,
         timestamp: new Date().toISOString(),
       };
 
-      this.messages.push(diffMessage);
+      this.addMessage(diffMessage);
       this.updateWebview();
     } catch (error) {
       console.error('[ChatView] Git diff error:', error);
@@ -886,11 +924,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substring(7)}`;
-  }
-
-  private _getHtmlForWebview(webview: vscode.Webview) {
+  private getHtmlForWebview(webview: vscode.Webview) {
     // Get URIs for resources
     const styleUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, 'media', 'main.css')
@@ -903,7 +937,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     );
 
     // Use a nonce to only allow specific scripts to be run
-    const nonce = this.getNonce();
+    const nonce = generateNonce();
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -923,13 +957,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 </html>`;
   }
 
-  private getNonce() {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) {
-      text += possible.charAt(Math.floor(Math.random() * possible.length));
+  /**
+   * Add a message and prune old messages if limit exceeded
+   * Prevents unbounded memory growth in long-running sessions
+   */
+  private addMessage(message: Message): void {
+    this.messages.push(message);
+
+    // Prune oldest messages if we exceed the limit
+    if (this.messages.length > MAX_CHAT_MESSAGES) {
+      const excessCount = this.messages.length - MAX_CHAT_MESSAGES;
+      this.messages.splice(0, excessCount);
+      console.log(`[ChatView] Pruned ${excessCount} old message(s), keeping ${this.messages.length}`);
     }
-    return text;
   }
 
   /**
@@ -939,6 +979,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.messageListener?.dispose();
     this.messageListener = undefined;
     this.pendingChanges.clear();
+    this.messages = [];  // Clear messages to free memory
+    if (this.fileSearchDebounceTimer) {
+      clearTimeout(this.fileSearchDebounceTimer);
+      this.fileSearchDebounceTimer = null;
+    }
     this._view = undefined;
   }
 }

@@ -16,6 +16,11 @@
 
 import * as vscode from 'vscode';
 import type { IPCServer, ChatRequestPayload, StreamChunkPayload } from './ipc-server.js';
+import type { CLIRequest, CLIResponse, CLIError, PendingChange, StreamingChunk } from './types.js';
+import { DEFAULT_MODEL, CONFIG_NAMESPACE } from './constants.js';
+
+// Re-export types for consumers
+export type { CLIRequest, CLIResponse, CLIError, PendingChange, StreamingChunk };
 
 /**
  * Supported AI providers
@@ -72,7 +77,7 @@ export function getProviderFromModel(model: string): Provider {
   if (model.startsWith('claude-')) return 'anthropic';
   if (model.startsWith('deepseek-')) return 'deepseek';
   // Default to configured provider
-  const config = vscode.workspace.getConfiguration('ax-cli');
+  const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
   return config.get<Provider>('provider', 'grok');
 }
 
@@ -82,7 +87,7 @@ export function getProviderFromModel(model: string): Provider {
  */
 export function validateConfiguration(): string[] {
   const errors: string[] = [];
-  const config = vscode.workspace.getConfiguration('ax-cli');
+  const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
 
   // Validate provider
   const provider = config.get<string>('provider');
@@ -111,61 +116,7 @@ export function validateConfiguration(): string[] {
   return errors;
 }
 
-export interface CLIRequest {
-  id: string;
-  prompt: string;
-  context?: {
-    file?: string;
-    selection?: string;
-    lineRange?: string;
-    gitDiff?: boolean;
-    // File attachments
-    files?: Array<{ path: string; name: string; content?: string }>;
-    // Image attachments with base64 data
-    images?: Array<{ path: string; name: string; dataUri?: string; mimeType?: string }>;
-    // Extended thinking mode
-    extendedThinking?: boolean;
-  };
-}
-
-export interface CLIResponse {
-  id: string;
-  messages: Array<{
-    role: string;
-    content: string;
-  }>;
-  model: string;
-  timestamp: string;
-}
-
-export interface CLIError {
-  id: string;
-  error: {
-    message: string;
-    type: string;
-  };
-  timestamp: string;
-}
-
-export interface PendingChange {
-  id: string;
-  file: string;
-  oldContent: string;
-  newContent: string;
-  command: string;
-  lineStart?: number;
-  lineEnd?: number;
-  toolCall: unknown;
-}
-
-// Streaming chunk types
-export interface StreamingChunk {
-  type: 'thinking' | 'content' | 'tool_call' | 'tool_result' | 'done' | 'error';
-  content?: string;
-  toolCall?: { id: string; name: string; arguments: string };
-  toolResult?: { id: string; result: string; isError: boolean };
-  error?: string;
-}
+// Types are imported from './types.js' and re-exported above
 
 /**
  * CLI Bridge SDK
@@ -196,7 +147,7 @@ export class CLIBridgeSDK {
         'Open Settings'
       ).then((selection: string | undefined) => {
         if (selection === 'Open Settings') {
-          vscode.commands.executeCommand('workbench.action.openSettings', 'ax-cli');
+          vscode.commands.executeCommand('workbench.action.openSettings', CONFIG_NAMESPACE);
         }
       });
     }
@@ -262,8 +213,8 @@ export class CLIBridgeSDK {
    * Get the CLI command and provider info for the current model
    */
   public getProviderInfo(): { provider: Provider; info: ProviderInfo } {
-    const config = vscode.workspace.getConfiguration('ax-cli');
-    const model = config.get<string>('model', 'grok-4-0709');
+    const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
+    const model = config.get<string>('model', DEFAULT_MODEL);
     const provider = getProviderFromModel(model);
     return { provider, info: PROVIDER_INFO[provider] };
   }
@@ -435,9 +386,15 @@ export class CLIBridgeSDK {
    * Sends interrupt signal to connected CLI
    */
   interrupt(): void {
-    if (this.activeTerminal) {
-      // Send Ctrl+C to terminal
-      this.activeTerminal.sendText('\x03', false);
+    // Check if terminal exists AND is still active (not closed/disposed)
+    const terminalIsActive = this.activeTerminal && this.activeTerminal.exitStatus === undefined;
+    if (terminalIsActive) {
+      try {
+        // Send Ctrl+C to terminal
+        this.activeTerminal!.sendText('\x03', false);
+      } catch (error) {
+        console.warn('[AX SDK] Failed to send interrupt to terminal:', error);
+      }
     }
     console.log('[AX SDK] Interrupt requested');
   }

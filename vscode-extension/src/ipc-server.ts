@@ -16,9 +16,20 @@ import * as vscode from 'vscode';
 import { WebSocketServer, WebSocket } from 'ws';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 import * as net from 'net';
+import { generateId, getAppConfigDir } from './utils.js';
 import * as crypto from 'crypto';
+import {
+  EXTENSION_VERSION,
+  DIFF_PREVIEW_TIMEOUT_MS,
+  CHAT_REQUEST_TIMEOUT_MS,
+  IPC_RESPONSE_TIMEOUT_MS,
+  WS_CLOSE_AUTH_FAILED,
+  WS_CLOSE_NORMAL,
+  MAX_IPC_CONTENT_LENGTH,
+  MAX_IPC_PATH_LENGTH,
+  MAX_IPC_PROMPT_LENGTH
+} from './constants.js';
 
 // IPC Message Types
 export interface DiffPayload {
@@ -129,13 +140,7 @@ interface PortFileContent {
   nonce: string;  // Authentication token - client must send this to authenticate
 }
 
-const IPC_PORT_FILE = path.join(os.homedir(), '.ax-cli', 'vscode-ipc.json');
-const EXTENSION_VERSION = '0.3.4';
-
-// Maximum sizes for payload validation (defense against memory exhaustion)
-const MAX_CONTENT_LENGTH = 10 * 1024 * 1024;  // 10MB max for file content
-const MAX_PATH_LENGTH = 4096;
-const MAX_PROMPT_LENGTH = 1024 * 1024;  // 1MB max for prompts
+const IPC_PORT_FILE = path.join(getAppConfigDir(), 'vscode-ipc.json');
 
 /**
  * Validate DiffPayload structure and field types
@@ -145,9 +150,9 @@ function validateDiffPayload(payload: unknown): payload is DiffPayload {
   const p = payload as Record<string, unknown>;
 
   return (
-    typeof p.file === 'string' && p.file.length <= MAX_PATH_LENGTH &&
-    typeof p.oldContent === 'string' && p.oldContent.length <= MAX_CONTENT_LENGTH &&
-    typeof p.newContent === 'string' && p.newContent.length <= MAX_CONTENT_LENGTH &&
+    typeof p.file === 'string' && p.file.length <= MAX_IPC_PATH_LENGTH &&
+    typeof p.oldContent === 'string' && p.oldContent.length <= MAX_IPC_CONTENT_LENGTH &&
+    typeof p.newContent === 'string' && p.newContent.length <= MAX_IPC_CONTENT_LENGTH &&
     ['create', 'edit', 'delete'].includes(p.operation as string) &&
     (p.lineStart === undefined || typeof p.lineStart === 'number') &&
     (p.lineEnd === undefined || typeof p.lineEnd === 'number') &&
@@ -163,7 +168,7 @@ function validateChatRequestPayload(payload: unknown): payload is ChatRequestPay
   const p = payload as Record<string, unknown>;
 
   if (typeof p.sessionId !== 'string' || typeof p.prompt !== 'string') return false;
-  if (p.prompt.length > MAX_PROMPT_LENGTH) return false;
+  if (p.prompt.length > MAX_IPC_PROMPT_LENGTH) return false;
 
   if (p.context !== undefined) {
     if (typeof p.context !== 'object' || p.context === null) return false;
@@ -172,7 +177,7 @@ function validateChatRequestPayload(payload: unknown): payload is ChatRequestPay
     // Validate files array if present
     if (ctx.files !== undefined) {
       if (!Array.isArray(ctx.files)) return false;
-      if (!ctx.files.every((f: unknown) => typeof f === 'string' && f.length <= MAX_PATH_LENGTH)) return false;
+      if (!ctx.files.every((f: unknown) => typeof f === 'string' && f.length <= MAX_IPC_PATH_LENGTH)) return false;
     }
   }
 
@@ -187,7 +192,7 @@ function validateFileRevealPayload(payload: unknown): payload is FileRevealPaylo
   const p = payload as Record<string, unknown>;
 
   return (
-    typeof p.file === 'string' && p.file.length <= MAX_PATH_LENGTH &&
+    typeof p.file === 'string' && p.file.length <= MAX_IPC_PATH_LENGTH &&
     ['create', 'edit'].includes(p.operation as string) &&
     (p.preview === undefined || typeof p.preview === 'boolean') &&
     (p.focus === undefined || typeof p.focus === 'boolean')
@@ -327,7 +332,7 @@ export class IPCServer {
         requestId: message.requestId,
         payload: { reason: 'Missing or invalid nonce in authentication payload' }
       });
-      ws.close(4001, 'Invalid authentication payload');
+      ws.close(WS_CLOSE_AUTH_FAILED, 'Invalid authentication payload');
       return;
     }
 
@@ -339,7 +344,7 @@ export class IPCServer {
         requestId: message.requestId,
         payload: { reason: 'Malformed nonce' }
       });
-      ws.close(4001, 'Invalid nonce format');
+      ws.close(WS_CLOSE_AUTH_FAILED, 'Invalid nonce format');
       return;
     }
 
@@ -356,7 +361,7 @@ export class IPCServer {
         payload: { reason: 'Invalid nonce' }
       });
       // Close connection after failed auth attempt
-      ws.close(4001, 'Authentication failed');
+      ws.close(WS_CLOSE_AUTH_FAILED, 'Authentication failed');
       return;
     }
 
@@ -378,7 +383,7 @@ export class IPCServer {
     const clientsToClose = Array.from(this.clients);
     for (const client of clientsToClose) {
       try {
-        client.close(1000, 'Server shutting down');
+        client.close(WS_CLOSE_NORMAL, 'Server shutting down');
       } catch (error) {
         console.warn('[AX IPC] Error closing client:', error);
       }
@@ -428,7 +433,6 @@ export class IPCServer {
           }
 
           // Add timeout to prevent hanging indefinitely if handler never resolves
-          const DIFF_PREVIEW_TIMEOUT_MS = 300000; // 5 minutes for user to review
           let timeoutId: ReturnType<typeof setTimeout> | undefined;
           try {
             const timeoutPromise = new Promise<boolean>((_, reject) => {
@@ -515,7 +519,6 @@ export class IPCServer {
           }
 
           // Add timeout to prevent hanging if chat handler never resolves
-          const CHAT_REQUEST_TIMEOUT_MS = 30000; // 30 seconds to start chat
           let timeoutId: ReturnType<typeof setTimeout> | undefined;
           try {
             const timeoutPromise = new Promise<string>((_, reject) => {
@@ -638,7 +641,7 @@ export class IPCServer {
       return null;
     }
 
-    const requestId = `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const requestId = generateId('chat');
 
     return new Promise((resolve) => {
       let resolved = false;
@@ -654,7 +657,8 @@ export class IPCServer {
         }
       };
 
-      // Listen for response
+      // Listen for response - use on() not once() because we need to handle
+      // multiple messages until we find the one matching our requestId
       const messageHandler = (data: Buffer) => {
         try {
           const response: IPCResponse = JSON.parse(data.toString());
@@ -666,8 +670,9 @@ export class IPCServer {
               resolve(null);
             }
           }
+          // If requestId doesn't match, keep listening for more messages
         } catch {
-          // Ignore parse errors
+          // Ignore parse errors, keep listening
         }
       };
 
@@ -686,11 +691,11 @@ export class IPCServer {
       const timeout = setTimeout(() => {
         cleanup();
         resolve(null);
-      }, 5000);
+      }, IPC_RESPONSE_TIMEOUT_MS);
 
-      // Use .once() for single-use handlers to prevent multiple invocations
-      // and simplify cleanup (handlers auto-remove after first call)
-      client.once('message', messageHandler);
+      // Use on() for message handler to receive multiple messages until match
+      // Use once() for close/error since they're terminal events
+      client.on('message', messageHandler);
       client.once('close', closeHandler);
       client.once('error', errorHandler);
 
