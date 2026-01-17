@@ -185,11 +185,12 @@ export class CheckpointManager implements vscode.Disposable {
       }
 
       console.log(`[AX Checkpoint] Created checkpoint ${checkpointId} with ${files.length} files`);
+      return checkpointId;
     } catch (error) {
       console.error('[AX Checkpoint] Failed to save checkpoint:', error);
+      // Return empty string to indicate failure - caller should check for this
+      return '';
     }
-
-    return checkpointId;
   }
 
   /**

@@ -292,14 +292,16 @@ function isInSensitivePath(normalizedPath: string): boolean {
 function validateFilePath(filePath: string): string | null {
   const path = require('path');
 
-  // Normalize the path to resolve any .. or .
-  const normalizedPath = path.normalize(filePath);
-
-  // Check for path traversal attempts
-  if (normalizedPath.includes('..')) {
+  // SECURITY: Check for path traversal attempts BEFORE normalization
+  // path.normalize() resolves '..' sequences, so checking after would be useless
+  // e.g., '/foo/../etc/passwd' normalizes to '/etc/passwd' (no '..' to detect)
+  if (filePath.includes('..')) {
     console.warn(`[AX] Path traversal detected: ${filePath}`);
     return null;
   }
+
+  // Normalize the path to resolve any . and redundant separators
+  const normalizedPath = path.normalize(filePath);
 
   // Security: Block access to sensitive directories
   if (isInSensitivePath(normalizedPath)) {
@@ -379,7 +381,9 @@ async function revealFileInEditor(payload: FileRevealPayload): Promise<void> {
 
     // Also reveal in explorer if it's a newly created file
     if (payload.operation === 'create') {
-      vscode.commands.executeCommand('revealInExplorer', uri);
+      Promise.resolve(vscode.commands.executeCommand('revealInExplorer', uri)).catch((err: unknown) => {
+        console.warn('[AX] Failed to reveal in explorer:', err);
+      });
     }
 
     console.log(`[AX] Revealed file: ${validPath}`);

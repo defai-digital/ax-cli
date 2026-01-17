@@ -163,15 +163,19 @@ export class HooksManager implements vscode.Disposable {
 
         // Warn user about blocked hooks
         if (blockedHooks.length > 0) {
-          vscode.window.showWarningMessage(
-            `AX CLI blocked ${blockedHooks.length} potentially dangerous hook(s): ${blockedHooks.join(', ')}. ` +
-            `Review your .ax-cli/hooks.json file for security.`,
-            'Open Hooks File'
+          Promise.resolve(
+            vscode.window.showWarningMessage(
+              `AX CLI blocked ${blockedHooks.length} potentially dangerous hook(s): ${blockedHooks.join(', ')}. ` +
+              `Review your .ax-cli/hooks.json file for security.`,
+              'Open Hooks File'
+            )
           ).then(selection => {
             if (selection === 'Open Hooks File') {
               const configUri = vscode.Uri.file(configPath);
               vscode.window.showTextDocument(configUri);
             }
+          }).catch((err: unknown) => {
+            console.warn('[AX Hooks] Failed to show warning or open file:', err);
           });
         }
       }
