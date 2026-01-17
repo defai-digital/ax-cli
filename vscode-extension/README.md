@@ -2,7 +2,7 @@
 
 > AI-powered coding assistant with multi-provider flexibility and VS Code integration
 
-[![Version](https://img.shields.io/badge/version-5.2.2-blue.svg)](https://github.com/defai-digital/ax-cli)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/defai-digital/ax-cli)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/defai-digital/ax-cli/blob/main/LICENSE)
 
 ## Features
@@ -77,7 +77,7 @@ npm install -g @defai.digital/ax-cli
 
 **Option 1: VSIX Install**
 ```bash
-code --install-extension ax-cli-vscode-5.2.2.vsix
+code --install-extension ax-cli-vscode-1.0.0.vsix
 ```
 
 **Option 2: Development Mode**
@@ -207,7 +207,7 @@ npm run test:watch     # Watch mode
 ### Package VSIX
 ```bash
 npm run package:vsix
-# Creates: ax-cli-vscode-5.2.2.vsix
+# Creates: ax-cli-vscode-1.0.0.vsix
 ```
 
 ---
@@ -243,7 +243,7 @@ The extension communicates with AX CLI via WebSocket IPC:
 
 ---
 
-## What's New in v5.2.2
+## What's New in v1.0.0
 
 ### Security Enhancements
 - **Command injection protection**: Dangerous command patterns blocked in hooks system with user warnings
