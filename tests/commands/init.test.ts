@@ -65,11 +65,17 @@ vi.mock('../../packages/core/src/utils/llm-optimized-instruction-generator.js', 
     generateInstructions() {
       return '# Test Instructions\n\nProject-specific guidance.';
     }
+    generateAxMd() {
+      return '# Test Instructions\n\nProject-specific guidance.';
+    }
     generateIndex() {
       return JSON.stringify({ project: 'test' });
     }
     generateSummary() {
       return JSON.stringify({ summary: 'test' });
+    }
+    generateDeepAnalysis() {
+      return JSON.stringify({ deep: 'analysis' });
     }
   },
 }));
@@ -109,12 +115,33 @@ vi.mock('../../packages/core/src/utils/error-handler.js', () => ({
   ),
 }));
 
+// Mock rules-parser
+vi.mock('../../packages/core/src/utils/rules-parser.js', () => ({
+  parseProjectRules: vi.fn(() => ({
+    parsedFiles: [],
+    allRules: [],
+  })),
+  getRulesSummary: vi.fn(() => ''),
+}));
+
+// Mock migrator
+vi.mock('../../packages/core/src/commands/init/migrator.js', () => ({
+  migrateFromLegacyFormat: vi.fn(),
+  detectLegacyFormat: vi.fn(() => ({
+    hasLegacyFiles: false,
+    files: [],
+  })),
+}));
+
 // Mock constants
 vi.mock('../../packages/core/src/constants.js', () => ({
   FILE_NAMES: {
     CUSTOM_MD: 'CUSTOM.md',
     AX_INDEX_JSON: 'ax.index.json',
     AX_SUMMARY_JSON: 'ax.summary.json',
+    AX_MD: 'AX.md',
+    UNIFIED_CONFIG_DIR: '.ax',
+    ANALYSIS_JSON: 'analysis.json',
   },
 }));
 
@@ -241,11 +268,10 @@ describe('Init Command', () => {
       exitSpy.mockRestore();
     });
 
-    it('should create config directory if it does not exist', async () => {
+    it('should NOT create config directory with --skip-analysis (no deep analysis)', async () => {
       vi.mocked(fs.existsSync).mockImplementation((path) => {
         const pathStr = String(path);
         if (pathStr.includes('.git')) return true;
-        if (pathStr.includes('.ax-cli')) return false;
         return false;
       });
 
@@ -260,10 +286,9 @@ describe('Init Command', () => {
         // Expected
       }
 
-      expect(fs.mkdirSync).toHaveBeenCalledWith(
-        expect.stringContaining('.ax-cli'),
-        { recursive: true }
-      );
+      // With --skip-analysis, no deep analysis is done, so no .ax/ directory is created
+      // The new init command only creates .ax/ for full/security depth with analysis
+      expect(fs.mkdirSync).not.toHaveBeenCalled();
       exitSpy.mockRestore();
     });
 
@@ -287,18 +312,19 @@ describe('Init Command', () => {
         // Expected
       }
 
+      // The new message is "Dry-run mode - no changes made"
       expect(prompts.log.info).toHaveBeenCalledWith(
-        expect.stringContaining('Dry-run mode')
+        expect.stringContaining('Dry-run mode - no changes made')
       );
       // Should not write files in dry-run mode
       expect(fs.writeFileSync).not.toHaveBeenCalled();
       exitSpy.mockRestore();
     });
 
-    it('should skip CUSTOM.md when it exists without --force', async () => {
+    it('should auto-refresh AX.md when it exists without --force', async () => {
       vi.mocked(fs.existsSync).mockImplementation((path) => {
         const pathStr = String(path);
-        if (pathStr.includes('.git') || pathStr.includes('CUSTOM.md')) {
+        if (pathStr.includes('.git') || pathStr.includes('AX.md')) {
           return true;
         }
         return false;
@@ -310,13 +336,15 @@ describe('Init Command', () => {
       });
 
       try {
-        await cmd.parseAsync(['node', 'test', '--yes', '--skip-analysis']);
+        await cmd.parseAsync(['node', 'test', '--yes', '--skip-analysis', '--verbose']);
       } catch (e) {
         // Expected
       }
 
+      // New behavior: auto-refresh when AX.md exists
+      // With --verbose, it logs "AX.md exists, refreshing..."
       expect(prompts.log.info).toHaveBeenCalledWith(
-        expect.stringContaining('Skipped CUSTOM.md')
+        expect.stringContaining('exists, refreshing')
       );
       exitSpy.mockRestore();
     });

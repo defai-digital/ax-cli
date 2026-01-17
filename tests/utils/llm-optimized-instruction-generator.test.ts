@@ -1,6 +1,8 @@
 /**
  * Tests for utils/llm-optimized-instruction-generator module
  * Tests LLM-optimized instruction generation for projects
+ *
+ * Updated to test the new AX.md format (v5.2.0+)
  */
 import { describe, it, expect } from 'vitest';
 import { LLMOptimizedInstructionGenerator } from '../../packages/core/src/utils/llm-optimized-instruction-generator.js';
@@ -56,36 +58,32 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
     it('should create generator with custom config', () => {
       const generator = new LLMOptimizedInstructionGenerator({
-        compressionLevel: 'aggressive',
-        hierarchyEnabled: false,
-        criticalRulesCount: 3,
-        includeDODONT: false,
+        depth: 'full',
         includeTroubleshooting: false,
+        includeCodePatterns: false,
       });
       expect(generator).toBeInstanceOf(LLMOptimizedInstructionGenerator);
     });
 
     it('should use defaults for missing config options', () => {
       const generator = new LLMOptimizedInstructionGenerator({
-        compressionLevel: 'none',
+        depth: 'basic',
       });
       expect(generator).toBeInstanceOf(LLMOptimizedInstructionGenerator);
     });
   });
 
-  describe('generateInstructions', () => {
-    it('should generate instructions with all sections', () => {
+  describe('generateInstructions / generateAxMd', () => {
+    it('should generate instructions with all main sections', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo();
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('# test-project - Quick Reference');
-      expect(instructions).toContain('Critical Rules');
-      expect(instructions).toContain('Project Overview');
-      expect(instructions).toContain('Code Patterns');
-      expect(instructions).toContain('Workflow');
-      expect(instructions).toContain('Troubleshooting');
+      expect(instructions).toContain('# test-project');
+      expect(instructions).toContain('## Build & Development');
+      expect(instructions).toContain('## Architecture');
+      expect(instructions).toContain('## Project-Specific Rules');
     });
 
     it('should include header with project info', () => {
@@ -95,9 +93,9 @@ describe('LLMOptimizedInstructionGenerator', () => {
       const instructions = generator.generateInstructions(projectInfo);
 
       expect(instructions).toContain('**Type:** cli');
-      expect(instructions).toContain('**Lang:** TypeScript');
-      expect(instructions).toContain('**Ver:**  v1.0.0');
-      expect(instructions).toContain('**CI:** GitHub Actions');
+      expect(instructions).toContain('**Language:** TypeScript');
+      expect(instructions).toContain('**PM:** pnpm');
+      expect(instructions).toContain('**Version:** 1.0.0');
       expect(instructions).toContain('**Stack:** Node.js, TypeScript, Vitest');
     });
 
@@ -124,17 +122,6 @@ describe('LLMOptimizedInstructionGenerator', () => {
       expect(instructions).toContain('test-project');
     });
 
-    it('should skip critical rules when hierarchyEnabled is false', () => {
-      const generator = new LLMOptimizedInstructionGenerator({
-        hierarchyEnabled: false,
-      });
-      const projectInfo = createMockProjectInfo();
-
-      const instructions = generator.generateInstructions(projectInfo);
-
-      expect(instructions).not.toContain('Critical Rules');
-    });
-
     it('should skip troubleshooting when includeTroubleshooting is false', () => {
       const generator = new LLMOptimizedInstructionGenerator({
         includeTroubleshooting: false,
@@ -143,10 +130,10 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).not.toContain('Troubleshooting');
+      expect(instructions).not.toContain('## Troubleshooting');
     });
 
-    it('should include gotchas section when available', () => {
+    it('should include development tips section when gotchas available', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo({
         gotchas: ['Important tip 1', 'Important tip 2'],
@@ -154,12 +141,12 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('Development Tips');
+      expect(instructions).toContain('## Development Tips');
       expect(instructions).toContain('Important tip 1');
       expect(instructions).toContain('Important tip 2');
     });
 
-    it('should skip gotchas section when empty', () => {
+    it('should skip development tips section when empty', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo({
         gotchas: [],
@@ -167,7 +154,7 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).not.toContain('Development Tips');
+      expect(instructions).not.toContain('## Development Tips');
     });
 
     it('should handle projects without version', () => {
@@ -178,18 +165,7 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).not.toContain('**Ver:**');
-    });
-
-    it('should handle projects without CI/CD', () => {
-      const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo({
-        cicdPlatform: undefined,
-      });
-
-      const instructions = generator.generateInstructions(projectInfo);
-
-      expect(instructions).not.toContain('**CI:**');
+      expect(instructions).not.toContain('**Version:**');
     });
 
     it('should handle projects without tech stack', () => {
@@ -204,7 +180,7 @@ describe('LLMOptimizedInstructionGenerator', () => {
     });
   });
 
-  describe('critical rules generation', () => {
+  describe('project rules generation', () => {
     it('should include ESM import rule when importExtension is .js', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo({
@@ -216,8 +192,7 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('**ESM Imports:**');
-      expect(instructions).toContain('.js');
+      expect(instructions).toContain('ESM imports require `.js` extension');
     });
 
     it('should include validation rule when validation is set', () => {
@@ -230,7 +205,7 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('**Validation:** Use zod');
+      expect(instructions).toContain('Use zod for input validation');
     });
 
     it('should include TypeScript rule for TypeScript projects', () => {
@@ -241,20 +216,24 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('**Types:**');
+      expect(instructions).toContain('TypeScript strict mode');
     });
 
-    it('should include testing rule when test script exists', () => {
+    it('should include test framework rule when testFramework is set', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo({
-        scripts: {
-          test: 'vitest run',
+        conventions: {
+          testFramework: 'vitest',
+        },
+        directories: {
+          tests: 'tests',
         },
       });
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('**Testing:**');
+      expect(instructions).toContain('Tests use vitest');
+      expect(instructions).toContain('tests/');
     });
 
     it('should include module system rule for ESM', () => {
@@ -267,23 +246,22 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('**Modules:**');
+      expect(instructions).toContain('ES modules');
     });
 
-    it('should limit rules to criticalRulesCount', () => {
-      const generator = new LLMOptimizedInstructionGenerator({
-        criticalRulesCount: 2,
+    it('should include pnpm rule when packageManager is pnpm', () => {
+      const generator = new LLMOptimizedInstructionGenerator();
+      const projectInfo = createMockProjectInfo({
+        packageManager: 'pnpm',
       });
-      const projectInfo = createMockProjectInfo();
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      // Should contain Critical Rules section but with limited items
-      expect(instructions).toContain('Critical Rules');
+      expect(instructions).toContain('Use pnpm for package management');
     });
   });
 
-  describe('project overview generation', () => {
+  describe('architecture overview generation', () => {
     it('should include entry point when available', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo({
@@ -292,31 +270,7 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('**Entry:** `src/main.ts`');
-    });
-
-    it('should include package manager', () => {
-      const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo({
-        packageManager: 'npm',
-      });
-
-      const instructions = generator.generateInstructions(projectInfo);
-
-      expect(instructions).toContain('**PM:** npm');
-    });
-
-    it('should include module system', () => {
-      const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo({
-        conventions: {
-          moduleSystem: 'cjs',
-        },
-      });
-
-      const instructions = generator.generateInstructions(projectInfo);
-
-      expect(instructions).toContain('**Module:** CJS');
+      expect(instructions).toContain('**Entry point:** `src/main.ts`');
     });
 
     it('should list directories', () => {
@@ -325,7 +279,7 @@ describe('LLMOptimizedInstructionGenerator', () => {
         directories: {
           source: 'src',
           tests: 'tests',
-          tools: 'tools',
+          docs: 'docs',
         },
       });
 
@@ -333,43 +287,31 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       expect(instructions).toContain('`src/` - Source code');
       expect(instructions).toContain('`tests/` - Tests');
-      expect(instructions).toContain('`tools/` - Tools');
+      expect(instructions).toContain('`docs/` - Documentation');
     });
 
-    it('should add CLI-specific directories for CLI projects', () => {
+    it('should include key files section', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo({
-        projectType: 'cli',
-        directories: {
-          source: 'src',
+        keyFiles: {
+          'package.json': 'Package config',
+          'tsconfig.json': 'TypeScript config',
         },
       });
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('`src/commands/` - Commands');
-      expect(instructions).toContain('`src/utils/` - Utilities');
-    });
-
-    it('should add API-specific directories for API projects', () => {
-      const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo({
-        projectType: 'api',
-        directories: {
-          source: 'src',
-        },
-      });
-
-      const instructions = generator.generateInstructions(projectInfo);
-
-      expect(instructions).toContain('`src/commands/` - Commands');
+      expect(instructions).toContain('### Key Files');
+      expect(instructions).toContain('`package.json`');
+      expect(instructions).toContain('`tsconfig.json`');
     });
   });
 
   describe('code patterns generation', () => {
-    it('should include TypeScript patterns with DO/DONT', () => {
+    it('should include TypeScript patterns when depth is full', () => {
       const generator = new LLMOptimizedInstructionGenerator({
-        includeDODONT: true,
+        depth: 'full',
+        includeCodePatterns: true,
       });
       const projectInfo = createMockProjectInfo({
         primaryLanguage: 'TypeScript',
@@ -377,14 +319,14 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       const instructions = generator.generateInstructions(projectInfo);
 
+      expect(instructions).toContain('## Code Patterns');
       expect(instructions).toContain('### TypeScript');
-      expect(instructions).toContain('**DO:**');
-      expect(instructions).toContain("**DON'T:**");
     });
 
-    it('should skip DO/DONT patterns when includeDODONT is false', () => {
+    it('should skip code patterns when includeCodePatterns is false', () => {
       const generator = new LLMOptimizedInstructionGenerator({
-        includeDODONT: false,
+        depth: 'full',
+        includeCodePatterns: false,
       });
       const projectInfo = createMockProjectInfo({
         primaryLanguage: 'TypeScript',
@@ -392,12 +334,13 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).not.toContain('**DO:**');
+      expect(instructions).not.toContain('## Code Patterns');
     });
 
-    it('should include validation patterns when validation is set', () => {
+    it('should include validation patterns when validation is zod', () => {
       const generator = new LLMOptimizedInstructionGenerator({
-        includeDODONT: true,
+        depth: 'full',
+        includeCodePatterns: true,
       });
       const projectInfo = createMockProjectInfo({
         conventions: {
@@ -407,77 +350,34 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('### Validation (zod)');
+      expect(instructions).toContain('### Validation (Zod)');
       expect(instructions).toContain('safeParse');
-    });
-
-    it('should include CLI patterns for CLI projects', () => {
-      const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo({
-        projectType: 'cli',
-      });
-
-      const instructions = generator.generateInstructions(projectInfo);
-
-      expect(instructions).toContain('### CLI Commands');
-      expect(instructions).toContain('exit codes');
-    });
-
-    it('should include API patterns for API projects', () => {
-      const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo({
-        projectType: 'api',
-      });
-
-      const instructions = generator.generateInstructions(projectInfo);
-
-      expect(instructions).toContain('### API Endpoints');
-      expect(instructions).toContain('HTTP status codes');
-    });
-
-    it('should include library patterns for library projects', () => {
-      const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo({
-        projectType: 'library',
-      });
-
-      const instructions = generator.generateInstructions(projectInfo);
-
-      expect(instructions).toContain('### Library API');
-      expect(instructions).toContain('breaking changes');
     });
   });
 
-  describe('workflow generation', () => {
-    it('should include before/changes/after sections', () => {
-      const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo();
-
-      const instructions = generator.generateInstructions(projectInfo);
-
-      expect(instructions).toContain('**Before:**');
-      expect(instructions).toContain('**Changes:**');
-      expect(instructions).toContain('**After:**');
-    });
-
-    it('should include script commands in after section', () => {
+  describe('build commands generation', () => {
+    it('should include script commands', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo({
+        packageManager: 'pnpm',
         scripts: {
           lint: 'eslint .',
           test: 'vitest run',
           build: 'tsc',
+          dev: 'tsx src/index.ts',
         },
       });
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('Lint: `eslint .`');
-      expect(instructions).toContain('Test: `vitest run`');
-      expect(instructions).toContain('Build: `tsc`');
+      // pnpm uses 'pnpm <cmd>' format without 'run' prefix
+      expect(instructions).toContain('pnpm lint');
+      expect(instructions).toContain('pnpm test');
+      expect(instructions).toContain('pnpm build');
+      expect(instructions).toContain('pnpm dev');
     });
 
-    it('should include quick commands for npm', () => {
+    it('should use npm commands for npm package manager', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo({
         packageManager: 'npm',
@@ -490,28 +390,10 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('**Quick Commands:**');
+      expect(instructions).toContain('npm install');
       expect(instructions).toContain('npm run dev');
       expect(instructions).toContain('npm test');
       expect(instructions).toContain('npm run build');
-    });
-
-    it('should include quick commands for pnpm', () => {
-      const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo({
-        packageManager: 'pnpm',
-        scripts: {
-          dev: 'node index.js',
-          test: 'vitest',
-          build: 'tsc',
-        },
-      });
-
-      const instructions = generator.generateInstructions(projectInfo);
-
-      expect(instructions).toContain('pnpm dev');
-      expect(instructions).toContain('pnpm test');
-      expect(instructions).toContain('pnpm build');
     });
   });
 
@@ -530,33 +412,6 @@ describe('LLMOptimizedInstructionGenerator', () => {
       expect(instructions).toContain('.js');
     });
 
-    it('should include validation error issue', () => {
-      const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo({
-        conventions: {
-          validation: 'zod',
-        },
-      });
-
-      const instructions = generator.generateInstructions(projectInfo);
-
-      expect(instructions).toContain('zod validation errors');
-      expect(instructions).toContain('safeParse');
-    });
-
-    it('should include test issue when test framework is set', () => {
-      const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo({
-        conventions: {
-          testFramework: 'vitest',
-        },
-      });
-
-      const instructions = generator.generateInstructions(projectInfo);
-
-      expect(instructions).toContain('Tests fail locally');
-    });
-
     it('should include TypeScript compilation issue', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo({
@@ -569,7 +424,20 @@ describe('LLMOptimizedInstructionGenerator', () => {
       expect(instructions).toContain('tsconfig.json');
     });
 
-    it('should return empty troubleshooting for minimal config', () => {
+    it('should include test issue when test framework is set', () => {
+      const generator = new LLMOptimizedInstructionGenerator();
+      const projectInfo = createMockProjectInfo({
+        conventions: {
+          testFramework: 'vitest',
+        },
+      });
+
+      const instructions = generator.generateInstructions(projectInfo);
+
+      expect(instructions).toContain('Tests pass locally but fail in CI');
+    });
+
+    it('should return no troubleshooting section for minimal config', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo({
         primaryLanguage: 'JavaScript',
@@ -578,12 +446,12 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      // Instructions should still be generated without Troubleshooting section
-      expect(instructions).toContain('test-project');
+      // No troubleshooting issues should be generated
+      expect(instructions).not.toContain('## Troubleshooting');
     });
   });
 
-  describe('generateSummary', () => {
+  describe('generateSummary (deprecated)', () => {
     it('should generate valid JSON summary', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo();
@@ -680,16 +548,6 @@ describe('LLMOptimizedInstructionGenerator', () => {
       expect(parsed.gotchas).toContain('Tip 3');
     });
 
-    it('should include reference to index file', () => {
-      const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo();
-
-      const summary = generator.generateSummary(projectInfo);
-      const parsed = JSON.parse(summary);
-
-      expect(parsed.indexFile).toBe('ax.index.json');
-    });
-
     it('should include entry point when available', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo({
@@ -713,9 +571,19 @@ describe('LLMOptimizedInstructionGenerator', () => {
 
       expect(parsed.project.packageManager).toBe('yarn');
     });
+
+    it('should include deprecation note', () => {
+      const generator = new LLMOptimizedInstructionGenerator();
+      const projectInfo = createMockProjectInfo();
+
+      const summary = generator.generateSummary(projectInfo);
+      const parsed = JSON.parse(summary);
+
+      expect(parsed.note).toContain('deprecated');
+    });
   });
 
-  describe('generateIndex', () => {
+  describe('generateIndex / generateDeepAnalysis', () => {
     it('should generate valid JSON index', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo();
@@ -727,7 +595,7 @@ describe('LLMOptimizedInstructionGenerator', () => {
       expect(parsed.name).toBe('test-project');
     });
 
-    it('should include all tier 1 fields', () => {
+    it('should include all core fields', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo();
 
@@ -745,7 +613,7 @@ describe('LLMOptimizedInstructionGenerator', () => {
       expect(parsed.scripts).toBeDefined();
     });
 
-    it('should include tier 2 fields when available', () => {
+    it('should include optional fields when available', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo({
         codeStats: { totalFiles: 100, totalLines: 5000 },
@@ -763,7 +631,7 @@ describe('LLMOptimizedInstructionGenerator', () => {
       expect(parsed.technicalDebt).toBeDefined();
     });
 
-    it('should include tier 3 architecture when available', () => {
+    it('should include architecture when available', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo({
         architecture: { pattern: 'monolith' },
@@ -776,7 +644,7 @@ describe('LLMOptimizedInstructionGenerator', () => {
       expect(parsed.architecture.pattern).toBe('monolith');
     });
 
-    it('should include tier 4 security when available', () => {
+    it('should include security when available', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo({
         security: { hasSecurityFiles: true },
@@ -814,52 +682,83 @@ describe('LLMOptimizedInstructionGenerator', () => {
     });
   });
 
-  describe('file organization section', () => {
-    it('should include file organization in instructions', () => {
+  describe('metadata header', () => {
+    it('should include metadata header as HTML comment', () => {
       const generator = new LLMOptimizedInstructionGenerator();
       const projectInfo = createMockProjectInfo();
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('Project File Organization');
-      expect(instructions).toContain('Standard Output Paths');
-      expect(instructions).toContain('automatosx/');
-      expect(instructions).toContain('PRD/');
-      expect(instructions).toContain('REPORT/');
-      expect(instructions).toContain('tmp/');
+      expect(instructions).toContain('<!--');
+      expect(instructions).toContain('Generated by: ax-cli / ax-grok');
+      expect(instructions).toContain('Last updated:');
+      expect(instructions).toContain('Refresh: Run `/init`');
+      expect(instructions).toContain('-->');
     });
 
-    it('should include path usage guidelines', () => {
+    it('should include complexity info when available', () => {
       const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo();
+      const projectInfo = createMockProjectInfo({
+        complexity: {
+          level: 'large',
+          fileCount: 150,
+          linesOfCode: 25000,
+          dependencyCount: 50,
+          score: 75,
+        },
+      });
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('Path Usage Guidelines');
-      expect(instructions).toContain('PRD (Product Requirement Documents)');
-      expect(instructions).toContain('REPORT (Plans & Status)');
-      expect(instructions).toContain('tmp (Temporary Files)');
+      expect(instructions).toContain('Complexity: large');
+      expect(instructions).toContain('150 files');
+      expect(instructions).toContain('~25000 LOC');
+    });
+  });
+
+  describe('adaptive output', () => {
+    it('should skip architecture for small projects with basic depth', () => {
+      const generator = new LLMOptimizedInstructionGenerator({
+        depth: 'basic',
+        adaptiveOutput: true,
+      });
+      const projectInfo = createMockProjectInfo({
+        complexity: {
+          level: 'small',
+          fileCount: 10,
+          linesOfCode: 500,
+          dependencyCount: 5,
+          score: 15,
+        },
+      });
+
+      const instructions = generator.generateInstructions(projectInfo);
+
+      // Small projects with basic depth should not have architecture section
+      expect(instructions).not.toContain('## Architecture');
     });
 
-    it('should include file naming conventions', () => {
-      const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo();
+    it('should include code patterns for enterprise projects', () => {
+      const generator = new LLMOptimizedInstructionGenerator({
+        depth: 'standard',
+        includeCodePatterns: true,
+        adaptiveOutput: true,
+      });
+      const projectInfo = createMockProjectInfo({
+        primaryLanguage: 'TypeScript',
+        complexity: {
+          level: 'enterprise',
+          fileCount: 1000,
+          linesOfCode: 100000,
+          dependencyCount: 200,
+          score: 95,
+        },
+      });
 
       const instructions = generator.generateInstructions(projectInfo);
 
-      expect(instructions).toContain('File Naming Conventions');
-      expect(instructions).toContain('kebab-case');
-      expect(instructions).toContain('YYYY-MM-DD');
-    });
-
-    it('should include gitignore rules', () => {
-      const generator = new LLMOptimizedInstructionGenerator();
-      const projectInfo = createMockProjectInfo();
-
-      const instructions = generator.generateInstructions(projectInfo);
-
-      expect(instructions).toContain('.gitignore Rules');
-      expect(instructions).toContain('automatosx/tmp/');
+      // Enterprise projects should get code patterns even with standard depth
+      expect(instructions).toContain('## Code Patterns');
     });
   });
 });
