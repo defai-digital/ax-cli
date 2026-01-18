@@ -8,6 +8,7 @@
 
 import type { CommandDefinition, CommandContext, CommandResult } from "../types.js";
 import { getUsageTracker } from "../../utils/usage-tracker.js";
+import { getGrokPricing, getGrokPricingName, calculateGrokCost } from "../../utils/grok-pricing.js";
 
 /**
  * Session statistics interface
@@ -36,38 +37,21 @@ function formatGrokUsageInfo(stats: SessionStats, currentModel: string): string 
   content += `  • Usage is tracked in real-time on the xAI console\n`;
   content += `  • Cached input tokens: 75% discount\n`;
 
-  // Grok pricing based on model
-  const modelLower = currentModel.toLowerCase();
-  const isGrokCodeFast = modelLower.includes("grok-code");
-  const isGrok41Fast = modelLower.includes("grok-4.1-fast");
+  // Use shared pricing utilities
+  const pricing = getGrokPricing(currentModel);
+  const pricingName = getGrokPricingName(currentModel);
 
-  if (isGrokCodeFast) {
-    content += `\n**💰 Grok Code Fast Pricing:**\n`;
-    content += `  • Input: $0.20 per 1M tokens\n`;
-    content += `  • Output: $1.50 per 1M tokens\n`;
-    content += `  • Cached: $0.02 per 1M tokens\n`;
-  } else if (isGrok41Fast) {
-    content += `\n**💰 Grok 4.1 Fast Pricing:**\n`;
-    content += `  • Input: $0.20 per 1M tokens\n`;
-    content += `  • Output: $0.50 per 1M tokens\n`;
-  } else {
-    content += `\n**💰 Grok 4 Pricing:**\n`;
-    content += `  • Input: $3.00 per 1M tokens\n`;
-    content += `  • Output: $15.00 per 1M tokens\n`;
-    content += `  • Cached: $0.75 per 1M tokens\n`;
-  }
+  content += `\n**💰 ${pricingName} Pricing:**\n`;
+  content += `  • Input: $${pricing.input.toFixed(2)} per 1M tokens\n`;
+  content += `  • Output: $${pricing.output.toFixed(2)} per 1M tokens\n`;
+  content += `  • Cached: $${pricing.cached.toFixed(2)} per 1M tokens\n`;
 
   if (stats.totalRequests > 0) {
-    // Calculate estimated cost based on model
-    const inputRate = (isGrokCodeFast || isGrok41Fast) ? 0.2 : 3.0;
-    const outputRate = isGrokCodeFast ? 1.5 : (isGrok41Fast ? 0.5 : 15.0);
-    const inputCost = (stats.totalPromptTokens / 1000000) * inputRate;
-    const outputCost = (stats.totalCompletionTokens / 1000000) * outputRate;
-    const totalCost = inputCost + outputCost;
+    const cost = calculateGrokCost(currentModel, stats.totalPromptTokens, stats.totalCompletionTokens);
     content += `\n**💵 Estimated Session Cost:**\n`;
-    content += `  • Input: $${inputCost.toFixed(6)} (${stats.totalPromptTokens.toLocaleString()} tokens)\n`;
-    content += `  • Output: $${outputCost.toFixed(6)} (${stats.totalCompletionTokens.toLocaleString()} tokens)\n`;
-    content += `  • **Total: ~$${totalCost.toFixed(6)}**\n`;
+    content += `  • Input: $${cost.input.toFixed(6)} (${stats.totalPromptTokens.toLocaleString()} tokens)\n`;
+    content += `  • Output: $${cost.output.toFixed(6)} (${stats.totalCompletionTokens.toLocaleString()} tokens)\n`;
+    content += `  • **Total: ~$${cost.total.toFixed(6)}**\n`;
   }
 
   return content;
