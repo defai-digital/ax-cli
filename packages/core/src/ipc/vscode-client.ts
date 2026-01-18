@@ -82,16 +82,21 @@ export interface FileRevealPayload {
   focus?: boolean;    // Focus the editor (default: true)
 }
 
+// Authentication payload for secure IPC
+interface AuthenticatePayload {
+  nonce: string;
+}
+
 interface IPCMessage {
-  type: 'diff_preview' | 'task_complete' | 'status_update' | 'ping' | 'stream_chunk' | 'file_reveal';
-  payload: DiffPayload | TaskSummaryPayload | StreamChunkPayload | FileRevealPayload | { status: string } | null;
+  type: 'authenticate' | 'diff_preview' | 'task_complete' | 'status_update' | 'ping' | 'stream_chunk' | 'file_reveal';
+  payload: AuthenticatePayload | DiffPayload | TaskSummaryPayload | StreamChunkPayload | FileRevealPayload | { status: string } | null;
   requestId: string;
 }
 
 interface IPCResponse {
-  type: 'approved' | 'rejected' | 'pong' | 'error';
+  type: 'approved' | 'rejected' | 'pong' | 'error' | 'authenticated' | 'auth_required';
   requestId: string;
-  payload?: { reason?: string };
+  payload?: { reason?: string; sessionId?: string };
 }
 
 interface PortFileContent {
@@ -99,6 +104,7 @@ interface PortFileContent {
   pid: number;
   started: string;
   version: string;
+  nonce: string;  // Authentication token - client must send this to authenticate
 }
 
 interface PendingRequest {
@@ -115,9 +121,11 @@ const REQUEST_TIMEOUT = 120000;   // 2 minutes for approval (user may need time 
 export class VSCodeIPCClient extends EventEmitter {
   private ws: WebSocket | null = null;
   private port: number = 0;
+  private nonce: string = '';  // Authentication token from port file
   private connected: boolean = false;
   private connecting: boolean = false;
   private disconnecting: boolean = false;  // BUG FIX: Prevent race between disconnect() and handleDisconnect()
+  private authenticated: boolean = false;  // Track authentication state
   private pendingRequests: Map<string, PendingRequest> = new Map();
   private requestCounter: number = 0;
 
@@ -144,6 +152,7 @@ export class VSCodeIPCClient extends EventEmitter {
       }
 
       this.port = portInfo.port;
+      this.nonce = portInfo.nonce || '';  // Store nonce for authentication
 
       // Connect to WebSocket server
       return await this.establishConnection();
@@ -203,12 +212,43 @@ export class VSCodeIPCClient extends EventEmitter {
         // BUG FIX: Capture ws reference in closures to ensure handlers only
         // affect the WebSocket they were attached to, not a newer one
         ws.on('open', () => {
-          safeResolve(true);
+          // Connection is open, but we need to authenticate first
+          // Send authentication message with nonce from port file
+          if (this.nonce) {
+            const authMessage: IPCMessage = {
+              type: 'authenticate',
+              payload: { nonce: this.nonce },
+              requestId: 'auth'
+            };
+            try {
+              ws.send(JSON.stringify(authMessage));
+            } catch {
+              safeResolve(false);
+            }
+          } else {
+            // No nonce available (old extension version?) - try connecting anyway
+            this.authenticated = true;
+            safeResolve(true);
+          }
         });
 
         ws.on('message', (data) => {
           try {
             const response: IPCResponse = JSON.parse(data.toString());
+
+            // Handle authentication responses during connection setup
+            if (response.requestId === 'auth') {
+              if (response.type === 'authenticated') {
+                this.authenticated = true;
+                safeResolve(true);
+              } else if (response.type === 'error' || response.type === 'auth_required') {
+                // Authentication failed
+                this.authenticated = false;
+                safeResolve(false);
+              }
+              return;
+            }
+
             this.handleResponse(response);
           } catch {
             // Silently ignore parse errors - malformed responses shouldn't crash CLI
@@ -257,6 +297,7 @@ export class VSCodeIPCClient extends EventEmitter {
 
     const wasConnected = this.connected;
     this.connected = false;
+    this.authenticated = false;  // Reset authentication state on disconnect
     this.ws = null;
 
     // Reject all pending requests - make a copy to avoid mutation during iteration
@@ -416,8 +457,8 @@ export class VSCodeIPCClient extends EventEmitter {
    */
   private sendRequest(message: IPCMessage): Promise<IPCResponse> {
     return new Promise<IPCResponse>((resolve, reject) => {
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        reject(new Error('Not connected'));
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.authenticated) {
+        reject(new Error('Not connected or not authenticated'));
         return;
       }
 
