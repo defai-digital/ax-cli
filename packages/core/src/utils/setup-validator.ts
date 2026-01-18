@@ -357,12 +357,13 @@ async function testModel(
       if (isXAI) {
         // Known xAI model aliases that map to versioned models
         const xaiAliases: Record<string, string> = {
-          'grok-4': 'grok-4-',           // matches grok-4-0709, grok-4-fast-*, etc.
-          'grok-4-latest': 'grok-4-',
-          'grok-4.1': 'grok-4-1-',        // matches grok-4-1-fast-*, etc.
-          'grok-4.1-latest': 'grok-4-1-',
+          'grok-4': 'grok-4',             // matches grok-4-0709, grok-4.1-*, etc.
+          'grok-4-latest': 'grok-4',
+          'grok-4.1': 'grok-4.1',          // matches grok-4.1-fast-*, grok-4.1-mini, etc.
+          'grok-4.1-latest': 'grok-4.1',
           'grok-3-latest': 'grok-3',
           'grok-3-mini-latest': 'grok-3-mini',
+          'grok-code-fast-1': 'grok-code', // matches grok-code-fast-1
         };
 
         const aliasPrefix = xaiAliases[model];
