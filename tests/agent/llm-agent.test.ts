@@ -57,7 +57,7 @@ vi.mock('../../packages/core/src/agent/context-manager.js', () => {
   return {
     ContextManager: class MockContextManager extends EventEmitter {
       pruneContext = vi.fn();
-      getStats = vi.fn().mockReturnValue({ percentage: 0.5, tokenCount: 5000 });
+      getStats = vi.fn().mockReturnValue({ remainingPercentage: 50, tokenCount: 5000 });
       dispose = vi.fn();
       constructor() {
         super();
