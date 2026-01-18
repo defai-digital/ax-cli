@@ -657,10 +657,13 @@ export class LLMAgent extends EventEmitter {
     }
 
     // Check if model supports thinking mode
-    // GLM models (4.6, 4.7, etc.) and Grok 4 models support thinking
+    // GLM models and Grok models with thinking support (grok-4, grok-3, grok-code)
     const model = this.llmClient.getCurrentModel();
     const modelLower = model.toLowerCase();
-    const supportsThinking = modelLower.includes('glm') || modelLower.includes('grok-4');
+    const supportsThinking = modelLower.includes('glm') ||
+      modelLower.includes('grok-4') ||
+      modelLower.includes('grok-3') ||
+      modelLower.includes('grok-code');
 
     if (!supportsThinking) {
       return false;
@@ -2439,7 +2442,7 @@ export class LLMAgent extends EventEmitter {
    */
   getContextPercentage(): number {
     const stats = this.contextManager.getStats(this.messages, this.tokenCounter);
-    return Math.round(stats.percentage * 100) / 100;
+    return Math.round(stats.remainingPercentage * 100) / 100;
   }
 
   /**

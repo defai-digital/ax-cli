@@ -102,10 +102,18 @@ vi.mock("../../packages/core/src/constants.js", () => ({
 // Mock provider config
 vi.mock("../../packages/core/src/provider/config.js", () => ({
   GLM_PROVIDER: {
-    models: { "glm-4.1": {}, "glm-4.6": {} },
+    models: {
+      "glm-4.1": { supportsThinking: false },
+      "glm-4.6": { supportsThinking: true },
+    },
   },
   GROK_PROVIDER: {
-    models: { "grok-4": {}, "grok-4-0709": {} },
+    models: {
+      "grok-4": { supportsThinking: true },
+      "grok-4-0709": { supportsThinking: true },
+      "grok-code-fast-1": { supportsThinking: true },
+      "grok-3": { supportsThinking: true },
+    },
   },
   resolveModelAlias: (model: string) => model,
 }));

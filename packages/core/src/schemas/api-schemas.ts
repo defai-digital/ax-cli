@@ -44,6 +44,7 @@ export const LLMResponseSchema: z.ZodType<any> = z.object({
       message: z.object({
         role: z.string(),
         content: z.string().nullable(),
+        reasoning_content: z.string().optional(), // Grok/GLM thinking mode support
         tool_calls: z.array(LLMToolCallSchema).optional(),
       }),
       finish_reason: z.string().nullable(),

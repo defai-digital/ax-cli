@@ -441,7 +441,13 @@ function getProviderDisplay(provider: string, baseURL: string): string {
  * - grok-3/grok-2: Legacy pricing
  */
 const GROK_PRICING = {
-  // Grok 4.1 (default flagship model)
+  // Grok Code Fast 1 (default model for agentic coding)
+  'grok-code-fast-1': {
+    input: 0.20 / 1_000_000,     // $0.20 per 1M tokens
+    output: 1.50 / 1_000_000,    // $1.50 per 1M tokens
+    cached: 0.02 / 1_000_000,    // $0.02 per 1M tokens
+  },
+  // Grok 4.1 (flagship model)
   'grok-4.1': {
     input: 3.0 / 1_000_000,      // $3.00 per 1M tokens
     output: 15.0 / 1_000_000,    // $15.00 per 1M tokens
@@ -497,6 +503,10 @@ const GROK_PRICING = {
 function getGrokPricing(model: string): { input: number; output: number; cached: number } {
   const modelLower = model.toLowerCase();
 
+  // Grok Code Fast 1 (default model)
+  if (modelLower.includes('grok-code-fast') || modelLower.includes('grok-code')) {
+    return GROK_PRICING['grok-code-fast-1'];
+  }
   // Grok 4.1 Fast variants (best value for agentic tasks)
   if (modelLower.includes('grok-4.1-fast-reasoning') || modelLower.includes('grok-fast')) {
     return GROK_PRICING['grok-4.1-fast-reasoning'];

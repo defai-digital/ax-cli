@@ -490,7 +490,8 @@ export function validateMaxTokens(maxTokens: number, model: string): void {
 
 /**
  * Validate thinking configuration for a given model
- * Supports both GLM models (glm-4.6) and Grok 4 models
+ * For GLM models, checks supportsThinking config.
+ * For Grok models, validation is handled in client.ts via supportsGrokReasoning().
  *
  * @throws Error if thinking is not supported by the model
  */
@@ -501,9 +502,9 @@ export function validateThinking(
   if (thinking && thinking.type === "enabled") {
     const modelLower = model.toLowerCase();
 
-    // Grok 4 models support thinking via reasoning_effort
-    if (modelLower.includes("grok-4")) {
-      return; // Valid for Grok 4
+    // Grok models: let through - actual support check is in client.ts
+    if (modelLower.includes("grok")) {
+      return;
     }
 
     // Check GLM model configuration
@@ -511,7 +512,7 @@ export function validateThinking(
     if (!config.supportsThinking) {
       throw new Error(
         `Thinking mode is not supported by model ${model}. ` +
-        `Use glm-4.6 for thinking capabilities, or grok-4 for Grok models.`
+        `Use glm-4.6 for thinking capabilities.`
       );
     }
   }

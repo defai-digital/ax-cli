@@ -572,10 +572,24 @@ export class LLMClient {
   }
 
   /**
-   * Check if the model supports Grok 4 reasoning features
+   * Check if the model supports Grok reasoning features
+   * BUG FIX: Check model config's supportsThinking instead of hardcoded name patterns
+   * This ensures grok-code-fast-1, grok-3, etc. get reasoning_effort when thinking is enabled
    */
   private supportsGrokReasoning(model: string): boolean {
-    return model.toLowerCase().includes('grok-4');
+    const modelLower = model.toLowerCase();
+
+    // Check provider model config for supportsThinking capability
+    const grokModelConfig = GROK_PROVIDER.models[model] || GROK_PROVIDER.models[modelLower];
+    if (grokModelConfig) {
+      return grokModelConfig.supportsThinking;
+    }
+
+    // Fallback: check for known Grok model patterns that support reasoning
+    // grok-4.x, grok-3.x, grok-code-fast all support reasoning
+    return modelLower.includes('grok-4') ||
+           modelLower.includes('grok-3') ||
+           modelLower.includes('grok-code');
   }
 
   /**
