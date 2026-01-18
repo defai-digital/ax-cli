@@ -95,7 +95,7 @@ describe('Context Manager Concurrent Access Tests', () => {
       // All stats should be identical
       expect(results.every(r =>
         r.currentTokens === results[0].currentTokens &&
-        r.percentage === results[0].percentage
+        r.remainingPercentage === results[0].remainingPercentage
       )).toBe(true);
     });
 
@@ -117,8 +117,8 @@ describe('Context Manager Concurrent Access Tests', () => {
       // All results should have valid values
       results.forEach(stats => {
         expect(stats.currentTokens).toBeGreaterThan(0);
-        expect(stats.percentage).toBeGreaterThan(0);
-        expect(stats.percentage).toBeLessThan(100);
+        expect(stats.remainingPercentage).toBeGreaterThan(0);
+        expect(stats.remainingPercentage).toBeLessThan(100);
         expect(stats.available).toBeGreaterThan(0);
       });
     });
@@ -305,7 +305,7 @@ describe('Context Manager Concurrent Access Tests', () => {
       results.forEach(stats => {
         expect(stats.currentTokens).toBeGreaterThan(0);
         expect(stats.contextWindow).toBeGreaterThan(0);
-        expect(stats.percentage).toBeGreaterThanOrEqual(0);
+        expect(stats.remainingPercentage).toBeGreaterThanOrEqual(0);
       });
     });
   });

@@ -121,9 +121,11 @@ export class ContextManager extends EventEmitter {
   /**
    * Dispose of resources
    * LRUCache handles cleanup automatically, just clear the cache
+   * Also removes event listeners to prevent memory leaks
    */
   dispose(): void {
     this.tokenCache.clear();
+    this.removeAllListeners();
   }
 
   /**
@@ -149,14 +151,14 @@ export class ContextManager extends EventEmitter {
    */
   getStats(messages: LLMMessage[], tokenCounter: TokenCounter) {
     const currentTokens = this.getCachedTokenCount(messages, tokenCounter);
-    // Changed: Show remaining percentage (counting down from 100%)
-    const percentage = 100 - (currentTokens / this.contextWindow) * 100;
+    // BUG FIX: Renamed to clarify this is remaining percentage (counting down from 100%)
+    const remainingPercentage = 100 - (currentTokens / this.contextWindow) * 100;
     const available = this.contextWindow - currentTokens;
 
     return {
       currentTokens,
       contextWindow: this.contextWindow,
-      percentage: percentage, // Remaining percentage (counts down from 100%)
+      remainingPercentage, // Remaining context space (counts down from 100%)
       available,
       shouldPrune: currentTokens > (this.contextWindow * this.pruneThreshold),
       isNearLimit: currentTokens > (this.contextWindow * this.hardLimit),
@@ -268,13 +270,18 @@ export class ContextManager extends EventEmitter {
   private identifyImportantMessages(messages: LLMMessage[]): Set<number> {
     const important = new Set<number>();
 
-    // Keep first N user messages (important project context)
+    // Keep first N user messages AND their assistant responses (important project context)
+    // Bug fix: Previously only kept user messages, losing critical assistant context
     let userMessageCount = 0;
     for (let i = 0; i < messages.length; i++) {
       if (messages[i].role === 'user') {
         if (userMessageCount < this.keepFirstMessages) {
           important.add(i);
           userMessageCount++;
+          // Also mark the following assistant response as important
+          if (i + 1 < messages.length && messages[i + 1].role === 'assistant') {
+            important.add(i + 1);
+          }
         } else {
           break;
         }
@@ -345,16 +352,23 @@ export class ContextManager extends EventEmitter {
     const systemMessage = messages[0];
     const workingMessages = messages.slice(1);
 
-    // Start with system message + first 2 user messages
+    // Start with system message + first N user messages AND their assistant responses
+    // Bug fix: Previously only kept user messages, losing critical assistant context
     const firstMessages: LLMMessage[] = [systemMessage];
     let userCount = 0;
     let firstMessageEnd = 0;
 
     for (let i = 0; i < workingMessages.length; i++) {
-      if (workingMessages[i].role === 'user') {
-        firstMessages.push(workingMessages[i]);
+      const msg = workingMessages[i];
+      if (msg.role === 'user') {
+        firstMessages.push(msg);
         userCount++;
         firstMessageEnd = i;
+        // Also include the following assistant response if it exists
+        if (i + 1 < workingMessages.length && workingMessages[i + 1].role === 'assistant') {
+          firstMessages.push(workingMessages[i + 1]);
+          firstMessageEnd = i + 1;
+        }
         if (userCount >= this.keepFirstMessages) break;
       }
     }
@@ -412,16 +426,16 @@ export class ContextManager extends EventEmitter {
    */
   createWarningMessage(stats: ReturnType<typeof this.getStats>): string {
     if (stats.isNearLimit) {
-      return `⚠️  Context: ${stats.currentTokens.toLocaleString()}/${stats.contextWindow.toLocaleString()} tokens (${stats.percentage.toFixed(1)}% remaining)
+      return `⚠️  Context: ${stats.currentTokens.toLocaleString()}/${stats.contextWindow.toLocaleString()} tokens (${stats.remainingPercentage.toFixed(1)}% remaining)
 💡 Near context limit! Consider starting a new conversation soon.`;
     }
 
     if (stats.shouldPrune) {
-      return `ℹ️  Context: ${stats.currentTokens.toLocaleString()}/${stats.contextWindow.toLocaleString()} tokens (${stats.percentage.toFixed(1)}% remaining)
+      return `ℹ️  Context: ${stats.currentTokens.toLocaleString()}/${stats.contextWindow.toLocaleString()} tokens (${stats.remainingPercentage.toFixed(1)}% remaining)
 📊 Context pruning active to maintain performance.`;
     }
 
-    return `📊 Context: ${stats.currentTokens.toLocaleString()}/${stats.contextWindow.toLocaleString()} tokens (${stats.percentage.toFixed(1)}% remaining)`;
+    return `📊 Context: ${stats.currentTokens.toLocaleString()}/${stats.contextWindow.toLocaleString()} tokens (${stats.remainingPercentage.toFixed(1)}% remaining)`;
   }
 
   /**
@@ -431,6 +445,5 @@ export class ContextManager extends EventEmitter {
    */
   destroy(): void {
     this.dispose();
-    this.removeAllListeners();
   }
 }

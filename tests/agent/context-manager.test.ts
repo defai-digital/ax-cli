@@ -68,8 +68,8 @@ describe('ContextManager', () => {
 
       expect(stats.currentTokens).toBeGreaterThan(0);
       expect(stats.contextWindow).toBe(128000); // grok-code-fast-1 context
-      expect(stats.percentage).toBeGreaterThan(0);
-      expect(stats.percentage).toBeLessThan(100);
+      expect(stats.remainingPercentage).toBeGreaterThan(0);
+      expect(stats.remainingPercentage).toBeLessThan(100);
       expect(stats.available).toBeGreaterThan(0);
       expect(stats.shouldPrune).toBe(false);
       expect(stats.isNearLimit).toBe(false);
@@ -160,6 +160,38 @@ describe('ContextManager', () => {
       const result = contextManager.pruneMessages(messages, tokenCounter);
       expect(result).toEqual(messages);
     });
+
+    it('should preserve assistant responses alongside first user messages', () => {
+      // Regression test: ensure assistant responses are kept with their user messages
+      // Previously, only user messages were preserved, breaking conversation context
+      const messages: LLMMessage[] = [
+        { role: 'system', content: 'System' },
+        { role: 'user', content: 'What is TypeScript?' },
+        { role: 'assistant', content: 'TypeScript is a typed superset of JavaScript.' },
+        { role: 'user', content: 'How do I install it?' },
+        { role: 'assistant', content: 'You can install TypeScript using npm.' },
+      ];
+
+      // Force pruning by setting very low threshold
+      const lowThresholdManager = new ContextManager({
+        model: 'grok-code-fast-1',
+        pruneThreshold: 0.0001,
+        keepFirstMessages: 2,
+      });
+
+      const pruned = lowThresholdManager.pruneMessages(messages, tokenCounter);
+
+      // Should keep system message
+      expect(pruned[0].role).toBe('system');
+
+      // Should have kept user messages WITH their assistant responses
+      const userMessages = pruned.filter(m => m.role === 'user');
+      const assistantMessages = pruned.filter(m => m.role === 'assistant');
+
+      // Both first user messages should have their assistant responses preserved
+      expect(userMessages.length).toBeGreaterThanOrEqual(1);
+      expect(assistantMessages.length).toBeGreaterThanOrEqual(1);
+    });
   });
 
   describe('createWarningMessage', () => {
@@ -167,7 +199,7 @@ describe('ContextManager', () => {
       const stats = {
         currentTokens: 122000,
         contextWindow: 128000,
-        percentage: 95.3,
+        remainingPercentage: 4.7,  // 100 - (122000/128000)*100
         available: 6000,
         shouldPrune: true,
         isNearLimit: true,
@@ -184,7 +216,7 @@ describe('ContextManager', () => {
       const stats = {
         currentTokens: 100000,
         contextWindow: 128000,
-        percentage: 78.1,
+        remainingPercentage: 21.9,  // 100 - (100000/128000)*100
         available: 28000,
         shouldPrune: true,
         isNearLimit: false,
@@ -200,7 +232,7 @@ describe('ContextManager', () => {
       const stats = {
         currentTokens: 5000,
         contextWindow: 128000,
-        percentage: 3.9,
+        remainingPercentage: 96.1,  // 100 - (5000/128000)*100
         available: 123000,
         shouldPrune: false,
         isNearLimit: false,
