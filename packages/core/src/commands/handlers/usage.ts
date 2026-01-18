@@ -38,7 +38,15 @@ function formatGrokUsageInfo(stats: SessionStats, currentModel: string): string 
 
   // Grok pricing based on model
   const modelLower = currentModel.toLowerCase();
-  if (modelLower.includes("grok-4.1-fast")) {
+  const isGrokCodeFast = modelLower.includes("grok-code");
+  const isGrok41Fast = modelLower.includes("grok-4.1-fast");
+
+  if (isGrokCodeFast) {
+    content += `\n**💰 Grok Code Fast Pricing:**\n`;
+    content += `  • Input: $0.20 per 1M tokens\n`;
+    content += `  • Output: $1.50 per 1M tokens\n`;
+    content += `  • Cached: $0.02 per 1M tokens\n`;
+  } else if (isGrok41Fast) {
     content += `\n**💰 Grok 4.1 Fast Pricing:**\n`;
     content += `  • Input: $0.20 per 1M tokens\n`;
     content += `  • Output: $0.50 per 1M tokens\n`;
@@ -51,12 +59,8 @@ function formatGrokUsageInfo(stats: SessionStats, currentModel: string): string 
 
   if (stats.totalRequests > 0) {
     // Calculate estimated cost based on model
-    let inputRate = 3.0;
-    let outputRate = 15.0;
-    if (modelLower.includes("grok-4.1-fast")) {
-      inputRate = 0.2;
-      outputRate = 0.5;
-    }
+    const inputRate = (isGrokCodeFast || isGrok41Fast) ? 0.2 : 3.0;
+    const outputRate = isGrokCodeFast ? 1.5 : (isGrok41Fast ? 0.5 : 15.0);
     const inputCost = (stats.totalPromptTokens / 1000000) * inputRate;
     const outputCost = (stats.totalCompletionTokens / 1000000) * outputRate;
     const totalCost = inputCost + outputCost;
