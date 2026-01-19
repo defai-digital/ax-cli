@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-cli",
-  "version": "5.3.3",
+  "version": "5.3.4",
   "sdkVersion": "1.4.0",
   "description": "Enterprise-Class AI Coding Assistant CLI - Terminal-based vibe coding with Grok and multi-provider AI orchestration. Features thinking mode, vision, web search, MCP integration, and AutomatosX agent system.",
   "type": "module",
@@ -38,17 +38,15 @@
     "build:schemas": "pnpm --filter @defai.digital/ax-schemas build",
     "build:core": "pnpm --filter @defai.digital/ax-core build",
     "build:grok": "pnpm --filter @defai.digital/ax-grok build",
-    "build:legacy": "npm run build:schemas && tsc && chmod +x dist/index.js",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
-    "preundefined": "npm run build:schemas",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run build:legacy",
+    "prepublishOnly": "pnpm run build",
     "prepare": "husky"
   },
   "keywords": [
@@ -78,7 +76,7 @@
   "dependencies": {
     "@clack/prompts": "^0.11.0",
     "@defai.digital/ax-core": "workspace:*",
-    "@defai.digital/ax-schemas": "^1.1.0",
+    "@defai.digital/ax-schemas": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.25.2",
     "@types/ws": "^8.18.1",
     "axios": "^1.7.0",
