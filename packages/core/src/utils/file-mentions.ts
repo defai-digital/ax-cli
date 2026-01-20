@@ -116,9 +116,17 @@ function readFileContent(
       const content = entries
         .map((entry) => {
           const fullPath = path.join(filePath, entry);
-          const isDir = fs.statSync(fullPath).isDirectory();
-          return isDir ? `${entry}/` : entry;
+          // BUG FIX: Wrap in try-catch to handle race condition where file
+          // is deleted between readdirSync and statSync (TOCTOU)
+          try {
+            const isDir = fs.statSync(fullPath).isDirectory();
+            return isDir ? `${entry}/` : entry;
+          } catch {
+            // File was deleted between readdir and stat, skip it
+            return null;
+          }
         })
+        .filter((entry): entry is string => entry !== null)
         .join("\n");
       return { content: `Directory listing for ${filePath}:\n${content}` };
     }

@@ -296,6 +296,10 @@ export class CancellationManager extends EventEmitter {
    * Clean up resources and remove all event listeners.
    */
   destroy(): void {
+    // BUG FIX: Call cleanupAll() to clear all pending timers before removing listeners
+    // Otherwise, cleanup timers would continue running and potentially cause issues
+    this.cleanupAll();
+    this.sendNotification = null;
     this.removeAllListeners();
   }
 }
@@ -361,8 +365,7 @@ export function getCancellationManager(): CancellationManager {
  */
 export function resetCancellationManager(): void {
   if (cancellationManager) {
-    cancellationManager.cleanupAll();
-    cancellationManager.removeAllListeners();
+    cancellationManager.destroy();
   }
   cancellationManager = null;
 }

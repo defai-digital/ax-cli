@@ -162,7 +162,9 @@ export const MCP_CONFIG = {
   CLIENT_VERSION: settingsYaml.mcp.client_version,
   DEFAULT_TIMEOUT: settingsYaml.mcp.default_timeout,
   HEALTH_CHECK_INTERVAL: settingsYaml.mcp.health_check_interval || 60000,
+  RECONNECT_BASE_DELAY: settingsYaml.mcp.reconnect_base_delay || 1000,
   RECONNECT_MAX_DELAY: settingsYaml.mcp.reconnect_max_delay || 30000,
+  RECONNECT_MAX_RETRIES: settingsYaml.mcp.reconnect_max_retries || 5,
   TOKEN_WARNING_THRESHOLD: settingsYaml.mcp.token_warning_threshold,
   TOKEN_HARD_LIMIT: settingsYaml.mcp.token_hard_limit,
   TRUNCATION_ENABLED: settingsYaml.mcp.truncation_enabled,
@@ -213,9 +215,15 @@ export const TIMEOUT_CONFIG = {
   // Doctor/diagnostic timeouts
   DOCTOR_COMMAND: settingsYaml.timeouts?.doctor_command || 10000,
 
+  // IPC timeouts (VS Code extension communication)
+  IPC_CONNECTION: settingsYaml.timeouts?.ipc_connection || 5000,
+  IPC_REQUEST: settingsYaml.timeouts?.ipc_request || 120000,
+  IPC_PORT_FILE_MAX_AGE: settingsYaml.timeouts?.ipc_port_file_max_age || 3600000,
+
   // Time formatting constants
   MS_PER_SECOND: 1000,
   MS_PER_MINUTE: 60000,
+  MS_PER_HOUR: 3600000,
 } as const;
 
 // Verbosity Levels

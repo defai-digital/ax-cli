@@ -737,7 +737,11 @@ export function getTaskPlanner(): TaskPlanner {
 
 /**
  * Reset the singleton (for testing)
+ * BUG FIX: Now calls destroy() to clean up event listeners before resetting
  */
 export function resetTaskPlanner(): void {
+  if (plannerInstance) {
+    plannerInstance.destroy();
+  }
   plannerInstance = null;
 }

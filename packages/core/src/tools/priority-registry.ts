@@ -503,9 +503,12 @@ export function getPriorityRegistry(): PriorityRegistry {
 
 /**
  * Reset the priority registry (for testing or provider changes)
+ * Follows standardized singleton reset pattern for consistency
  */
 export function resetPriorityRegistry(): void {
-  registryInstance?.clearCache();
+  if (registryInstance) {
+    registryInstance.clearCache();
+  }
   registryInstance = null;
 }
 

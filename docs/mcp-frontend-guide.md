@@ -182,11 +182,11 @@ ax-cli frontend gen-component Modal \
 
 #### `ax-cli frontend compare-design <figma-url>`
 
-Compare implementation with Figma design using AI vision capabilities (GLM-4.6V).
+Compare implementation with Figma design using AI vision capabilities.
 
 **Options**:
 - `--file <path>` - Implementation file(s) to compare (comma-separated) [default: src/components]
-- `--model <name>` - Vision model to use [default: glm-4.6v]
+- `--model <name>` - Vision model to use [default: grok-2-vision-1212]
 - `--export-screenshot` - Export screenshot from Figma [default: true]
 - `--format <type>` - Output format (markdown, html, json) [default: markdown]
 
@@ -195,14 +195,14 @@ Compare implementation with Figma design using AI vision capabilities (GLM-4.6V)
 ax-cli frontend compare-design \
   https://figma.com/file/abc123xyz?node-id=1:234 \
   --file src/components/Button.tsx,src/components/Button.module.css \
-  --model glm-4.6v \
+  --model grok-2-vision-1212 \
   --format markdown
 ```
 
 **What it does**:
 1. Exports screenshot from Figma design
 2. Reads your implementation files
-3. Uses GLM-4.6V vision model to compare visual appearance
+3. Uses AI vision model to compare visual appearance
 4. Analyzes differences in:
    - Layout & positioning
    - Colors & styling
@@ -294,7 +294,7 @@ ax-cli
 
 **What happens**:
 1. ax-cli uses the Figma MCP server to call `get_variables()`
-2. GLM-4.6 processes the color data
+2. AI processes the color data
 3. Generates a properly formatted CSS file:
 
 ```css

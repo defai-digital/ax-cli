@@ -1,6 +1,8 @@
 # AX CLI Architecture Documentation
-Last reviewed: 2025-02-21  
-Applies to: ax-cli/ax-glm/ax-grok v4.4.x
+Last reviewed: 2025-02-21
+Applies to: ax-cli/ax-grok v4.4.x
+
+> **Note:** The `ax-glm` package has been deprecated. GLM/Z.AI users should use [OpenCode](https://opencode.ai) - the official CLI from Z.AI.
 
 This document provides a comprehensive technical overview of the AX CLI enterprise-class architecture, covering the Single Source of Truth (SSOT) type system, technology stack, code quality practices, and test suite information.
 
@@ -585,7 +587,7 @@ src/
 ├── grok/
 │   ├── client.ts              # OpenAI-compatible API client
 │   ├── tools.ts               # Tool registration & MCP integration
-│   └── types.ts               # GLM-4.6 streaming types
+│   └── types.ts               # Streaming types
 ├── commands/
 │   └── *.ts                   # CLI command handlers
 ├── tools/
@@ -676,13 +678,13 @@ class MyTool {
 
 ### 2. Streaming Architecture
 
-GLM-4.6 supports streaming with reasoning tokens:
+The agent supports streaming with reasoning tokens:
 
 ```typescript
 interface StreamingChunk {
   type: 'content' | 'reasoning' | 'tool_calls' | 'done';
   content?: string;
-  reasoningContent?: string;  // GLM-4.6 thinking mode
+  reasoningContent?: string;  // Thinking mode
   toolCalls?: GrokToolCall[];
 }
 

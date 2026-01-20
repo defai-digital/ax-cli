@@ -232,12 +232,15 @@ export class DependencyResolver {
 
     for (const batch of result.batches) {
       for (const phase of batch.phases) {
-        const currentLength = longestPath.get(phase.id) || 0;
+        // BUG FIX: Track currentLength as mutable variable, update when longer path found
+        // Previously used cached value which ignored updates from earlier dependencies
+        let currentLength = longestPath.get(phase.id) || 0;
 
         for (const depId of phase.dependencies) {
           const depLength = longestPath.get(depId) || 0;
           if (depLength + 1 > currentLength) {
-            longestPath.set(phase.id, depLength + 1);
+            currentLength = depLength + 1;
+            longestPath.set(phase.id, currentLength);
             predecessor.set(phase.id, depId);
           }
         }

@@ -66,6 +66,10 @@ export const TimeoutsSchema = z.object({
   connection: z.number().positive().int().optional(),
   git_operation: z.number().positive().int().optional(),
   doctor_command: z.number().positive().int().optional(),
+  // IPC timeouts (VS Code extension communication)
+  ipc_connection: z.number().positive().int().optional(),
+  ipc_request: z.number().positive().int().optional(),
+  ipc_port_file_max_age: z.number().positive().int().optional(),
 }).optional();
 
 export const SettingsYamlSchema = z.object({
@@ -90,6 +94,10 @@ export const SettingsYamlSchema = z.object({
     client_name: z.string().min(1),
     client_version: z.string().regex(/^\d+\.\d+\.\d+$/, "Must be semver format"),
     default_timeout: z.number().positive().int(),
+    health_check_interval: z.number().positive().int().optional(),
+    reconnect_base_delay: z.number().positive().int().optional(),
+    reconnect_max_delay: z.number().positive().int().optional(),
+    reconnect_max_retries: z.number().positive().int().optional(),
     token_warning_threshold: z.number().positive().int(),
     token_hard_limit: z.number().positive().int(),
     truncation_enabled: z.boolean(),
@@ -168,11 +176,13 @@ export const ToolDefinitionSchema = z.object({
 /**
  * New simplified prompts.yaml schema
  * Supports the Claude Code-style prompt structure with named sections
+ * Updated for PRD-001: Added P0 sections for Claude Code quality parity
  */
 export const PromptsYamlSchema = z.object({
   system_prompt: z.object({
     identity: z.string().min(1),
-    // Named sections with title + content
+
+    // Core behavior sections
     thinking: PromptSectionSchema.optional(),
     autonomy: PromptSectionSchema.optional(),
     context: PromptSectionSchema.optional(),
@@ -184,8 +194,29 @@ export const PromptsYamlSchema = z.object({
     communication: PromptSectionSchema.optional(),
     agents: PromptSectionSchema.optional(),
     uncertainty: PromptSectionSchema.optional(),
-    // Legacy fields (optional for backward compatibility)
+
+    // P0 sections (PRD-001): Professional tone and task management
     professional_objectivity: PromptSectionSchema.optional(),
+    no_time_estimates: PromptSectionSchema.optional(),  // P2: Explicit prohibition of time estimates
+    tone_and_style: PromptSectionSchema.optional(),
+    task_management: PromptSectionSchema.optional(),
+    code_references: PromptSectionSchema.optional(),
+    parallel_execution: PromptSectionSchema.optional(),
+
+    // P0 sections (PRD-001): Tool-specific guidance
+    tool_bash: PromptSectionSchema.optional(),
+    tool_view_file: PromptSectionSchema.optional(),
+    tool_str_replace_editor: PromptSectionSchema.optional(),
+    tool_search: PromptSectionSchema.optional(),
+
+    // P0 sections (PRD-001): Git workflow guidance
+    git_commit_workflow: PromptSectionSchema.optional(),
+    git_pr_workflow: PromptSectionSchema.optional(),
+
+    // P1 sections (PRD-001): Codebase exploration
+    exploration_pattern: PromptSectionSchema.optional(),
+
+    // Legacy fields (optional for backward compatibility)
     core_principles: PromptSectionSchema.optional(),
     tools_header: z.string().optional(),
     sections: z.record(z.string(), PromptSectionSchema).optional(),

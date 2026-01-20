@@ -21,7 +21,8 @@ function validateCwd(dir: string): string {
       throw new Error(`Path is not a directory: ${resolved}`);
     }
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+    // BUG FIX: Use optional chaining for safe property access on unknown error type
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
       throw new Error(`Directory does not exist: ${resolved}`);
     }
     throw error;
@@ -538,7 +539,7 @@ export class BashTool extends EventEmitter {
               try {
                 childProcess.kill('SIGTERM');
                 // Give it a moment to terminate gracefully, then force kill
-                setTimeout(() => {
+                const forceKillTimeout = setTimeout(() => {
                   try {
                     if (!childProcess.killed) {
                       childProcess.kill('SIGKILL');
@@ -547,6 +548,7 @@ export class BashTool extends EventEmitter {
                     // Process already dead
                   }
                 }, 500);
+                forceKillTimeout.unref();
               } catch {
                 // Process already dead
               }
@@ -591,10 +593,10 @@ export class BashTool extends EventEmitter {
 
       // Collect stdout
       childProcess.stdout?.on('data', (data: Buffer) => {
-        const str = data.toString();
-        stdout.push(str);
-        this.currentOutput.push(str);
-        outputSize += str.length;
+        const chunk = data.toString();
+        stdout.push(chunk);
+        this.currentOutput.push(chunk);
+        outputSize += chunk.length;
 
         // Prevent memory exhaustion
         if (outputSize > BashTool.MAX_BUFFER_SIZE) {
@@ -602,17 +604,17 @@ export class BashTool extends EventEmitter {
         }
 
         // Emit for streaming output
-        this.emitSafely('stdout', { data: str });
+        this.emitSafely('stdout', { data: chunk });
       });
 
       // Collect stderr
       childProcess.stderr?.on('data', (data: Buffer) => {
-        const str = data.toString();
-        stderr.push(str);
-        this.currentOutput.push(`STDERR: ${str}`);
+        const chunk = data.toString();
+        stderr.push(chunk);
+        this.currentOutput.push(`STDERR: ${chunk}`);
 
         // Emit for streaming output
-        this.emitSafely('stderr', { data: str });
+        this.emitSafely('stderr', { data: chunk });
       });
 
       // Handle process completion
@@ -731,6 +733,8 @@ export class BashTool extends EventEmitter {
    * Clean up resources and remove all event listeners.
    */
   destroy(): void {
-    this.removeAllListeners();
+    // BUG FIX: Call dispose() instead of just removeAllListeners()
+    // dispose() properly kills running processes, clears state, and removes listeners
+    this.dispose();
   }
 }

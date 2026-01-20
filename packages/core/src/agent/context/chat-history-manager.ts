@@ -10,6 +10,10 @@
 import type { ChatEntry } from "../core/types.js";
 import type { LLMMessage, LLMToolCall } from "../../llm/client.js";
 import type { ToolResult } from "../../types/index.js";
+import { AGENT_CONFIG } from "../../constants.js";
+
+/** Default max entries for chat history (uses AGENT_CONFIG if available) */
+const DEFAULT_MAX_ENTRIES = AGENT_CONFIG.MAX_MESSAGES || 200;
 
 /**
  * Configuration for ChatHistoryManager
@@ -63,7 +67,7 @@ export class ChatHistoryManager {
 
   constructor(config?: ChatHistoryManagerConfig) {
     this.config = {
-      maxEntries: config?.maxEntries ?? 200,
+      maxEntries: config?.maxEntries ?? DEFAULT_MAX_ENTRIES,
       debug: config?.debug ?? false,
     };
   }
@@ -105,8 +109,9 @@ export class ChatHistoryManager {
     const index = this.chatHistory.length;
     this.chatHistory.push(entry);
 
-    // Index tool calls for O(1) lookup
-    if (entry.type === 'tool_call' && entry.toolCall?.id) {
+    // BUG FIX: Index both tool_call and tool_result entries for O(1) lookup
+    // This is consistent with rebuildIndexMap() which also indexes tool_result
+    if ((entry.type === 'tool_call' || entry.type === 'tool_result') && entry.toolCall?.id) {
       this.toolCallIndexMap.set(entry.toolCall.id, index);
     }
 
@@ -178,10 +183,20 @@ export class ChatHistoryManager {
    */
   updateEntryAt(index: number, entry: ChatEntry): void {
     if (index >= 0 && index < this.chatHistory.length) {
+      const oldEntry = this.chatHistory[index];
+
+      // BUG FIX: Remove old tool call ID from index map if it's being replaced
+      // with a different ID, otherwise stale entries remain in the map
+      if ((oldEntry.type === 'tool_call' || oldEntry.type === 'tool_result') && oldEntry.toolCall?.id) {
+        if (entry.toolCall?.id !== oldEntry.toolCall.id) {
+          this.toolCallIndexMap.delete(oldEntry.toolCall.id);
+        }
+      }
+
       this.chatHistory[index] = entry;
 
-      // Update index map if tool call
-      if (entry.type === 'tool_call' && entry.toolCall?.id) {
+      // Update index map if tool call or tool result
+      if ((entry.type === 'tool_call' || entry.type === 'tool_result') && entry.toolCall?.id) {
         this.toolCallIndexMap.set(entry.toolCall.id, index);
       }
     }

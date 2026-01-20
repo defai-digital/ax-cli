@@ -14,6 +14,7 @@ import type { CheckResultWithFixes } from '../design-check/index.js';
 import { formatConsoleOutput } from '../design-check/reporter/console.js';
 import { formatJsonOutput } from '../design-check/reporter/json.js';
 import type { DesignCheckOptions } from '../design-check/types.js';
+import { extractErrorMessage } from '../utils/error-handler.js';
 
 /**
  * Collect multiple values for an option
@@ -76,11 +77,13 @@ export function createDesignCommand(): Command {
         }
 
         // Build options
+        // BUG FIX: Validate parseInt to prevent NaN from invalid input
+        const parsedMaxWarnings = parseInt(options.maxWarnings, 10);
         const checkOptions: Partial<DesignCheckOptions> = {
           format: options.format as 'stylish' | 'json',
           config: options.config,
           quiet: options.quiet,
-          maxWarnings: parseInt(options.maxWarnings, 10),
+          maxWarnings: Number.isNaN(parsedMaxWarnings) ? -1 : parsedMaxWarnings,
           ignorePatterns: options.ignore,
           rule: options.rule,
           noColor: !options.color,
@@ -160,7 +163,8 @@ export function createDesignCommand(): Command {
           process.exit(1);
         }
 
-        const maxWarnings = parseInt(options.maxWarnings, 10);
+        // BUG FIX: Reuse validated value from checkOptions to prevent NaN comparison
+        const maxWarnings = checkOptions.maxWarnings ?? -1;
         if (maxWarnings >= 0 && result.summary.warnings > maxWarnings) {
           if (options.format !== 'json') {
             console.log(
@@ -175,16 +179,11 @@ export function createDesignCommand(): Command {
         // Success exit
         process.exit(0);
       } catch (error) {
+        const errorMsg = extractErrorMessage(error);
         if (options.format === 'json') {
-          console.log(
-            JSON.stringify({
-              error: error instanceof Error ? error.message : String(error),
-            })
-          );
+          console.log(JSON.stringify({ error: errorMsg }));
         } else {
-          prompts.log.error(
-            `Error: ${error instanceof Error ? error.message : String(error)}`
-          );
+          prompts.log.error(`Error: ${errorMsg}`);
         }
         process.exit(2);
       }
@@ -264,9 +263,7 @@ export function createDesignCommand(): Command {
 
         prompts.outro(chalk.green('Setup complete!'));
       } catch (error) {
-        prompts.log.error(
-          `Error: ${error instanceof Error ? error.message : String(error)}`
-        );
+        prompts.log.error(`Error: ${extractErrorMessage(error)}`);
         process.exit(1);
       }
     });

@@ -28,10 +28,10 @@ This document summarizes the implementation of `/usage` and `/version` slash com
   • Reasoning Tokens: 2,345
 
 **By Model:**
-  • glm-4.6: 58,023 tokens (1,234 requests)
+  • grok-4: 58,023 tokens (1,234 requests)
 
 💡 Use `ax-cli usage show --detailed` for full breakdown
-💡 Historical data: https://z.ai/manage-apikey/billing
+💡 Historical data: check your provider's billing dashboard
 ```
 
 **When No Usage**:
@@ -58,7 +58,7 @@ No API requests made in this session.
 🤖 **AX CLI Version 2.2.1**
 
 Enterprise-Class AI Command Line Interface
-Primary support for GLM (General Language Model)
+Primary support for Grok and local AI models
 
 💡 Check for updates: `ax-cli update`
 💡 Documentation: https://github.com/defai-digital/ax-cli

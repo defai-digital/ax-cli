@@ -288,6 +288,11 @@ export class SubscriptionManager extends EventEmitter {
    * Clean up resources and remove all event listeners.
    */
   destroy(): void {
+    // BUG FIX: Clear subscriptions map to prevent memory leaks
+    // Note: We clear silently (no events) since destroy() is for cleanup, not unsubscription
+    this.subscriptions.clear();
+    this.sendRequest = null;
+    this.checkCapabilities = null;
     this.removeAllListeners();
   }
 }

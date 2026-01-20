@@ -21,9 +21,7 @@ import type {
   CommandHookConfig,
 } from "./types.js";
 import { extractErrorMessage } from "../utils/error-handler.js";
-
-/** Default hook timeout in milliseconds */
-const DEFAULT_HOOK_TIMEOUT = 60000;
+import { TIMEOUT_CONFIG, CONFIG_DIR_NAME } from "../constants.js";
 
 /** Config file names to check */
 const CONFIG_FILE_NAMES = ["hooks.json", "hooks.yaml", "hooks.yml"];
@@ -43,7 +41,7 @@ export class HooksManager {
 
   private constructor() {
     this.projectDir = process.cwd();
-    this.userDir = path.join(os.homedir(), ".ax-cli");
+    this.userDir = path.join(os.homedir(), CONFIG_DIR_NAME);
   }
 
   /**
@@ -214,7 +212,7 @@ export class HooksManager {
     input: HookInput
   ): Promise<HookExecutionResult> {
     const startTime = Date.now();
-    const timeout = hook.timeout || DEFAULT_HOOK_TIMEOUT;
+    const timeout = hook.timeout || TIMEOUT_CONFIG.HOOK_DEFAULT;
 
     try {
       return await new Promise((resolve) => {
@@ -317,14 +315,6 @@ export class HooksManager {
           });
         });
 
-        child.on("error", (error) => {
-          clearTimeout(timeoutId);
-          resolve({
-            success: false,
-            error: extractErrorMessage(error),
-            durationMs: Date.now() - startTime,
-          });
-        });
       });
     } catch (error) {
       return {

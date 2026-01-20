@@ -107,7 +107,8 @@ describe('Extension Package', () => {
     // Note: API key is now stored in SecretStorage, not in configuration
     expect(config.properties['ax-cli.apiKey']).toBeUndefined();
     expect(config.properties['ax-cli.model']).toBeDefined();
-    expect(config.properties['ax-cli.baseURL']).toBeDefined();
+    expect(config.properties['ax-cli.provider']).toBeDefined();
+    expect(config.properties['ax-cli.maxToolRounds']).toBeDefined();
   });
 });
 

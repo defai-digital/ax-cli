@@ -1,11 +1,13 @@
 # AX CLI Command Reference
-Last reviewed: 2025-02-21  
-Applies to: ax-cli/ax-glm/ax-grok v4.4.x
+Last reviewed: 2025-02-21
+Applies to: ax-cli/ax-grok v4.4.x
+
+> **Note:** The `ax-glm` package has been deprecated. GLM/Z.AI users should use [OpenCode](https://opencode.ai) - the official CLI from Z.AI.
 
 ## Main syntax
 ```
 ax-<provider> [message...] [options]
-# providers: ax-glm, ax-grok, ax-cli (local/offline)
+# providers: ax-grok, ax-cli (local/offline)
 ```
 
 ## Core options
@@ -19,7 +21,7 @@ ax-<provider> [message...] [options]
 - `-v, --version`: show version; `-h, --help`: show help.
 
 ## Thinking / Reasoning
-- `--think`: enable thinking/reasoning mode (GLM: `thinking_mode`; Grok: `reasoning_effort` when supported).
+- `--think`: enable thinking/reasoning mode (Grok: `reasoning_effort` when supported).
 - `--no-think`: disable thinking/reasoning.
 
 ## Sampling / reproducibility
@@ -40,19 +42,18 @@ ax-<provider> [message...] [options]
 - `--agent <name>`: force a specific AutomatosX agent (e.g., `backend`, `frontend`, `security`).
 
 ## Models by provider (current)
-- GLM (default base: `https://api.z.ai/api/coding/paas/v4`): `glm-4.6` (default), `glm-4.6v`, `glm-4-flash`, `glm-4`, `cogview-4`, `glm-4.5v` (legacy).
 - Grok (default base: `https://api.x.ai/v1`): `grok-4` (default alias), `grok-4.1`, `grok-4.1-fast-reasoning`, `grok-4.1-fast-non-reasoning`, `grok-4.1-mini`, `grok-4-0709`, `grok-3`, `grok-3-mini`, `grok-2-1212`, `grok-2-vision-1212`, `grok-2-image-1212`.
-- Local/offline (default base: `http://localhost:11434/v1`): `qwen3:14b` (default), `qwen3:32b`, `qwen3:8b`, `qwen3:72b`, `qwen2.5-coder:32b`, `glm-4.6:9b`, `glm-4.6:32b`, `codegeex4`, `glm4:9b`.
+- Local/offline (default base: `http://localhost:11434/v1`): `qwen3:14b` (default), `qwen3:32b`, `qwen3:8b`, `qwen3:72b`, `qwen2.5-coder:32b`, `codegeex4`.
 
 ## Env vars
-- API keys: `ZAI_API_KEY` / `GLM_API_KEY`, `XAI_API_KEY` / `GROK_API_KEY`, `AX_API_KEY` (local).
+- API keys: `XAI_API_KEY` / `GROK_API_KEY`, `AX_API_KEY` (local).
 - `AI_MODEL`: default model override.
 - `AI_BASE_URL`: base URL override.
 
 ## Typical commands
 ```bash
-# Interactive (GLM)
-ax-glm --think
+# Interactive (Grok)
+ax-grok --think
 
 # Headless (Grok) with reasoning and capped tool rounds
 ax-grok -p "summarize tests" --think --max-tool-rounds 20
@@ -61,7 +62,7 @@ ax-grok -p "summarize tests" --think --max-tool-rounds 20
 ax-cli -p "rename foo to bar in src/index.ts" --model qwen3:14b --base-url http://localhost:11434/v1
 
 # Continue previous conversation
-ax-glm --continue
+ax-grok --continue
 ```
 
 ## Slash Commands (Interactive Mode)

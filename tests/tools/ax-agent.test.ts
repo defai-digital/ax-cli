@@ -242,7 +242,7 @@ describe('AX Agent Tool', () => {
       const result = await promise;
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('AutomatosX command not found');
+      expect(result.error).toContain('AX CLI command not found');
       expect(result.error).toContain('npm install -g');
     });
 
@@ -319,7 +319,7 @@ describe('AX Agent Tool', () => {
       const result = await promise;
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('AutomatosX command not found');
+      expect(result.error).toContain('AX CLI command not found');
     });
   });
 

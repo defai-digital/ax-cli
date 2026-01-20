@@ -305,9 +305,16 @@ export const ChatHistory = React.memo(
 
     // Debounced grouping state
     // This allows consecutive tool operations to be collected before grouping
-    // BUG FIX: Initialize with empty array to avoid stale initial state
-    // The useEffect will immediately populate with correct entries
-    const [debouncedEntries, setDebouncedEntries] = useState<ChatEntry[]>([]);
+    // BUG FIX: Initialize with actual filtered entries to prevent UI flicker on first render
+    // Using lazy initialization to compute the initial value from props
+    const [debouncedEntries, setDebouncedEntries] = useState<ChatEntry[]>(() => {
+      return isConfirmationActive
+        ? entries.filter(
+            (entry) =>
+              !(entry.type === "tool_call" && entry.content === "Executing...")
+          )
+        : entries;
+    });
     const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
     const lastEntriesLengthRef = useRef(0);
     const lastEntryRef = useRef<ChatEntry | null>(null);

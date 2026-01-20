@@ -8,6 +8,7 @@
 import { EventEmitter } from 'events';
 import type { MCPServerConfig } from '../schemas/settings-schemas.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
+import { MCP_CONFIG, TIMEOUT_CONFIG } from '../constants.js';
 
 export interface ReconnectionStrategy {
   /** Maximum number of retry attempts */
@@ -23,11 +24,11 @@ export interface ReconnectionStrategy {
 }
 
 export const DEFAULT_STRATEGY: ReconnectionStrategy = {
-  maxRetries: 5,
-  baseDelayMs: 1000,      // Start at 1 second
-  maxDelayMs: 30000,      // Cap at 30 seconds
-  backoffMultiplier: 2,   // Double each time: 1s, 2s, 4s, 8s, 16s, 30s
-  jitter: true            // Add randomness
+  maxRetries: MCP_CONFIG.RECONNECT_MAX_RETRIES,
+  baseDelayMs: MCP_CONFIG.RECONNECT_BASE_DELAY,
+  maxDelayMs: MCP_CONFIG.RECONNECT_MAX_DELAY,
+  backoffMultiplier: 2,
+  jitter: true
 };
 
 export interface ReconnectionState {
@@ -212,7 +213,10 @@ export class ReconnectionManager extends EventEmitter {
    * Cancel all reconnection attempts
    */
   cancelAll(): void {
-    for (const serverName of this.reconnectTimers.keys()) {
+    // BUG FIX: Convert to array first to avoid modifying Map during iteration
+    // cancelReconnection() deletes from reconnectTimers, which causes undefined behavior
+    const serverNames = Array.from(this.reconnectTimers.keys());
+    for (const serverName of serverNames) {
       this.cancelReconnection(serverName);
     }
   }
@@ -267,11 +271,12 @@ export class ReconnectionManager extends EventEmitter {
     const diff = nextAttemptMs - Date.now();
     if (diff <= 0) return 'now';
 
-    const seconds = Math.floor(diff / 1000);
-    if (seconds < 60) return `${seconds}s`;
+    const seconds = Math.floor(diff / TIMEOUT_CONFIG.MS_PER_SECOND);
+    const secondsPerMinute = 60;
+    if (seconds < secondsPerMinute) return `${seconds}s`;
 
-    const minutes = Math.floor(seconds / 60);
-    return `${minutes}m ${seconds % 60}s`;
+    const minutes = Math.floor(seconds / secondsPerMinute);
+    return `${minutes}m ${seconds % secondsPerMinute}s`;
   }
 
   /**
@@ -310,6 +315,8 @@ export class ReconnectionManager extends EventEmitter {
    * Clean up resources and remove all event listeners.
    */
   destroy(): void {
-    this.removeAllListeners();
+    // BUG FIX: Call dispose() instead of just removeAllListeners()
+    // dispose() properly clears timers, state, and event listeners
+    this.dispose();
   }
 }

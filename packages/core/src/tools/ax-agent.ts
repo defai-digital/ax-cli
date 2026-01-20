@@ -26,15 +26,18 @@ function findAxCommand(): string {
   // Return cached path if already found
   if (_axCommandPath) return _axCommandPath;
 
-  // First try the command directly (in PATH)
-  const directCheck = spawnSync("ax", ["--version"], {
-    encoding: "utf-8",
-    timeout: 3000,
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  if (directCheck.status === 0) {
-    _axCommandPath = "ax";
-    return _axCommandPath;
+  // First try the command directly (in PATH) - try both ax and ax-cli
+  const commands = ["ax", "ax-cli"];
+  for (const cmd of commands) {
+    const directCheck = spawnSync(cmd, ["--version"], {
+      encoding: "utf-8",
+      timeout: 3000,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    if (directCheck.status === 0) {
+      _axCommandPath = cmd;
+      return _axCommandPath;
+    }
   }
 
   // Common global bin paths to check
@@ -42,19 +45,28 @@ function findAxCommand(): string {
   const possiblePaths = [
     // npm global (macOS/Linux)
     join(home, ".npm-global", "bin", "ax"),
+    join(home, ".npm-global", "bin", "ax-cli"),
     // npm global (default)
     "/usr/local/bin/ax",
+    "/usr/local/bin/ax-cli",
     // pnpm global
     join(home, ".local", "share", "pnpm", "ax"),
+    join(home, ".local", "share", "pnpm", "ax-cli"),
     join(home, "Library", "pnpm", "ax"),
+    join(home, "Library", "pnpm", "ax-cli"),
     // yarn global
     join(home, ".yarn", "bin", "ax"),
+    join(home, ".yarn", "bin", "ax-cli"),
     join(home, ".config", "yarn", "global", "node_modules", ".bin", "ax"),
+    join(home, ".config", "yarn", "global", "node_modules", ".bin", "ax-cli"),
     // nvm paths
     join(home, ".nvm", "versions", "node", "*", "bin", "ax"),
+    join(home, ".nvm", "versions", "node", "*", "bin", "ax-cli"),
     // Windows paths
     join(process.env.APPDATA || "", "npm", "ax.cmd"),
+    join(process.env.APPDATA || "", "npm", "ax-cli.cmd"),
     join(process.env.LOCALAPPDATA || "", "pnpm", "ax.cmd"),
+    join(process.env.LOCALAPPDATA || "", "pnpm", "ax-cli.cmd"),
   ];
 
   for (const axPath of possiblePaths) {
@@ -215,8 +227,8 @@ async function runAxCommand(args: string[]): Promise<{ success: boolean; output?
       if (error.message.includes("ENOENT") || error.message.includes("not found")) {
         resolveOnce({
           success: false,
-          error: "AutomatosX command not found. Please ensure it's installed and in your PATH.\n" +
-            "Install with: npm install -g @defai.digital/automatosx\n" +
+          error: "AX CLI command not found. Please ensure it's installed and in your PATH.\n" +
+            "Install with: npm install -g @defai.digital/ax-cli\n" +
             "Then restart your terminal or run: source ~/.bashrc (or ~/.zshrc)",
         });
       } else {
@@ -240,8 +252,8 @@ async function runAxCommand(args: string[]): Promise<{ success: boolean; output?
         if (errorOutput.includes("not found") || errorOutput.includes("command not found")) {
           resolveOnce({
             success: false,
-            error: "AutomatosX command not found. Please ensure it's installed and in your PATH.\n" +
-              "Install with: npm install -g @defai.digital/automatosx\n" +
+            error: "AX CLI command not found. Please ensure it's installed and in your PATH.\n" +
+              "Install with: npm install -g @defai.digital/ax-cli\n" +
               "Then restart your terminal or run: source ~/.bashrc (or ~/.zshrc)",
           });
         } else {

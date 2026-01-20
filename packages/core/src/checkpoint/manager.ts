@@ -55,25 +55,25 @@ export class CheckpointManager {
     const checkpointId = crypto.randomUUID();
     const timestamp = new Date();
 
-    // Create file snapshots
-    const fileSnapshots: FileSnapshot[] = [];
-    for (const file of options.files) {
-      const validation = await validatePathSecure(file.path).catch(() => ({ success: false } as const));
-      const safePath = validation.success && validation.path ? validation.path : path.resolve(file.path);
+    // REFACTOR: Create file snapshots in parallel (I/O bound path validation)
+    const fileSnapshots: FileSnapshot[] = await Promise.all(
+      options.files.map(async (file) => {
+        const validation = await validatePathSecure(file.path).catch(() => ({ success: false } as const));
+        const safePath = validation.success && validation.path ? validation.path : path.resolve(file.path);
 
-      if (!validation.success) {
-        // Warn but continue so checkpoints can still be created for reporting; restoration will re-validate
-        console.warn(`Skipped path security validation for checkpoint file ${file.path}: ${'error' in validation ? validation.error : 'validation failed'}`);
-      }
+        if (!validation.success) {
+          console.warn(`Skipped path security validation for checkpoint file ${file.path}: ${'error' in validation ? validation.error : 'validation failed'}`);
+        }
 
-      const hash = calculateHash(file.content);
-      fileSnapshots.push({
-        path: safePath,
-        content: file.content,
-        hash,
-        size: Buffer.byteLength(file.content, 'utf-8'),
-      });
-    }
+        const hash = calculateHash(file.content);
+        return {
+          path: safePath,
+          content: file.content,
+          hash,
+          size: Buffer.byteLength(file.content, 'utf-8'),
+        };
+      })
+    );
 
     // Limit conversation depth
     // INPUT VALIDATION FIX: Validate conversationState and conversationDepth

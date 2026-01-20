@@ -108,7 +108,9 @@ export async function analyzeFilesParallel<T>(
           }
         } catch (error) {
           if (config.onError) {
-            config.onError(file, error as Error);
+            // BUG FIX: error can be any type, not just Error - safely convert
+            const normalizedError = error instanceof Error ? error : new Error(String(error));
+            config.onError(file, normalizedError);
           }
           if (stopOnError) {
             throw error;
@@ -203,9 +205,11 @@ export async function analyzeFilesParallelSafe<T>(
             config.onProgress(progress.completed, total);
           }
         } catch (error) {
-          batchErrors.push({ file, error: error as Error });
+          // BUG FIX: error can be any type, not just Error - safely convert
+          const normalizedError = error instanceof Error ? error : new Error(String(error));
+          batchErrors.push({ file, error: normalizedError });
           if (config.onError) {
-            config.onError(file, error as Error);
+            config.onError(file, normalizedError);
           }
           progress.completed++;
           if (config.onProgress) {

@@ -15,6 +15,7 @@ import WebSocket from 'ws';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { TIMEOUT_CONFIG, CONFIG_DIR_NAME } from '../constants.js';
 
 // Shared types with extension
 export interface DiffPayload {
@@ -114,9 +115,7 @@ interface PendingRequest {
   resolved: boolean;  // BUG FIX: Track if promise already resolved to prevent double-resolution
 }
 
-const IPC_PORT_FILE = path.join(os.homedir(), '.ax-cli', 'vscode-ipc.json');
-const CONNECTION_TIMEOUT = 5000;  // 5 seconds to connect
-const REQUEST_TIMEOUT = 120000;   // 2 minutes for approval (user may need time to review)
+const IPC_PORT_FILE = path.join(os.homedir(), CONFIG_DIR_NAME, 'vscode-ipc.json');
 
 export class VSCodeIPCClient extends EventEmitter {
   private ws: WebSocket | null = null;
@@ -190,7 +189,7 @@ export class VSCodeIPCClient extends EventEmitter {
           this.ws.close();
         }
         safeResolve(false);
-      }, CONNECTION_TIMEOUT);
+      }, TIMEOUT_CONFIG.IPC_CONNECTION);
 
       try {
         // BUG FIX: Clean up any existing WebSocket before creating a new one
@@ -478,7 +477,7 @@ export class VSCodeIPCClient extends EventEmitter {
           // On timeout, auto-approve to not block forever
           resolve({ type: 'approved', requestId: message.requestId });
         }
-      }, REQUEST_TIMEOUT);
+      }, TIMEOUT_CONFIG.IPC_REQUEST);
 
       pendingRequest.timeout = timeout;
       this.pendingRequests.set(message.requestId, pendingRequest);
@@ -535,7 +534,7 @@ export class VSCodeIPCClient extends EventEmitter {
         return null;
       }
       const age = Date.now() - startedTime;
-      if (age > 60 * 60 * 1000) {
+      if (age > TIMEOUT_CONFIG.IPC_PORT_FILE_MAX_AGE) {
         // Stale port file, extension may have crashed
         return null;
       }

@@ -161,7 +161,7 @@ interface CLIResponse {
   "ax-cli.model": {
     "type": "string",
     "default": "grok-code-fast-1",
-    "enum": ["grok-code-fast-1", "grok-4-latest", "glm-4.6", ...]
+    "enum": ["grok-4", "grok-4.1-fast-reasoning", "grok-4.1-mini", ...]
   },
   "ax-cli.maxToolRounds": {
     "type": "number",
@@ -476,7 +476,7 @@ If Phase 2 achieves 500+ installs:
 ### Competitive Position
 
 **Unique Advantages vs. Competitors:**
-1. ✅ **True multi-provider** (Grok, GLM, Claude, GPT-4, local)
+1. ✅ **True multi-provider** (Grok, Claude, GPT-4, local)
 2. ✅ **MCP ecosystem** native integration
 3. ✅ **Production-grade** (98%+ test coverage in CLI)
 4. ✅ **Open source** and extensible

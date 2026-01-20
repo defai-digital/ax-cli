@@ -1,4 +1,5 @@
 import { spawn, ChildProcess, execFileSync } from 'child_process';
+import * as os from 'os';
 import * as vscode from 'vscode';
 import type { CLIRequest, CLIResponse, CLIError } from './types.js';
 import { CLI_REQUEST_TIMEOUT_MS, CONFIG_NAMESPACE } from './constants.js';
@@ -96,7 +97,7 @@ export class CLIBridge {
       // Spawn process with fallback cwd to prevent undefined
       // Priority: workspace folder > home directory > process cwd
       const workspaceCwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-      const homeCwd = require('os').homedir();
+      const homeCwd = os.homedir();
       const cwd = workspaceCwd || homeCwd || process.cwd();
 
       const cliProcess = spawn('ax-cli', args, {
@@ -208,11 +209,13 @@ export class CLIBridge {
   }
 
   dispose(): void {
-    // Kill all active processes
-    for (const [requestId, process] of this.activeProcesses) {
-      process.kill();
-      this.activeProcesses.delete(requestId);
+    // Kill all active processes - convert to array first to avoid
+    // modifying Map during iteration
+    const processesToKill = Array.from(this.activeProcesses.values());
+    for (const cliProcess of processesToKill) {
+      cliProcess.kill();
     }
+    this.activeProcesses.clear();
     this.requestCallbacks.clear();
   }
 }

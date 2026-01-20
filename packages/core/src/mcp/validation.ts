@@ -9,6 +9,7 @@ import type { MCPServerConfig } from '../schemas/settings-schemas.js';
 import { getTemplate } from './templates.js';
 import { getAuditLogger, AuditCategory } from '../utils/audit-logger.js';
 import { findOnPath } from '../utils/path-helpers.js';
+import { TIMEOUT_CONFIG } from '../constants.js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -341,7 +342,7 @@ async function checkCommandExists(command: string): Promise<boolean> {
  */
 async function checkUrlAccessible(url: string): Promise<boolean> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 3000);
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_CONFIG.COMMAND_CHECK);
 
   try {
     const response = await fetch(url, {

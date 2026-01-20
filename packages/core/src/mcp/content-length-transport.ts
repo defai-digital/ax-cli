@@ -480,8 +480,24 @@ export class ContentLengthStdioTransport extends EventEmitter implements Transpo
   /**
    * Clean up resources and remove all event listeners.
    * Required for EventEmitter-extending classes to prevent memory leaks.
+   *
+   * BUG FIX: Now also kills the subprocess to prevent resource leaks.
+   * For async cleanup with graceful shutdown, use close() instead.
    */
   destroy(): void {
+    // Kill subprocess if still running (synchronous, no wait)
+    if (this.process && !this.process.killed) {
+      try {
+        this.process.kill('SIGTERM');
+      } catch {
+        // Process may have already exited
+      }
+      this.process = undefined;
+    }
+    // Clear buffer
+    this.buffer = Buffer.alloc(0);
+    this._started = false;
+    // Remove event listeners
     this.removeAllListeners();
   }
 }

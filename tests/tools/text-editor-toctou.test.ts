@@ -28,6 +28,10 @@ describe('Text Editor TOCTOU Regression Tests', () => {
     textEditor = new TextEditorTool();
     confirmationService = ConfirmationService.getInstance();
 
+    // PRD-001 P1: Disable read-before-edit enforcement for TOCTOU tests
+    // These tests focus on race condition prevention, not the read-first requirement
+    textEditor.setReadBeforeEditEnforcement(false);
+
     // Create temp test directory within project (for path security)
     testDir = path.join(process.cwd(), '.test-tmp', `toctou-${Date.now()}`);
     await fs.mkdir(testDir, { recursive: true });

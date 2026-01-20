@@ -87,6 +87,11 @@ describe('TextEditorTool', () => {
     vi.resetAllMocks();
     editor = new TextEditorTool();
 
+    // PRD-001 P1: Disable read-before-edit enforcement for most tests
+    // This allows testing edit functionality without needing to read first
+    // Specific tests for read-before-edit enforcement are in a separate describe block
+    editor.setReadBeforeEditEnforcement(false);
+
     mockConfirmationService = {
       shouldProceed: vi.fn().mockResolvedValue(true),
       requestConfirmation: vi.fn().mockResolvedValue({ confirmed: true }),
@@ -398,6 +403,91 @@ describe('TextEditorTool', () => {
     it('should accept checkpoint callback without error', () => {
       const callback = vi.fn();
       expect(() => editor.setCheckpointCallback(callback)).not.toThrow();
+    });
+  });
+
+  // PRD-001 P1 FR5.1: Read-before-edit enforcement tests
+  describe('read-before-edit enforcement', () => {
+    let enforcedEditor: TextEditorTool;
+    const testFilePath = path.resolve('/test/file.txt');
+
+    beforeEach(() => {
+      enforcedEditor = new TextEditorTool();
+      // Enforcement is enabled by default
+    });
+
+    it('should block edit when file has not been read', async () => {
+      vi.mocked(validatePathSecure).mockResolvedValue({ success: true, path: testFilePath });
+      vi.mocked(fs.pathExists).mockResolvedValue(true as unknown as never);
+
+      const result = await enforcedEditor.strReplace('/test/file.txt', 'old', 'new');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('must read the file before editing');
+    });
+
+    it('should not block edit when file is manually marked as read', async () => {
+      vi.mocked(validatePathSecure).mockResolvedValue({ success: true, path: testFilePath });
+      vi.mocked(fs.pathExists).mockResolvedValue(true as unknown as never);
+      vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => false, mtimeMs: 1234 } as unknown as never);
+      vi.mocked(fs.readFile).mockResolvedValue('old content here' as unknown as never);
+      vi.mocked(fs.rename).mockResolvedValue(undefined as never);
+
+      // Manually mark the file as read using the resolved path
+      enforcedEditor.markFileAsRead(testFilePath);
+
+      // Edit should pass the read-before-edit check
+      // (may fail later in the edit process, but not due to read-before-edit)
+      const editResult = await enforcedEditor.strReplace('/test/file.txt', 'old', 'new');
+
+      // If it fails, it should NOT be due to read-before-edit
+      if (!editResult.success) {
+        expect(editResult.error).not.toContain('must read the file before editing');
+      }
+    });
+
+    it('should not block edit when enforcement is disabled', async () => {
+      vi.mocked(validatePathSecure).mockResolvedValue({ success: true, path: testFilePath });
+      vi.mocked(fs.pathExists).mockResolvedValue(true as unknown as never);
+      vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => false, mtimeMs: 1234 } as unknown as never);
+      vi.mocked(fs.readFile).mockResolvedValue('old content here' as unknown as never);
+      vi.mocked(fs.rename).mockResolvedValue(undefined as never);
+
+      // Disable enforcement
+      enforcedEditor.setReadBeforeEditEnforcement(false);
+
+      // Edit should pass the read-before-edit check
+      const editResult = await enforcedEditor.strReplace('/test/file.txt', 'old', 'new');
+
+      // If it fails, it should NOT be due to read-before-edit
+      if (!editResult.success) {
+        expect(editResult.error).not.toContain('must read the file before editing');
+      }
+    });
+
+    it('should report enforcement status via isReadBeforeEditEnforced', () => {
+      expect(enforcedEditor.isReadBeforeEditEnforced()).toBe(true);
+
+      enforcedEditor.setReadBeforeEditEnforcement(false);
+      expect(enforcedEditor.isReadBeforeEditEnforced()).toBe(false);
+
+      enforcedEditor.setReadBeforeEditEnforcement(true);
+      expect(enforcedEditor.isReadBeforeEditEnforced()).toBe(true);
+    });
+
+    it('should track marked files via hasFileBeenRead', () => {
+      expect(enforcedEditor.hasFileBeenRead(testFilePath)).toBe(false);
+
+      enforcedEditor.markFileAsRead(testFilePath);
+      expect(enforcedEditor.hasFileBeenRead(testFilePath)).toBe(true);
+    });
+
+    it('should clear read tracking via clearReadFilesTracking', () => {
+      enforcedEditor.markFileAsRead(testFilePath);
+      expect(enforcedEditor.hasFileBeenRead(testFilePath)).toBe(true);
+
+      enforcedEditor.clearReadFilesTracking();
+      expect(enforcedEditor.hasFileBeenRead(testFilePath)).toBe(false);
     });
   });
 });

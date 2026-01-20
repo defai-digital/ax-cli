@@ -16,11 +16,15 @@ import {
 } from '../../packages/core/src/agent/agent-router.js';
 import * as fs from 'fs';
 
-// Mock fs module
-vi.mock('fs', () => ({
-  existsSync: vi.fn(),
-  readdirSync: vi.fn(),
-}));
+// Mock fs module - preserve readFileSync for config loading
+vi.mock('fs', async (importOriginal) => {
+  const original = await importOriginal<typeof import('fs')>();
+  return {
+    ...original,
+    existsSync: vi.fn(),
+    readdirSync: vi.fn(),
+  };
+});
 
 describe('AgentRouter', () => {
   const mockFs = vi.mocked(fs);

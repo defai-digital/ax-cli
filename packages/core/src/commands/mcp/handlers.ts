@@ -17,6 +17,7 @@ import { getMCPManager } from '../../llm/tools.js';
 import { ConsoleMessenger } from '../../utils/console-messenger.js';
 import { getTemplateNames } from '../../mcp/templates.js';
 import { getActiveProvider } from '../../provider/config.js';
+import { extractErrorMessage } from '../../utils/error-handler.js';
 import type { MCPServerConfig } from '../../mcp/client.js';
 
 /**
@@ -232,7 +233,7 @@ export async function connectAndShowTools(
     }
   } catch (error) {
     // Handle connection errors (timeout, network issues, etc.)
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = extractErrorMessage(error);
 
     console.log(chalk.yellow('\n⚠ Connection failed, but configuration was saved.'));
     console.log(chalk.gray(`  Error: ${errorMessage}`));

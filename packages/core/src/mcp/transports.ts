@@ -164,8 +164,11 @@ export class HttpTransport extends EventEmitter implements MCPTransport {
 
   /**
    * Clean up resources and remove all event listeners.
+   * BUG FIX: Now also clears transport reference to prevent stale connections.
    */
   destroy(): void {
+    // Clear transport reference (can't call async close() here)
+    this.transport = undefined;
     this.removeAllListeners();
   }
 }
@@ -218,8 +221,11 @@ export class SSETransport extends EventEmitter implements MCPTransport {
   /**
    * Clean up resources and remove all event listeners.
    * Required for EventEmitter-extending classes to prevent memory leaks.
+   * BUG FIX: Now also clears transport reference to prevent stale connections.
    */
   destroy(): void {
+    // Clear transport reference (can't call async close() here)
+    this.transport = undefined;
     this.removeAllListeners();
   }
 }
@@ -279,8 +285,11 @@ export class StreamableHttpTransport extends EventEmitter implements MCPTranspor
   /**
    * Clean up resources and remove all event listeners.
    * Required for EventEmitter-extending classes to prevent memory leaks.
+   * BUG FIX: Now also clears transport reference to prevent stale connections.
    */
   destroy(): void {
+    // Clear transport reference (can't call async close() here)
+    this.transport = undefined;
     this.removeAllListeners();
   }
 }

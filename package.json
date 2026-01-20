@@ -1,52 +1,27 @@
 {
-  "name": "@defai.digital/ax-cli",
-  "version": "5.3.4",
+  "name": "@defai.digital/ax-monorepo",
+  "version": "5.3.5",
+  "private": true,
   "sdkVersion": "1.4.0",
-  "description": "Enterprise-Class AI Coding Assistant CLI - Terminal-based vibe coding with Grok and multi-provider AI orchestration. Features thinking mode, vision, web search, MCP integration, and AutomatosX agent system.",
+  "description": "AX CLI Monorepo - Enterprise-Class AI Coding Assistant CLI ecosystem",
   "type": "module",
   "workspaces": [
     "packages/*"
   ],
-  "main": "dist/index.js",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./sdk": {
-      "import": "./dist/sdk/index.js",
-      "types": "./dist/sdk/index.d.ts"
-    },
-    "./sdk/types": {
-      "import": "./dist/sdk/types.js",
-      "types": "./dist/sdk/types.d.ts"
-    }
-  },
-  "bin": {
-    "ax-cli": "bin/ax-cli"
-  },
-  "files": [
-    "dist",
-    "bin",
-    "config-defaults",
-    ".ax-cli",
-    "LICENSE",
-    "README.md"
-  ],
   "scripts": {
-    "build": "pnpm -r build",
+    "build": "pnpm run build:schemas && pnpm run build:core && pnpm run build:clis",
     "build:schemas": "pnpm --filter @defai.digital/ax-schemas build",
     "build:core": "pnpm --filter @defai.digital/ax-core build",
+    "build:clis": "pnpm --filter @defai.digital/ax-grok --filter @defai.digital/ax-cli build",
     "build:grok": "pnpm --filter @defai.digital/ax-grok build",
-    "dev": "tsx src/index.ts",
-    "start": "node dist/index.js",
+    "clean": "pnpm -r clean",
+    "dev": "tsx packages/ax-grok/src/index.ts",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "pnpm run build",
     "prepare": "husky"
   },
   "keywords": [
@@ -75,8 +50,8 @@
   "license": "MIT",
   "dependencies": {
     "@clack/prompts": "^0.11.0",
-    "@defai.digital/ax-core": "workspace:*",
-    "@defai.digital/ax-schemas": "workspace:*",
+    "@defai.digital/ax-core": "workspace:^",
+    "@defai.digital/ax-schemas": "workspace:^",
     "@modelcontextprotocol/sdk": "^1.25.2",
     "@types/ws": "^8.18.1",
     "axios": "^1.7.0",
@@ -135,9 +110,6 @@
     "linux",
     "win32"
   ],
-  "publishConfig": {
-    "access": "public"
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/defai-digital/ax-cli.git"
@@ -146,7 +118,6 @@
     "url": "https://github.com/defai-digital/ax-cli/issues"
   },
   "homepage": "https://github.com/defai-digital/ax-cli#readme",
-  "preferGlobal": true,
   "lint-staged": {
     "packages/**/*.{ts,tsx}": [
       "eslint --fix"

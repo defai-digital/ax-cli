@@ -38,7 +38,9 @@ function handleMemoryStatus(_ctx: CommandContext): CommandResult {
       const total = Object.values(sections).reduce((a: number, b: number) => a + b, 0);
       for (const [name, tokens] of Object.entries(sections)) {
         const pct = total > 0 ? Math.round(((tokens as number) / total) * 100) : 0;
-        const bar = "█".repeat(Math.round(pct / 5)) + "░".repeat(20 - Math.round(pct / 5));
+        // BUG FIX: Clamp bar count to prevent negative repeat if pct > 100
+        const barCount = Math.min(20, Math.max(0, Math.round(pct / 5)));
+        const bar = "█".repeat(barCount) + "░".repeat(20 - barCount);
         content += `   ${bar}  ${name.charAt(0).toUpperCase() + name.slice(1)}  (${pct}%)\n`;
       }
     }
@@ -103,7 +105,8 @@ function handleMemoryWarmup(ctx: CommandContext): CommandResult {
             for (const [name, tokens] of Object.entries(sections)) {
               if (tokens !== undefined) {
                 const tokenCount = tokens as number;
-                const pct = Math.round((tokenCount / tokenEstimate) * 100);
+                // BUG FIX: Guard against division by zero
+                const pct = tokenEstimate > 0 ? Math.round((tokenCount / tokenEstimate) * 100) : 0;
                 resultContent += `   ${name.charAt(0).toUpperCase() + name.slice(1)}: ${tokenCount.toLocaleString()} tokens (${pct}%)\n`;
               }
             }
@@ -188,7 +191,8 @@ function handleMemoryRefresh(ctx: CommandContext): CommandResult {
             for (const [name, tokens] of Object.entries(sections)) {
               if (tokens !== undefined) {
                 const tokenCount = tokens as number;
-                const pct = Math.round((tokenCount / tokenEstimate) * 100);
+                // BUG FIX: Guard against division by zero
+                const pct = tokenEstimate > 0 ? Math.round((tokenCount / tokenEstimate) * 100) : 0;
                 resultContent += `   ${name.charAt(0).toUpperCase() + name.slice(1)}: ${tokenCount.toLocaleString()} tokens (${pct}%)\n`;
               }
             }

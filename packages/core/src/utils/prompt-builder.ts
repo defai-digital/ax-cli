@@ -74,11 +74,68 @@ export function buildSystemPrompt(options: {
     // Ignore errors - language setting is optional enhancement
   }
 
-  // New Claude Code-style sections (if defined)
+  // P0/P2 sections: Professional tone and behavior (PRD-001)
+  // These come first to establish tone and expectations
+  const toneSections = [
+    'professional_objectivity',
+    'no_time_estimates',  // P2: Explicit prohibition of time estimates
+    'tone_and_style',
+  ] as const;
+
+  for (const sectionName of toneSections) {
+    const section = config.system_prompt[sectionName];
+    if (section) {
+      sections.push(formatSection(section));
+    }
+  }
+
+  // Core behavior sections (Claude Code-style)
   const namedSections = [
     'thinking',
+    'task_management',  // P0: Task management integration (PRD-001)
     'autonomy',
     'context',
+    'code_references',  // P0: Code reference format (PRD-001)
+    'parallel_execution',  // P0: Parallel execution guidance (PRD-001)
+  ] as const;
+
+  for (const sectionName of namedSections) {
+    const section = config.system_prompt[sectionName];
+    if (section) {
+      sections.push(formatSection(section));
+    }
+  }
+
+  // P0 sections: Tool-specific guidance (PRD-001)
+  // Detailed anti-patterns and examples for each tool
+  const toolSections = [
+    'tool_bash',
+    'tool_view_file',
+    'tool_str_replace_editor',
+    'tool_search',
+  ] as const;
+
+  for (const sectionName of toolSections) {
+    const section = config.system_prompt[sectionName];
+    if (section) {
+      sections.push(formatSection(section));
+    }
+  }
+
+  // P1 sections: Codebase exploration (PRD-001)
+  const explorationSections = [
+    'exploration_pattern',  // P1: Codebase exploration methodology
+  ] as const;
+
+  for (const sectionName of explorationSections) {
+    const section = config.system_prompt[sectionName];
+    if (section) {
+      sections.push(formatSection(section));
+    }
+  }
+
+  // General tools overview and remaining behavior sections
+  const behaviorSections = [
     'tools',
     'verification',
     'safety',
@@ -89,16 +146,24 @@ export function buildSystemPrompt(options: {
     'uncertainty',
   ] as const;
 
-  for (const sectionName of namedSections) {
+  for (const sectionName of behaviorSections) {
     const section = config.system_prompt[sectionName];
     if (section) {
       sections.push(formatSection(section));
     }
   }
 
-  // Legacy: Professional objectivity (if defined)
-  if (config.system_prompt.professional_objectivity) {
-    sections.push(formatSection(config.system_prompt.professional_objectivity));
+  // P0 sections: Git workflow guidance (PRD-001)
+  const gitSections = [
+    'git_commit_workflow',
+    'git_pr_workflow',
+  ] as const;
+
+  for (const sectionName of gitSections) {
+    const section = config.system_prompt[sectionName];
+    if (section) {
+      sections.push(formatSection(section));
+    }
   }
 
   // Legacy: Core principles (if defined)

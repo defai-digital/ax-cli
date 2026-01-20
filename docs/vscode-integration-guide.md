@@ -1,8 +1,10 @@
 # VSCode Integration Guide
-Last reviewed: 2025-02-21  
-Applies to: ax-cli/ax-glm/ax-grok v4.4.x (Phase 1 terminal integration)
+Last reviewed: 2025-02-21
+Applies to: ax-cli/ax-grok v4.4.x (Phase 1 terminal integration)
 
-This guide shows how to use the CLI from VSCode. Use the provider-specific binaries (`ax-glm`, `ax-grok`) or the local/offline `ax-cli` as needed.
+> **Note:** The `ax-glm` package has been deprecated. GLM/Z.AI users should use [OpenCode](https://opencode.ai) - the official CLI from Z.AI.
+
+This guide shows how to use the CLI from VSCode. Use `ax-grok` or the local/offline `ax-cli` as needed.
 
 ---
 
@@ -25,7 +27,6 @@ This guide shows how to use the CLI from VSCode. Use the provider-specific binar
 Pick the right binary for your provider or local use:
 
 ```bash
-npm install -g @defai.digital/ax-glm    # GLM (Z.AI)
 npm install -g @defai.digital/ax-grok   # Grok (xAI)
 npm install -g @defai.digital/ax-cli    # Local/offline
 ```
@@ -35,7 +36,6 @@ npm install -g @defai.digital/ax-cli    # Local/offline
 Run setup once per provider to create encrypted config:
 
 ```bash
-ax-glm setup
 ax-grok setup
 # ax-cli setup (optional for local)
 ```
@@ -565,7 +565,7 @@ Create interactive prompts:
       "id": "targetModel",
       "type": "pickString",
       "description": "Choose AI model",
-      "options": ["grok-code-fast-1", "grok-4-latest", "glm-4.6"],
+      "options": ["grok-4", "grok-4.1-fast-reasoning", "grok-4.1-mini"],
       "default": "grok-code-fast-1"
     }
   ],

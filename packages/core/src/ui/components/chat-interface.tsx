@@ -702,6 +702,8 @@ function ChatInterfaceWithAgent({
             }
           }
         } catch (error: unknown) {
+          // BUG FIX: Don't update state if component is unmounting
+          if (cancelled) return;
           const errorEntry: ChatEntry = {
             type: "assistant",
             content: `Error: ${extractErrorMessage(error)}`,
@@ -712,6 +714,8 @@ function ChatInterfaceWithAgent({
           setIsThinking(false);
         }
 
+        // BUG FIX: Don't update state if component is unmounting
+        if (cancelled) return;
         setIsProcessing(false);
         processingStartTime.current = 0;
       };
@@ -804,7 +808,12 @@ function ChatInterfaceWithAgent({
           percentage > lastPercentageRef.current + 10) {
         setShowAutoPrune(true);
         // Hide "auto-prune" after 3 seconds
-        timeoutState.autoPruneTimeoutId = setTimeout(() => setShowAutoPrune(false), 3000);
+        // BUG FIX: Check if cancelled before updating state in nested timeout
+        timeoutState.autoPruneTimeoutId = setTimeout(() => {
+          if (!timeoutState.cancelled) {
+            setShowAutoPrune(false);
+          }
+        }, 3000);
         // Reset low warning flag after prune (context recovered)
         contextLowWarningShown.current = false;
       }
@@ -921,14 +930,22 @@ function ChatInterfaceWithAgent({
     // Try immediately
     if (!setupMcpListeners()) {
       // Retry after a delay (MCP initialization happens after agent init)
+      // BUG FIX: Track whether listeners were successfully set up to avoid stale closure
+      // The mcpManager variable captured in closure could be stale; use return value instead
+      let listenersSetUp = false;
+
       const retryTimer = setTimeout(() => {
-        setupMcpListeners();
+        if (!listenersSetUp) {
+          listenersSetUp = setupMcpListeners();
+        }
         updateMcpStatus();
       }, 2000);
 
       // Also check again after longer delay for slow MCP servers
       const retryTimer2 = setTimeout(() => {
-        if (!mcpManager) setupMcpListeners();
+        if (!listenersSetUp) {
+          listenersSetUp = setupMcpListeners();
+        }
         updateMcpStatus();
       }, 5000);
 
@@ -1102,6 +1119,7 @@ function ChatInterfaceWithAgent({
           verbosityLevel={verbosityLevel}
           backgroundMode={backgroundMode}
           autoEditEnabled={autoEditEnabled}
+          thinkingModeEnabled={thinkingModeEnabled}
         />
       )}
 

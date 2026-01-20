@@ -23,6 +23,10 @@ describe('Text Editor Fuzzy Matching', () => {
     textEditor = new TextEditorTool();
     confirmationService = ConfirmationService.getInstance();
 
+    // PRD-001 P1: Disable read-before-edit enforcement for fuzzy matching tests
+    // These tests focus on string matching behavior, not the read-first requirement
+    textEditor.setReadBeforeEditEnforcement(false);
+
     // Create temp test directory within project (for path security)
     testDir = path.join(process.cwd(), '.test-tmp', `fuzzy-${Date.now()}`);
     await fs.mkdir(testDir, { recursive: true });

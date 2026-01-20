@@ -587,9 +587,51 @@ export class SubagentOrchestrator extends EventEmitter {
   }
 
   /**
+   * Clean up all resources, terminate subagents, and remove event listeners.
+   * REFACTOR: Complete cleanup to prevent memory leaks
+   */
+  async dispose(): Promise<void> {
+    // Terminate all subagents (this also removes their event listeners)
+    await this.terminateAll();
+
+    // Clear all state
+    this.results.clear();
+    this.taskQueue.length = 0;
+
+    // Remove orchestrator event listeners
+    this.removeAllListeners();
+  }
+
+  /**
    * Clean up resources and remove all event listeners.
+   * @deprecated Use dispose() instead for complete cleanup including subagent termination.
    */
   destroy(): void {
-    this.removeAllListeners();
+    // Call dispose without awaiting for backwards compatibility
+    this.dispose().catch(err => {
+      console.warn('Error during orchestrator disposal:', err);
+    });
+  }
+
+  /**
+   * Prune old results to prevent unbounded memory growth
+   * REFACTOR: Add automatic cleanup for long-running sessions
+   * @param maxResults Maximum results to keep (default: 100)
+   */
+  pruneResults(maxResults: number = 100): number {
+    if (this.results.size <= maxResults) {
+      return 0;
+    }
+
+    // Convert to array to get insertion order
+    const entries = Array.from(this.results.entries());
+    const toRemove = entries.length - maxResults;
+
+    // Remove oldest entries (first in insertion order)
+    for (let i = 0; i < toRemove; i++) {
+      this.results.delete(entries[i][0]);
+    }
+
+    return toRemove;
   }
 }

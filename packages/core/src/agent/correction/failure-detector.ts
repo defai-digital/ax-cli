@@ -69,21 +69,400 @@ const FAILURE_SEVERITY_MAP: Record<FailureType, FailureSeverity> = {
 };
 
 /**
- * Common error patterns that indicate specific failure types
+ * Recovery strategy for a failure pattern
+ * PRD-001 P1: Enhanced failure patterns with recovery strategies
  */
-const ERROR_PATTERNS: Array<{ pattern: RegExp; type: FailureType; severity: FailureSeverity }> = [
-  // File not found errors
-  { pattern: /ENOENT|no such file|file not found/i, type: 'tool_error', severity: 'medium' },
-  // Permission errors
-  { pattern: /EACCES|permission denied|access denied/i, type: 'tool_error', severity: 'high' },
-  // Syntax/parse errors
-  { pattern: /syntax error|parse error|unexpected token/i, type: 'validation_error', severity: 'medium' },
-  // Timeout patterns
-  { pattern: /timeout|timed out|deadline exceeded/i, type: 'timeout', severity: 'medium' },
-  // Search not found (might indicate wrong approach)
-  { pattern: /no matches found|nothing found|0 results/i, type: 'no_progress', severity: 'low' },
-  // Edit failures
-  { pattern: /old_string not found|no match for replacement|string not found/i, type: 'tool_error', severity: 'high' },
+export interface RecoveryStrategy {
+  /** Strategy type for handling the failure */
+  strategy: 'retry' | 'search_alternative' | 'reread_and_retry' | 'broaden_search' | 'escalate' | 'background_retry' | 'simplify' | 'verify_first' | 'different_approach';
+  /** Prompt to guide the AI in recovery */
+  prompt: string;
+  /** Maximum retries for this specific pattern */
+  maxRetries: number;
+}
+
+/**
+ * Enhanced error pattern with recovery strategy
+ */
+interface ErrorPatternWithRecovery {
+  pattern: RegExp;
+  type: FailureType;
+  severity: FailureSeverity;
+  recovery: RecoveryStrategy;
+}
+
+/**
+ * Common error patterns that indicate specific failure types
+ * PRD-001 P1: Expanded from 6 to 25+ patterns with recovery strategies
+ */
+const ERROR_PATTERNS: ErrorPatternWithRecovery[] = [
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FILE SYSTEM ERRORS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // File not found - search for alternatives
+  {
+    pattern: /ENOENT|no such file|file not found|does not exist/i,
+    type: 'tool_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'search_alternative',
+      prompt: 'File not found. Search for similar filenames or check the path. The file may have been moved, renamed, or may not exist yet.',
+      maxRetries: 2,
+    },
+  },
+
+  // Permission denied - escalate to user
+  {
+    pattern: /EACCES|permission denied|access denied|operation not permitted/i,
+    type: 'tool_error',
+    severity: 'high',
+    recovery: {
+      strategy: 'escalate',
+      prompt: 'Permission denied. Report this to the user - do not attempt sudo or permission changes. Suggest alternative approaches.',
+      maxRetries: 0,
+    },
+  },
+
+  // Directory not found
+  {
+    pattern: /ENOTDIR|not a directory|is a file/i,
+    type: 'tool_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'verify_first',
+      prompt: 'Path issue detected. Verify the path exists and is the correct type (file vs directory) before retrying.',
+      maxRetries: 1,
+    },
+  },
+
+  // File already exists
+  {
+    pattern: /EEXIST|already exists|file exists/i,
+    type: 'tool_error',
+    severity: 'low',
+    recovery: {
+      strategy: 'different_approach',
+      prompt: 'File already exists. Consider editing the existing file instead of creating a new one, or ask user if overwrite is intended.',
+      maxRetries: 1,
+    },
+  },
+
+  // Disk space
+  {
+    pattern: /ENOSPC|no space left|disk full|out of space/i,
+    type: 'tool_error',
+    severity: 'critical',
+    recovery: {
+      strategy: 'escalate',
+      prompt: 'Disk full. Report to user immediately. This requires manual intervention to free disk space.',
+      maxRetries: 0,
+    },
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EDIT/REPLACE ERRORS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Edit target not found - reread file
+  {
+    pattern: /old_string not found|no match for replacement|string not found|text to replace not found/i,
+    type: 'tool_error',
+    severity: 'high',
+    recovery: {
+      strategy: 'reread_and_retry',
+      prompt: 'Edit target not found. The file may have changed. Re-read the file to get current content, then adjust the edit with the exact text.',
+      maxRetries: 2,
+    },
+  },
+
+  // Multiple matches for edit
+  {
+    pattern: /multiple matches|not unique|ambiguous|found \d+ occurrences/i,
+    type: 'tool_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'reread_and_retry',
+      prompt: 'Edit target is not unique. Provide more context around the string to make it unique, or use replace_all if all occurrences should change.',
+      maxRetries: 2,
+    },
+  },
+
+  // File not read before edit
+  {
+    pattern: /must read.*before edit|haven't read.*file|read the file first/i,
+    type: 'tool_error',
+    severity: 'high',
+    recovery: {
+      strategy: 'verify_first',
+      prompt: 'You must read the file before editing it. Use view_file first to understand the current content, then make your edit.',
+      maxRetries: 1,
+    },
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEARCH ERRORS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // No search results
+  {
+    pattern: /no matches found|nothing found|0 results|no files matched/i,
+    type: 'no_progress',
+    severity: 'low',
+    recovery: {
+      strategy: 'broaden_search',
+      prompt: 'No matches found. Try broader search terms, different patterns, or search in different directories. Consider alternative naming conventions.',
+      maxRetries: 3,
+    },
+  },
+
+  // Invalid regex pattern
+  {
+    pattern: /invalid regex|regex error|invalid pattern|bad pattern/i,
+    type: 'validation_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'simplify',
+      prompt: 'Invalid regex pattern. Simplify the pattern or escape special characters. Remember ripgrep uses different syntax than grep.',
+      maxRetries: 2,
+    },
+  },
+
+  // Too many results
+  {
+    pattern: /too many results|result limit exceeded|truncated/i,
+    type: 'no_progress',
+    severity: 'low',
+    recovery: {
+      strategy: 'simplify',
+      prompt: 'Too many results. Narrow your search with more specific patterns, file type filters, or directory constraints.',
+      maxRetries: 2,
+    },
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SYNTAX/VALIDATION ERRORS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // JSON parse error
+  {
+    pattern: /JSON\.parse|unexpected token|invalid json|json syntax/i,
+    type: 'validation_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'verify_first',
+      prompt: 'JSON parse error. Check the JSON syntax - look for missing commas, brackets, or quotes. Validate the JSON before retrying.',
+      maxRetries: 2,
+    },
+  },
+
+  // YAML parse error
+  {
+    pattern: /yaml.*error|invalid yaml|yaml syntax|indentation error/i,
+    type: 'validation_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'verify_first',
+      prompt: 'YAML parse error. Check indentation (must be consistent spaces, not tabs) and syntax. Validate the YAML structure.',
+      maxRetries: 2,
+    },
+  },
+
+  // General syntax error
+  {
+    pattern: /syntax error|parse error|unexpected token|unexpected end/i,
+    type: 'validation_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'reread_and_retry',
+      prompt: 'Syntax error detected. Review the code for missing brackets, semicolons, or typos. Check the specific line mentioned in the error.',
+      maxRetries: 2,
+    },
+  },
+
+  // Type error
+  {
+    pattern: /type error|type mismatch|incompatible type|cannot assign/i,
+    type: 'validation_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'reread_and_retry',
+      prompt: 'Type error detected. Review the types involved and ensure they are compatible. Check function signatures and variable declarations.',
+      maxRetries: 2,
+    },
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMMAND EXECUTION ERRORS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Command not found
+  {
+    pattern: /command not found|not recognized|unknown command|executable not found/i,
+    type: 'tool_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'different_approach',
+      prompt: 'Command not found. Check if the tool is installed, or try an alternative command. Suggest installing the required tool if appropriate.',
+      maxRetries: 1,
+    },
+  },
+
+  // Timeout
+  {
+    pattern: /timeout|timed out|deadline exceeded|operation.*timeout/i,
+    type: 'timeout',
+    severity: 'medium',
+    recovery: {
+      strategy: 'background_retry',
+      prompt: 'Operation timed out. Consider running in background, breaking into smaller steps, or increasing timeout. Report progress to user.',
+      maxRetries: 1,
+    },
+  },
+
+  // Exit code non-zero
+  {
+    pattern: /exit code [1-9]|exited with [1-9]|non-zero exit|failed with code/i,
+    type: 'tool_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'retry',
+      prompt: 'Command failed with non-zero exit code. Check the error output for details and adjust the command or fix the underlying issue.',
+      maxRetries: 2,
+    },
+  },
+
+  // Out of memory
+  {
+    pattern: /out of memory|ENOMEM|memory.*exceeded|heap.*limit/i,
+    type: 'tool_error',
+    severity: 'critical',
+    recovery: {
+      strategy: 'simplify',
+      prompt: 'Out of memory. Break the operation into smaller chunks, process fewer files at once, or use streaming approaches.',
+      maxRetries: 1,
+    },
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GIT ERRORS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Git conflict
+  {
+    pattern: /merge conflict|conflict.*marker|<<<<<<|>>>>>>|=======/,
+    type: 'tool_error',
+    severity: 'high',
+    recovery: {
+      strategy: 'escalate',
+      prompt: 'Merge conflict detected. Report to user with the conflicting files. Do not attempt automatic resolution without explicit approval.',
+      maxRetries: 0,
+    },
+  },
+
+  // Git dirty working tree
+  {
+    pattern: /uncommitted changes|working tree.*dirty|changes.*uncommitted/i,
+    type: 'tool_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'escalate',
+      prompt: 'Uncommitted changes detected. Ask user how to proceed: commit, stash, or discard changes before continuing.',
+      maxRetries: 0,
+    },
+  },
+
+  // Git not a repository
+  {
+    pattern: /not a git repository|git.*not found|fatal: not a git/i,
+    type: 'tool_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'escalate',
+      prompt: 'Not a git repository. This operation requires git. Ask user if they want to initialize a repository.',
+      maxRetries: 0,
+    },
+  },
+
+  // Git authentication failed
+  {
+    pattern: /authentication failed|invalid credentials|auth.*failed|could not read.*credentials/i,
+    type: 'tool_error',
+    severity: 'high',
+    recovery: {
+      strategy: 'escalate',
+      prompt: 'Git authentication failed. Report to user - they may need to configure credentials, SSH keys, or personal access tokens.',
+      maxRetries: 0,
+    },
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // NETWORK ERRORS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Connection refused/failed
+  {
+    pattern: /ECONNREFUSED|connection refused|network.*unreachable|host not found/i,
+    type: 'tool_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'retry',
+      prompt: 'Network connection failed. Check if the service is running and the address is correct. Retry after a brief wait.',
+      maxRetries: 2,
+    },
+  },
+
+  // Rate limit
+  {
+    pattern: /rate limit|too many requests|429|throttled/i,
+    type: 'tool_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'retry',
+      prompt: 'Rate limited. Wait before retrying. Consider reducing request frequency or batching operations.',
+      maxRetries: 2,
+    },
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PROGRESS INDICATORS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Stuck in loop
+  {
+    pattern: /infinite loop|maximum.*iterations|recursion.*limit|stack overflow/i,
+    type: 'loop_detected',
+    severity: 'high',
+    recovery: {
+      strategy: 'different_approach',
+      prompt: 'Possible infinite loop or recursion detected. Step back and reconsider the approach. Add termination conditions or limits.',
+      maxRetries: 1,
+    },
+  },
+
+  // Test failures
+  {
+    pattern: /test.*failed|tests.*failing|\d+ failed|FAIL.*test/i,
+    type: 'tool_error',
+    severity: 'medium',
+    recovery: {
+      strategy: 'reread_and_retry',
+      prompt: 'Tests are failing. Review the test output, understand why, and fix the code or tests before proceeding.',
+      maxRetries: 2,
+    },
+  },
+
+  // Lint errors
+  {
+    pattern: /lint.*error|eslint.*error|prettier.*error|formatting.*error/i,
+    type: 'validation_error',
+    severity: 'low',
+    recovery: {
+      strategy: 'retry',
+      prompt: 'Lint/formatting errors detected. Fix the issues or run the auto-fix command, then retry.',
+      maxRetries: 2,
+    },
+  },
 ];
 
 /**
@@ -238,16 +617,73 @@ export class FailureDetector {
 
   /**
    * Match output against known error patterns
+   * PRD-001 P1: Returns recovery strategy along with pattern match
    */
   private matchErrorPattern(
     output: string
-  ): { pattern: RegExp; type: FailureType; severity: FailureSeverity } | null {
-    for (const { pattern, type, severity } of ERROR_PATTERNS) {
-      if (pattern.test(output)) {
-        return { pattern, type, severity };
+  ): ErrorPatternWithRecovery | null {
+    for (const errorPattern of ERROR_PATTERNS) {
+      if (errorPattern.pattern.test(output)) {
+        return errorPattern;
       }
     }
     return null;
+  }
+
+  /**
+   * Get recovery strategy for a failure type and error message
+   * PRD-001 P1: Enhanced recovery strategy lookup
+   */
+  getRecoveryStrategy(type: FailureType, errorMessage?: string): RecoveryStrategy | null {
+    // BUG FIX: Check for undefined/null explicitly, not falsiness
+    // Empty string "" is falsy but should still be checked against patterns
+    if (errorMessage !== undefined && errorMessage !== null && errorMessage.length > 0) {
+      const pattern = this.matchErrorPattern(errorMessage);
+      if (pattern) {
+        return pattern.recovery;
+      }
+    }
+
+    // Default recovery strategies by type
+    const defaultStrategies: Record<FailureType, RecoveryStrategy> = {
+      tool_error: {
+        strategy: 'retry',
+        prompt: 'Tool error occurred. Review the error message and adjust parameters.',
+        maxRetries: 2,
+      },
+      repeated_failure: {
+        strategy: 'different_approach',
+        prompt: 'This operation has failed multiple times. Try a completely different approach.',
+        maxRetries: 1,
+      },
+      no_progress: {
+        strategy: 'broaden_search',
+        prompt: 'No meaningful progress. Re-evaluate your approach and try different methods.',
+        maxRetries: 3,
+      },
+      loop_detected: {
+        strategy: 'different_approach',
+        prompt: 'Loop detected. Step back and try a fundamentally different strategy.',
+        maxRetries: 1,
+      },
+      validation_error: {
+        strategy: 'verify_first',
+        prompt: 'Validation error. Check the input format and syntax before retrying.',
+        maxRetries: 2,
+      },
+      timeout: {
+        strategy: 'background_retry',
+        prompt: 'Operation timed out. Consider background execution or breaking into smaller steps.',
+        maxRetries: 1,
+      },
+      custom: {
+        strategy: 'retry',
+        prompt: 'Custom pattern detected. Review and adjust.',
+        maxRetries: 2,
+      },
+    };
+
+    return defaultStrategies[type] || null;
   }
 
   /**
@@ -300,6 +736,7 @@ export class FailureDetector {
 
   /**
    * Generate a suggestion for fixing the failure
+   * PRD-001 P1: Uses recovery strategies from pattern matching
    */
   private generateSuggestion(
     type: FailureType,
@@ -307,6 +744,15 @@ export class FailureDetector {
     _args: Record<string, unknown>,
     errorMessage?: string
   ): string {
+    // First, try to get suggestion from matched pattern's recovery strategy
+    if (errorMessage) {
+      const pattern = this.matchErrorPattern(errorMessage);
+      if (pattern) {
+        return pattern.recovery.prompt;
+      }
+    }
+
+    // Fall back to type-based suggestions
     switch (type) {
       case 'tool_error':
         if (errorMessage?.includes('not found')) {
@@ -341,6 +787,22 @@ export class FailureDetector {
       default:
         return `An unexpected error occurred. Review and try again.`;
     }
+  }
+
+  /**
+   * Get the maximum retries allowed for a specific failure
+   * PRD-001 P1: Pattern-specific retry limits
+   */
+  getMaxRetriesForFailure(failure: FailureSignal): number {
+    const errorMessage = failure.context.errorMessage;
+    if (errorMessage) {
+      const pattern = this.matchErrorPattern(errorMessage);
+      if (pattern) {
+        return pattern.recovery.maxRetries;
+      }
+    }
+    // Default max retries
+    return 2;
   }
 
   /**
@@ -519,10 +981,17 @@ export class FailureDetector {
   cleanup(): void {
     const cutoff = Date.now() - this.options.failureHistoryWindowMs;
 
+    // Convert to array first to avoid modifying Map during iteration
+    // This prevents potential issues with iterator invalidation
+    const keysToDelete: string[] = [];
     for (const [key, record] of this.state.records) {
       if (record.lastFailureAt.getTime() < cutoff) {
-        this.state.records.delete(key);
+        keysToDelete.push(key);
       }
+    }
+
+    for (const key of keysToDelete) {
+      this.state.records.delete(key);
     }
   }
 }

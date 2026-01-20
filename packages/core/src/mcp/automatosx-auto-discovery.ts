@@ -18,6 +18,7 @@ import type { MCPServerConfig, MCPTransportConfig } from '../schemas/settings-sc
 import { getActiveProvider } from '../provider/config.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
 import { findOnPathSync } from '../utils/path-helpers.js';
+import { TIMEOUT_CONFIG } from '../constants.js';
 
 /**
  * Result of AutomatosX detection
@@ -50,7 +51,8 @@ export interface AutoDiscoveryOptions {
 // Cache the detection result to avoid repeated checks
 let cachedDetection: AutomatosXDetectionResult | null = null;
 let cacheTime: number = 0;
-const CACHE_TTL_MS = 60000; // 1 minute
+/** Cache TTL uses centralized timeout config */
+const CACHE_TTL_MS = TIMEOUT_CONFIG.CACHE_TTL;
 
 /**
  * Detect if AutomatosX is installed and available

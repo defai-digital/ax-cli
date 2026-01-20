@@ -192,7 +192,7 @@ This document outlines a comprehensive strategy for integrating AX CLI with Visu
 | **Free Tier** | Limited | ✅ | Limited | ❌ | Limited | ✅ |
 
 **Key Differentiators for AX CLI:**
-1. ✅ **Multi-provider flexibility** - Switch between GLM, Grok, Claude, OpenAI, local models
+1. ✅ **Multi-provider flexibility** - Switch between Grok, Claude, OpenAI, local models
 2. ✅ **MCP ecosystem native** - Leverage existing MCP servers immediately
 3. ✅ **Project intelligence** - Automatic project analysis via init system
 4. ✅ **Production-grade** - 98%+ test coverage, TypeScript strict mode
@@ -974,7 +974,7 @@ async function applyMultiFileChanges(
 - Cody: Best with Sourcegraph backend
 
 **AX CLI Solution:**
-- ✅ Switch between GLM, Grok, Claude, GPT-4, local models
+- ✅ Switch between Grok, Claude, GPT-4, local models
 - ✅ Per-task model selection
 - ✅ Cost optimization (use cheaper models for simple tasks)
 - ✅ Redundancy (fallback if one provider is down)

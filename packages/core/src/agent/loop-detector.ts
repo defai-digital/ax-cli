@@ -302,7 +302,7 @@ export class LoopDetector {
         // For editors, include edit content hash to distinguish different edits
         if (toolName === 'str_replace_editor') {
           const oldStr = typeof args.old_str === 'string' ? args.old_str : '';
-          const contentKey = this.hashString(oldStr.substring(0, 200));
+          const contentKey = this.hashString(oldStr);
           return `${toolName}:${path}:${contentKey}`;
         }
         return `${toolName}:${path}`;
@@ -433,14 +433,18 @@ export class LoopDetector {
   }
 
   private hashString(str: string): string {
-    // Simple hash for signature creation
-    let hash = 0;
+    // FNV-1a hash algorithm - better collision resistance than simple djb2
+    // Uses XOR-then-multiply for better avalanche effect
+    const FNV_PRIME = 0x01000193;
+    const FNV_OFFSET_BASIS = 0x811c9dc5;
+
+    let hash = FNV_OFFSET_BASIS;
     for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
+      hash ^= str.charCodeAt(i);
+      hash = Math.imul(hash, FNV_PRIME);
     }
-    return hash.toString(16);
+    // Use >>> 0 to ensure unsigned 32-bit output (no negative hex values)
+    return (hash >>> 0).toString(16);
   }
 
   private cleanup(): void {
@@ -478,8 +482,13 @@ export function getLoopDetector(): LoopDetector {
   return loopDetectorInstance;
 }
 
+/**
+ * Reset the singleton (for testing)
+ * BUG FIX: Now nulls the instance after reset for proper test isolation
+ */
 export function resetLoopDetector(): void {
   if (loopDetectorInstance) {
     loopDetectorInstance.reset();
   }
+  loopDetectorInstance = null;
 }

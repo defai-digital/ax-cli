@@ -70,11 +70,16 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   axAgentsParallelTool,
 ];
 
+// Build O(1) lookup index at module initialization
+const TOOL_INDEX = new Map<string, ToolDefinition>(
+  TOOL_DEFINITIONS.map(t => [t.name, t])
+);
+
 /**
- * Get a tool definition by name
+ * Get a tool definition by name (O(1) lookup)
  */
 export function getToolDefinition(name: string): ToolDefinition | undefined {
-  return TOOL_DEFINITIONS.find((t) => t.name === name);
+  return TOOL_INDEX.get(name);
 }
 
 /**

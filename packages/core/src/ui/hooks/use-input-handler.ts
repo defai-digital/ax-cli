@@ -141,6 +141,8 @@ export function useInputHandler({
   // BUG FIX: Track current MCP query to prevent race condition with stale async results
   const currentMcpQueryRef = useRef<string | null>(null);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // BUG FIX: Track mounted state to prevent state updates after unmount
+  const isMountedRef = useRef(true);
   const [autoEditEnabled, setAutoEditEnabled] = useState(() => {
     const confirmationService = ConfirmationService.getInstance();
     const sessionFlags = confirmationService.getSessionFlags();
@@ -315,8 +317,9 @@ export function useInputHandler({
       // Load resources asynchronously
       getMCPResources().then((resources) => {
         // BUG FIX: Only apply results if query hasn't changed (prevents stale suggestions)
-        if (currentMcpQueryRef.current !== query) {
-          return; // Query changed, discard stale results
+        // and component is still mounted
+        if (currentMcpQueryRef.current !== query || !isMountedRef.current) {
+          return; // Query changed or unmounted, discard stale results
         }
 
         const filtered = resources.filter((r) =>
@@ -329,8 +332,8 @@ export function useInputHandler({
         setShowCommandSuggestions(true);
         setSelectedCommandIndex(0);
       }).catch(() => {
-        // Only clear if this is still the current query
-        if (currentMcpQueryRef.current === query) {
+        // BUG FIX: Only clear if this is still the current query AND component is mounted
+        if (currentMcpQueryRef.current === query && isMountedRef.current) {
           setResourceSuggestions([]);
         }
       });
@@ -476,9 +479,11 @@ export function useInputHandler({
     handleInputChange(input);
   }, [input, handleInputChange]);
 
-  // Cleanup retry timeout on unmount
+  // Cleanup retry timeout on unmount and track mounted state
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
         retryTimeoutRef.current = null; // Clear ref to prevent dangling reference
@@ -862,9 +867,8 @@ export function useInputHandler({
       // Use findLastIndex instead of reverse().find() + lastIndexOf() to avoid object reference issues
       const lastUserIndex = chatHistory.findLastIndex((entry: { type: string }) => entry.type === "user");
       if (lastUserIndex >= 0 && chatHistory[lastUserIndex]?.content) {
-        // Store the message content and history state before clearing
+        // Store the message content before clearing
         const messageToRetry = chatHistory[lastUserIndex].content;
-        const historyBackup = [...chatHistory];
 
         // Remove the last user message and any assistant responses after it
         setChatHistory(prev => prev.slice(0, lastUserIndex));
@@ -874,14 +878,26 @@ export function useInputHandler({
         // Track timeout for cleanup on unmount
         retryTimeoutRef.current = setTimeout(() => {
           retryTimeoutRef.current = null;
-          // BUG FIX: Properly handle async errors with explicit Promise chain
-          // The catch must be attached immediately to prevent unhandled rejection
+          // BUG FIX: Check if component is still mounted before proceeding
+          if (!isMountedRef.current) return;
+          // BUG FIX: Don't restore stale history backup on error
+          // Instead, append an error message to preserve any changes made since retry started
           void handleInputSubmit(messageToRetry).catch((error) => {
-            // Log error for debugging, then restore history
+            // Log error for debugging
             if (process.env.DEBUG || process.env.AX_DEBUG) {
               console.error('Retry failed:', error);
             }
-            setChatHistory(historyBackup);
+            // BUG FIX: Only update state if component is still mounted
+            // Append error to current history instead of restoring stale backup
+            if (isMountedRef.current) {
+              const errorMessage = extractErrorMessage(error);
+              const errorEntry: ChatEntry = {
+                type: "assistant",
+                content: `❌ Retry failed: ${errorMessage}`,
+                timestamp: new Date(),
+              };
+              setChatHistory(prev => [...prev, errorEntry]);
+            }
           });
         }, 50);
       } else {

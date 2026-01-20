@@ -20,7 +20,8 @@ function validateCwd(dir: string): string {
       throw new Error(`Path is not a directory: ${resolved}`);
     }
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+    // BUG FIX: Use optional chaining for safe property access on unknown error type
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
       throw new Error(`Directory does not exist: ${resolved}`);
     }
     throw error;

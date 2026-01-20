@@ -107,6 +107,18 @@ export class TextEditorTool {
   private confirmationService = ConfirmationService.getInstance();
   private checkpointCallback?: CheckpointCallback;
 
+  /**
+   * PRD-001 P1 FR5.1: Track files that have been read during the session
+   * to enforce read-before-edit behavior
+   */
+  private readFiles: Set<string> = new Set();
+
+  /**
+   * PRD-001 P1 FR5.1: Enable/disable read-before-edit enforcement
+   * Default: true (enabled)
+   */
+  private enforceReadBeforeEdit: boolean = true;
+
   async view(
     filePath: string,
     viewRange?: [number, number]
@@ -164,6 +176,9 @@ export class TextEditorTool {
             .map((line, idx) => `${start + idx}: ${line}`)
             .join("\n");
 
+          // PRD-001 P1 FR5.1: Track this file as read for read-before-edit enforcement
+          this.readFiles.add(resolvedPath);
+
           return {
             success: true,
             output: `Lines ${start}-${actualEnd} of ${filePath}:\n${numberedLines}`,
@@ -180,6 +195,9 @@ export class TextEditorTool {
         // Apply message optimization for large files
         const optimizer = getMessageOptimizer();
         const optimized = optimizer.optimizeToolOutput(fullOutput, 'read_file');
+
+        // PRD-001 P1 FR5.1: Track this file as read for read-before-edit enforcement
+        this.readFiles.add(resolvedPath);
 
         return {
           success: true,
@@ -226,6 +244,14 @@ export class TextEditorTool {
       const fileExistsError = await checkFileExists(resolvedPath);
       if (fileExistsError) {
         return fileExistsError;
+      }
+
+      // PRD-001 P1 FR5.1: Enforce read-before-edit
+      if (this.enforceReadBeforeEdit && !this.readFiles.has(resolvedPath)) {
+        return {
+          success: false,
+          error: `You must read the file before editing it. Use view_file to read "${filePath}" first, then retry your edit with the exact content from the file.`,
+        };
       }
 
       // RACE CONDITION FIX: Read file with stat to get mtime for comparison
@@ -517,6 +543,14 @@ export class TextEditorTool {
         return fileExistsError;
       }
 
+      // PRD-001 P1 FR5.1: Enforce read-before-edit
+      if (this.enforceReadBeforeEdit && !this.readFiles.has(resolvedPath)) {
+        return {
+          success: false,
+          error: `You must read the file before editing it. Use view_file to read "${filePath}" first, then retry your edit with the exact content from the file.`,
+        };
+      }
+
       const fileContent = await fs.readFile(resolvedPath, "utf-8");
       const lines = fileContent.split("\n");
       
@@ -619,6 +653,14 @@ export class TextEditorTool {
       const fileExistsError = await checkFileExists(resolvedPath);
       if (fileExistsError) {
         return fileExistsError;
+      }
+
+      // PRD-001 P1 FR5.1: Enforce read-before-edit
+      if (this.enforceReadBeforeEdit && !this.readFiles.has(resolvedPath)) {
+        return {
+          success: false,
+          error: `You must read the file before editing it. Use view_file to read "${filePath}" first, then retry your edit with the exact content from the file.`,
+        };
       }
 
       const fileContent = await fs.readFile(resolvedPath, "utf-8");
@@ -737,6 +779,14 @@ export class TextEditorTool {
       const fileExistsError = await checkFileExists(resolvedPath);
       if (fileExistsError) {
         return fileExistsError;
+      }
+
+      // PRD-001 P1 FR5.1: Enforce read-before-edit
+      if (this.enforceReadBeforeEdit && !this.readFiles.has(resolvedPath)) {
+        return {
+          success: false,
+          error: `You must read the file before editing it. Use view_file to read "${filePath}" first, then retry your edit with the exact content from the file.`,
+        };
       }
 
       // Read file with stat to get mtime for race condition protection
@@ -1140,19 +1190,19 @@ export class TextEditorTool {
           const oldHunkEnd = lastHunk.oldStart + lastHunk.oldCount;
           const newContextEnd = Math.min(oldLines.length, change.oldEnd + CONTEXT_LINES);
           
-          for (let idx = oldHunkEnd; idx < change.oldStart; idx++) {
-            lastHunk.lines.push({ type: ' ', content: oldLines[idx] });
+          for (let lineIndex = oldHunkEnd; lineIndex < change.oldStart; lineIndex++) {
+            lastHunk.lines.push({ type: ' ', content: oldLines[lineIndex] });
           }
-          
-          for (let idx = change.oldStart; idx < change.oldEnd; idx++) {
-            lastHunk.lines.push({ type: '-', content: oldLines[idx] });
+
+          for (let lineIndex = change.oldStart; lineIndex < change.oldEnd; lineIndex++) {
+            lastHunk.lines.push({ type: '-', content: oldLines[lineIndex] });
           }
-          for (let idx = change.newStart; idx < change.newEnd; idx++) {
-            lastHunk.lines.push({ type: '+', content: newLines[idx] });
+          for (let lineIndex = change.newStart; lineIndex < change.newEnd; lineIndex++) {
+            lastHunk.lines.push({ type: '+', content: newLines[lineIndex] });
           }
-          
-          for (let idx = change.oldEnd; idx < newContextEnd && idx < oldLines.length; idx++) {
-            lastHunk.lines.push({ type: ' ', content: oldLines[idx] });
+
+          for (let lineIndex = change.oldEnd; lineIndex < newContextEnd && lineIndex < oldLines.length; lineIndex++) {
+            lastHunk.lines.push({ type: ' ', content: oldLines[lineIndex] });
           }
           
           lastHunk.oldCount = newContextEnd - lastHunk.oldStart;
@@ -1170,20 +1220,20 @@ export class TextEditorTool {
         lines: []
       };
       
-      for (let idx = contextStart; idx < change.oldStart; idx++) {
-        hunk.lines.push({ type: ' ', content: oldLines[idx] });
+      for (let lineIndex = contextStart; lineIndex < change.oldStart; lineIndex++) {
+        hunk.lines.push({ type: ' ', content: oldLines[lineIndex] });
       }
-      
-      for (let idx = change.oldStart; idx < change.oldEnd; idx++) {
-        hunk.lines.push({ type: '-', content: oldLines[idx] });
+
+      for (let lineIndex = change.oldStart; lineIndex < change.oldEnd; lineIndex++) {
+        hunk.lines.push({ type: '-', content: oldLines[lineIndex] });
       }
-      
-      for (let idx = change.newStart; idx < change.newEnd; idx++) {
-        hunk.lines.push({ type: '+', content: newLines[idx] });
+
+      for (let lineIndex = change.newStart; lineIndex < change.newEnd; lineIndex++) {
+        hunk.lines.push({ type: '+', content: newLines[lineIndex] });
       }
-      
-      for (let idx = change.oldEnd; idx < contextEnd && idx < oldLines.length; idx++) {
-        hunk.lines.push({ type: ' ', content: oldLines[idx] });
+
+      for (let lineIndex = change.oldEnd; lineIndex < contextEnd && lineIndex < oldLines.length; lineIndex++) {
+        hunk.lines.push({ type: ' ', content: oldLines[lineIndex] });
       }
       
       hunks.push(hunk);
@@ -1240,6 +1290,49 @@ export class TextEditorTool {
    */
   setCheckpointCallback(callback: CheckpointCallback): void {
     this.checkpointCallback = callback;
+  }
+
+  /**
+   * PRD-001 P1 FR5.1: Mark a file as read (for use when files are read externally)
+   * @param filePath - The absolute path to the file
+   */
+  markFileAsRead(filePath: string): void {
+    const resolvedPath = path.resolve(filePath);
+    this.readFiles.add(resolvedPath);
+  }
+
+  /**
+   * PRD-001 P1 FR5.1: Check if a file has been read
+   * @param filePath - The path to check
+   * @returns true if the file has been read in this session
+   */
+  hasFileBeenRead(filePath: string): boolean {
+    const resolvedPath = path.resolve(filePath);
+    return this.readFiles.has(resolvedPath);
+  }
+
+  /**
+   * PRD-001 P1 FR5.1: Clear the read files tracking
+   * Call this when starting a new task or resetting state
+   */
+  clearReadFilesTracking(): void {
+    this.readFiles.clear();
+  }
+
+  /**
+   * PRD-001 P1 FR5.1: Enable or disable read-before-edit enforcement
+   * @param enabled - Whether to enforce read-before-edit
+   */
+  setReadBeforeEditEnforcement(enabled: boolean): void {
+    this.enforceReadBeforeEdit = enabled;
+  }
+
+  /**
+   * PRD-001 P1 FR5.1: Get the current read-before-edit enforcement state
+   * @returns true if enforcement is enabled
+   */
+  isReadBeforeEditEnforced(): boolean {
+    return this.enforceReadBeforeEdit;
   }
 
   /**

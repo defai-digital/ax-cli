@@ -1257,6 +1257,11 @@ export class MCPManagerV2 extends EventEmitter {
 
     // Warm up each server by listing tools (lightweight operation)
     const warmupPromises = serversToWarmup.map(async (serverName) => {
+      // Check disposed state before each warmup attempt
+      if (this.disposed || this.disposing) {
+        return;
+      }
+
       const state = this.connections.get(serverName);
       if (!state || state.status !== 'connected') {
         return; // Skip non-connected servers

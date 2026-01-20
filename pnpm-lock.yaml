@@ -16,10 +16,10 @@ importers:
         specifier: ^0.11.0
         version: 0.11.0
       '@defai.digital/ax-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:packages/core
       '@defai.digital/ax-schemas':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:packages/schemas
       '@modelcontextprotocol/sdk':
         specifier: '>=1.25.2'
@@ -167,7 +167,7 @@ importers:
   packages/ax-cli:
     dependencies:
       '@defai.digital/ax-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@inquirer/prompts':
         specifier: ^7.2.0
@@ -198,7 +198,7 @@ importers:
   packages/ax-grok:
     dependencies:
       '@defai.digital/ax-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
     devDependencies:
       '@types/node':
@@ -214,7 +214,7 @@ importers:
         specifier: ^0.11.0
         version: 0.11.0
       '@defai.digital/ax-schemas':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../schemas
       '@modelcontextprotocol/sdk':
         specifier: '>=1.25.2'

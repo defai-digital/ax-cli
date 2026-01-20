@@ -5,6 +5,7 @@
 
 import * as fs from 'fs';
 import type { Violation, FileContent, DesignCheckConfig } from './types.js';
+import { extractErrorMessage } from '../utils/error-handler.js';
 
 /**
  * Result of fixing a single violation
@@ -67,21 +68,42 @@ export function createBackup(filePath: string): string {
 
 /**
  * Restore a file from backup
+ * BUG FIX: Removed TOCTOU race condition by attempting operations directly
+ * and handling ENOENT errors instead of using existsSync() check first
  */
 export function restoreFromBackup(filePath: string, backupPath: string): void {
-  if (fs.existsSync(backupPath)) {
+  try {
     const content = fs.readFileSync(backupPath, 'utf-8');
     fs.writeFileSync(filePath, content, 'utf-8');
-    fs.unlinkSync(backupPath);
+    try {
+      fs.unlinkSync(backupPath);
+    } catch (unlinkError) {
+      // Ignore ENOENT - file was already deleted
+      if ((unlinkError as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw unlinkError;
+      }
+    }
+  } catch (readError) {
+    // If backup doesn't exist (ENOENT), there's nothing to restore
+    if ((readError as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw readError;
+    }
   }
 }
 
 /**
  * Clean up backup file after successful fix
+ * BUG FIX: Removed TOCTOU race condition by attempting unlink directly
+ * and ignoring ENOENT errors
  */
 export function cleanupBackup(backupPath: string): void {
-  if (fs.existsSync(backupPath)) {
+  try {
     fs.unlinkSync(backupPath);
+  } catch (error) {
+    // Ignore ENOENT - file was already deleted or never existed
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
   }
 }
 
@@ -386,8 +408,7 @@ export function writeFixedFile(
 
     return { success: true, backupPath };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { success: false, error: message };
+    return { success: false, error: extractErrorMessage(error) };
   }
 }
 

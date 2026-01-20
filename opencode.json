@@ -5,7 +5,7 @@
       "type": "local",
       "command": [
         "node",
-        "/Users/automatosx/.nvm/versions/node/v24.11.1/bin/ax",
+        "/Users/automatosx/code/automatosx/packages/cli/dist/bin.js",
         "mcp",
         "server"
       ],

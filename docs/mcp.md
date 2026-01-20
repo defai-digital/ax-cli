@@ -1,8 +1,10 @@
 # MCP Integration Guide
-Last reviewed: 2025-02-21  
-Applies to: ax-cli/ax-glm/ax-grok v4.4.x
+Last reviewed: 2025-02-21
+Applies to: ax-cli/ax-grok v4.4.x
 
 Model Context Protocol (MCP) lets the CLI call external tools/services through a standard interface. This guide covers the current, supported usage.
+
+> **Note:** The `ax-glm` package has been deprecated. GLM/Z.AI users should use [OpenCode](https://opencode.ai) - the official CLI from Z.AI.
 
 ## What MCP is (in this CLI)
 - The CLI acts as an MCP client. You register MCP servers and the agent can call their tools.
@@ -12,7 +14,7 @@ Model Context Protocol (MCP) lets the CLI call external tools/services through a
 ## Where configuration lives
 - User scope (per provider): `~/.ax-<provider>/.mcp.json`
 - Project scope (per provider): `./.ax-<provider>/.mcp.json`
-- Provider directories are isolated (`.ax-glm`, `.ax-grok`, `.ax-cli`).
+- Provider directories are isolated (`.ax-grok`, `.ax-cli`).
 
 ## Minimal stdio server config example
 ```json
@@ -56,7 +58,7 @@ Model Context Protocol (MCP) lets the CLI call external tools/services through a
 
 ## Best practices
 - Keep secrets in env vars; reference them in the MCP config via the process environment when launching the server.
-- Use separate MCP configs per provider to avoid cross-talk (GLM vs Grok vs local).
+- Use separate MCP configs per provider to avoid cross-talk (Grok vs local).
 - Set output limits to prevent flooding context (`mcp.token` limits in `config-defaults/settings.yaml`).
 - Prefer stdio for local dev, HTTP/SSE for hosted services.
 

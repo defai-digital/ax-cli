@@ -1,6 +1,8 @@
 # AX CLI SDK - Implementation Summary
-Last reviewed: 2025-02-21  
-Applies to: ax-cli/ax-glm/ax-grok SDK in v4.4.x context
+Last reviewed: 2025-02-21
+Applies to: ax-cli/ax-grok SDK in v4.4.x context
+
+> **Note:** The `ax-glm` package has been deprecated. GLM/Z.AI users should use [OpenCode](https://opencode.ai) - the official CLI from Z.AI.
 
 ## Overview
 
@@ -104,7 +106,7 @@ Created `vscode-extension/src/cli-bridge-sdk.ts`:
 import { createAgent } from '@defai.digital/ax-cli/sdk';
 
 const agent = await createAgent({
-  model: 'glm-4.6',
+  model: 'grok-4',
   maxToolRounds: 50
 });
 
@@ -128,7 +130,7 @@ class CLIBridgeSDK {
   async initialize() {
     this.agent = await createAgent({
       apiKey: config.get('apiKey'),
-      model: 'glm-4.6'
+      model: 'grok-4'
     });
 
     this.agent.on('stream', (chunk) => {

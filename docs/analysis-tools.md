@@ -1,6 +1,8 @@
 # Code Analysis Tools Guide
-Last reviewed: 2025-02-21  
-Applies to: ax-cli/ax-glm/ax-grok v4.4.x
+Last reviewed: 2025-02-21
+Applies to: ax-cli/ax-grok v4.4.x
+
+> **Note:** The `ax-glm` package has been deprecated. GLM/Z.AI users should use [OpenCode](https://opencode.ai) - the official CLI from Z.AI.
 
 AX CLI provides five powerful code analysis tools that can be invoked by the LLM agent to analyze your codebase and provide actionable insights.
 

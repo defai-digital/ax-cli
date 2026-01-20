@@ -102,10 +102,56 @@ export function handleShortcuts(_args: string, _ctx: CommandContext): CommandRes
 }
 
 /**
+ * Check if running in VS Code terminal
+ */
+function isVSCodeTerminal(): boolean {
+  return process.env.TERM_PROGRAM === 'vscode';
+}
+
+/**
  * /terminal-setup command handler
  */
 export function handleTerminalSetup(_args: string, _ctx: CommandContext): CommandResult {
-  const content = `🔧 **Terminal Setup for Shift+Enter**
+  const isVSCode = isVSCodeTerminal();
+
+  const vscodeInstructions = `🔧 **VS Code Terminal Setup for Shift+Enter**
+
+VS Code's terminal requires a keybinding to make Shift+Enter work.
+
+**Step 1: Open Keyboard Shortcuts JSON**
+Press \`Cmd+Shift+P\` (Mac) or \`Ctrl+Shift+P\` (Windows/Linux)
+Type: "Preferences: Open Keyboard Shortcuts (JSON)"
+Press Enter
+
+**Step 2: Add this keybinding**
+\`\`\`json
+[
+  {
+    "key": "shift+enter",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": { "text": "\\n" },
+    "when": "terminalFocus"
+  }
+]
+\`\`\`
+
+**Step 3: Save and open a NEW terminal**
+The keybinding only applies to new terminal instances.
+
+**Alternative (No Config Needed):**
+- \`Ctrl+J\` - Insert newline (works everywhere)
+- \`\\\` + Enter - Backslash before Enter continues to next line
+
+**VS Code Mode (Recommended):**
+Set \`input.enterBehavior\` to \`"vscode"\` in your config.json:
+\`\`\`json
+{
+  "input": { "enterBehavior": "vscode" }
+}
+\`\`\`
+In this mode: \`Ctrl+Enter\` sends, \`Enter\` inserts newline.`;
+
+  const otherTerminalInstructions = `🔧 **Terminal Setup for Shift+Enter**
 
 Most terminals don't natively support Shift+Enter as a separate key from Enter.
 Here's how to configure popular terminals:
@@ -144,13 +190,19 @@ return {
 \`\`\`
 
 **Alternative (No Terminal Config Needed):**
-Use \`\\\` at the end of a line to continue on the next line:
-\`\`\`
-This is a long message that \\
-continues on the next line
-\`\`\`
+- \`Ctrl+J\` - Insert newline (works everywhere)
+- \`\\\` + Enter - Backslash before Enter continues to next line
 
-Or use Ctrl+J to insert a newline (works in most terminals).`;
+**VS Code Mode (Alternative):**
+If configuring your terminal is too complex, set \`input.enterBehavior\` to \`"vscode"\`:
+\`\`\`json
+{
+  "input": { "enterBehavior": "vscode" }
+}
+\`\`\`
+In this mode: \`Ctrl+Enter\` sends, \`Enter\` inserts newline.`;
+
+  const content = isVSCode ? vscodeInstructions : otherTerminalInstructions;
 
   return {
     handled: true,
@@ -169,8 +221,24 @@ Or use Ctrl+J to insert a newline (works in most terminals).`;
  * /commands command handler - list custom commands
  */
 export function handleCommands(_args: string, ctx: CommandContext): CommandResult {
-  const customCommandsManager = getCustomCommandsManager();
-  const commands = customCommandsManager.getAllCommands();
+  // BUG FIX: Add error handling to prevent crashes if custom commands manager fails
+  let commands: ReturnType<ReturnType<typeof getCustomCommandsManager>['getAllCommands']> = [];
+  try {
+    const customCommandsManager = getCustomCommandsManager();
+    commands = customCommandsManager.getAllCommands();
+  } catch (error) {
+    return {
+      handled: true,
+      entries: [
+        {
+          type: "assistant",
+          content: `**Custom Commands:**\n\nFailed to load custom commands: ${error instanceof Error ? error.message : 'Unknown error'}\n\nCreate commands by adding markdown files to:\n  • \`${ctx.configPaths.DIR_NAME}/commands/\` (project-level)\n  • \`~/${ctx.configPaths.DIR_NAME}/commands/\` (user-level)`,
+          timestamp: new Date(),
+        },
+      ],
+      clearInput: true,
+    };
+  }
 
   let content = "**Custom Commands:**\n\n";
 

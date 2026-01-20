@@ -16,6 +16,7 @@ import type { ThinkingConfig } from '../../llm/types.js';
 import type { ReActConfig } from '../config/agentic-config.js';
 import { DEFAULT_REACT_CONFIG } from '../config/agentic-config.js';
 import { ReActScratchpad, createScratchpad } from './scratchpad.js';
+import { extractErrorMessage } from '../../utils/error-handler.js';
 import type {
   ReActLoopResult,
   ReActStopReason,
@@ -189,7 +190,7 @@ export class ReActLoop {
 
     } catch (error) {
       stopReason = 'error';
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = extractErrorMessage(error);
 
       yield {
         type: 'react_complete',

@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'glob';
 import type { FileContent } from './types.js';
+import { extractErrorMessage } from '../utils/error-handler.js';
 
 /**
  * Maximum file size to process (1MB)
@@ -67,25 +68,34 @@ export async function scanFiles(
 
 /**
  * Scan a directory for matching files
+ * REFACTOR: Parallelize glob operations for multiple include patterns
  */
 async function scanDirectory(
   dir: string,
   include: string[],
   ignore: string[]
 ): Promise<string[]> {
-  const files: string[] = [];
+  // Run all glob operations in parallel instead of sequentially
+  const matchArrays = await Promise.all(
+    include.map(pattern =>
+      glob(pattern, {
+        cwd: dir,
+        absolute: true,
+        ignore,
+        nodir: true,
+      })
+    )
+  );
 
-  for (const pattern of include) {
-    const matches = await glob(pattern, {
-      cwd: dir,
-      absolute: true,
-      ignore,
-      nodir: true,
-    });
-    files.push(...matches);
+  // Flatten and deduplicate results
+  const files = new Set<string>();
+  for (const matches of matchArrays) {
+    for (const file of matches) {
+      files.add(file);
+    }
   }
 
-  return files;
+  return Array.from(files);
 }
 
 /**
@@ -201,8 +211,7 @@ export async function readFileSafe(filePath: string): Promise<FileContent | null
       lines,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn(`Skipping ${filePath}: ${message}`);
+    console.warn(`Skipping ${filePath}: ${extractErrorMessage(error)}`);
     return null;
   }
 }

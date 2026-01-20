@@ -1,6 +1,8 @@
 # AX-CLI Module Dependency Graph
-Last reviewed: 2025-02-21  
-Applies to: ax-cli/ax-glm/ax-grok v4.4.x (reference)
+Last reviewed: 2025-02-21
+Applies to: ax-cli/ax-grok v4.4.x (reference)
+
+> **Note:** The `ax-glm` package has been deprecated. GLM/Z.AI users should use [OpenCode](https://opencode.ai) - the official CLI from Z.AI.
 
 This document describes the high-level module dependencies in the AX-CLI codebase after the architecture revamp (Phases 1-5).
 
@@ -110,7 +112,7 @@ LLMAgent
 ```
 LLMClient (src/llm/client.ts)
 ├── OpenAI SDK (openai package)
-│   └── GLM-4.6 API (z.ai)
+│   └── OpenAI-compatible APIs
 ├── Rate Limiter (src/utils/rate-limiter.ts)
 ├── Retry Helper (src/utils/retry-helper.ts)
 └── Audit Logger (src/utils/audit-logger.ts)

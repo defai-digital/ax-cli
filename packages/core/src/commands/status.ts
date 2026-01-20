@@ -124,12 +124,17 @@ export function createStatusCommand(): Command {
 
           // Set up refresh interval
           const intervalId = setInterval(async () => {
-            // Clear screen for fresh display
-            console.clear();
-            console.log(chalk.cyan(`🔄 Auto-refreshing every ${refreshSeconds} second(s). Press Ctrl+C to stop.`));
-            console.log(chalk.gray(`   Last refreshed: ${new Date().toLocaleTimeString()}`));
-            console.log();
-            await displayStatus();
+            // BUG FIX: Wrap async callback in try/catch to prevent unhandled promise rejection
+            try {
+              // Clear screen for fresh display
+              console.clear();
+              console.log(chalk.cyan(`🔄 Auto-refreshing every ${refreshSeconds} second(s). Press Ctrl+C to stop.`));
+              console.log(chalk.gray(`   Last refreshed: ${new Date().toLocaleTimeString()}`));
+              console.log();
+              await displayStatus();
+            } catch (error) {
+              console.error(chalk.red('Error refreshing status:'), error instanceof Error ? error.message : String(error));
+            }
           }, refreshSeconds * 1000);
 
           // Handle graceful shutdown

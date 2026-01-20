@@ -7,8 +7,24 @@ import { EventEmitter } from 'events';
 import type { LLMMessage } from '../llm/client.js';
 import type { TokenCounter } from '../utils/token-counter.js';
 import { LRUCache } from '../utils/cache.js';
-import { GLM_MODELS } from '../constants.js';
+import { GLM_MODELS, TIMEOUT_CONFIG, CACHE_CONFIG } from '../constants.js';
 import * as crypto from 'crypto';
+
+/** Context manager configuration defaults */
+const CONTEXT_MANAGER_DEFAULTS = {
+  /** Default context window size if model not found */
+  DEFAULT_CONTEXT_WINDOW: 128000,
+  /** Percentage of context to trigger pruning */
+  PRUNE_THRESHOLD: 0.75,
+  /** Hard limit percentage */
+  HARD_LIMIT: 0.95,
+  /** Recent tool rounds to preserve */
+  KEEP_RECENT_TOOL_ROUNDS: 8,
+  /** First user messages to always keep */
+  KEEP_FIRST_MESSAGES: 2,
+  /** Tokens reserved for system message */
+  RESERVED_TOKENS: 3000,
+} as const;
 
 export interface ContextManagerOptions {
   /** Model being used */
@@ -40,20 +56,20 @@ export class ContextManager extends EventEmitter {
   private reservedTokens: number;
 
   // Token cache using LRUCache for consistent caching behavior
-  private static readonly CACHE_TTL = 60000; // 1 minute TTL
-  private static readonly MAX_CACHE_SIZE = 100; // Maximum cache entries
+  private static readonly CACHE_TTL = TIMEOUT_CONFIG.CACHE_TTL;
+  private static readonly MAX_CACHE_SIZE = CACHE_CONFIG.DEFAULT_MAX_SIZE;
   private tokenCache: LRUCache<string, number>;
 
   constructor(options: ContextManagerOptions) {
     super(); // Initialize EventEmitter
     this.model = options.model;
     const modelConfig = GLM_MODELS[this.model as keyof typeof GLM_MODELS];
-    this.contextWindow = modelConfig?.contextWindow || 128000;
-    this.pruneThreshold = options.pruneThreshold || 0.75;
-    this.hardLimit = options.hardLimit || 0.95;
-    this.keepRecentToolRounds = options.keepRecentToolRounds || 8;
-    this.keepFirstMessages = options.keepFirstMessages || 2;
-    this.reservedTokens = options.reservedTokens || 3000;
+    this.contextWindow = modelConfig?.contextWindow || CONTEXT_MANAGER_DEFAULTS.DEFAULT_CONTEXT_WINDOW;
+    this.pruneThreshold = options.pruneThreshold ?? CONTEXT_MANAGER_DEFAULTS.PRUNE_THRESHOLD;
+    this.hardLimit = options.hardLimit ?? CONTEXT_MANAGER_DEFAULTS.HARD_LIMIT;
+    this.keepRecentToolRounds = options.keepRecentToolRounds ?? CONTEXT_MANAGER_DEFAULTS.KEEP_RECENT_TOOL_ROUNDS;
+    this.keepFirstMessages = options.keepFirstMessages ?? CONTEXT_MANAGER_DEFAULTS.KEEP_FIRST_MESSAGES;
+    this.reservedTokens = options.reservedTokens ?? CONTEXT_MANAGER_DEFAULTS.RESERVED_TOKENS;
 
     // Initialize LRU cache with TTL - handles eviction automatically
     this.tokenCache = new LRUCache<string, number>({
@@ -359,9 +375,9 @@ export class ContextManager extends EventEmitter {
     let firstMessageEnd = 0;
 
     for (let i = 0; i < workingMessages.length; i++) {
-      const msg = workingMessages[i];
-      if (msg.role === 'user') {
-        firstMessages.push(msg);
+      const message = workingMessages[i];
+      if (message.role === 'user') {
+        firstMessages.push(message);
         userCount++;
         firstMessageEnd = i;
         // Also include the following assistant response if it exists
@@ -389,12 +405,12 @@ export class ContextManager extends EventEmitter {
     let recentTokens = 0;
 
     for (let i = workingMessages.length - 1; i > firstMessageEnd; i--) {
-      const msg = workingMessages[i];
-      const msgTokens = tokenCounter.countMessageTokens([msg]);
+      const message = workingMessages[i];
+      const messageTokens = tokenCounter.countMessageTokens([message]);
 
-      if (recentTokens + msgTokens <= availableTokens) {
-        recentMessages.unshift(msg);
-        recentTokens += msgTokens;
+      if (recentTokens + messageTokens <= availableTokens) {
+        recentMessages.unshift(message);
+        recentTokens += messageTokens;
       } else {
         break;
       }

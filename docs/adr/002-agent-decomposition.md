@@ -71,7 +71,7 @@ export interface StreamHandlerConfig {
 export class StreamHandler {
   constructor(config: StreamHandlerConfig);
   async processChunks(
-    chunks: AsyncGenerator<GLM46StreamChunk>,
+    chunks: AsyncGenerator<StreamChunk>,
     model: string
   ): Promise<AccumulatedMessage>;
 }

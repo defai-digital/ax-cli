@@ -1,15 +1,67 @@
 import { TextEditorTool, BashTool } from '../tools/index.js';
 import { ToolResult, AgentState } from '../types/index.js';
 
+// ============================================================================
+// Command Prefixes
+// ============================================================================
+
+const CMD_VIEW = 'view ';
+const CMD_STR_REPLACE = 'str_replace ';
+const CMD_CREATE = 'create ';
+const CMD_INSERT = 'insert ';
+const CMD_UNDO = 'undo_edit';
+const CMD_BASH = 'bash ';
+const CMD_BASH_SHORT = '$ ';
+const CMD_PWD = 'pwd';
+const CMD_HISTORY = 'history';
+const CMD_HELP = 'help';
+
+// ============================================================================
+// Error Messages
+// ============================================================================
+
+const ERROR_VIEW_REQUIRES_PATH = 'View command requires a file path';
+const ERROR_INVALID_STR_REPLACE = 'Invalid str_replace command format';
+const ERROR_INVALID_CREATE = 'Invalid create command format';
+const ERROR_INVALID_INSERT = 'Invalid insert command format';
+const MSG_NO_EDIT_HISTORY = 'No edit history';
+
+// ============================================================================
+// Regex Patterns
+// ============================================================================
+
+const PATTERN_STR_REPLACE = /str_replace\s+(\S+)\s+"([^"]+)"\s+"([^"]*)"/;
+const PATTERN_CREATE = /create\s+(\S+)\s+"([^"]*)"/;
+const PATTERN_INSERT = /insert\s+(\S+)\s+(\d+)\s+"([^"]*)"/;
+
+// ============================================================================
+// Numeric Constants
+// ============================================================================
+
+/** Minimum number of tokens required for view command (command + path) */
+const MIN_VIEW_TOKENS = 2;
+
+/** Expected number of parts when splitting a range string (start-end) */
+const RANGE_PARTS_COUNT = 2;
+
+/** JSON indentation spaces for pretty printing */
+const JSON_INDENT_SPACES = 2;
+
+/** Minimum valid line number for file ranges (1-indexed) */
+const MIN_LINE_NUMBER = 1;
+
+/** Base for parsing integers */
+const DECIMAL_RADIX = 10;
+
 export class Agent {
-  private textEditor: TextEditorTool;
-  private bash: BashTool;
-  private state: AgentState;
+  private readonly textEditorTool: TextEditorTool;
+  private readonly bashTool: BashTool;
+  private readonly agentState: AgentState;
 
   constructor() {
-    this.textEditor = new TextEditorTool();
-    this.bash = new BashTool();
-    this.state = {
+    this.textEditorTool = new TextEditorTool();
+    this.bashTool = new BashTool();
+    this.agentState = {
       currentDirectory: process.cwd(),
       editHistory: [],
       tools: []
@@ -17,130 +69,132 @@ export class Agent {
   }
 
   async processCommand(input: string): Promise<ToolResult> {
-    const trimmedInput = input.trim();
-    
-    if (trimmedInput.startsWith('view ')) {
-      const args = this.parseViewCommand(trimmedInput);
-      return this.textEditor.view(args.path, args.range);
-    }
-    
-    if (trimmedInput.startsWith('str_replace ')) {
-      const args = this.parseStrReplaceCommand(trimmedInput);
-      if (!args) {
-        return { success: false, error: 'Invalid str_replace command format' };
+    const commandInput = input.trim();
+
+    if (commandInput.startsWith(CMD_VIEW)) {
+      const viewArgs = this.parseViewCommand(commandInput);
+      if (!viewArgs) {
+        return { success: false, error: ERROR_VIEW_REQUIRES_PATH };
       }
-      return this.textEditor.strReplace(args.path, args.oldStr, args.newStr);
+      return this.textEditorTool.view(viewArgs.path, viewArgs.range);
     }
-    
-    if (trimmedInput.startsWith('create ')) {
-      const args = this.parseCreateCommand(trimmedInput);
-      if (!args) {
-        return { success: false, error: 'Invalid create command format' };
+
+    if (commandInput.startsWith(CMD_STR_REPLACE)) {
+      const replaceArgs = this.parseStrReplaceCommand(commandInput);
+      if (!replaceArgs) {
+        return { success: false, error: ERROR_INVALID_STR_REPLACE };
       }
-      return this.textEditor.create(args.path, args.content);
+      return this.textEditorTool.strReplace(replaceArgs.path, replaceArgs.oldStr, replaceArgs.newStr);
     }
-    
-    if (trimmedInput.startsWith('insert ')) {
-      const args = this.parseInsertCommand(trimmedInput);
-      if (!args) {
-        return { success: false, error: 'Invalid insert command format' };
+
+    if (commandInput.startsWith(CMD_CREATE)) {
+      const createArgs = this.parseCreateCommand(commandInput);
+      if (!createArgs) {
+        return { success: false, error: ERROR_INVALID_CREATE };
       }
-      return this.textEditor.insert(args.path, args.line, args.content);
+      return this.textEditorTool.create(createArgs.path, createArgs.content);
     }
-    
-    if (trimmedInput === 'undo_edit') {
-      return this.textEditor.undoEdit();
+
+    if (commandInput.startsWith(CMD_INSERT)) {
+      const insertArgs = this.parseInsertCommand(commandInput);
+      if (!insertArgs) {
+        return { success: false, error: ERROR_INVALID_INSERT };
+      }
+      return this.textEditorTool.insert(insertArgs.path, insertArgs.line, insertArgs.content);
     }
-    
-    if (trimmedInput.startsWith('bash ') || trimmedInput.startsWith('$ ')) {
-      const command = trimmedInput.startsWith('bash ') 
-        ? trimmedInput.substring(5) 
-        : trimmedInput.substring(2);
-      return this.bash.execute(command);
+
+    if (commandInput === CMD_UNDO) {
+      return this.textEditorTool.undoEdit();
     }
-    
-    if (trimmedInput === 'pwd') {
+
+    if (commandInput.startsWith(CMD_BASH) || commandInput.startsWith(CMD_BASH_SHORT)) {
+      const shellCommand = commandInput.startsWith(CMD_BASH)
+        ? commandInput.substring(CMD_BASH.length)
+        : commandInput.substring(CMD_BASH_SHORT.length);
+      return this.bashTool.execute(shellCommand);
+    }
+
+    if (commandInput === CMD_PWD) {
       return {
         success: true,
-        output: this.bash.getCurrentDirectory()
+        output: this.bashTool.getCurrentDirectory()
       };
     }
-    
-    if (trimmedInput === 'history') {
-      const history = this.textEditor.getEditHistory();
+
+    if (commandInput === CMD_HISTORY) {
+      const editHistory = this.textEditorTool.getEditHistory();
       return {
         success: true,
-        output: history.length > 0 
-          ? JSON.stringify(history, null, 2)
-          : 'No edit history'
+        output: editHistory.length > 0
+          ? JSON.stringify(editHistory, null, JSON_INDENT_SPACES)
+          : MSG_NO_EDIT_HISTORY
       };
     }
-    
-    if (trimmedInput === 'help') {
-      return this.getHelp();
+
+    if (commandInput === CMD_HELP) {
+      return this.getHelpText();
     }
-    
-    return this.bash.execute(trimmedInput);
+
+    return this.bashTool.execute(commandInput);
   }
 
-  private parseViewCommand(input: string): { path: string; range?: [number, number] } {
-    const parts = input.split(' ');
-    if (parts.length < 2) {
-      throw new Error('View command requires a file path');
+  private parseViewCommand(input: string): { path: string; range?: [number, number] } | null {
+    const tokens = input.split(' ');
+    if (tokens.length < MIN_VIEW_TOKENS) {
+      return null;
     }
 
-    const path = parts[1];
+    const filePath = tokens[1];
 
-    if (parts.length > 2) {
-      const rangePart = parts[2];
-      if (rangePart.includes('-')) {
-        const splitParts = rangePart.split('-').map(Number);
-        // Ensure we have exactly 2 parts for valid range
-        if (splitParts.length === 2) {
-          const [start, end] = splitParts;
-          if (!isNaN(start) && !isNaN(end) && start > 0 && end >= start) {
-            return { path, range: [start, end] };
+    if (tokens.length > MIN_VIEW_TOKENS) {
+      const rangeString = tokens[2];
+      if (rangeString.includes('-')) {
+        const rangeParts = rangeString.split('-').map(Number);
+        if (rangeParts.length === RANGE_PARTS_COUNT) {
+          const [startLine, endLine] = rangeParts;
+          if (!isNaN(startLine) && !isNaN(endLine) && startLine >= MIN_LINE_NUMBER && endLine >= startLine) {
+            return { path: filePath, range: [startLine, endLine] };
           }
         }
       }
     }
 
-    return { path };
+    return { path: filePath };
   }
 
   private parseStrReplaceCommand(input: string): { path: string; oldStr: string; newStr: string } | null {
-    const match = input.match(/str_replace\s+(\S+)\s+"([^"]+)"\s+"([^"]*)"/);
-    if (!match) return null;
-    
+    const parseResult = input.match(PATTERN_STR_REPLACE);
+    if (!parseResult) return null;
+
     return {
-      path: match[1],
-      oldStr: match[2],
-      newStr: match[3]
+      path: parseResult[1],
+      oldStr: parseResult[2],
+      newStr: parseResult[3]
     };
   }
 
   private parseCreateCommand(input: string): { path: string; content: string } | null {
-    const match = input.match(/create\s+(\S+)\s+"([^"]*)"/);
-    if (!match) return null;
-    
+    const parseResult = input.match(PATTERN_CREATE);
+    if (!parseResult) return null;
+
     return {
-      path: match[1],
-      content: match[2]
+      path: parseResult[1],
+      content: parseResult[2]
     };
   }
 
   private parseInsertCommand(input: string): { path: string; line: number; content: string } | null {
-    const match = input.match(/insert\s+(\S+)\s+(\d+)\s+"([^"]*)"/);
-    if (!match) return null;
-    
+    const parseResult = input.match(PATTERN_INSERT);
+    if (!parseResult) return null;
+
     return {
-      path: match[1],
-      line: parseInt(match[2], 10),
-      content: match[3]
+      path: parseResult[1],
+      line: parseInt(parseResult[2], DECIMAL_RADIX),
+      content: parseResult[3]
     };
   }
 
-  private getHelp(): ToolResult {
+  private getHelpText(): ToolResult {
     return {
       success: true,
       output: `Available commands:
@@ -159,9 +213,9 @@ export class Agent {
 
   getCurrentState(): AgentState {
     return {
-      ...this.state,
-      currentDirectory: this.bash.getCurrentDirectory(),
-      editHistory: this.textEditor.getEditHistory()
+      ...this.agentState,
+      currentDirectory: this.bashTool.getCurrentDirectory(),
+      editHistory: this.textEditorTool.getEditHistory()
     };
   }
 }

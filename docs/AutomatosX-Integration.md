@@ -1,6 +1,8 @@
 # AutomatosX Integration Guide
-Last reviewed: 2025-02-21  
-Status: Reference for internal integration; align with ax-cli/ax-glm/ax-grok v4.4.x
+Last reviewed: 2025-02-21
+Status: Reference for internal integration; align with ax-cli/ax-grok v4.4.x
+
+> **Note:** The `ax-glm` package has been deprecated. GLM/Z.AI users should use [OpenCode](https://opencode.ai) - the official CLI from Z.AI.
 
 This is the complete integration guide for AutomatosX - an AI agent orchestration platform with persistent memory, multi-agent collaboration, and policy-driven routing.
 
@@ -265,7 +267,7 @@ AutomatosX supports multiple AI providers with intelligent routing.
 - **Gemini** (Google) - Best for creative work and UI/UX
 - **OpenAI** (GPT) - Best for planning and architecture
 - **Codex** (OpenAI) - Best for code generation and completion
-- **Grok** (X.AI / Z.AI) - Best for debugging and fast analysis
+- **Grok** (xAI) - Best for debugging and fast analysis
 
 ### Provider Priority
 
@@ -1047,7 +1049,7 @@ ax usage
 # Estimated Cost: $8.50
 #
 # By Model:
-#   glm-4.6: 380,000 tokens ($7.60)
+#   grok-4: 380,000 tokens ($7.60)
 #   grok-code-fast-1: 45,000 tokens ($0.90)
 ```
 
@@ -1501,12 +1503,12 @@ const apiKey = settings.getApiKey();
 const model = settings.getCurrentModel();
 
 // PHASE 3: Write operations
-settings.updateUserSetting('defaultModel', 'glm-4.6');
+settings.updateUserSetting('defaultModel', 'grok-4');
 settings.updateUserSetting('baseURL', 'https://api.custom.ai/v1');
 settings.saveUserSettings({ maxTokens: 8192 });
 
 // Project settings (write)
-settings.updateProjectSetting('defaultModel', 'glm-4.6');
+settings.updateProjectSetting('defaultModel', 'grok-4');
 settings.saveProjectSettings({ contextWindow: 32000 });
 ```
 

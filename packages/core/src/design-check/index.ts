@@ -57,7 +57,37 @@ export async function runDesignCheck(
   // Scan for files
   const filePaths = await scanFiles(paths, config.include, config.ignore);
 
-  // Process each file
+  // REFACTOR: Parallelize file reading and rule processing
+  // File I/O and rule checking can run concurrently for better performance
+  const BATCH_SIZE = Math.min(8, Math.max(1, Math.ceil(filePaths.length / 4)));
+
+  // Phase 1: Read all files in parallel (I/O bound - high parallelism is safe)
+  const fileContents = await Promise.all(
+    filePaths.map(async (filePath) => ({
+      filePath,
+      content: await readFileSafe(filePath),
+    }))
+  );
+
+  // Phase 2: Run rules on all files (CPU bound but parallelizable)
+  // Process in batches to avoid overwhelming the event loop
+  const analysisResults: Array<{
+    filePath: string;
+    content: Awaited<ReturnType<typeof readFileSafe>>;
+    violations: ReturnType<typeof runRules>;
+  }> = [];
+
+  for (let i = 0; i < fileContents.length; i += BATCH_SIZE) {
+    const batch = fileContents.slice(i, i + BATCH_SIZE);
+    const batchResults = batch.map(({ filePath, content }) => ({
+      filePath,
+      content,
+      violations: content ? runRules(content, config, opts.rule) : [],
+    }));
+    analysisResults.push(...batchResults);
+  }
+
+  // Phase 3: Aggregate results and apply fixes (sequential for safety)
   const results: FileResult[] = [];
   const fixResults: FileFixResult[] = [];
   let totalErrors = 0;
@@ -65,15 +95,11 @@ export async function runDesignCheck(
   let skippedCount = 0;
   let totalFixesApplied = 0;
   let totalFixesSkipped = 0;
-
-  // Track totals for coverage calculation
   let totalColorValues = 0;
   let totalSpacingValues = 0;
 
-  for (const filePath of filePaths) {
-    const fileContent = await readFileSafe(filePath);
-
-    if (!fileContent) {
+  for (const { filePath, content, violations } of analysisResults) {
+    if (!content) {
       skippedCount++;
       results.push({
         file: filePath,
@@ -84,9 +110,6 @@ export async function runDesignCheck(
       continue;
     }
 
-    // Run rules on file
-    const violations = runRules(fileContent, config, opts.rule);
-
     // Count errors and warnings
     const errors = violations.filter((v) => v.severity === 'error').length;
     const warnings = violations.filter((v) => v.severity === 'warning').length;
@@ -96,28 +119,21 @@ export async function runDesignCheck(
     // Count color and spacing violations for coverage
     const colorViolations = violations.filter((v) => v.rule === 'no-hardcoded-colors').length;
     const spacingViolations = violations.filter((v) => v.rule === 'no-raw-spacing').length;
-
-    // Estimate total values (violations + assumed tokenized usage)
-    // This is a rough estimate - violations are definitely non-tokenized
     totalColorValues += colorViolations;
     totalSpacingValues += spacingViolations;
 
-    // Apply fixes if requested
+    // Apply fixes if requested (sequential to avoid file conflicts)
     if (opts.fix && violations.some((v) => v.fixable)) {
-      const fixResult = applyFixes(fileContent, violations, config, { backup: true, dryRun: false });
-
-      // Always track skipped fixes for reporting
+      const fixResult = applyFixes(content, violations, config, { backup: true, dryRun: false });
       totalFixesSkipped += fixResult.skippedCount;
 
       if (fixResult.appliedCount > 0) {
-        // Write fixed file
         const writeResult = writeFixedFile(fixResult, { backup: true, dryRun: false });
 
         if (writeResult.success) {
           fixResult.backupPath = writeResult.backupPath;
           totalFixesApplied += fixResult.appliedCount;
 
-          // Update violations to remove fixed ones
           const fixedViolationIds = new Set(
             fixResult.fixes
               .filter((f) => f.applied)
@@ -138,7 +154,6 @@ export async function runDesignCheck(
         }
       }
 
-      // Record fix results even if nothing was applied (to show skip reasons)
       if (fixResult.skippedCount > 0) {
         fixResults.push(fixResult);
       }

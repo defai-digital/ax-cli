@@ -298,6 +298,13 @@ export class AskUserService extends EventEmitter {
    * Cleanup internal state
    */
   private cleanup(): void {
+    // BUG FIX: Clear timeout to prevent memory leak
+    // Even though callers typically clear the timeout before calling cleanup(),
+    // we clear it here defensively to ensure it's always cleaned up
+    if (this.questionTimeoutId) {
+      clearTimeout(this.questionTimeoutId);
+      this.questionTimeoutId = null;
+    }
     this.resolveQuestions = null;
     this.rejectQuestions = null;
     this.pendingQuestions = null;
@@ -310,6 +317,10 @@ export class AskUserService extends EventEmitter {
    * Clean up resources and remove all event listeners.
    */
   destroy(): void {
+    // BUG FIX: Cancel any pending questions before removing listeners
+    // This ensures the timeout is cleared and pending promise is rejected
+    // Otherwise, pending questions would hang forever after destroy
+    this.cancelQuestions('Service destroyed');
     this.removeAllListeners();
   }
 }
@@ -322,6 +333,8 @@ export function getAskUserService(): AskUserService {
 }
 
 // Legacy support: AskUserTool class that wraps the service
+let deprecationWarningShown = false;
+
 export class AskUserTool {
   private service: AskUserService;
 
@@ -335,7 +348,11 @@ export class AskUserTool {
    */
   setAskCallback(_callback: (questions: Question[]) => Promise<QuestionResult[]>): void {
     // No-op: callback-based API is deprecated in favor of EventEmitter pattern
-    console.warn("AskUserTool.setAskCallback() is deprecated. Use getAskUserService() events instead.");
+    // Only warn once to avoid log spam
+    if (!deprecationWarningShown) {
+      deprecationWarningShown = true;
+      console.warn("AskUserTool.setAskCallback() is deprecated. Use getAskUserService() events instead.");
+    }
   }
 
   /**

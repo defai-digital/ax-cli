@@ -139,6 +139,21 @@ export function MCPDashboard({
     loadServers();
   }, [isVisible, refreshKey]);
 
+  // BUG FIX: These useEffect hooks must be called unconditionally (before any returns)
+  // to satisfy React's Rules of Hooks. Previously they were placed after the "list" view
+  // early return, causing hooks to be called conditionally based on view state.
+  useEffect(() => {
+    if (view === "detail" && !servers[selectedIndex]) {
+      setView("list");
+    }
+  }, [view, servers, selectedIndex]);
+
+  useEffect(() => {
+    if (view === "tools" && (!servers[selectedIndex] || !servers[selectedIndex].tools)) {
+      setView("list");
+    }
+  }, [view, servers, selectedIndex]);
+
   const handleRefresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
     onRefresh?.();
@@ -457,7 +472,7 @@ export function MCPDashboard({
   if (view === "detail") {
     const server = servers[selectedIndex];
     if (!server) {
-      setView("list");
+      // Return null while useEffect handles the view transition
       return null;
     }
 
@@ -521,7 +536,7 @@ export function MCPDashboard({
   if (view === "tools") {
     const server = servers[selectedIndex];
     if (!server || !server.tools) {
-      setView("list");
+      // Return null while useEffect handles the view transition
       return null;
     }
 

@@ -25,8 +25,8 @@ vi.mock("../../../packages/core/src/hooks/index.js", () => ({
 }));
 
 vi.mock("../../../packages/core/src/tools/ask-user.js", () => ({
-  getAskUserTool: vi.fn().mockReturnValue({
-    execute: vi.fn().mockResolvedValue({
+  getAskUserService: vi.fn().mockReturnValue({
+    askQuestions: vi.fn().mockResolvedValue({
       success: true,
       output: "User answered: Option 1",
     }),

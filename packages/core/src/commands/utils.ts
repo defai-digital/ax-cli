@@ -96,11 +96,11 @@ export function formatBytes(bytes: number): string {
   if (bytes < 0) return '-' + formatBytes(-bytes);
   if (bytes < 1) return '< 1 B';
 
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+  const bytesPerUnit = 1024;
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(bytesPerUnit)), units.length - 1);
 
-  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+  return `${(bytes / Math.pow(bytesPerUnit, unitIndex)).toFixed(2)} ${units[unitIndex]}`;
 }
 
 /**

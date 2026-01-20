@@ -15,7 +15,7 @@ import type {
   SearchTool,
 } from "../../tools/index.js";
 import type { BashOutputTool } from "../../tools/bash-output.js";
-import { getAskUserTool, type Question } from "../../tools/ask-user.js";
+import { getAskUserService, type Question } from "../../tools/ask-user.js";
 import { executeAxAgent, executeAxAgentsParallel, type AxAgentOptions, type AxAgentsParallelOptions } from "../../tools/ax-agent.js";
 import {
   getStringArg,
@@ -214,8 +214,8 @@ const askUserHandler: ToolHandler = async (ctx) => {
     };
   }
 
-  const askUserTool = getAskUserTool();
-  return askUserTool.execute(validQuestions);
+  const askUserService = getAskUserService();
+  return askUserService.askQuestions(validQuestions);
 };
 
 /**

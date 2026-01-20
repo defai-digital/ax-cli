@@ -197,12 +197,26 @@ export interface Key {
   delete?: boolean;
 }
 
+// Debug flag for key detection - set AX_DEBUG_KEYS=1 to enable
+// This logs detailed key event information to help diagnose Shift+Enter issues
+const DEBUG_KEYS = process.env.AX_DEBUG_KEYS === '1';
+
 // Normalize Shift+Enter detection across terminals (Ink, CSI-u, xterm modifiers)
 // See: https://github.com/anthropics/claude-code/issues/1259
 // Many terminals send escape sequences for Shift+Enter that need special handling
 export function isShiftEnterKey(inputChar: string, key: Key): boolean {
+  if (DEBUG_KEYS) {
+    const codes = [];
+    for (let i = 0; i < inputChar.length; i++) {
+      codes.push(inputChar.charCodeAt(i).toString(16).padStart(2, '0'));
+    }
+    console.error(`[DEBUG KEY] inputChar: ${JSON.stringify(inputChar)} hex: ${codes.join(' ')}`);
+    console.error(`[DEBUG KEY] key: ${JSON.stringify(key)}`);
+  }
+
   // Method 1: Ink's built-in shift+return detection (works in some terminals)
   if (key.shift && key.return) {
+    if (DEBUG_KEYS) console.error('[DEBUG KEY] Detected via key.shift && key.return');
     return true;
   }
 
@@ -230,20 +244,31 @@ export function isShiftEnterKey(inputChar: string, key: Key): boolean {
   // Method 2: Check key.sequence if available
   const sequence = key.sequence;
   if (sequence) {
+    if (DEBUG_KEYS) {
+      const seqCodes = [];
+      for (let i = 0; i < sequence.length; i++) {
+        seqCodes.push(sequence.charCodeAt(i).toString(16).padStart(2, '0'));
+      }
+      console.error(`[DEBUG KEY] sequence: ${JSON.stringify(sequence)} hex: ${seqCodes.join(' ')}`);
+    }
     if (fullPatterns.some(pattern => pattern.test(sequence))) {
+      if (DEBUG_KEYS) console.error('[DEBUG KEY] Detected via sequence fullPattern');
       return true;
     }
     if (strippedPatterns.some(pattern => pattern.test(sequence))) {
+      if (DEBUG_KEYS) console.error('[DEBUG KEY] Detected via sequence strippedPattern');
       return true;
     }
     // Partial match for CSI-u variants
     if (sequence.startsWith('[13;2') && (sequence.endsWith('u') || sequence.endsWith('~'))) {
+      if (DEBUG_KEYS) console.error('[DEBUG KEY] Detected via sequence CSI-u partial');
       return true;
     }
     // Partial match for SS3 variants with Shift modifier (O + modifier 2-9 + M)
     // Note: OM (without digit) is plain Enter, O2M is Shift+Enter
     // Modifier 2 = Shift, 3 = Alt, 4 = Shift+Alt, 5 = Ctrl, etc.
     if (/^O[2-9]M$/.test(sequence)) {
+      if (DEBUG_KEYS) console.error('[DEBUG KEY] Detected via sequence SS3 variant');
       return true;
     }
   }
@@ -252,22 +277,34 @@ export function isShiftEnterKey(inputChar: string, key: Key): boolean {
   // Ink passes the keypress.sequence as inputChar, which may contain the raw sequence
   if (inputChar) {
     if (fullPatterns.some(pattern => pattern.test(inputChar))) {
+      if (DEBUG_KEYS) console.error('[DEBUG KEY] Detected via inputChar fullPattern');
       return true;
     }
     if (strippedPatterns.some(pattern => pattern.test(inputChar))) {
+      if (DEBUG_KEYS) console.error('[DEBUG KEY] Detected via inputChar strippedPattern');
       return true;
     }
     // Partial match for CSI-u variants
     if (inputChar.startsWith('[13;2') && (inputChar.endsWith('u') || inputChar.endsWith('~'))) {
+      if (DEBUG_KEYS) console.error('[DEBUG KEY] Detected via inputChar CSI-u partial');
       return true;
     }
     // Partial match for SS3 variants with Shift modifier
     // Note: OM (without digit) is plain Enter, O2M is Shift+Enter
     if (/^O[2-9]M$/.test(inputChar)) {
+      if (DEBUG_KEYS) console.error('[DEBUG KEY] Detected via inputChar SS3 variant');
       return true;
     }
   }
 
+  // Note: Previously had a "VS Code workaround" that treated '\n' without modifiers
+  // as Shift+Enter. This was removed because:
+  // 1. It caused false positives for plain newlines (key={} with '\n')
+  // 2. Modern terminals properly send escape sequences for Shift+Enter
+  // 3. VS Code users should configure their terminal to send proper sequences
+  // See: https://code.visualstudio.com/docs/terminal/advanced
+
+  if (DEBUG_KEYS) console.error('[DEBUG KEY] Shift+Enter NOT detected');
   return false;
 }
 
@@ -771,10 +808,15 @@ export function useEnhancedInput({
     // 1. key.return (standard Ink detection)
     // 2. inputChar === '\r' (carriage return - some terminals send this for Enter)
     // 3. inputChar === '\n' without Ctrl modifier (newline - other terminals send this for Enter)
+    //    BUT: exclude '\n' if it's already detected as Shift+Enter (VS Code pattern)
     // Note: Ctrl+J sends '\n' but should insert newline, not submit, so we exclude Ctrl modifier
     // Note: Also exclude meta modifier to avoid treating Option+Enter as plain Enter
-    const isPlainEnter = (inputChar === '\r' || (inputChar === '\n' && !key.ctrl)) && !key.meta;
+    const isPlainEnter = (inputChar === '\r' || (inputChar === '\n' && !key.ctrl && !newlineModifierDetected)) && !key.meta;
     const enterPressed = key.return || newlineModifierDetected || isPlainEnter;
+
+    if (DEBUG_KEYS && (inputChar === '\r' || inputChar === '\n')) {
+      console.error(`[DEBUG KEY] newlineModifierDetected: ${newlineModifierDetected}, isPlainEnter: ${isPlainEnter}, enterPressed: ${enterPressed}`);
+    }
 
     // Handle Ctrl+C - check multiple ways it could be detected
     if ((key.ctrl && inputChar === "c") || inputChar === "\x03") {
@@ -858,6 +900,7 @@ export function useEnhancedInput({
 
     // Handle Enter/Return - configurable multi-line input
     if (enterPressed) {
+      if (DEBUG_KEYS) console.error(`[DEBUG KEY] Enter handling: enterBehavior=${inputConfig?.enterBehavior || 'submit'}, isModifierEnter=${newlineModifierDetected}`);
       const enterBehavior = inputConfig?.enterBehavior || 'submit';
 
       // Check if user pressed modifier+Enter (Shift+Enter or Option/Alt+Enter)
@@ -902,6 +945,7 @@ export function useEnhancedInput({
         // Submit mode (default): Enter submits, modifier+Enter inserts newline
         // Supports both Shift+Enter and Option/Alt+Enter (Claude Code compatible)
         if (isModifierEnter) {
+          if (DEBUG_KEYS) console.error('[DEBUG KEY] Inserting newline (Shift+Enter in submit mode)');
           const result = insertText(currentInput, currentCursor, "\n");
           setInputState(result.text);
           setCursorPositionState(result.position);
@@ -910,6 +954,7 @@ export function useEnhancedInput({
           inputRef.current = result.text;
           cursorPositionRef.current = result.position;
         } else {
+          if (DEBUG_KEYS) console.error('[DEBUG KEY] Submitting (plain Enter in submit mode)');
           handleSubmit();
         }
       } else if (enterBehavior === 'smart') {
@@ -931,12 +976,40 @@ export function useEnhancedInput({
           // Input looks complete, submit
           handleSubmit();
         }
+      } else if (enterBehavior === 'vscode') {
+        // VS Code mode: Ctrl+Enter sends, Enter inserts newline
+        // This matches VS Code's behavior and works reliably in VS Code terminal
+        const isCtrlEnter = key.ctrl && (key.return || inputChar === '\r' || inputChar === '\n');
+        if (DEBUG_KEYS) console.error(`[DEBUG KEY] VS Code mode: isCtrlEnter=${isCtrlEnter}`);
+
+        if (isCtrlEnter) {
+          // Ctrl+Enter submits
+          if (DEBUG_KEYS) console.error('[DEBUG KEY] Submitting (Ctrl+Enter in vscode mode)');
+          handleSubmit();
+        } else {
+          // Plain Enter inserts newline
+          if (DEBUG_KEYS) console.error('[DEBUG KEY] Inserting newline (Enter in vscode mode)');
+          const result = insertText(currentInput, currentCursor, "\n");
+          setInputState(result.text);
+          setCursorPositionState(result.position);
+          setOriginalInput(result.text);
+          inputRef.current = result.text;
+          cursorPositionRef.current = result.position;
+        }
       }
       return;
     }
 
     // Handle history navigation
     if ((key.upArrow || key.name === 'up') && !key.ctrl && !key.meta) {
+      // BUG FIX: Clear any pending paste accumulation before navigating history
+      // This prevents the timeout from firing later and adding a paste block to the history entry
+      fallbackPasteBufferRef.current = '';
+      fallbackPasteLastChunkTimeRef.current = 0;
+      if (fallbackPasteTimeoutRef.current) {
+        clearTimeout(fallbackPasteTimeoutRef.current);
+        fallbackPasteTimeoutRef.current = null;
+      }
       const historyInput = navigateHistory("up");
       if (historyInput !== null) {
         setInputState(historyInput);
@@ -953,6 +1026,14 @@ export function useEnhancedInput({
     }
 
     if ((key.downArrow || key.name === 'down') && !key.ctrl && !key.meta) {
+      // BUG FIX: Clear any pending paste accumulation before navigating history
+      // This prevents the timeout from firing later and adding a paste block to the history entry
+      fallbackPasteBufferRef.current = '';
+      fallbackPasteLastChunkTimeRef.current = 0;
+      if (fallbackPasteTimeoutRef.current) {
+        clearTimeout(fallbackPasteTimeoutRef.current);
+        fallbackPasteTimeoutRef.current = null;
+      }
       const historyInput = navigateHistory("down");
       if (historyInput !== null) {
         setInputState(historyInput);

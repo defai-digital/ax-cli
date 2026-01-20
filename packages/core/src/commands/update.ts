@@ -5,6 +5,7 @@ import chalk from "chalk";
 import { createInterface, Interface } from "readline";
 import { parseJson } from "../utils/json-utils.js";
 import { equalsIgnoreCase } from "../utils/string-utils.js";
+import { extractErrorMessage } from "../utils/error-handler.js";
 import { getSettingsManager } from "../utils/settings-manager.js";
 import type { ProviderDefinition } from "../provider/config.js";
 
@@ -272,8 +273,9 @@ export async function installUpdate(version: string, packageName: string = PACKA
       console.warn(chalk.yellow("Update installation warnings:"), stderr);
     }
   } catch (error) {
+    // BUG FIX: Use extractErrorMessage for safe error extraction instead of unsafe type cast
     throw new Error(
-      `Failed to install update: ${(error as Error).message}`
+      `Failed to install update: ${extractErrorMessage(error)}`
     );
   }
 }
@@ -401,9 +403,10 @@ export function createUpdateCommand(provider?: ProviderDefinition): Command {
           );
         }
       } catch (error) {
+        // BUG FIX: Use extractErrorMessage for safe error extraction instead of unsafe type cast
         console.error(
           chalk.red("\n❌ Error checking for updates:"),
-          (error as Error).message
+          extractErrorMessage(error)
         );
         process.exit(1);
       }
@@ -481,12 +484,13 @@ export async function checkForUpdatesOnStartup(): Promise<StartupUpdateCheckResu
     };
   } catch (error) {
     // Don't fail startup if update check fails
+    // BUG FIX: Use extractErrorMessage for safe error extraction instead of unsafe type cast
     return {
       hasUpdate: false,
       currentVersion: "unknown",
       latestVersion: "unknown",
       skipped: true,
-      error: (error as Error).message,
+      error: extractErrorMessage(error),
     };
   }
 }
@@ -548,9 +552,10 @@ export async function promptAndInstallUpdate(
               );
               resolve(true);
             } catch (error) {
+              // BUG FIX: Use extractErrorMessage for safe error extraction instead of unsafe type cast
               console.error(
                 chalk.red("❌ Failed to install update:"),
-                (error as Error).message
+                extractErrorMessage(error)
               );
               console.log(
                 chalk.gray("You can manually update with:"),
@@ -563,9 +568,10 @@ export async function promptAndInstallUpdate(
             resolve(false);
           }
         })().catch((error) => {
+          // BUG FIX: Use extractErrorMessage for safe error extraction instead of unsafe type cast
           console.error(
             chalk.red("❌ Failed to process update prompt:"),
-            (error as Error).message
+            extractErrorMessage(error)
           );
           resolve(false);
         });

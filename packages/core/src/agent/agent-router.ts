@@ -10,6 +10,7 @@
 import { existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import type { AgentFirstSettings } from '../schemas/settings-schemas.js';
+import { TIMEOUT_CONFIG } from '../constants.js';
 
 /**
  * Result of agent routing decision
@@ -59,7 +60,8 @@ let availabilityCache: {
   timestamp: number;
 } | null = null;
 
-const AVAILABILITY_CACHE_TTL = 60000; // 1 minute
+/** Availability cache TTL uses centralized timeout config */
+const AVAILABILITY_CACHE_TTL = TIMEOUT_CONFIG.CACHE_TTL;
 
 /**
  * Default result when no agent match is found (use direct LLM)

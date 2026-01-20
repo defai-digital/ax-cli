@@ -35,7 +35,7 @@ Status: Historical snapshot (2.2.1). Current coverage targets remain ≥98%; see
 
 #### src/llm
 - **types.ts**: 100% coverage (100/100/100/100)
-  - All GLM-4.6 type definitions validated
+  - All type definitions validated
   - Streaming types covered
   - Tool call types tested
 

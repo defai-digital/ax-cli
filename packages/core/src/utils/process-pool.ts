@@ -192,9 +192,15 @@ export class ProcessPool extends EventEmitter {
         }
 
         // Collect stderr
+        // BUG FIX: Apply same buffer cap as stdout to prevent unbounded memory growth
         if (proc.stderr) {
           proc.stderr.on('data', (data) => {
-            stderr += data.toString();
+            if (stderr.length >= MAX_BUFFER) {
+              return; // avoid RangeError from unbounded growth
+            }
+            const chunk = data.toString();
+            const spaceLeft = MAX_BUFFER - stderr.length;
+            stderr += chunk.slice(0, Math.max(0, spaceLeft));
           });
         }
 
@@ -346,7 +352,7 @@ export class ProcessPool extends EventEmitter {
       this.activeProcesses.clear();
     } else {
       // Wait for active processes to complete (with timeout)
-      const shutdownTimeout = 10000; // 10 seconds
+      const shutdownTimeout = TIMEOUT_CONFIG.SHUTDOWN;
       const startTime = Date.now();
 
       while (this.activeProcesses.size > 0) {

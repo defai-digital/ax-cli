@@ -15,6 +15,8 @@
  * 4. Falls back to simple batched detection if not supported
  */
 
+import { TIMEOUT_CONFIG } from '../../constants.js';
+
 export interface PasteDetectionResult {
   isPaste: boolean;
   content: string;
@@ -31,9 +33,10 @@ export class BracketedPasteHandler {
   // Escape sequence accumulation buffer (for partial sequences)
   private escapeBuffer: string = '';
 
-  // Timeout for paste accumulation (30 seconds max)
+  // Timeout for paste accumulation
   private timeoutHandle: NodeJS.Timeout | null = null;
-  private readonly PASTE_TIMEOUT_MS = 30000;
+  /** Uses centralized timeout config for paste operations */
+  private readonly PASTE_TIMEOUT_MS = TIMEOUT_CONFIG.PASTE_TIMEOUT;
 
   // Bracketed paste markers
   private readonly START_MARKER = '\x1b[200~';

@@ -6,10 +6,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MCPHealthMonitor } from '../../packages/core/src/mcp/health.js';
 import type { MCPManager } from '../../packages/core/src/llm/tools.js';
 
-// Mock MCPManager
+// Mock MCPManager with EventEmitter-like behavior
 const createMockMCPManager = (): MCPManager => {
   const servers = new Set<string>();
   const tools = new Map<string, any[]>();
+  const listeners = new Map<string, Set<(...args: any[]) => void>>();
 
   return {
     getServers: () => Array.from(servers),
@@ -27,6 +28,23 @@ const createMockMCPManager = (): MCPManager => {
     removeServer: (name: string) => {
       servers.delete(name);
       tools.delete(name);
+      // Emit serverRemoved event
+      const serverRemovedListeners = listeners.get('serverRemoved');
+      if (serverRemovedListeners) {
+        for (const listener of serverRemovedListeners) {
+          listener(name);
+        }
+      }
+    },
+    // EventEmitter-like methods for health monitor integration
+    on: (event: string, listener: (...args: any[]) => void) => {
+      if (!listeners.has(event)) {
+        listeners.set(event, new Set());
+      }
+      listeners.get(event)!.add(listener);
+    },
+    off: (event: string, listener: (...args: any[]) => void) => {
+      listeners.get(event)?.delete(listener);
     },
   } as any;
 };
@@ -50,20 +68,20 @@ describe('MCPHealthMonitor', () => {
     });
 
     it('should not have health check interval on creation', () => {
-      expect((healthMonitor as any).healthCheckInterval).toBeNull();
+      expect((healthMonitor as any).healthCheckTimer).toBeNull();
     });
   });
 
   describe('Health Monitoring', () => {
     it('should start health monitoring', () => {
       healthMonitor.start(1000);
-      expect((healthMonitor as any).healthCheckInterval).not.toBeNull();
+      expect((healthMonitor as any).healthCheckTimer).not.toBeNull();
     });
 
     it('should stop health monitoring', () => {
       healthMonitor.start(1000);
       healthMonitor.stop();
-      expect((healthMonitor as any).healthCheckInterval).toBeNull();
+      expect((healthMonitor as any).healthCheckTimer).toBeNull();
     });
 
     it('should throw error if already started', () => {
@@ -100,7 +118,7 @@ describe('MCPHealthMonitor', () => {
 
       // Initialize stats with a past timestamp
       const pastTime = Date.now() - 1000; // 1 second ago
-      (healthMonitor as any).serverStats.set('figma', {
+      (healthMonitor as any).statsMap.set('figma', {
         connectedAt: pastTime,
         successCount: 0,
         failureCount: 0,
@@ -322,7 +340,7 @@ describe('MCPHealthMonitor - Latency Calculations', () => {
       healthMonitor.recordSuccess('test', i);
     }
 
-    const stats = (healthMonitor as any).serverStats.get('test');
+    const stats = (healthMonitor as any).statsMap.get('test');
     expect(stats.latencies.length).toBe(100);
   });
 });

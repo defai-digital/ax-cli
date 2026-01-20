@@ -14,12 +14,13 @@ import type { ToolResult } from '../../types/index.js';
 import type { ThinkingConfig } from '../../llm/types.js';
 import type { SelfCorrectionConfig } from '../config/agentic-config.js';
 import { DEFAULT_CORRECTION_CONFIG } from '../config/agentic-config.js';
-import { FailureDetector } from './failure-detector.js';
+import { FailureDetector, RecoveryStrategy } from './failure-detector.js';
 import {
   buildReflectionPrompt,
   buildQuickReflectionPrompt,
   buildExhaustionPrompt,
 } from './reflection-prompts.js';
+import { extractErrorMessage } from '../../utils/error-handler.js';
 import type {
   FailureSignal,
   CorrectionResult,
@@ -27,6 +28,31 @@ import type {
   CorrectionStatus,
   CorrectionEvent,
 } from './types.js';
+
+// ============================================================================
+// PRD-001 P1: Recovery Strategy Types
+// ============================================================================
+
+/**
+ * Strategy-specific recovery context
+ * PRD-001 P1: Multi-strategy recovery support
+ */
+export interface StrategyRecoveryContext {
+  /** The recovery strategy being applied */
+  strategy: RecoveryStrategy;
+
+  /** Strategy-specific prompts/guidance */
+  strategyPrompt: string;
+
+  /** Files to search for alternatives (for search_alternative strategy) */
+  alternativeSearchPaths?: string[];
+
+  /** Whether to suggest escalation to user */
+  shouldEscalate?: boolean;
+
+  /** Suggested alternative approaches */
+  alternatives?: string[];
+}
 
 // ============================================================================
 // Types
@@ -48,6 +74,9 @@ export interface CorrectionContext {
 
   /** Additional context to include in reflection */
   additionalContext?: string;
+
+  /** Current attempt number (1-indexed, defaults to 1) */
+  attemptNumber?: number;
 }
 
 /**
@@ -127,11 +156,162 @@ export class SelfCorrectionEngine {
       return false;
     }
 
-    // Check retry budget
+    // Check retry budget (use strategy-specific max retries if available)
     const budgetKey = this.getFailureKey(failure);
-    const remaining = this.getRemainingBudget(budgetKey);
+    const maxRetries = this.getMaxRetriesForFailure(failure);
+    const remaining = this.getRemainingBudgetWithMax(budgetKey, maxRetries);
 
     return remaining > 0;
+  }
+
+  /**
+   * PRD-001 P1: Get the recovery strategy for a failure
+   * @returns The appropriate recovery strategy based on the failure type and error message
+   */
+  getRecoveryStrategy(failure: FailureSignal): RecoveryStrategy | null {
+    return this.detector.getRecoveryStrategy(
+      failure.type,
+      failure.context.errorMessage
+    );
+  }
+
+  /**
+   * PRD-001 P1: Get strategy-specific recovery context
+   * Builds additional context based on the recovery strategy
+   */
+  buildStrategyRecoveryContext(failure: FailureSignal): StrategyRecoveryContext | null {
+    const strategy = this.getRecoveryStrategy(failure);
+    if (!strategy) {
+      return null;
+    }
+
+    const context: StrategyRecoveryContext = {
+      strategy,
+      strategyPrompt: strategy.prompt,
+    };
+
+    // Add strategy-specific guidance
+    switch (strategy.strategy) {
+      case 'search_alternative':
+        context.alternativeSearchPaths = this.suggestAlternativePaths(failure);
+        context.alternatives = [
+          'Try searching for similar filenames with different extensions',
+          'Check if the file was recently renamed or moved',
+          'Search in parent or sibling directories',
+        ];
+        break;
+
+      case 'escalate':
+        context.shouldEscalate = true;
+        context.alternatives = [
+          'Report this issue to the user for manual intervention',
+          'Suggest alternative approaches that avoid this operation',
+          'Provide diagnostic information for troubleshooting',
+        ];
+        break;
+
+      case 'broaden_search':
+        context.alternatives = [
+          'Try less specific search terms',
+          'Remove file type filters',
+          'Search in a wider directory scope',
+          'Consider alternative naming conventions',
+        ];
+        break;
+
+      case 'reread_and_retry':
+        context.alternatives = [
+          'Use view_file to read the current file contents',
+          'Copy the exact text from the file before editing',
+          'Check for whitespace differences',
+        ];
+        break;
+
+      case 'simplify':
+        context.alternatives = [
+          'Break the operation into smaller steps',
+          'Use simpler patterns or commands',
+          'Process fewer items at once',
+        ];
+        break;
+
+      case 'different_approach':
+        context.alternatives = [
+          'Consider using a different tool for this task',
+          'Try an alternative algorithm or method',
+          'Approach the problem from a different angle',
+        ];
+        break;
+
+      case 'verify_first':
+        context.alternatives = [
+          'Verify the input format is correct',
+          'Check that prerequisites are met',
+          'Validate assumptions before proceeding',
+        ];
+        break;
+
+      case 'background_retry':
+        context.alternatives = [
+          'Run this operation in the background',
+          'Increase the timeout limit',
+          'Split into smaller operations that complete faster',
+        ];
+        break;
+    }
+
+    return context;
+  }
+
+  /**
+   * PRD-001 P1: Suggest alternative file paths based on the failure context
+   */
+  private suggestAlternativePaths(failure: FailureSignal): string[] {
+    const originalPath = failure.context.filePath;
+    if (!originalPath) {
+      return [];
+    }
+
+    const suggestions: string[] = [];
+    const pathParts = originalPath.split('/');
+    const filename = pathParts[pathParts.length - 1];
+    const dir = pathParts.slice(0, -1).join('/');
+
+    // Suggest common variations
+    if (filename.includes('.')) {
+      const [name, ext] = filename.split('.');
+      // Try different extensions
+      const commonExts = ['ts', 'js', 'tsx', 'jsx', 'mjs', 'cjs'];
+      for (const newExt of commonExts) {
+        if (newExt !== ext) {
+          suggestions.push(`${dir}/${name}.${newExt}`);
+        }
+      }
+    }
+
+    // Suggest index file if looking for a directory-like path
+    suggestions.push(`${originalPath}/index.ts`);
+    suggestions.push(`${originalPath}/index.js`);
+
+    return suggestions.slice(0, 5); // Limit suggestions
+  }
+
+  /**
+   * PRD-001 P1: Get max retries for a specific failure (strategy-aware)
+   */
+  getMaxRetriesForFailure(failure: FailureSignal): number {
+    // First check strategy-specific max retries
+    const strategyMax = this.detector.getMaxRetriesForFailure(failure);
+    // Use the smaller of strategy-specific and global config
+    return Math.min(strategyMax, this.config.maxRetries);
+  }
+
+  /**
+   * PRD-001 P1: Get remaining budget with custom max
+   */
+  private getRemainingBudgetWithMax(key: string, maxRetries: number): number {
+    const used = this.retryBudgets.get(key) || 0;
+    return Math.max(0, maxRetries - used);
   }
 
   /**
@@ -149,31 +329,66 @@ export class SelfCorrectionEngine {
     const startTime = Date.now();
     const attempts: CorrectionAttempt[] = [];
 
+    // Get attempt number from context (defaults to 1 for backwards compatibility)
+    const attemptNumber = context.attemptNumber ?? 1;
+
+    // PRD-001 P1: Get strategy-specific max retries
+    const maxRetries = this.getMaxRetriesForFailure(failure);
+
     // Emit start event
     this.emitEvent({
       type: 'correction_started',
       failure,
-      attemptNumber: 1,
-      maxRetries: this.config.maxRetries,
+      attemptNumber,
+      maxRetries,
     });
 
     yield {
       type: 'correction_start',
       failure,
-      attempt: 1,
-      maxRetries: this.config.maxRetries,
+      attempt: attemptNumber,
+      maxRetries,
     };
 
-    // Build reflection prompt
-    const reflectionPrompt = this.config.reflectionDepth === 'deep'
-      ? buildReflectionPrompt({
-          failure,
-          depth: 'deep',
-          recentHistory: context.recentHistory,
-          originalTask: context.originalTask,
-          additionalContext: context.additionalContext,
-        })
-      : buildQuickReflectionPrompt(failure);
+    // PRD-001 P1: Get recovery strategy context
+    const strategyContext = this.buildStrategyRecoveryContext(failure);
+
+    // Build reflection prompt with strategy-specific guidance
+    let reflectionPrompt: string;
+
+    if (this.config.reflectionDepth === 'deep') {
+      // Include strategy-specific context in the additional context
+      let enhancedContext = context.additionalContext || '';
+
+      if (strategyContext) {
+        enhancedContext += `\n\nRecovery Strategy: ${strategyContext.strategy.strategy}\n`;
+        enhancedContext += `Guidance: ${strategyContext.strategyPrompt}\n`;
+
+        if (strategyContext.alternatives && strategyContext.alternatives.length > 0) {
+          enhancedContext += `\nSuggested approaches:\n`;
+          enhancedContext += strategyContext.alternatives.map(a => `- ${a}`).join('\n');
+        }
+
+        if (strategyContext.shouldEscalate) {
+          enhancedContext += `\n\n⚠️ This issue should be escalated to the user for manual intervention.`;
+        }
+      }
+
+      reflectionPrompt = buildReflectionPrompt({
+        failure,
+        depth: 'deep',
+        recentHistory: context.recentHistory,
+        originalTask: context.originalTask,
+        additionalContext: enhancedContext,
+      });
+    } else {
+      // Quick reflection with strategy hint
+      reflectionPrompt = buildQuickReflectionPrompt(failure);
+
+      if (strategyContext) {
+        reflectionPrompt += `\n\n${strategyContext.strategyPrompt}`;
+      }
+    }
 
     yield {
       type: 'correction_reflecting',
@@ -204,7 +419,7 @@ export class SelfCorrectionEngine {
 
       // Record the attempt
       const attempt: CorrectionAttempt = {
-        attemptNumber: 1,
+        attemptNumber,
         reflectionPrompt,
         analysis,
         proposedFix,
@@ -230,7 +445,7 @@ export class SelfCorrectionEngine {
         attempts,
         success: true,
         totalRetries: 1,
-        remainingBudget: this.getRemainingBudget(budgetKey),
+        remainingBudget: this.getRemainingBudgetWithMax(budgetKey, maxRetries),
         totalDurationMs: Date.now() - startTime,
       };
 
@@ -247,12 +462,12 @@ export class SelfCorrectionEngine {
     } catch (error) {
       // Correction attempt failed
       const attempt: CorrectionAttempt = {
-        attemptNumber: 1,
+        attemptNumber,
         reflectionPrompt,
         analysis: '',
         proposedFix: '',
         succeeded: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: extractErrorMessage(error),
         durationMs: Date.now() - startTime,
         timestamp: new Date(),
       };
@@ -261,7 +476,7 @@ export class SelfCorrectionEngine {
       this.consumeBudget(budgetKey);
       this.detector.recordCorrectionAttempt(failure, false);
 
-      const remaining = this.getRemainingBudget(budgetKey);
+      const remaining = this.getRemainingBudgetWithMax(budgetKey, maxRetries);
       const status: CorrectionStatus = remaining > 0 ? 'failed' : 'exhausted';
 
       const result: CorrectionResult = {
@@ -278,7 +493,7 @@ export class SelfCorrectionEngine {
       if (status === 'exhausted') {
         yield {
           type: 'correction_reflecting',
-          content: buildExhaustionPrompt(failure, this.config.maxRetries),
+          content: buildExhaustionPrompt(failure, maxRetries),
         };
       }
 

@@ -858,7 +858,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       const { promisify } = await import('util');
       const execAsync = promisify(exec);
 
-      const { stdout } = await execAsync('git diff', { cwd: workspaceFolder.uri.fsPath });
+      // Add timeout to prevent hanging if git command stalls
+      const { stdout } = await execAsync('git diff', {
+        cwd: workspaceFolder.uri.fsPath,
+        timeout: 10000  // 10 second timeout
+      });
 
       if (!stdout.trim()) {
         vscode.window.showInformationMessage('No uncommitted changes found');
@@ -896,10 +900,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         const uri = vscode.Uri.file(filePath);
         const doc = await vscode.workspace.openTextDocument(uri);
         const edit = new vscode.WorkspaceEdit();
-        const fullRange = new vscode.Range(
-          doc.lineAt(0).range.start,
-          doc.lineAt(doc.lineCount - 1).range.end
-        );
+
+        // Handle empty document case - lineCount can be 0 for empty files
+        let fullRange: vscode.Range;
+        if (doc.lineCount === 0) {
+          // Empty document - use position 0,0
+          fullRange = new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 0));
+        } else {
+          fullRange = new vscode.Range(
+            doc.lineAt(0).range.start,
+            doc.lineAt(doc.lineCount - 1).range.end
+          );
+        }
+
         edit.replace(uri, fullRange, code);
         const success = await vscode.workspace.applyEdit(edit);
         if (!success) {

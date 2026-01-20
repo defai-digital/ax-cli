@@ -294,10 +294,12 @@ export function createXSearchCommand(
       }
 
       const baseUrl = getBaseUrl();
+      // BUG FIX: parseInt can return NaN for empty string, default to 10
+      const parsedLimit = parseInt(options.limit ?? '10', 10);
       const searchOptions: Partial<XSearchOptions> = {
         searchType: options.semantic ? 'semantic' : 'keyword',
         timeRange: options.timeRange,
-        limit: parseInt(options.limit ?? '10', 10),
+        limit: Number.isNaN(parsedLimit) ? 10 : parsedLimit,
       };
 
       console.log(chalk.dim(`Searching X for "${query}"...`));

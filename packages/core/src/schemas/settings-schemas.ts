@@ -63,10 +63,13 @@ export const PasteSettingsSchema = z.object({
 
 // Input Settings Schema (for multi-line input behavior) - Phase 1
 export const InputSettingsSchema = z.object({
-  // Enter key behavior: submit (default), newline, smart (auto-detect)
-  // Default changed to 'submit' because Shift+Enter is unreliable across terminals
-  // Use Ctrl+J or backslash+Enter for newlines (works everywhere)
-  enterBehavior: z.enum(['newline', 'submit', 'smart']).optional().default('submit'),
+  // Enter key behavior:
+  // - 'submit' (default): Enter sends, Shift+Enter inserts newline
+  // - 'newline': Enter inserts newline, Shift+Enter sends
+  // - 'smart': Auto-detect incomplete input
+  // - 'vscode': Ctrl+Enter sends, Enter inserts newline (matches VS Code behavior)
+  // Use 'vscode' mode if Shift+Enter doesn't work in your terminal
+  enterBehavior: z.enum(['newline', 'submit', 'smart', 'vscode']).optional().default('submit'),
   // Submit keys configuration (default: shift+enter)
   submitKeys: z.array(z.string()).optional().default(['shift+enter']),
   // Multi-line indicator for continuation lines
@@ -286,7 +289,8 @@ export const UserSettingsSchema: z.ZodType<any> = z.object({
         return ['http:', 'https:'].includes(url.protocol);
       } catch {
         // If URL parsing fails, check if it's a valid localhost format
-        return /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?/.test(val);
+        // BUG FIX: Added end anchor ($) and optional trailing slash to prevent partial matches
+        return /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?\/?$/.test(val);
       }
     },
     { message: 'baseURL must be a valid HTTP or HTTPS URL' }

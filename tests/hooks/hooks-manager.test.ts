@@ -4,6 +4,14 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// Mock constants module BEFORE importing hooks manager to prevent config file loading
+vi.mock('../../packages/core/src/constants.js', () => ({
+  TIMEOUT_CONFIG: {
+    HOOK_DEFAULT: 30000,
+  },
+  CONFIG_DIR_NAME: '.ax-cli',
+}));
+
 // Mock fs module before import
 vi.mock('fs', () => ({
   existsSync: vi.fn().mockReturnValue(false),

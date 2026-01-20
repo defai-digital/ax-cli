@@ -8,6 +8,17 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
+// Mock constants module BEFORE importing vscode-client to prevent config file loading
+vi.mock('../../packages/core/src/constants.js', () => ({
+  TIMEOUT_CONFIG: {
+    IPC_CONNECTION: 5000,
+    IPC_REQUEST: 120000,
+    IPC_PORT_FILE_MAX_AGE: 3600000,
+    MS_PER_SECOND: 1000,
+  },
+  CONFIG_DIR_NAME: '.ax-cli',
+}));
+
 // Mock fs module
 vi.mock('fs', () => ({
   existsSync: vi.fn(),

@@ -33,7 +33,20 @@ function extractStyleSnippet(
 ): string {
   // Find the end of the style prop (matching brace or quote)
   let endIndex = startIndex + 10;
-  const startChar = content[startIndex + content.substring(startIndex).indexOf('=') + 1]?.trim()[0];
+
+  // BUG FIX: indexOf('=') can return -1, causing incorrect index calculation
+  const eqOffset = content.substring(startIndex).indexOf('=');
+  if (eqOffset === -1) {
+    // No '=' found, return basic snippet
+    return content.substring(startIndex, Math.min(startIndex + maxLength, content.length));
+  }
+
+  const charIndex = startIndex + eqOffset + 1;
+  if (charIndex >= content.length) {
+    return content.substring(startIndex, Math.min(startIndex + maxLength, content.length));
+  }
+
+  const startChar = content[charIndex]?.trim()[0];
 
   if (startChar === '{') {
     // JSX style - find matching closing brace

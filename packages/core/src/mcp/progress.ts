@@ -236,6 +236,9 @@ export class ProgressTracker extends EventEmitter {
    * Clean up resources and remove all event listeners.
    */
   destroy(): void {
+    // BUG FIX: Call cleanupAll() to clear all pending timers before removing listeners
+    // Otherwise, pending setTimeout callbacks would leak and potentially cause issues
+    this.cleanupAll();
     this.removeAllListeners();
   }
 }
@@ -323,8 +326,7 @@ export function getProgressTracker(): ProgressTracker {
  */
 export function resetProgressTracker(): void {
   if (progressTracker) {
-    progressTracker.cleanupAll();
-    progressTracker.removeAllListeners();
+    progressTracker.destroy();
   }
   progressTracker = null;
 }

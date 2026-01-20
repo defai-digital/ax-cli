@@ -831,7 +831,10 @@ export class IPCServer {
   dispose(): void {
     // Synchronously close connections and clean up
     // We can't await in dispose, so do cleanup synchronously
-    for (const client of this.clients) {
+    // Convert to array first to avoid modifying Set during iteration
+    // (close() triggers 'close' event which may modify the Set)
+    const clientsToClose = Array.from(this.clients);
+    for (const client of clientsToClose) {
       client.close();
     }
     this.clients.clear();

@@ -333,10 +333,22 @@ export class LLMAgent extends EventEmitter {
     this.mcpInitPromise = mcpInit;
 
     // Run both initialization tasks in parallel - Promise.allSettled never rejects
-    Promise.allSettled([
-      this.runSafeAsync('Checkpoint', () => this.checkpointManager.initialize()),
-      mcpInit,
-    ]);
+    // BUG FIX: Consume the settled results to detect and log initialization failures
+    const checkpointInit = this.runSafeAsync('Checkpoint', () => this.checkpointManager.initialize());
+
+    Promise.allSettled([checkpointInit, mcpInit]).then((results) => {
+      // Skip logging if agent is disposed
+      if (this.disposed) return;
+
+      // Log any unexpected rejections (runSafeAsync should catch all errors internally)
+      const failedCount = results.filter((r) => r.status === 'rejected').length;
+      if (failedCount > 0) {
+        const failures = results
+          .map((r, i) => r.status === 'rejected' ? ['Checkpoint', 'MCP'][i] : null)
+          .filter(Boolean);
+        console.warn(`Background initialization completed with failures: ${failures.join(', ')}`);
+      }
+    });
   }
 
   /**
@@ -378,8 +390,8 @@ export class LLMAgent extends EventEmitter {
     }
   }
 
-  /** Provider cache validity duration in milliseconds (5 seconds) */
-  private static readonly PROVIDER_CACHE_TTL_MS = 5000;
+  /** Provider cache validity duration - uses centralized timeout config */
+  private static readonly PROVIDER_CACHE_TTL_MS = TIMEOUT_CONFIG.SETTINGS_CACHE_TTL;
 
   /**
    * Get cached active provider for performance in hot paths
@@ -1601,8 +1613,7 @@ export class LLMAgent extends EventEmitter {
               } else {
                 // BUG FIX: Handle rejected promises - create error result so LLM knows tool failed
                 // Without this, the LLM doesn't receive feedback and may retry indefinitely
-                const error = settledResult.reason;
-                const errorMessage = error instanceof Error ? error.message : String(error);
+                const errorMessage = extractErrorMessage(settledResult.reason);
                 // Find the toolCall from the original parallel array by index
                 const toolCallIndex = parallelResults.indexOf(settledResult);
                 const toolCall = parallel[toolCallIndex];
@@ -1928,8 +1939,7 @@ export class LLMAgent extends EventEmitter {
         } else {
           // BUG FIX: Handle rejected promise - create error result so LLM knows tool failed
           // Without this, the LLM doesn't receive feedback and may retry indefinitely
-          const error = settledResult.reason;
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage = extractErrorMessage(settledResult.reason);
           debugLoop(`❌ Parallel tool execution failed: ${errorMessage}`);
 
           // Find the toolCall from the original parallel array by index

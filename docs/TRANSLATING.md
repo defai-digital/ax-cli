@@ -69,20 +69,20 @@ When `README.md` (English) is updated, translations may become outdated.
 
 ### Do NOT Translate
 
-- Command names (`ax-glm`, `ax-grok`, `/init`, `/help`)
+- Command names (`ax-grok`, `ax-cli`, `/init`, `/help`)
 - CLI flags (`--react`, `--verify`, `-p`)
 - Code examples and syntax
 - Technical terms when they're widely used in English
 - File paths and configuration keys
-- Package names (`@defai.digital/ax-glm`)
+- Package names (`@defai.digital/ax-grok`, `@defai.digital/ax-cli`)
 
 ### Style Guidelines
 
 1. **Keep CLI commands in English**
    ```bash
    # Good
-   npm install -g @defai.digital/ax-glm
-   ax-glm setup
+   npm install -g @defai.digital/ax-grok
+   ax-grok setup
 
    # The description around it should be translated
    ```

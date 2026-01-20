@@ -5,20 +5,20 @@
  */
 
 import { findOnPath } from './path-helpers.js';
+import { TIMEOUT_CONFIG } from '../constants.js';
 
 let cachedResult: boolean | null = null;
 let cacheTimestamp: number = 0;
-const CACHE_TTL = 60000; // 1 minute cache
 
 /**
  * Check if AutomatosX (ax) command is available in the system
- * Results are cached for 1 minute to avoid excessive shell calls
+ * Results are cached based on TIMEOUT_CONFIG.CACHE_TTL to avoid excessive shell calls
  */
 export async function isAutomatosXAvailable(): Promise<boolean> {
   const now = Date.now();
 
   // Return cached result if still valid
-  if (cachedResult !== null && (now - cacheTimestamp) < CACHE_TTL) {
+  if (cachedResult !== null && (now - cacheTimestamp) < TIMEOUT_CONFIG.CACHE_TTL) {
     return cachedResult;
   }
 

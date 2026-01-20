@@ -1,6 +1,8 @@
 # AX CLI Development Guide
-Last reviewed: 2025-02-21  
-Applies to: ax-cli/ax-glm/ax-grok v4.4.x
+Last reviewed: 2025-02-21
+Applies to: ax-cli/ax-grok v4.4.x
+
+> **Note:** The `ax-glm` package has been deprecated. GLM/Z.AI users should use [OpenCode](https://opencode.ai) - the official CLI from Z.AI.
 
 A comprehensive guide for developers who want to contribute to AX CLI or set up a local development environment.
 
@@ -127,7 +129,7 @@ npm run dev
 npm run dev -- --prompt "list all TypeScript files"
 
 # Test with specific model and base URL
-npm run dev -- --model glm-4.6 --base-url http://localhost:11434/v1
+npm run dev -- --model grok-4 --base-url http://localhost:11434/v1
 
 # Test git commands
 npm run dev -- git commit-and-push
@@ -366,7 +368,7 @@ ax-cli/
 │   ├── grok/
 │   │   ├── client.ts                 # OpenAI-compatible API client
 │   │   ├── tools.ts                  # Tool registration and definitions
-│   │   ├── types.ts                  # GLM-4.6 streaming types
+│   │   ├── types.ts                  # Streaming types
 │   │   └── index.ts
 │   │
 │   ├── tools/
@@ -386,7 +388,7 @@ ax-cli/
 │   ├── ui/
 │   │   ├── components/
 │   │   │   ├── chat-interface.tsx    # Main chat UI
-│   │   │   ├── reasoning-display.tsx # GLM-4.6 thinking mode display
+│   │   │   ├── reasoning-display.tsx # Thinking mode display
 │   │   │   └── ...
 │   │   ├── utils/
 │   │   │   ├── colors.ts             # Terminal colors
@@ -447,8 +449,6 @@ ax-cli/
 │   ├── cli-reference.md              # Command reference
 │   ├── configuration.md              # Configuration guide
 │   ├── features.md                   # Feature documentation
-│   ├── glm-4.6-usage-guide.md       # GLM-4.6 specific guide
-│   ├── glm-4.6-migration-guide.md   # Migration guide
 │   └── mcp-integration-guide.md      # MCP integration guide
 │
 ├── packages/
@@ -706,7 +706,7 @@ describe('MyTool', () => {
 1. **Update** `src/constants.ts`:
 
 ```typescript
-export const GLM_MODELS = {
+export const SUPPORTED_MODELS = {
   "new-model": {
     contextWindow: 128000,
     maxOutputTokens: 4096,
@@ -722,7 +722,7 @@ export const GLM_MODELS = {
 2. **Update type**:
 
 ```typescript
-export type SupportedModel = keyof typeof GLM_MODELS;
+export type SupportedModel = keyof typeof SUPPORTED_MODELS;
 ```
 
 3. **Test**:
@@ -860,7 +860,7 @@ npm run dev -- --prompt "test this specific scenario" --max-tool-rounds 10
 npm run dev
 
 # Test with specific model
-npm run dev -- --model glm-4.6 --base-url http://localhost:11434/v1
+npm run dev -- --model grok-4 --base-url http://localhost:11434/v1
 ```
 
 ### Inspect Streaming
@@ -1002,9 +1002,6 @@ npm run dev -- --model qwen3:14b --base-url http://localhost:11434/v1
 
 # Test with X.AI (Grok)
 npm run dev -- --model grok-4 --base-url https://api.x.ai/v1
-
-# Test with Z.AI
-npm run dev -- --model glm-4.6 --base-url https://api.z.ai/api/coding/paas/v4
 
 # Test with OpenAI
 npm run dev -- --model gpt-4o --base-url https://api.openai.com/v1

@@ -43,6 +43,15 @@ export default function App({ agent }: Props) {
     if (confirmationOptions) {
       return;
     }
+    // BUG FIX: Prevent race condition by ignoring input while processing
+    // Otherwise, keystrokes during async processing could corrupt state
+    if (isProcessing) {
+      // Still allow Ctrl+C to exit even while processing
+      if (key.ctrl && inputChar === 'c') {
+        process.exit(0);
+      }
+      return;
+    }
     if (key.ctrl && inputChar === 'c') {
       process.exit(0);
       return;

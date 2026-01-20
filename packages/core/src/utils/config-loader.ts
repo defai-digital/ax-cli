@@ -11,6 +11,7 @@ import { dirname } from 'path';
 import { z } from 'zod';
 import { ModelsYamlSchema, SettingsYamlSchema, PromptsYamlSchema, MessagesYamlSchema, ProviderModelsYamlSchema } from '../schemas/yaml-schemas.js';
 import type { ProviderModelsYaml, ProviderModelYamlConfig } from '../schemas/yaml-schemas.js';
+import { extractErrorMessage } from './error-handler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -88,7 +89,8 @@ export function loadYamlConfig<T = any>(filename: string, schema?: z.ZodSchema<T
     configCache.set(filename, config);
     return config as T;
   } catch (error) {
-    throw new Error(`Failed to load config file ${filename}: ${(error as Error).message}`);
+    // BUG FIX: Use extractErrorMessage for safe error extraction instead of unsafe type cast
+    throw new Error(`Failed to load config file ${filename}: ${extractErrorMessage(error)}`);
   }
 }
 
@@ -153,7 +155,9 @@ export interface SettingsYaml {
     client_version: string;
     default_timeout: number;
     health_check_interval?: number;
+    reconnect_base_delay?: number;
     reconnect_max_delay?: number;
+    reconnect_max_retries?: number;
     token_warning_threshold: number;
     token_hard_limit: number;
     truncation_enabled: boolean;
@@ -189,6 +193,12 @@ export interface SettingsYaml {
     git_operation?: number;
     /** Doctor diagnostic command timeout */
     doctor_command?: number;
+    /** IPC connection timeout (VS Code extension) */
+    ipc_connection?: number;
+    /** IPC request timeout (VS Code extension) */
+    ipc_request?: number;
+    /** IPC port file max age before considered stale */
+    ipc_port_file_max_age?: number;
   };
   ui: {
     status_update_interval: number;
@@ -244,7 +254,8 @@ export interface PromptSection {
 export interface PromptsYaml {
   system_prompt: {
     identity: string;
-    // New Claude Code-style named sections
+
+    // Core behavior sections
     thinking?: PromptSection;
     autonomy?: PromptSection;
     context?: PromptSection;
@@ -256,8 +267,29 @@ export interface PromptsYaml {
     communication?: PromptSection;
     agents?: PromptSection;
     uncertainty?: PromptSection;
-    // Legacy fields (for backward compatibility)
+
+    // P0 sections (PRD-001): Professional tone and task management
     professional_objectivity?: PromptSection;
+    no_time_estimates?: PromptSection;  // P2: Explicit prohibition of time estimates
+    tone_and_style?: PromptSection;
+    task_management?: PromptSection;
+    code_references?: PromptSection;
+    parallel_execution?: PromptSection;
+
+    // P0 sections (PRD-001): Tool-specific guidance
+    tool_bash?: PromptSection;
+    tool_view_file?: PromptSection;
+    tool_str_replace_editor?: PromptSection;
+    tool_search?: PromptSection;
+
+    // P0 sections (PRD-001): Git workflow guidance
+    git_commit_workflow?: PromptSection;
+    git_pr_workflow?: PromptSection;
+
+    // P1 sections (PRD-001): Codebase exploration
+    exploration_pattern?: PromptSection;
+
+    // Legacy fields (for backward compatibility)
     core_principles?: PromptSection;
     tools_header?: string;
     sections?: Record<string, PromptSection>;

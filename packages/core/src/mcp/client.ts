@@ -177,6 +177,7 @@ export class MCPManager extends EventEmitter {
       name: tool.name as string, // Cast branded type to string
       description: tool.description,
       inputSchema: tool.inputSchema,
+      outputSchema: tool.outputSchema,
       serverName: tool.serverName as string // Cast branded type to string
     }));
   }
