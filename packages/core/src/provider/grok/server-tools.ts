@@ -66,10 +66,10 @@ export interface GrokServerToolsConfig {
 
 /**
  * Default server tools configuration
- * All tools enabled with sensible defaults
+ * Note: webSearch is disabled — xAI deprecated the live search endpoint (HTTP 410)
  */
 export const DEFAULT_GROK_SERVER_TOOLS: GrokServerToolsConfig = {
-  webSearch: { enabled: true, maxResults: 10 },
+  webSearch: { enabled: false, maxResults: 10 },
   xSearch: { enabled: true, searchType: 'semantic' },
   codeExecution: { enabled: true, timeout: 30000 },
 };

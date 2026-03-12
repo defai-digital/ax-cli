@@ -457,11 +457,11 @@ export function createCLI(options: CLIFactoryOptions): Command {
       }
 
       // Enable server tools for Grok (xAI Agent Tools API)
-      // Provides server-side execution for x_search, web_search, code_execution
+      // Provides server-side execution for x_search, code_execution
+      // Note: web_search (live search) has been deprecated by xAI (HTTP 410)
       if (provider.features.supportsServerTools || options.providerOptions?.useServerTools) {
         agent.setServerToolsConfig({
-          tools: ['x_search', 'web_search'],
-          // Default config: semantic search for X, no specific config for web_search
+          tools: ['x_search'],
           config: {
             x_search: { search_type: 'semantic' }
           }
@@ -604,9 +604,10 @@ async function processPromptHeadless(
     }
 
     // Enable server tools for Grok (xAI Agent Tools API)
+    // Note: web_search (live search) has been deprecated by xAI (HTTP 410)
     if (provider.features.supportsServerTools) {
       agent.setServerToolsConfig({
-        tools: ['x_search', 'web_search'],
+        tools: ['x_search'],
         config: {
           x_search: { search_type: 'semantic' }
         }
