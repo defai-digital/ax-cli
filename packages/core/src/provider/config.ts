@@ -331,7 +331,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
       maxOutputTokens: 131072,
       supportsThinking: true,
       supportsVision: true,
-      supportsSearch: true,
+      supportsSearch: false, // xAI deprecated live search (HTTP 410)
       supportsSeed: true,
       defaultTemperature: 0.7,
       description: 'Latest stable: improved accuracy, lower hallucination',
@@ -342,7 +342,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
       maxOutputTokens: 131072,
       supportsThinking: true,
       supportsVision: true,
-      supportsSearch: true,
+      supportsSearch: false, // xAI deprecated live search (HTTP 410)
       supportsSeed: true,
       defaultTemperature: 0.7,
       description: 'Best tool-calling with 2M context, includes reasoning',
@@ -353,7 +353,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
       maxOutputTokens: 131072,
       supportsThinking: false,
       supportsVision: true,
-      supportsSearch: true,
+      supportsSearch: false, // xAI deprecated live search (HTTP 410)
       supportsSeed: true,
       defaultTemperature: 0.7,
       description: 'Fastest tool-calling with 2M context, no reasoning',
@@ -364,7 +364,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
       maxOutputTokens: 32768,
       supportsThinking: true,
       supportsVision: true,
-      supportsSearch: true,
+      supportsSearch: false, // xAI deprecated live search (HTTP 410)
       supportsSeed: true,
       defaultTemperature: 0.7,
       description: 'Smaller, faster, cost-effective variant',
@@ -378,7 +378,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
       maxOutputTokens: 131072,
       supportsThinking: true,
       supportsVision: true,
-      supportsSearch: true,
+      supportsSearch: false, // xAI deprecated live search (HTTP 410)
       supportsSeed: true,
       defaultTemperature: 0.7,
       description: 'Alias to latest stable Grok-4 version (recommended)',
@@ -389,7 +389,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
       maxOutputTokens: 131072,
       supportsThinking: true,
       supportsVision: true,
-      supportsSearch: true,
+      supportsSearch: false, // xAI deprecated live search (HTTP 410)
       supportsSeed: true,
       defaultTemperature: 0.7,
       description: 'Original Grok-4 release: reasoning, coding, vision, search',
@@ -418,7 +418,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
       maxOutputTokens: 32768,
       supportsThinking: true,
       supportsVision: false,
-      supportsSearch: true,
+      supportsSearch: false, // xAI deprecated live search (HTTP 410)
       supportsSeed: true,
       defaultTemperature: 0.7,
       description: 'Legacy Grok-3 with extended thinking',
@@ -429,7 +429,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
       maxOutputTokens: 32768,
       supportsThinking: true,
       supportsVision: false,
-      supportsSearch: true,
+      supportsSearch: false, // xAI deprecated live search (HTTP 410)
       supportsSeed: true,
       defaultTemperature: 0.7,
       description: 'Legacy Grok-3 smaller variant',
@@ -440,7 +440,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
       maxOutputTokens: 32768,
       supportsThinking: false,
       supportsVision: false,
-      supportsSearch: true,
+      supportsSearch: false, // xAI deprecated live search (HTTP 410)
       supportsSeed: true,
       defaultTemperature: 0.7,
       description: 'Legacy Grok-2 December 2024 release',
@@ -482,7 +482,7 @@ export const GROK_PROVIDER: ProviderDefinition = {
   features: {
     supportsThinking: true, // Grok-4 reasoning_effort (low/high)
     supportsVision: true,   // Grok-4 has built-in vision
-    supportsSearch: true,   // Grok-4 has built-in web search
+    supportsSearch: false,  // xAI deprecated live search (HTTP 410) — use x_search server tool instead
     supportsSeed: true,
     supportsDoSample: false,
     thinkingModeStyle: 'reasoning_effort',

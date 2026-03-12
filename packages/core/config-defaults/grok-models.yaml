@@ -38,7 +38,7 @@ models:
     max_output_tokens: 131072
     supports_thinking: true
     supports_vision: true
-    supports_search: true
+    supports_search: false  # xAI deprecated live search (HTTP 410)
     supports_seed: true
     default_temperature: 0.7
     description: "Latest stable: improved accuracy, lower hallucination"
@@ -50,7 +50,7 @@ models:
     max_output_tokens: 131072
     supports_thinking: true
     supports_vision: true
-    supports_search: true
+    supports_search: false  # xAI deprecated live search (HTTP 410)
     supports_seed: true
     default_temperature: 0.7
     description: "Best tool-calling with 2M context, includes reasoning"
@@ -62,7 +62,7 @@ models:
     max_output_tokens: 131072
     supports_thinking: false
     supports_vision: true
-    supports_search: true
+    supports_search: false  # xAI deprecated live search (HTTP 410)
     supports_seed: true
     default_temperature: 0.7
     description: "Fastest tool-calling with 2M context, no reasoning"
@@ -74,7 +74,7 @@ models:
     max_output_tokens: 32768
     supports_thinking: true
     supports_vision: true
-    supports_search: true
+    supports_search: false  # xAI deprecated live search (HTTP 410)
     supports_seed: true
     default_temperature: 0.7
     description: "Smaller, faster, cost-effective variant"
@@ -89,7 +89,7 @@ models:
     max_output_tokens: 131072
     supports_thinking: true
     supports_vision: true
-    supports_search: true
+    supports_search: false  # xAI deprecated live search (HTTP 410)
     supports_seed: true
     default_temperature: 0.7
     description: "Alias to latest stable Grok-4 version (recommended)"
@@ -101,7 +101,7 @@ models:
     max_output_tokens: 131072
     supports_thinking: true
     supports_vision: true
-    supports_search: true
+    supports_search: false  # xAI deprecated live search (HTTP 410)
     supports_seed: true
     default_temperature: 0.7
     description: "Original Grok-4 release: reasoning, coding, vision, search"
@@ -131,7 +131,7 @@ models:
     max_output_tokens: 32768
     supports_thinking: true
     supports_vision: false
-    supports_search: true
+    supports_search: false  # xAI deprecated live search (HTTP 410)
     supports_seed: true
     default_temperature: 0.7
     description: "Legacy Grok-3 with extended thinking"
@@ -143,7 +143,7 @@ models:
     max_output_tokens: 32768
     supports_thinking: true
     supports_vision: false
-    supports_search: true
+    supports_search: false  # xAI deprecated live search (HTTP 410)
     supports_seed: true
     default_temperature: 0.7
     description: "Legacy Grok-3 smaller variant"
@@ -155,7 +155,7 @@ models:
     max_output_tokens: 32768
     supports_thinking: false
     supports_vision: false
-    supports_search: true
+    supports_search: false  # xAI deprecated live search (HTTP 410)
     supports_seed: true
     default_temperature: 0.7
     description: "Legacy Grok-2 December 2024 release"
