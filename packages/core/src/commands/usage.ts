@@ -504,11 +504,12 @@ function getGrokPricing(model: string): { input: number; output: number; cached:
   const modelLower = model.toLowerCase();
 
   // Grok Code Fast 1 (default model)
-  if (modelLower.includes('grok-code-fast') || modelLower.includes('grok-code')) {
+  // Note: 'grok-fast' alias resolves to 'grok-code-fast-1' per grok-models.yaml
+  if (modelLower.includes('grok-code-fast') || modelLower.includes('grok-code') || modelLower === 'grok-fast') {
     return GROK_PRICING['grok-code-fast-1'];
   }
   // Grok 4.1 Fast variants (best value for agentic tasks)
-  if (modelLower.includes('grok-4.1-fast-reasoning') || modelLower.includes('grok-fast')) {
+  if (modelLower.includes('grok-4.1-fast-reasoning') || modelLower === 'grok-fast-reasoning') {
     return GROK_PRICING['grok-4.1-fast-reasoning'];
   }
   if (modelLower.includes('grok-4.1-fast-non-reasoning') || modelLower.includes('grok-fast-nr')) {

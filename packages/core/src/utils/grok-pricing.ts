@@ -44,8 +44,9 @@ export function getGrokPricing(model: string): ModelPricing {
   if (GROK_PRICING[m]) return GROK_PRICING[m];
 
   // Check aliases and substring matches (specific to general)
-  if (m.includes('grok-code')) return GROK_PRICING['grok-code-fast-1'];
-  if (m.includes('grok-4.1-fast-reasoning') || m === 'grok-fast') return GROK_PRICING['grok-4.1-fast-reasoning'];
+  // Note: 'grok-fast' alias resolves to 'grok-code-fast-1' per grok-models.yaml
+  if (m.includes('grok-code') || m === 'grok-fast') return GROK_PRICING['grok-code-fast-1'];
+  if (m.includes('grok-4.1-fast-reasoning') || m === 'grok-fast-reasoning') return GROK_PRICING['grok-4.1-fast-reasoning'];
   if (m.includes('grok-4.1-fast-non-reasoning') || m === 'grok-fast-nr') return GROK_PRICING['grok-4.1-fast-non-reasoning'];
   if (m.includes('grok-4.1-mini') || m === 'grok-mini') return GROK_PRICING['grok-4.1-mini'];
   if (m.includes('grok-4.1') || m === 'grok-latest') return GROK_PRICING['grok-4.1'];
