@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-monorepo",
-  "version": "5.3.5",
+  "version": "5.3.6",
   "private": true,
   "sdkVersion": "1.4.0",
   "description": "AX CLI Monorepo - Enterprise-Class AI Coding Assistant CLI ecosystem",
