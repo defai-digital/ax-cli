@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-monorepo",
-  "version": "5.3.7",
+  "version": "5.3.8",
   "private": true,
   "sdkVersion": "1.4.0",
   "description": "AX CLI Monorepo - Enterprise-Class AI Coding Assistant CLI ecosystem",
@@ -52,9 +52,9 @@
     "@clack/prompts": "^0.11.0",
     "@defai.digital/ax-core": "workspace:^",
     "@defai.digital/ax-schemas": "workspace:^",
-    "@modelcontextprotocol/sdk": "^1.25.2",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "@types/ws": "^8.18.1",
-    "axios": "^1.7.0",
+    "axios": "^1.13.5",
     "chalk": "^5.3.0",
     "clipboardy": "^5.0.1",
     "commander": "^14.0.2",
@@ -71,7 +71,7 @@
     "openai": "^6.10.0",
     "react": "^19.2.1",
     "ripgrep-node": "^1.0.0",
-    "simple-git": "^3.30.0",
+    "simple-git": "^3.32.3",
     "tiktoken": "^1.0.21",
     "ts-morph": "^27.0.2",
     "ws": "^8.18.3",
@@ -125,8 +125,16 @@
   },
   "pnpm": {
     "overrides": {
-      "qs": ">=6.14.1",
-      "@modelcontextprotocol/sdk": ">=1.25.2"
+      "simple-git": ">=3.32.3",
+      "@modelcontextprotocol/sdk": ">=1.26.0",
+      "axios": ">=1.13.5",
+      "@isaacs/brace-expansion": ">=5.0.1",
+      "minimatch": ">=10.2.3",
+      "rollup": ">=4.59.0",
+      "hono": ">=4.12.7",
+      "@hono/node-server": ">=1.19.10",
+      "ajv": ">=8.18.0",
+      "qs": ">=6.14.2"
     }
   }
 }
