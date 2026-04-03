@@ -1,6 +1,6 @@
 {
   "name": "@defai.digital/ax-monorepo",
-  "version": "5.3.8",
+  "version": "5.3.9",
   "private": true,
   "sdkVersion": "1.4.0",
   "description": "AX CLI Monorepo - Enterprise-Class AI Coding Assistant CLI ecosystem",
@@ -134,6 +134,8 @@
       "hono": ">=4.12.7",
       "@hono/node-server": ">=1.19.10",
       "ajv": ">=8.18.0",
+      "eslint>ajv": "6.12.6",
+      "@eslint/eslintrc>ajv": "6.12.6",
       "qs": ">=6.14.2"
     }
   }

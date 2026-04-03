@@ -27,7 +27,7 @@
  * - Checking CLI compatibility
  * - Debugging CLI-specific issues
  */
-export const CLI_VERSION = '4.5.0';
+export const CLI_VERSION = '5.3.9';
 
 /**
  * SDK library version (semantic versioning for API stability)

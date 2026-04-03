@@ -1,5 +1,7 @@
 # AX CLI - Enterprise-Class Vibe Coding
 
+> **Project Status:** `ax-cli` is no longer being updated as of **April 2, 2026**. Please use [`ax-code`](https://github.com/defai-digital/ax-code) for all new installs and ongoing updates.
+
 [![downloads](https://img.shields.io/npm/dt/@defai.digital/automatosx?style=flat-square&logo=npm&label=downloads)](https://npm-stat.com/charts.html?package=%40defai.digital%2Fax-cli)
 [![Tests](https://img.shields.io/badge/tests-6,210%20passing-brightgreen.svg)](#)
 [![macOS](https://img.shields.io/badge/macOS-26.0-blue.svg)](https://www.apple.com/macos)
@@ -45,6 +47,10 @@
 ---
 
 ## Quick Start
+
+### Recommended: Use AX Code
+
+`ax-cli` has been superseded by [`ax-code`](https://github.com/defai-digital/ax-code). This repository remains available for existing users, but it will not receive further updates after **April 2, 2026**.
 
 Get started in under a minute:
 
