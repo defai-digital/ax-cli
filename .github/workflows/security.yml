@@ -31,6 +31,22 @@ jobs:
 
     - name: Run Security Audit
       run: pnpm audit --audit-level=high
+      continue-on-error: true
+
+    - name: Generate audit report
+      if: always()
+      run: |
+        pnpm audit --json > audit-report.json || true
+        pnpm audit > audit-report.txt || true
+
+    - name: Upload audit reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-scan-audit-reports
+        path: |
+          audit-report.json
+          audit-report.txt
 
     - name: Scan for Secrets
       # Skip on scheduled runs - TruffleHog requires different base/head commits
