@@ -382,29 +382,6 @@ export function sanitizeEnvValue(value: string): SanitizationResult {
 }
 
 /**
- * Escape shell arguments for safe execution
- *
- * NOTE: This is a defense-in-depth measure. Always prefer:
- * 1. execFile with argument array over exec
- * 2. Argument validation/whitelisting
- * 3. This escaping function as a last resort
- *
- * @param arg - Argument to escape
- * @returns Safely escaped argument
- */
-export function escapeShellArg(arg: string): string {
-  // On Windows, use double quotes
-  if (process.platform === 'win32') {
-    // Escape double quotes and backslashes
-    return `"${arg.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-  }
-
-  // On Unix, use single quotes (safest - no interpolation)
-  // To include a single quote, end the quote, add escaped quote, resume quote
-  return `'${arg.replace(/'/g, "'\\''")}'`;
-}
-
-/**
  * Validate regex pattern for ReDoS protection
  *
  * Checks for common ReDoS patterns:

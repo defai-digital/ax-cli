@@ -9,7 +9,6 @@ import {
   sanitizeCommand,
   sanitizeSearchQuery,
   sanitizeEnvValue,
-  escapeShellArg,
   normalizeUnicode,
   detectDangerousPatterns,
   validateRegexPattern,
@@ -260,38 +259,6 @@ describe('sanitizeEnvValue', () => {
   it('should reject null bytes', () => {
     const result = sanitizeEnvValue('value\0');
     expect(result.valid).toBe(false);
-  });
-});
-
-describe('escapeShellArg', () => {
-  it('should escape Unix shell arguments with single quotes', () => {
-    if (process.platform !== 'win32') {
-      const escaped = escapeShellArg("test'arg");
-      expect(escaped).toBe("'test'\\''arg'");
-    }
-  });
-
-  it('should escape Windows shell arguments with double quotes', () => {
-    if (process.platform === 'win32') {
-      const escaped = escapeShellArg('test"arg');
-      expect(escaped).toBe('"test\\"arg"');
-    }
-  });
-
-  it('should handle empty strings', () => {
-    const escaped = escapeShellArg('');
-    if (process.platform === 'win32') {
-      expect(escaped).toBe('""');
-    } else {
-      expect(escaped).toBe("''");
-    }
-  });
-
-  it('should handle special characters', () => {
-    const escaped = escapeShellArg('test $var `whoami`');
-    expect(escaped).toBeTruthy();
-    // Should contain quotes
-    expect(escaped.includes("'") || escaped.includes('"')).toBe(true);
   });
 });
 

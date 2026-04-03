@@ -539,6 +539,12 @@ describe('change-summarizer', () => {
     });
   });
 
+  describe('getBriefToolSummary - multi_edit', () => {
+    it('should extract edit count without regex backtracking', () => {
+      expect(getBriefToolSummary('Applied 12 edits successfully', 'multi_edit')).toBe('12 edits');
+    });
+  });
+
   describe('getBriefToolSummary - bash', () => {
     it('should detect background tasks', () => {
       expect(getBriefToolSummary('Background task started: npm dev', 'bash'))
@@ -597,6 +603,10 @@ describe('change-summarizer', () => {
 
     it('should handle single task', () => {
       expect(getBriefToolSummary('[✓] Done', 'update_todo_list')).toBe('1 task');
+    });
+
+    it('should ignore unmatched brackets', () => {
+      expect(getBriefToolSummary('['.repeat(200), 'update_todo_list')).toBe('0 tasks');
     });
   });
 

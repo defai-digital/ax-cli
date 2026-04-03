@@ -12,14 +12,96 @@ const API_REGEX = /\bapi\b/;
 const MODEL_REGEX = /\bmodel\b/;
 const HANDLER_REGEX = /\bhandler\b/;
 const RENDER_REGEX = /\brender\b/;
-const TODO_BRACKETS_REGEX = /\[.*?\]/g;
-
-// Precompiled regexes for getBriefToolSummary (avoid recompilation on each call)
 const REPLACED_REGEX = /replaced/gi;
-const EDIT_COUNT_REGEX = /(\d+)\s*edit/i;
 const EDIT_KEYWORDS_REGEX = /edit|applied|replaced|updated/gi;
-const FOUND_MATCH_REGEX = /Found (\d+) match/;
 const UPDATED_PREFIX_REGEX = /^Updated\s+/;
+
+function extractLeadingInteger(value: string): number | null {
+  let digits = '';
+  for (const char of value) {
+    if (char >= '0' && char <= '9') {
+      digits += char;
+      continue;
+    }
+    break;
+  }
+
+  if (!digits) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(digits, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function extractEditCount(content: string): number | null {
+  const lowered = content.toLowerCase();
+  const editIndex = lowered.indexOf('edit');
+  if (editIndex === -1) {
+    return null;
+  }
+
+  let cursor = editIndex - 1;
+  while (cursor >= 0 && lowered[cursor] === ' ') {
+    cursor -= 1;
+  }
+
+  let digits = '';
+  while (cursor >= 0) {
+    const char = lowered[cursor];
+    if (char < '0' || char > '9') {
+      break;
+    }
+    digits = char + digits;
+    cursor -= 1;
+  }
+
+  if (!digits) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(digits, 10);
+  return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
+}
+
+function extractFoundMatchCount(content: string): number | null {
+  const marker = 'Found ';
+  const markerIndex = content.indexOf(marker);
+  if (markerIndex === -1) {
+    return null;
+  }
+
+  const count = extractLeadingInteger(content.slice(markerIndex + marker.length));
+  if (count === null) {
+    return null;
+  }
+
+  const remainder = content.slice(markerIndex + marker.length + String(count).length);
+  return remainder.startsWith(' match') ? count : null;
+}
+
+function countTodoBrackets(content: string): number {
+  let count = 0;
+  for (let index = 0; index < content.length; index += 1) {
+    if (content[index] !== '[') {
+      continue;
+    }
+
+    const closingIndex = content.indexOf(']', index + 1);
+    if (closingIndex === -1) {
+      break;
+    }
+
+    const width = closingIndex - index - 1;
+    if (width >= 0 && width <= 3) {
+      count += 1;
+    }
+
+    index = closingIndex;
+  }
+
+  return count;
+}
 
 /**
  * Extract a human-readable summary from a group of tool operations
@@ -217,15 +299,12 @@ export function getBriefToolSummary(content: string, toolName: string): string {
       }
       return 'updated';
 
-    case 'multi_edit':
+    case 'multi_edit': {
       // BUG FIX: Added multi_edit tool summary handling
       // Try to extract edit count from output like "3 edits applied" or "Applied 3 edits"
-      const countMatch = content.match(EDIT_COUNT_REGEX);
-      if (countMatch) {
-        const count = parseInt(countMatch[1], 10);
-        if (!Number.isNaN(count) && count > 0) {
-          return `${count} edit${count > 1 ? 's' : ''}`;
-        }
+      const editCount = extractEditCount(content);
+      if (editCount !== null) {
+        return `${editCount} edit${editCount > 1 ? 's' : ''}`;
       }
       // Fallback: count occurrences of edit-related keywords
       const editMatches = content.match(EDIT_KEYWORDS_REGEX) || [];
@@ -233,6 +312,7 @@ export function getBriefToolSummary(content: string, toolName: string): string {
         return 'multi-edit applied';
       }
       return 'applied';
+    }
 
     case 'bash':
     case 'execute_bash':  // BUG FIX: Handle execute_bash same as bash
@@ -259,21 +339,19 @@ export function getBriefToolSummary(content: string, toolName: string): string {
       }
       return `${lineCount} lines`;
 
-    case 'search':
-      const matches = content.match(FOUND_MATCH_REGEX);
-      if (matches) {
-        const count = parseInt(matches[1], 10);
-        // BUG FIX: Handle NaN from invalid parse
-        if (!Number.isNaN(count)) {
-          return `${count} match${count !== 1 ? 'es' : ''}`;
-        }
+    case 'search': {
+      const matchCount = extractFoundMatchCount(content);
+      if (matchCount !== null) {
+        return `${matchCount} match${matchCount !== 1 ? 'es' : ''}`;
       }
       return `${lineCount} result${lineCount !== 1 ? 's' : ''}`;
+    }
 
     case 'create_todo_list':
-    case 'update_todo_list':
-      const todos = (content.match(TODO_BRACKETS_REGEX) || []).length;
+    case 'update_todo_list': {
+      const todos = countTodoBrackets(content);
       return `${todos} task${todos !== 1 ? 's' : ''}`;
+    }
 
     default:
       // BUG FIX: Handle MCP tools with informative summaries

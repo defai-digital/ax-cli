@@ -3,8 +3,8 @@ import { useInput } from "ink";
 import { LLMAgent, ChatEntry } from "../../agent/llm-agent.js";
 import { ConfirmationService } from "../../utils/confirmation-service.js";
 import { useEnhancedInput, Key } from "./use-enhanced-input.js";
-import { escapeShellArg } from "../../tools/bash.js";
 import { VerbosityLevel } from "../../constants.js";
+import { commitWithMessageFile } from "../../utils/git-commit.js";
 
 import { filterCommandSuggestions } from "../components/command-suggestions.js";
 import { getSettingsManager } from "../../utils/settings-manager.js";
@@ -88,6 +88,75 @@ interface CommandSuggestion {
 
 interface ModelOption {
   model: string;
+}
+
+function parsePromptArgs(argsString: string): Record<string, string> {
+  const parsedArgs: Record<string, string> = {};
+  let cursor = 0;
+
+  while (cursor < argsString.length) {
+    while (cursor < argsString.length && argsString[cursor] === ' ') {
+      cursor += 1;
+    }
+
+    if (cursor >= argsString.length) {
+      break;
+    }
+
+    const keyStart = cursor;
+    while (cursor < argsString.length) {
+      const current = argsString[cursor];
+      const isWordCharacter =
+        (current >= 'a' && current <= 'z') ||
+        (current >= 'A' && current <= 'Z') ||
+        (current >= '0' && current <= '9') ||
+        current === '_';
+
+      if (!isWordCharacter) {
+        break;
+      }
+      cursor += 1;
+    }
+
+    const key = argsString.slice(keyStart, cursor);
+    if (!key || argsString[cursor] !== '=') {
+      while (cursor < argsString.length && argsString[cursor] !== ' ') {
+        cursor += 1;
+      }
+      continue;
+    }
+
+    cursor += 1;
+    let value = '';
+
+    if (argsString[cursor] === '"') {
+      cursor += 1;
+      while (cursor < argsString.length) {
+        const current = argsString[cursor];
+        if (current === '\\' && cursor + 1 < argsString.length) {
+          value += argsString[cursor + 1];
+          cursor += 2;
+          continue;
+        }
+        if (current === '"') {
+          cursor += 1;
+          break;
+        }
+        value += current;
+        cursor += 1;
+      }
+    } else {
+      const valueStart = cursor;
+      while (cursor < argsString.length && argsString[cursor] !== ' ') {
+        cursor += 1;
+      }
+      value = argsString.slice(valueStart, cursor);
+    }
+
+    parsedArgs[key] = value;
+  }
+
+  return parsedArgs;
 }
 
 export function useInputHandler({
@@ -941,21 +1010,7 @@ export function useInputHandler({
             }
 
             // Parse arguments if provided (format: key=value key2=value2)
-            const promptArgs: Record<string, string> = {};
-            if (argsPart) {
-              const argMatches = argsPart.match(/(\w+)=("[^"]+"|[^\s]+)/g);
-              if (argMatches) {
-                for (const match of argMatches) {
-                  const [key, ...valueParts] = match.split("=");
-                  let value = valueParts.join("=");
-                  // Remove quotes if present
-                  if (value.startsWith('"') && value.endsWith('"')) {
-                    value = value.slice(1, -1);
-                  }
-                  promptArgs[key] = value;
-                }
-              }
-            }
+            const promptArgs = argsPart ? parsePromptArgs(argsPart) : {};
 
             const result = await v2.getPrompt(serverNameBranded, promptName, Object.keys(promptArgs).length > 0 ? promptArgs : undefined);
 
@@ -1244,8 +1299,10 @@ Respond with ONLY the commit message, no additional text.`;
 
         // Execute the commit with properly escaped message to prevent command injection
         const cleanCommitMessage = commitMessage.trim();
-        const commitCommand = `git commit -m ${escapeShellArg(cleanCommitMessage)}`;
-        const commitResult = await agent.executeBashCommand(commitCommand);
+        const { command: commitCommand, result: commitResult } = await commitWithMessageFile(
+          (command) => agent.executeBashCommand(command),
+          cleanCommitMessage
+        );
 
         const commitEntry: ChatEntry = {
           type: "tool_result",

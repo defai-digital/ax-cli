@@ -45,10 +45,6 @@ import { getAutoAcceptLogger } from '../utils/auto-accept-logger.js';
 import { TIMEOUT_CONFIG, FILE_CONFIG } from '../constants.js';
 import { extractErrorMessage } from '../utils/error-handler.js';
 
-// escapeShellArg moved to src/utils/input-sanitizer.ts (better cross-platform support)
-// Re-export for backward compatibility
-export { escapeShellArg } from '../utils/input-sanitizer.js';
-
 export interface BashExecuteOptions {
   timeout?: number;
   background?: boolean;

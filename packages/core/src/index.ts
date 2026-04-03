@@ -25,6 +25,7 @@ import { createVSCodeCommand } from "./commands/vscode.js";
 import { createDesignCommand } from "./commands/design.js";
 import { getVersionString } from "./utils/version.js";
 import { migrateCommandHistory } from "./utils/history-migration.js";
+import { commitWithMessageFile, normalizeCommitMessage } from "./utils/git-commit.js";
 import { AGENT_CONFIG } from "./constants.js";
 import { getVSCodeIPCClient, disposeVSCodeIPCClient } from "./ipc/index.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
@@ -246,22 +247,19 @@ Respond with ONLY the commit message, no additional text.`;
     }
 
     // Clean the commit message (remove leading/trailing quotes)
-    const cleanCommitMessage = commitMessage.replace(/^["']|["']$/g, "");
-
-    // Remove newlines to ensure single-line commit message
-    const singleLineMessage = cleanCommitMessage.replace(/\n/g, " ").trim();
+    const singleLineMessage = normalizeCommitMessage(commitMessage);
+    const activeCommitAgent = agent;
 
     console.log(`✅ Generated commit message: "${singleLineMessage}"`);
 
-    // Execute the commit with proper shell escaping to prevent injection
-    // Use single quotes and escape any single quotes in the message
-    const escapedMessage = `'${singleLineMessage.replace(/'/g, "'\\''")}'`;
-    const commitCommand = `git commit -m ${escapedMessage}`;
-    const commitResult = await agent.executeBashCommand(commitCommand);
+    const commitResult = await commitWithMessageFile(
+      (command) => activeCommitAgent.executeBashCommand(command),
+      singleLineMessage
+    );
 
-    if (commitResult.success) {
+    if (commitResult.result.success) {
       // Safely extract first line with proper fallback
-      const firstLine = commitResult.output?.split("\n").filter(line => line.trim())?.[0];
+      const firstLine = commitResult.result.output?.split("\n").filter(line => line.trim())?.[0];
       console.log(
         `✅ git commit: ${firstLine || "Commit successful"}`
       );
@@ -289,7 +287,7 @@ Respond with ONLY the commit message, no additional text.`;
         process.exit(1);
       }
     } else {
-      console.log(`❌ git commit: ${commitResult.error || "Commit failed"}`);
+      console.log(`❌ git commit: ${commitResult.result.error || "Commit failed"}`);
       process.exit(1);
     }
   } catch (error: unknown) {
